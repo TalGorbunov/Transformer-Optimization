@@ -12,4 +12,3 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate tlgpu
 
 python main.py
-EOF
