@@ -21,7 +21,7 @@ def main():
     img_tok = getattr(processor, "image_token", None) or getattr(processor.tokenizer, "image_token", None) or "<image>"
     img_prefix = " ".join([img_tok] * len(frames))
 
-    prompt = f"{img_prefix}\nYou will be shown 8 frames describing steps in a house.\nRespond with a single integer from 0 to 8. Output only the integer.\nQuestion: {question}\nAnswer:\n"
+    prompt = f"{img_prefix}\nYou will be shown 8 frames describing steps in a house.\nRespond with a single integer from 0 to 8. Output only the integer.\nQuestion: {question}\nAnswer: "
     inputs = processor(images=frames, text=prompt, return_tensors="pt")
     inputs = dict(inputs)
 
