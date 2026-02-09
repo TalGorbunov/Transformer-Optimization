@@ -1,41 +1,43 @@
-from linecache import cache
 from nnsight import LanguageModel
-from utils import describe
-from model import hf_model, processor, find_blocks
+import torch
+from utils import describe, load_mmred_sample, print_top_k
+from model import hf_model, processor, get_layers
+from pathlib import Path
+
+DATA_ROOT = Path("data/mmred_images/seq_len_8/train")
 
 def main():
-    # Wrap with nnsight
     lm = LanguageModel(hf_model, tokenizer=processor.tokenizer)
+    layers = get_layers(lm.model)
 
-    # Find transformer blocks
-    blocks, blocks_path = find_blocks(lm.model)
-    n_layers = len(blocks)
-    print(f"Found blocks at: {blocks_path} | num_layers={n_layers}")
+    sample_id, frames, question, states, answer = load_mmred_sample(DATA_ROOT)
+    print(f"Question sample_id={sample_id}")
+    print(f"States: {states}")
+    print(f"Question: {question}")
+    print(f"Answer: {answer}")
 
-    # Prepare inputs
-    prompt = "User: How many steps did Alice spend in kitchen?\nAssistant:"
-    inputs = processor(text=prompt, return_tensors="pt")
+    img_tok = getattr(processor, "image_token", None) or getattr(processor.tokenizer, "image_token", None) or "<image>"
+    img_prefix = " ".join([img_tok] * len(frames))
 
-    # Move inputs to model device
-    first_param = next(lm.model.parameters())
-    device = first_param.device
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    prompt = f"{img_prefix}\nYou will be shown 8 frames describing steps in a house.\nRespond with a single integer from 0 to 8. Output only the integer.\nQuestion: {question}\nAnswer:\n"
+    inputs = processor(images=frames, text=prompt, return_tensors="pt")
+    inputs = dict(inputs)
 
-    # Cache activations
-    cached = {}
+    cache = {}
 
-    with lm.trace(inputs):
-        layer_states = [blocks[i].input[0].save() for i in range(n_layers)]
-        logits = lm.output.logits.save()
-        cached["layer_states"] = layer_states
-        cached["logits"] = logits
+    with torch.inference_mode():
+        with lm.trace(inputs):
+            layer_states = [layers[i].output.save() for i in range(len(layers))]
+            logits = lm.output.logits.save()
+            cache["layer_states"] = layer_states
+            cache["logits"] = logits
 
     print("Cached:")
-    print(" - layer_states:", len(cached["layer_states"]), cached["layer_states"][0].shape)
-    print(" - logits:", cached["logits"].shape)
+    print(" - layer_states:", len(cache["layer_states"]), cache["layer_states"][0].shape)
+    print(" - logits:", cache["logits"].shape)
 
-    last_tok_layer0 = cached["layer_states"][0][-1]
-    print("Last token hidden (layer0) shape:", last_tok_layer0.shape)
+    last_logits = cache["logits"][0, -1]      
+    print_top_k(last_logits, processor.tokenizer, k=5)
 
 
 if __name__ == "__main__":
