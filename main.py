@@ -12,7 +12,9 @@ def main():
 
     sample_id, frames, question, states, answer = load_mmred_sample(DATA_ROOT)
     print(f"Question sample_id={sample_id}")
-    print(f"States: {states}")
+    print(f"states:")
+    for s in states:
+        print(f"step_id={s['step_id']}: {s['rooms']}")
     print(f"Question: {question}")
     print(f"Answer: {answer}")
 

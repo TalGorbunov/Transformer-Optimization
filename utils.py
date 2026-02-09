@@ -108,19 +108,12 @@ def load_mmred_sample(data_root: Path):
 
     return sample_id, frames, question_text, states, answer_text
 
-def print_top_k(logits, processor, k=5):
+def print_top_k(logits, tokenizer, k=5):
     topk = torch.topk(logits, k=k)
 
     top_ids = topk.indices.tolist()
-    top_vals = topk.values.tolist()
-
-    print("Top-5 next tokens:")
-    for rank, (tok_id, logit) in enumerate(zip(top_ids, top_vals), start=1):
-        tok = processor.tokenizer.decode([tok_id])   # or tokenizer.decode if you have tokenizer
-        tok_clean = tok.replace("\n", "\\n")
-        print(f"{rank:>2}. id={tok_id:<6} logit={logit:>8.3f} token={tok_clean!r}")
 
     probs = torch.softmax(logits, dim=-1)
-    print("\nTop-5 probs:")
+    print(f"\nTop-{k} probs:")
     for rank, tok_id in enumerate(top_ids, start=1):
-        print(f"{rank:>2}. id={tok_id:<6} p={probs[tok_id].item():.4f} token={processor.tokenizer.decode([tok_id])!r}")
+        print(f"{rank:>2}. id={tok_id:<6} p={probs[tok_id].item():.4f} token={tokenizer.decode([tok_id])!r}")
