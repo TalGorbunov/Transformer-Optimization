@@ -45,7 +45,7 @@ def describe(x, name="x", max_list=8):
 num_of_frames = 8
 
 
-def load_mmred_sample(data_root: Path):
+def load_mmred_sample(sample_dir: Path):
     """
     Returns:
       (sample_id, frames_list[PIL.Image], question_text, states_list[dict], answer_text)
@@ -61,11 +61,8 @@ def load_mmred_sample(data_root: Path):
       answer:
       2
     """
-    sample_dirs = sorted([p for p in data_root.iterdir() if p.is_dir()])
-    if not sample_dirs:
-        raise FileNotFoundError(f"No sample directories under: {data_root}")
-
-    sample_dir = sample_dirs[0]
+    if not sample_dir.is_dir():
+        raise FileNotFoundError(f"Sample directory not found: {sample_dir}")
     sample_id = sample_dir.name
 
     # frames
