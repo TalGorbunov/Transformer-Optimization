@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Tuple
 import torch
 from nnsight import LanguageModel
 
-from utils import describe, load_mmred_sample
+from utils import describe, iter_sample_dirs, load_mmred_sample
 from model import hf_model, processor, get_layers
 
 
@@ -68,17 +68,6 @@ def clean_run(
         "a_star_id": a_star_id,
         "ld": ld,
     }
-
-
-def iter_sample_dirs(data_root: Path) -> List[Path]:
-    """
-    Finds sample directories under data_root (directories that contain qa.txt).
-    """
-    out: List[Path] = []
-    for p in sorted(data_root.iterdir()):
-        if p.is_dir() and (p / "qa.txt").exists():
-            out.append(p)
-    return out
 
 
 def main():

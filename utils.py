@@ -1,4 +1,5 @@
 import ast
+from typing import List
 import torch
 from PIL import Image
 from pathlib import Path
@@ -114,3 +115,14 @@ def print_top_k(logits, tokenizer, k=5):
     print(f"\nTop-{k} probs:")
     for rank, tok_id in enumerate(top_ids, start=1):
         print(f"{rank:>2}. id={tok_id:<6} p={probs[tok_id].item():.4f} token={tokenizer.decode([tok_id])!r}")
+
+
+def iter_sample_dirs(data_root: Path) -> List[Path]:
+    """
+    Finds sample directories under data_root (directories that contain qa.txt).
+    """
+    out: List[Path] = []
+    for p in sorted(data_root.iterdir()):
+        if p.is_dir() and (p / "qa.txt").exists():
+            out.append(p)
+    return out
