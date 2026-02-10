@@ -33,7 +33,7 @@ def build_prompt(question: str, num_frames: int) -> str:
     )
 
 
-def clean_run_per_sample(
+def clean_run(
     lm: LanguageModel,
     layers,
     sample_dir: Path,
@@ -101,10 +101,10 @@ def main():
     sample_dirs = sample_dirs[: max(args.limit, 0)]
 
     for idx, sample_dir in enumerate(sample_dirs, start=1):
-        r = clean_run_per_sample(lm, layers, sample_dir)
+        clean_results = clean_run(lm, layers, sample_dir)
 
-        print(f"[{idx}/{len(sample_dirs)}] sample_id={r['sample_id']} LD(clean)={r['ld']:.4f} "
-              f"a*={r['a_star_id']} a^-={r['greedy_id']} answer={r['answer']!r}")
+        print(f"[{idx}/{len(sample_dirs)}] sample_id={clean_results['sample_id']} LD(clean)={clean_results['ld']:.4f} "
+              f"a*={clean_results['a_star_id']} a^-={clean_results['greedy_id']} answer={clean_results['answer']!r}")
 
 
 if __name__ == "__main__":
