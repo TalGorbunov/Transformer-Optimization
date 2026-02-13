@@ -5,4 +5,4 @@ datasets
 pillow
 torchvision
 num2words
-huggingface_hub
+huggingface-hub>=0.34.0,<1.0
