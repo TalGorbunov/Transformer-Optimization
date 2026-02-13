@@ -8,8 +8,7 @@
 set -euo pipefail
 mkdir -p logs
 
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate tlgpu
+source .venv/bin/activate
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
