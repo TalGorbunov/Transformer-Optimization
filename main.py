@@ -71,14 +71,15 @@ def forward_with_cache(
 
     cache = {}
 
-    with torch.inference_mode():
+    context = torch.no_grad() if patch_layer_idx is not None else torch.inference_mode()
+    with context:
         with lm.trace(inputs):
             saved = None
             if save_layer_states:
                 cache["layer_states"] = [layers[i].output.save() for i in range(len(layers))]
 
             if patch_layer_idx is not None:
-                layers[patch_layer_idx].output = patch_value
+                layers[patch_layer_idx].output[:,-1,:] = patch_value[:,-1,:]
 
             cache["last_logits"] = lm.output.logits[:, -1, :].save()
 
@@ -381,11 +382,14 @@ def main():
     sample_dirs = sample_dirs[: max(args.limit, 0)]
 
     for idx, sample_dir in enumerate(sample_dirs, start=1):
+        # clean run
         clean = clean_run(lm, layers, sample_dir)
 
+        # corrupted runs
         corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
         corrupted = corrupted_runs(lm, layers, corrupted_sample_dir, clean["a_star_id"])
 
+        # patched runs
         patched = patched_runs(lm, layers, corrupted_sample_dir, clean["layer_states"], clean["a_star_id"])
 
         print(
