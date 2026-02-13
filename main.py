@@ -260,12 +260,34 @@ def compute_layer_importance_entropy(
 
     return {"layers": layers_out}
 
+def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
+    def _fmt_float_list(vals: List[float]) -> str:
+        return "[" + ", ".join(f"{v:.6f}" for v in vals) + "]"
+
+    lines: List[str] = []
+    for sm in sample_metrics:
+        lines.append(f"sample_id={sm['sample_id']}")
+        for lmtr in sm["layer_metrics"]["layers"]:
+            lines.append(
+                f"layer={lmtr['layer']} "
+                f"r={_fmt_float_list(lmtr['r'])} "
+                f"p={_fmt_float_list(lmtr['p'])} "
+                f"H={lmtr['entropy']:.6f}"
+            )
+        lines.append("")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "sample_metrics.txt"
+    output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return output_path
+
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data_root", type=str, required=True)
     ap.add_argument("--corrupted_data_root", type=str, required=True)
     ap.add_argument("--limit", type=int, default=1)
+    ap.add_argument("--output", type=str, default="outputs")
     args = ap.parse_args()
 
     data_root = Path(args.data_root)
@@ -306,6 +328,8 @@ def main():
             "layer_metrics": layer_metrics,
         })
 
+    output_path = write_sample_metrics(sample_metrics, Path(args.output))
+    print(f"Wrote sample metrics to: {output_path}")
 
 
 if __name__ == "__main__":
