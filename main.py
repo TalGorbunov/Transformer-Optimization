@@ -1,9 +1,11 @@
 
 import argparse
 import math
+import random
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
 
+import matplotlib.pyplot as plt
 import torch
 from nnsight import LanguageModel
 
@@ -281,6 +283,84 @@ def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path)
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return output_path
 
+def plot_entropy_summary(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    n_bootstrap: int = 1000,
+    seed: int = 0,
+) -> Optional[Path]:
+    """
+    Plot mean/median H(l) across layers with 95% bootstrap CIs.
+    """
+    entropy_by_layer: Dict[int, List[float]] = {}
+    for sm in sample_metrics:
+        for lmtr in sm["layer_metrics"]["layers"]:
+            l = int(lmtr["layer"])
+            entropy_by_layer.setdefault(l, []).append(float(lmtr["entropy"]))
+
+    if not entropy_by_layer:
+        return None
+
+    rng = random.Random(seed)
+    layers = sorted(entropy_by_layer.keys())
+
+    means: List[float] = []
+    medians: List[float] = []
+    mean_lo: List[float] = []
+    mean_hi: List[float] = []
+    med_lo: List[float] = []
+    med_hi: List[float] = []
+
+    for l in layers:
+        vals = entropy_by_layer[l]
+        n = len(vals)
+        sorted_vals = sorted(vals)
+
+        mean = sum(vals) / n
+        median = sorted_vals[n // 2] if n % 2 == 1 else 0.5 * (sorted_vals[n // 2 - 1] + sorted_vals[n // 2])
+
+        boot_mean: List[float] = []
+        boot_median: List[float] = []
+        for _ in range(n_bootstrap):
+            sample = [vals[rng.randrange(n)] for _ in range(n)]
+            s_sorted = sorted(sample)
+            b_mean = sum(sample) / n
+            b_median = s_sorted[n // 2] if n % 2 == 1 else 0.5 * (s_sorted[n // 2 - 1] + s_sorted[n // 2])
+            boot_mean.append(b_mean)
+            boot_median.append(b_median)
+
+        boot_mean.sort()
+        boot_median.sort()
+        lo_idx = int(0.025 * (n_bootstrap - 1))
+        hi_idx = int(0.975 * (n_bootstrap - 1))
+
+        means.append(mean)
+        medians.append(median)
+        mean_lo.append(boot_mean[lo_idx])
+        mean_hi.append(boot_mean[hi_idx])
+        med_lo.append(boot_median[lo_idx])
+        med_hi.append(boot_median[hi_idx])
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    ax.plot(layers, means, color="#1f77b4", linewidth=2.2, label="Mean H(l)")
+    ax.fill_between(layers, mean_lo, mean_hi, color="#1f77b4", alpha=0.2, label="Mean 95% CI")
+    ax.plot(layers, medians, color="#d62728", linewidth=2.2, label="Median H(l)")
+    ax.fill_between(layers, med_lo, med_hi, color="#d62728", alpha=0.2, label="Median 95% CI")
+
+    ax.set_title("Entropy by Layer", fontsize=13, pad=10)
+    ax.set_xlabel("Layer l", fontsize=11)
+    ax.set_ylabel("H(l)", fontsize=11)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    ax.set_xticks(layers)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plot_path = output_dir / "entropy_summary.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -330,6 +410,11 @@ def main():
 
     output_path = write_sample_metrics(sample_metrics, Path(args.output))
     print(f"Wrote sample metrics to: {output_path}")
+    plot_path = plot_entropy_summary(sample_metrics, Path(args.output))
+    if plot_path is not None:
+        print(f"Wrote entropy plot to: {plot_path}")
+    else:
+        print("Skipped entropy plot: no layer metrics available.")
 
 
 if __name__ == "__main__":
