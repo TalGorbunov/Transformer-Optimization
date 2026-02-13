@@ -10,6 +10,4 @@ mkdir -p logs
 
 source .venv/bin/activate
 
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-
 python main.py --data_root data/mmred_images/seq_len_8/train --limit 1
