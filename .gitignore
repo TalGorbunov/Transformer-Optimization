@@ -133,3 +133,5 @@ pretty_results/
 configs/
 result_aggregations/
 final_runs/
+
+logs/

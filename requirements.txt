@@ -3,3 +3,6 @@ transformers
 nnsight
 datasets
 pillow
+torchvision
+num2words
+huggingface_hub
