@@ -1,5 +1,6 @@
 
 import argparse
+import math
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
 
@@ -208,6 +209,57 @@ def patched_runs(
         "evidence": all_results,
     }
 
+def compute_layer_importance_entropy(
+    clean_ld: float,
+    corrupted: Dict[str, Any],
+    patched: Dict[str, Any],
+    eps: float = 1e-8,
+) -> Dict[str, Any]:
+    """
+    Computes per-layer:
+      r_i^l = (LD_patched(i,l) - LD_corrupted(i)) / (LD_clean - LD_corrupted(i) + eps)
+      p_i^l = r_i^l / sum_j r_j^l
+      H(l)  = -sum_j p_j^l * log(p_j^l)
+    where i/j index evidence frames.
+    """
+    if not corrupted["evidence"] or not patched["evidence"]:
+        return {"layers": []}
+
+    corrupted_ld_by_dir = {e["evidence_dir"]: e["ld"] for e in corrupted["evidence"]}
+    num_layers = len(patched["evidence"][0]["patched"])
+    num_evidence = len(patched["evidence"])
+
+    r_by_layer: List[List[float]] = [[0.0 for _ in range(num_evidence)] for _ in range(num_layers)]
+
+    for i, ev in enumerate(patched["evidence"]):
+        corr_ld = corrupted_ld_by_dir.get(ev["evidence_dir"])
+        if corr_ld is None:
+            continue
+        denom = float(clean_ld - corr_ld + eps)
+        for pl in ev["patched"]:
+            l = int(pl["layer"])
+            num = float(pl["ld"] - corr_ld)
+            r_by_layer[l][i] = num / denom
+
+    layers_out = []
+    for l in range(num_layers):
+        r_vals = r_by_layer[l]
+        denom = sum(r_vals)
+        if denom > 0.0:
+            p_vals = [r / denom for r in r_vals]
+        else:
+            p_vals = [0.0 for _ in r_vals]
+
+        entropy = -sum(p * math.log(p) for p in p_vals if p > 0.0)
+        layers_out.append({
+            "layer": l,
+            "r": r_vals,
+            "p": p_vals,
+            "entropy": entropy,
+        })
+
+    return {"layers": layers_out}
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -221,6 +273,7 @@ def main():
 
     lm = LanguageModel(hf_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
+    sample_metrics = []
 
     sample_dirs = iter_sample_dirs(data_root)
     sample_dirs = sample_dirs[: max(args.limit, 0)]
@@ -244,6 +297,14 @@ def main():
         if patched["evidence"]:
             for p in patched["evidence"][0]["patched"]:
                 print(f"  first patched: evidence0 layer{p['layer']} LD = {p['ld']:.4f}")
+
+        # per layer metrics
+        layer_metrics = compute_layer_importance_entropy(clean["ld"], corrupted, patched)
+        
+        sample_metrics.append({
+            "sample_id": clean["sample_id"],
+            "layer_metrics": layer_metrics,
+        })
 
 
 
