@@ -265,7 +265,7 @@ def compute_layer_importance_entropy(
 
 def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
     def _fmt_float_list(vals: List[float]) -> str:
-        return "[" + ", ".join(f"{v:.6f}" for v in vals) + "]"
+        return "[" + ", ".join(f"{v:.8f}" for v in vals) + "]"
 
     lines: List[str] = []
     for sm in sample_metrics:
@@ -275,7 +275,7 @@ def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path)
                 f"layer={lmtr['layer']} "
                 f"r={_fmt_float_list(lmtr['r'])} "
                 f"p={_fmt_float_list(lmtr['p'])} "
-                f"H={lmtr['entropy']:.6f}"
+                f"H={lmtr['entropy']:.8f}"
             )
         lines.append("")
 
