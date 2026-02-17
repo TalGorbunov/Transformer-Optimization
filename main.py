@@ -10,7 +10,7 @@ import torch
 from nnsight import LanguageModel
 
 from utils import describe, iter_sample_dirs, load_mmred_sample
-from model import hf_model, processor, get_layers
+from model import model as base_model, processor, get_layers
 
 
 def first_token_id_of_answer(answer_text: str) -> int:
@@ -24,16 +24,39 @@ def first_token_id_of_answer(answer_text: str) -> int:
 
 
 def build_prompt(question: str, num_frames: int) -> str:
-    img_tok = getattr(processor, "image_token", None) or getattr(processor.tokenizer, "image_token", None) or "<image>"
-    img_prefix = " ".join([img_tok] * num_frames)
-
     return (
-        f"{img_prefix}\n"
         f"You will be shown {num_frames} frames describing steps in a house.\n"
         f"Respond with a single integer from 0 to {num_frames} (0 is allowed). Output only the integer.\n"
         f"Question: {question}\n"
         f"Answer: "
     )
+
+
+def build_inputs(frames, question: str) -> Dict[str, torch.Tensor]:
+    """
+    Build model inputs using the chat template expected by the current VLM.
+    """
+    prompt = build_prompt(question, num_frames=len(frames))
+    messages = [{
+        "role": "user",
+        "content": (
+            [{"type": "image", "image": im} for im in frames] +
+            [{"type": "text", "text": prompt}]
+        ),
+    }]
+    inputs = processor.apply_chat_template(
+        messages,
+        add_generation_prompt=True,
+        tokenize=True,
+        return_dict=True,
+        return_tensors="pt",
+    )
+    return dict(inputs)
+
+
+def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    device = next(base_model.parameters()).device
+    return {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
 
 
 def pick_a_minus_from_clean(clean_last_logits_1d: torch.Tensor, a_star_id: int) -> int:
@@ -78,9 +101,17 @@ def forward_with_cache(
         # nnsight may return either a save-handle (.value) or a raw Tensor.
         return x.value if hasattr(x, "value") else x
 
+    def _to_hidden_tensor(x):
+        # Some architectures expose layer outputs as tuples; use the hidden-state tensor.
+        if isinstance(x, torch.Tensor):
+            return x
+        if isinstance(x, (tuple, list)) and len(x) > 0:
+            return _to_hidden_tensor(x[0])
+        raise TypeError(f"Unsupported layer output type for patching: {type(x)}")
+
     if patch_layer_idx is not None and patch_value is not None:
         # Avoid in-place writes from an inference tensor captured in a previous pass.
-        patch_value = patch_value.detach().clone()
+        patch_value = _to_hidden_tensor(patch_value).detach().clone()
 
     cache = {}
 
@@ -92,13 +123,17 @@ def forward_with_cache(
                 cache["layer_states"] = [layers[i].output.save() for i in range(len(layers))]
 
             if patch_layer_idx is not None:
-                layers[patch_layer_idx].output[:,-1,:] = patch_value[:,-1,:]
+                try:
+                    layers[patch_layer_idx].output[:, -1, :] = patch_value[:, -1, :]
+                except Exception:
+                    # Qwen-like blocks may expose output as a tuple-like (hidden, ...).
+                    layers[patch_layer_idx].output[0][:, -1, :] = patch_value[:, -1, :]
 
             cache["last_logits"] = lm.output.logits[:, -1, :].save()
 
     last_logits = _materialize_saved(cache["last_logits"])[0]
     if save_layer_states:
-        layer_states = [_materialize_saved(t) for t in cache["layer_states"]]
+        layer_states = [_to_hidden_tensor(_materialize_saved(t)) for t in cache["layer_states"]]
         return layer_states, last_logits
 
     return None, last_logits
@@ -107,9 +142,8 @@ def forward_with_cache(
 def clean_run(lm, layers, sample_dir: Path) -> Dict[str, Any]:
     sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
 
-    prompt = build_prompt(question, num_frames=len(frames))
-    inputs = processor(images=frames, text=prompt, return_tensors="pt")
-    inputs = dict(inputs)
+    inputs = build_inputs(frames, question)
+    inputs = move_inputs_to_model_device(inputs)
 
     clean_layer_states, last_logits = forward_with_cache(
         lm, layers, inputs, save_layer_states=True
@@ -118,12 +152,16 @@ def clean_run(lm, layers, sample_dir: Path) -> Dict[str, Any]:
     a_star_id = first_token_id_of_answer(answer)
     a_minus_id = pick_a_minus_from_clean(last_logits, a_star_id)
     ld = compute_ld(last_logits, a_star_id, a_minus_id)
+    pred_token_id = int(torch.argmax(last_logits).item())
+    model_answer = processor.tokenizer.decode([pred_token_id], skip_special_tokens=True).strip()
 
     return {
         "sample_id": sample_id,
         "answer": answer,
         "a_star_id": a_star_id,
         "a_minus_id": a_minus_id,
+        "pred_token_id": pred_token_id,
+        "model_answer": model_answer,
         "ld": ld,
         "layer_states": clean_layer_states,  # List[tensor], one per layer
     }
@@ -147,9 +185,8 @@ def corrupted_runs(lm, layers, corrupted_dir: Path, a_star_id: int, a_minus_id: 
     out = []
     for ev_dir in evidence_dirs:
         ev_id, frames, question, states, answer = load_mmred_sample(ev_dir)
-        prompt = build_prompt(question, num_frames=len(frames))
-        inputs = processor(images=frames, text=prompt, return_tensors="pt")
-        inputs = dict(inputs)
+        inputs = build_inputs(frames, question)
+        inputs = move_inputs_to_model_device(inputs)
 
         _, last_logits = forward_with_cache(
             lm, layers, inputs, save_layer_states=False
@@ -194,9 +231,8 @@ def patched_runs(
     all_results = []
     for ev_dir in evidence_dirs:
         ev_id, frames, question, states, answer = load_mmred_sample(ev_dir)
-        prompt = build_prompt(question, num_frames=len(frames))
-        inputs = processor(images=frames, text=prompt, return_tensors="pt")
-        inputs = dict(inputs)
+        inputs = build_inputs(frames, question)
+        inputs = move_inputs_to_model_device(inputs)
 
         per_layer = []
         for layer_idx in range(len(layers)):
@@ -387,7 +423,7 @@ def main():
     data_root = Path(args.data_root)
     corrupted_root = Path(args.corrupted_data_root)
 
-    lm = LanguageModel(hf_model, tokenizer=processor.tokenizer)
+    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
     sample_metrics = []
 
@@ -421,7 +457,8 @@ def main():
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
             f"LD(clean)={clean['ld']:.4f} a*={clean['a_star_id']} "
-            f"a^-={clean['a_minus_id']} answer={clean['answer']!r}"
+            f"a^-={clean['a_minus_id']} answer={clean['answer']!r} "
+            f"model_answer={clean['model_answer']!r} (id={clean['pred_token_id']})"
         )
         print(f"  corrupted evidence frames: {len(corrupted['evidence'])}")
         if corrupted["evidence"]:
