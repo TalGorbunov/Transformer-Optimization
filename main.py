@@ -36,14 +36,27 @@ def build_prompt(question: str, num_frames: int) -> str:
     )
 
 
-def compute_ld(last_logits_1d: torch.Tensor, a_star_id: int) -> Tuple[float, int]:
+def pick_a_minus_from_clean(clean_last_logits_1d: torch.Tensor, a_star_id: int) -> int:
+    """
+    Select a^- from the clean run:
+      a^- = argmax_d logit_clean(d), constrained to d != a*.
+    """
+    if clean_last_logits_1d.ndim != 1:
+        raise ValueError("Expected clean_last_logits_1d to be 1D [vocab].")
+    if not (0 <= a_star_id < clean_last_logits_1d.shape[0]):
+        raise ValueError(f"a_star_id out of range: {a_star_id}")
+
+    masked = clean_last_logits_1d.clone()
+    masked[a_star_id] = -torch.inf
+    return int(torch.argmax(masked).item())
+
+
+def compute_ld(last_logits_1d: torch.Tensor, a_star_id: int, a_minus_id: int) -> float:
     """
     last_logits_1d: [vocab]
-    LD = logit(a*) - logit(a^-), where a^- is greedy argmax token.
+    LD = logit(a*) - logit(a^-), where a^- is fixed from the clean run.
     """
-    greedy_id = int(torch.argmax(last_logits_1d).item())
-    ld = float((last_logits_1d[a_star_id] - last_logits_1d[greedy_id]).item())
-    return ld, greedy_id
+    return float((last_logits_1d[a_star_id] - last_logits_1d[a_minus_id]).item())
 
 
 def forward_with_cache(
@@ -103,19 +116,20 @@ def clean_run(lm, layers, sample_dir: Path) -> Dict[str, Any]:
     )
 
     a_star_id = first_token_id_of_answer(answer)
-    ld, greedy_id = compute_ld(last_logits, a_star_id)
+    a_minus_id = pick_a_minus_from_clean(last_logits, a_star_id)
+    ld = compute_ld(last_logits, a_star_id, a_minus_id)
 
     return {
         "sample_id": sample_id,
         "answer": answer,
         "a_star_id": a_star_id,
-        "greedy_id": greedy_id,
+        "a_minus_id": a_minus_id,
         "ld": ld,
         "layer_states": clean_layer_states,  # List[tensor], one per layer
     }
 
 
-def corrupted_runs(lm, layers, corrupted_dir: Path, a_star_id: int) -> Dict[str, Any]:
+def corrupted_runs(lm, layers, corrupted_dir: Path, a_star_id: int, a_minus_id: int) -> Dict[str, Any]:
     """
     For each evidence-frame corrupted sample dir:
       run forward and compute LD.
@@ -140,13 +154,12 @@ def corrupted_runs(lm, layers, corrupted_dir: Path, a_star_id: int) -> Dict[str,
         _, last_logits = forward_with_cache(
             lm, layers, inputs, save_layer_states=False
         )
-        ld, greedy_id = compute_ld(last_logits, a_star_id)
+        ld = compute_ld(last_logits, a_star_id, a_minus_id)
 
         out.append({
             "evidence_dir": str(ev_dir),
             "sample_id": ev_id,
             "ld": ld,
-            "greedy_id": greedy_id,
         })
 
     return {
@@ -161,6 +174,7 @@ def patched_runs(
     corrupted_dir: Path,
     clean_layer_states: List[torch.Tensor],
     a_star_id: int,
+    a_minus_id: int,
 ) -> Dict[str, Any]:
     """
     For each evidence corrupted sample:
@@ -194,11 +208,10 @@ def patched_runs(
                 patch_layer_idx=layer_idx,
                 patch_value=clean_layer_states[layer_idx],
             )
-            ld, greedy_id = compute_ld(last_logits, a_star_id)
+            ld = compute_ld(last_logits, a_star_id, a_minus_id)
             per_layer.append({
                 "layer": layer_idx,
                 "ld": ld,
-                "greedy_id": greedy_id,
             })
 
         all_results.append({
@@ -387,15 +400,28 @@ def main():
 
         # corrupted runs
         corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
-        corrupted = corrupted_runs(lm, layers, corrupted_sample_dir, clean["a_star_id"])
+        corrupted = corrupted_runs(
+            lm,
+            layers,
+            corrupted_sample_dir,
+            clean["a_star_id"],
+            clean["a_minus_id"],
+        )
 
         # patched runs
-        patched = patched_runs(lm, layers, corrupted_sample_dir, clean["layer_states"], clean["a_star_id"])
+        patched = patched_runs(
+            lm,
+            layers,
+            corrupted_sample_dir,
+            clean["layer_states"],
+            clean["a_star_id"],
+            clean["a_minus_id"],
+        )
 
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
             f"LD(clean)={clean['ld']:.4f} a*={clean['a_star_id']} "
-            f"a^-={clean['greedy_id']} answer={clean['answer']!r}"
+            f"a^-={clean['a_minus_id']} answer={clean['answer']!r}"
         )
         print(f"  corrupted evidence frames: {len(corrupted['evidence'])}")
         if corrupted["evidence"]:
