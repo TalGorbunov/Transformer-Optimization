@@ -126,3 +126,11 @@ def iter_sample_dirs(data_root: Path) -> List[Path]:
         if p.is_dir() and (p / "qa.txt").exists():
             out.append(p)
     return out
+
+
+def format_centered_indices(n: int, cell_width: int = 9) -> str:
+    return " ".join(str(i).center(cell_width) for i in range(n))
+
+
+def format_centered_values(vals: List[float], cell_width: int = 9, precision: int = 4) -> str:
+    return " ".join(f"{v:.{precision}f}".center(cell_width) for v in vals)
