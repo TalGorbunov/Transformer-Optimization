@@ -2,6 +2,7 @@
 import argparse
 import math
 import random
+import re
 from pathlib import Path
 from typing import Dict, Any, List, Tuple, Optional
 
@@ -88,6 +89,47 @@ def compute_ld(last_logits_1d: torch.Tensor, a_star_id: int, a_minus_id: int) ->
     return float((last_logits_1d[a_star_id] - last_logits_1d[a_minus_id]).item())
 
 
+def parse_corrupted_frame_index(sample_id: str) -> Optional[int]:
+    m = re.fullmatch(r"corrupted_frame_(\d+)", str(sample_id).strip())
+    if not m:
+        return None
+    return int(m.group(1))
+
+
+def image_token_positions_for_frame(
+    input_ids_1d: torch.Tensor,
+    frame_idx: int,
+    expected_num_frames: int,
+) -> Optional[List[int]]:
+    image_token_id = getattr(processor, "image_token_id", None)
+    if image_token_id is None:
+        image_token_id = getattr(processor.tokenizer, "image_token_id", None)
+    if image_token_id is None:
+        image_token_id = processor.tokenizer.convert_tokens_to_ids("<|image_pad|>")
+    if image_token_id is None or frame_idx < 0:
+        return None
+
+    pos = (input_ids_1d == int(image_token_id)).nonzero(as_tuple=True)[0]
+    if pos.numel() == 0:
+        return None
+
+    pos_list = [int(x) for x in pos.tolist()]
+    groups: List[List[int]] = []
+    cur: List[int] = [pos_list[0]]
+    for p in pos_list[1:]:
+        if p == cur[-1] + 1:
+            cur.append(p)
+        else:
+            groups.append(cur)
+            cur = [p]
+    groups.append(cur)
+
+    # For this setup, we expect one contiguous image-token block per frame.
+    if len(groups) < expected_num_frames or frame_idx >= len(groups):
+        return None
+    return groups[frame_idx]
+
+
 def forward_with_cache(
     lm,
     layers,
@@ -95,6 +137,7 @@ def forward_with_cache(
     save_layer_states: bool = True,
     patch_layer_idx: int = None,
     patch_value: torch.Tensor = None,
+    patch_token_positions: Optional[List[int]] = None,
 ) -> Tuple[Optional[List[torch.Tensor]], torch.Tensor]:
     """
     Runs one forward pass.
@@ -129,11 +172,12 @@ def forward_with_cache(
                 cache["layer_states"] = [layers[i].output.save() for i in range(len(layers))]
 
             if patch_layer_idx is not None:
+                patch_pos = patch_token_positions if patch_token_positions else [-1]
                 try:
-                    layers[patch_layer_idx].output[:, -1, :] = patch_value[:, -1, :]
+                    layers[patch_layer_idx].output[:, patch_pos, :] = patch_value[:, patch_pos, :]
                 except Exception:
                     # Qwen-like blocks may expose output as a tuple-like (hidden, ...).
-                    layers[patch_layer_idx].output[0][:, -1, :] = patch_value[:, -1, :]
+                    layers[patch_layer_idx].output[0][:, patch_pos, :] = patch_value[:, patch_pos, :]
 
             cache["last_logits"] = lm.output.logits[:, -1, :].save()
 
@@ -239,6 +283,12 @@ def patched_runs(
         ev_id, frames, question, states, answer = load_mmred_sample(ev_dir)
         inputs = build_inputs(frames, question)
         inputs = move_inputs_to_model_device(inputs)
+        ev_frame_idx = parse_corrupted_frame_index(ev_id)
+        patch_token_positions = (
+            image_token_positions_for_frame(inputs["input_ids"][0], ev_frame_idx, len(frames))
+            if ev_frame_idx is not None
+            else None
+        )
 
         per_layer = []
         for layer_idx in range(len(layers)):
@@ -249,6 +299,7 @@ def patched_runs(
                 save_layer_states=False,
                 patch_layer_idx=layer_idx,
                 patch_value=clean_layer_states[layer_idx],
+                patch_token_positions=patch_token_positions,
             )
             ld = compute_ld(last_logits, a_star_id, a_minus_id)
             per_layer.append({
@@ -297,7 +348,7 @@ def compute_layer_importance_entropy(
         for pl in ev["patched"]:
             l = int(pl["layer"])
             num = float(pl["ld"] - corr_ld)
-            r_by_layer[l][i] = num / denom
+            r_by_layer[l][i] = max(num / denom, 0.0)
 
     layers_out = []
     for l in range(num_layers):
@@ -423,6 +474,7 @@ def main():
     ap.add_argument("--data_root", type=str, required=True)
     ap.add_argument("--corrupted_data_root", type=str, required=True)
     ap.add_argument("--limit", type=int, default=1)
+    ap.add_argument("--min_clean_ld", type=float, default=1.0)
     ap.add_argument("--output", type=str, default="outputs")
     args = ap.parse_args()
 
@@ -432,22 +484,32 @@ def main():
     lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
     sample_metrics = []
+    processed_samples = 0
 
     sample_dirs = iter_sample_dirs(data_root)
     sample_dirs = sample_dirs[: max(args.limit, 0)]
 
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         # clean run
-        clean = clean_run(lm, layers, sample_dir)
-        if clean["ld"] < 1:
+        try:
+            clean = clean_run(lm, layers, sample_dir)
+        except Exception as e:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} "
+                f"skipped: failed to load/run clean sample ({e})"
+            )
+            continue
+        corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
+        num_evidence_frames = len(iter_sample_dirs(corrupted_sample_dir)) if corrupted_sample_dir.is_dir() else 0
+        if clean["ld"] < args.min_clean_ld:
             print(
                 f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
-                f"skipped: LD(clean)={clean['ld']:.4f} < 1"
+                f"skipped: LD(clean)={clean['ld']:.4f} < {args.min_clean_ld:.4f} "
+                f"(evidence frames={num_evidence_frames})"
             )
             continue
 
         # corrupted runs
-        corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
         corrupted = corrupted_runs(
             lm,
             layers,
@@ -455,6 +517,12 @@ def main():
             clean["a_star_id"],
             clean["a_minus_id"],
         )
+        if len(corrupted["evidence"]) < 2:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
+                f"skipped: evidence frames={len(corrupted['evidence'])} < 2"
+            )
+            continue
 
         # patched runs
         patched = patched_runs(
@@ -494,9 +562,11 @@ def main():
             "sample_id": clean["sample_id"],
             "layer_metrics": layer_metrics,
         })
+        processed_samples += 1
 
     output_path = write_sample_metrics(sample_metrics, Path(args.output))
     print(f"Wrote sample metrics to: {output_path}")
+    print(f"Model actually ran on {processed_samples}/{len(sample_dirs)} samples.")
     plot_path = plot_entropy_summary(sample_metrics, Path(args.output))
     if plot_path is not None:
         print(f"Wrote entropy plot to: {plot_path}")
