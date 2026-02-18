@@ -9,7 +9,13 @@ import matplotlib.pyplot as plt
 import torch
 from nnsight import LanguageModel
 
-from utils import describe, iter_sample_dirs, load_mmred_sample
+from utils import (
+    describe,
+    format_centered_indices,
+    format_centered_values,
+    iter_sample_dirs,
+    load_mmred_sample,
+)
 from model import model as base_model, processor, get_layers
 
 
@@ -468,10 +474,18 @@ def main():
         )
         print(f"  corrupted evidence frames: {len(corrupted['evidence'])}")
         if corrupted["evidence"]:
-            print(f"  first corrupted LD: {corrupted['evidence'][0]['ld']:.4f}")
+            corrupted_lds = [float(ev["ld"]) for ev in corrupted["evidence"]]
+            print(f"  frame idx: {format_centered_indices(len(corrupted_lds))}")
+            print(f"  corr LD : {format_centered_values(corrupted_lds)}")
         if patched["evidence"]:
-            for p in patched["evidence"][0]["patched"]:
-                print(f"  first patched: evidence0 layer{p['layer']} LD = {p['ld']:.4f}")
+            num_layers = len(patched["evidence"][0]["patched"])
+            print(f"  frame idx: {format_centered_indices(len(patched['evidence']))}")
+            for layer_idx in range(num_layers):
+                layer_lds = [
+                    float(ev["patched"][layer_idx]["ld"])
+                    for ev in patched["evidence"]
+                ]
+                print(f"  patched layer{layer_idx:>2}: {format_centered_values(layer_lds)}")
 
         # per layer metrics
         layer_metrics = compute_layer_importance_entropy(clean["ld"], corrupted, patched)
