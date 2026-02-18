@@ -486,12 +486,9 @@ def main():
     if args.split == "all":
         if os.path.isdir(rendered_root):
             shutil.rmtree(rendered_root)
-        if os.path.isdir(args.corrupt_out):
-            for seq_entry in os.listdir(args.corrupt_out):
-                seq_dir = os.path.join(args.corrupt_out, seq_entry)
-                all_dir = os.path.join(seq_dir, "all")
-                if os.path.isdir(seq_dir) and os.path.isdir(all_dir):
-                    shutil.rmtree(all_dir)
+        corrupt_all_dir = os.path.join(args.corrupt_out, args.config, "all")
+        if os.path.isdir(corrupt_all_dir):
+            shutil.rmtree(corrupt_all_dir)
 
     rendered = 0
     rendered_sample_dirs: List[str] = []
