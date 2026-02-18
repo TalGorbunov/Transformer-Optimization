@@ -433,6 +433,12 @@ def main():
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         # clean run
         clean = clean_run(lm, layers, sample_dir)
+        if clean["ld"] < 1:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
+                f"skipped: LD(clean)={clean['ld']:.4f} < 1"
+            )
+            continue
 
         # corrupted runs
         corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
