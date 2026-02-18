@@ -43,9 +43,6 @@ def describe(x, name="x", max_list=8):
     print(s[:500] + ("..." if len(s) > 500 else ""))
 
 
-num_of_frames = 8
-
-
 def load_mmred_sample(sample_dir: Path):
     """
     Returns:
@@ -65,10 +62,6 @@ def load_mmred_sample(sample_dir: Path):
     if not sample_dir.is_dir():
         raise FileNotFoundError(f"Sample directory not found: {sample_dir}")
     sample_id = sample_dir.name
-
-    # frames
-    frame_paths = [sample_dir / f"{i:03d}.png" for i in range(num_of_frames)]
-    frames = [Image.open(p).convert("RGB") for p in frame_paths]
 
     qa_path = sample_dir / "qa.txt"
     lines = qa_path.read_text(encoding="utf-8").splitlines()
@@ -103,6 +96,13 @@ def load_mmred_sample(sample_dir: Path):
     answer_text = next((ln.strip() for ln in lines[a_idx + 1 :] if ln.strip()), None)
     if answer_text is None:
         raise RuntimeError(f"Could not find answer in {qa_path}")
+
+    # frames: infer count from parsed states instead of using a global constant.
+    frame_paths = [sample_dir / f"{i:03d}.png" for i in range(len(states))]
+    missing = [p for p in frame_paths if not p.exists()]
+    if missing:
+        raise FileNotFoundError(f"Missing frame(s) for sample {sample_id}: {missing[0]}")
+    frames = [Image.open(p).convert("RGB") for p in frame_paths]
 
     return sample_id, frames, question_text, states, answer_text
 
