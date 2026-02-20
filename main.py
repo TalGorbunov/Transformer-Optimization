@@ -413,6 +413,7 @@ def plot_entropy_summary(
     output_dir: Path,
     n_bootstrap: int = 1000,
     seed: int = 0,
+    seq_len_label: Optional[str] = None,
 ) -> Optional[Path]:
     """
     Plot mean/median H(l) across layers with 95% bootstrap CIs.
@@ -472,7 +473,10 @@ def plot_entropy_summary(
     ax.plot(layers, medians, color="#d62728", linewidth=2.2, label="Median H(l)")
     ax.fill_between(layers, med_lo, med_hi, color="#d62728", alpha=0.2, label="Median 95% CI")
 
-    ax.set_title("Entropy by Layer", fontsize=13, pad=10)
+    title = "Entropy by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
     ax.set_xlabel("Layer l", fontsize=11)
     ax.set_ylabel("H(l)", fontsize=11)
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
@@ -499,6 +503,8 @@ def main():
 
     data_root = Path(args.data_root)
     corrupted_root = Path(args.corrupted_data_root)
+    seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
+    seq_len_label = seq_len_match.group(1) if seq_len_match else None
 
     lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
@@ -598,7 +604,11 @@ def main():
     output_path = write_sample_metrics(sample_metrics, Path(args.output))
     print(f"Wrote sample metrics to: {output_path}")
     print(f"Model actually ran on {processed_samples}/{len(sample_dirs)} samples.")
-    plot_path = plot_entropy_summary(sample_metrics, Path(args.output))
+    plot_path = plot_entropy_summary(
+        sample_metrics,
+        Path(args.output),
+        seq_len_label=seq_len_label,
+    )
     if plot_path is not None:
         print(f"Wrote entropy plot to: {plot_path}")
     else:
