@@ -481,7 +481,13 @@ def plot_entropy_summary(
     ax.set_ylabel("H(l)", fontsize=11)
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
     ax.legend(frameon=True)
-    ax.set_xticks(layers)
+    # Avoid label collisions on wide/deep models by showing a spaced subset of layers.
+    tick_step = max(1, math.ceil(len(layers) / 32))
+    xticks = layers[::tick_step]
+    if layers[-1] not in xticks:
+        xticks.append(layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
