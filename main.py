@@ -510,11 +510,13 @@ def main():
     layers = get_layers(lm.model)
     sample_metrics = []
     processed_samples = 0
+    target_processed_samples = max(args.limit, 0)
 
     sample_dirs = iter_sample_dirs(data_root)
-    sample_dirs = sample_dirs[: max(args.limit, 0)]
 
     for idx, sample_dir in enumerate(sample_dirs, start=1):
+        if processed_samples >= target_processed_samples:
+            break
         # clean run
         try:
             clean = clean_run(lm, layers, sample_dir)
@@ -610,7 +612,10 @@ def main():
 
     output_path = write_sample_metrics(sample_metrics, Path(args.output))
     print(f"Wrote sample metrics to: {output_path}")
-    print(f"Model actually ran on {processed_samples}/{len(sample_dirs)} samples.")
+    print(
+        f"Model actually ran on {processed_samples} samples "
+        f"(target limit={target_processed_samples})."
+    )
     plot_path = plot_entropy_summary(
         sample_metrics,
         Path(args.output),
