@@ -523,6 +523,16 @@ def main():
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= target_processed_samples:
             break
+
+        corrupted_sample_dir = corrupted_root / str(sample_dir.name)
+        num_evidence_frames = len(iter_sample_dirs(corrupted_sample_dir)) if corrupted_sample_dir.is_dir() else 0
+        if num_evidence_frames < 2:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} "
+                f"skipped: evidence frames={num_evidence_frames} < 2"
+            )
+            continue
+
         # clean run
         try:
             clean = clean_run(lm, layers, sample_dir)
@@ -532,8 +542,6 @@ def main():
                 f"skipped: failed to load/run clean sample ({e})"
             )
             continue
-        corrupted_sample_dir = corrupted_root / str(clean["sample_id"])
-        num_evidence_frames = len(iter_sample_dirs(corrupted_sample_dir)) if corrupted_sample_dir.is_dir() else 0
         if clean["ld"] < args.min_clean_ld:
             print(
                 f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
@@ -550,12 +558,6 @@ def main():
             clean["a_star_id"],
             clean["a_minus_id"],
         )
-        if len(corrupted["evidence"]) < 2:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
-                f"skipped: evidence frames={len(corrupted['evidence'])} < 2"
-            )
-            continue
 
         # patched runs
         corrupted_ld_by_dir = {
