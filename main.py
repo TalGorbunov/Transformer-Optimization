@@ -262,6 +262,9 @@ def patched_runs(
     clean_layer_states: List[torch.Tensor],
     a_star_id: int,
     a_minus_id: int,
+    clean_ld: float,
+    corrupted_ld_by_dir: Dict[str, float],
+    min_corrupted_diff: float,
 ) -> Dict[str, Any]:
     """
     For each evidence corrupted sample:
@@ -279,7 +282,15 @@ def patched_runs(
     evidence_dirs = sorted(evidence_dirs)
 
     all_results = []
+    skipped_by_min_corrupted_diff = 0
     for ev_dir in evidence_dirs:
+        corr_ld = corrupted_ld_by_dir.get(str(ev_dir))
+        if corr_ld is None:
+            continue
+        if (clean_ld - float(corr_ld)) < float(min_corrupted_diff):
+            skipped_by_min_corrupted_diff += 1
+            continue
+
         ev_id, frames, question, states, answer = load_mmred_sample(ev_dir)
         inputs = build_inputs(frames, question)
         inputs = move_inputs_to_model_device(inputs)
@@ -316,17 +327,17 @@ def patched_runs(
     return {
         "corrupted_dir": str(corrupted_dir),
         "evidence": all_results,
+        "skipped_by_min_corrupted_diff": skipped_by_min_corrupted_diff,
     }
 
 def compute_layer_importance_entropy(
     clean_ld: float,
     corrupted: Dict[str, Any],
     patched: Dict[str, Any],
-    eps: float = 1e-8,
 ) -> Dict[str, Any]:
     """
     Computes per-layer:
-      r_i^l = (LD_patched(i,l) - LD_corrupted(i)) / (LD_clean - LD_corrupted(i) + eps)
+      r_i^l = (LD_patched(i,l) - LD_corrupted(i)) / (LD_clean - LD_corrupted(i))
       p_i^l = r_i^l / sum_j r_j^l
       H(l)  = -sum_j p_j^l * log(p_j^l)
     where i/j index evidence frames.
@@ -334,7 +345,12 @@ def compute_layer_importance_entropy(
     if not corrupted["evidence"] or not patched["evidence"]:
         return {"layers": []}
 
-    corrupted_ld_by_dir = {e["evidence_dir"]: e["ld"] for e in corrupted["evidence"]}
+    patched_dirs = {e["evidence_dir"] for e in patched["evidence"]}
+    corrupted_ld_by_dir = {
+        e["evidence_dir"]: e["ld"]
+        for e in corrupted["evidence"]
+        if e["evidence_dir"] in patched_dirs
+    }
     num_layers = len(patched["evidence"][0]["patched"])
     num_evidence = len(patched["evidence"])
 
@@ -344,7 +360,9 @@ def compute_layer_importance_entropy(
         corr_ld = corrupted_ld_by_dir.get(ev["evidence_dir"])
         if corr_ld is None:
             continue
-        denom = float(clean_ld - corr_ld + eps)
+        denom = float(clean_ld - corr_ld)
+        if denom <= 0.0:
+            continue
         for pl in ev["patched"]:
             l = int(pl["layer"])
             num = float(pl["ld"] - corr_ld)
@@ -475,6 +493,7 @@ def main():
     ap.add_argument("--corrupted_data_root", type=str, required=True)
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--min_clean_ld", type=float, default=1.0)
+    ap.add_argument("--min_corrupted_diff", type=float, default=0.001)
     ap.add_argument("--output", type=str, default="outputs")
     args = ap.parse_args()
 
@@ -525,6 +544,9 @@ def main():
             continue
 
         # patched runs
+        corrupted_ld_by_dir = {
+            e["evidence_dir"]: float(e["ld"]) for e in corrupted["evidence"]
+        }
         patched = patched_runs(
             lm,
             layers,
@@ -532,6 +554,9 @@ def main():
             clean["layer_states"],
             clean["a_star_id"],
             clean["a_minus_id"],
+            clean["ld"],
+            corrupted_ld_by_dir,
+            args.min_corrupted_diff,
         )
 
         print(
@@ -541,6 +566,12 @@ def main():
             f"model_answer={clean['model_answer']!r} (id={clean['pred_token_id']})"
         )
         print(f"  corrupted evidence frames: {len(corrupted['evidence'])}")
+        if patched.get("skipped_by_min_corrupted_diff", 0) > 0:
+            print(
+                f"  skipped patched frames by min_corrupted_diff: "
+                f"{patched['skipped_by_min_corrupted_diff']} "
+                f"(threshold={args.min_corrupted_diff:.4f})"
+            )
         if corrupted["evidence"]:
             corrupted_lds = [float(ev["ld"]) for ev in corrupted["evidence"]]
             print(f"  frame idx: {format_centered_indices(len(corrupted_lds))}")
