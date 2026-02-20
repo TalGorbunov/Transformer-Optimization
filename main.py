@@ -564,6 +564,13 @@ def main():
             corrupted_ld_by_dir,
             args.min_corrupted_diff,
         )
+        if len(patched["evidence"]) < 2:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
+                f"skipped: patched evidence frames={len(patched['evidence'])} < 2 "
+                f"(after min_corrupted_diff={args.min_corrupted_diff:.4f})"
+            )
+            continue
 
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
