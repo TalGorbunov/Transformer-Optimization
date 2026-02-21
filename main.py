@@ -66,19 +66,27 @@ def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, to
     return {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
 
 
-def pick_a_minus_from_clean(clean_last_logits_1d: torch.Tensor, a_star_id: int) -> int:
+def pick_a_minus_from_clean(answer_text: str, a_star_id: int) -> int:
     """
-    Select a^- from the clean run:
-      a^- = argmax_d logit_clean(d), constrained to d != a*.
+    Select a^- from the clean run ground-truth answer:
+      if the clean answer is integer k (a*), set a^- to token(k - 1).
     """
-    if clean_last_logits_1d.ndim != 1:
-        raise ValueError("Expected clean_last_logits_1d to be 1D [vocab].")
-    if not (0 <= a_star_id < clean_last_logits_1d.shape[0]):
-        raise ValueError(f"a_star_id out of range: {a_star_id}")
+    try:
+        k = int(str(answer_text).strip())
+    except Exception as e:
+        raise ValueError(f"Answer is not an integer, cannot set a^- = k-1: {answer_text!r}") from e
 
-    masked = clean_last_logits_1d.clone()
-    masked[a_star_id] = -torch.inf
-    return int(torch.argmax(masked).item())
+    a_minus_text = str(k - 1)
+    a_minus_ids = processor.tokenizer.encode(a_minus_text, add_special_tokens=False)
+    if not a_minus_ids:
+        raise ValueError(f"a^- text tokenized to empty: {a_minus_text!r}")
+
+    a_minus_id = int(a_minus_ids[0])
+    if a_minus_id == a_star_id:
+        raise ValueError(
+            f"a^- token id equals a* token id ({a_star_id}) for answer={answer_text!r}"
+        )
+    return a_minus_id
 
 
 def compute_ld(last_logits_1d: torch.Tensor, a_star_id: int, a_minus_id: int) -> float:
@@ -200,7 +208,7 @@ def clean_run(lm, layers, sample_dir: Path) -> Dict[str, Any]:
     )
 
     a_star_id = first_token_id_of_answer(answer)
-    a_minus_id = pick_a_minus_from_clean(last_logits, a_star_id)
+    a_minus_id = pick_a_minus_from_clean(answer, a_star_id)
     ld = compute_ld(last_logits, a_star_id, a_minus_id)
     pred_token_id = int(torch.argmax(last_logits).item())
     model_answer = processor.tokenizer.decode([pred_token_id], skip_special_tokens=True).strip()
