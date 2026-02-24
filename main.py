@@ -348,6 +348,7 @@ def compute_layer_importance_entropy(
       r_i^l = (LD_patched(i,l) - LD_corrupted(i)) / (LD_clean - LD_corrupted(i))
       p_i^l = r_i^l / sum_j r_j^l
       H(l)  = -sum_j p_j^l * log(p_j^l)
+      H_norm(l) = H(l) / N_evidence
     where i/j index evidence frames.
     """
     if not corrupted["evidence"] or not patched["evidence"]:
@@ -385,12 +386,15 @@ def compute_layer_importance_entropy(
         else:
             p_vals = [0.0 for _ in r_vals]
 
-        entropy = -sum(p * math.log(p) for p in p_vals if p > 0.0)
+        entropy_raw = -sum(p * math.log(p) for p in p_vals if p > 0.0)
+        entropy_norm = entropy_raw / num_evidence if num_evidence > 0 else 0.0
         layers_out.append({
             "layer": l,
             "r": r_vals,
             "p": p_vals,
-            "entropy": entropy,
+            "entropy": entropy_norm,
+            "entropy_raw": entropy_raw,
+            "num_evidence_frames": num_evidence,
         })
 
     return {"layers": layers_out}
