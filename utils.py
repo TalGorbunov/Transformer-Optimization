@@ -151,7 +151,7 @@ def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path)
                 f"layer={lmtr['layer']} "
                 f"r={_fmt_float_list(lmtr['r'])} "
                 f"p={_fmt_float_list(lmtr['p'])} "
-                f"H={lmtr['entropy']:.8f}"
+                f"H_norm={lmtr['entropy']:.8f}"
             )
         lines.append("")
 
@@ -169,7 +169,8 @@ def plot_entropy_summary(
     seq_len_label: Optional[str] = None,
 ) -> Optional[Path]:
     """
-    Plot mean/median H(l) across layers with 95% bootstrap CIs.
+    Plot mean/median normalized entropy H(l)/N_evidence across layers
+    with 95% bootstrap CIs.
     """
     entropy_by_layer: Dict[int, List[float]] = {}
     for sm in sample_metrics:
@@ -221,17 +222,17 @@ def plot_entropy_summary(
         med_hi.append(boot_median[hi_idx])
 
     fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
-    ax.plot(layers, means, color="#1f77b4", linewidth=2.2, label="Mean H(l)")
+    ax.plot(layers, means, color="#1f77b4", linewidth=2.2, label="Mean H(l)/N")
     ax.fill_between(layers, mean_lo, mean_hi, color="#1f77b4", alpha=0.2, label="Mean 95% CI")
-    ax.plot(layers, medians, color="#d62728", linewidth=2.2, label="Median H(l)")
+    ax.plot(layers, medians, color="#d62728", linewidth=2.2, label="Median H(l)/N")
     ax.fill_between(layers, med_lo, med_hi, color="#d62728", alpha=0.2, label="Median 95% CI")
 
-    title = "Entropy by Layer"
+    title = "Normalized Entropy by Layer (H/N)"
     if seq_len_label:
         title = f"{title} ({seq_len_label})"
     ax.set_title(title, fontsize=13, pad=10)
     ax.set_xlabel("Layer l", fontsize=11)
-    ax.set_ylabel("H(l)", fontsize=11)
+    ax.set_ylabel("H(l)/N", fontsize=11)
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
     ax.legend(frameon=True)
     # Avoid label collisions on wide/deep models by showing a spaced subset of layers.
