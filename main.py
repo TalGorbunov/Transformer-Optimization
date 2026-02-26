@@ -1,5 +1,6 @@
 
 import argparse
+import json
 import math
 import re
 from pathlib import Path
@@ -338,6 +339,56 @@ def patched_runs(
         "skipped_by_min_corrupted_diff": skipped_by_min_corrupted_diff,
     }
 
+
+def filter_patched_by_min_corrupted_diff(
+    clean_ld: float,
+    corrupted_ld_by_dir: Dict[str, float],
+    patched_all: Dict[str, Any],
+    min_corrupted_diff: float,
+) -> Dict[str, Any]:
+    kept: List[Dict[str, Any]] = []
+    skipped = 0
+    for ev in patched_all.get("evidence", []):
+        corr_ld = corrupted_ld_by_dir.get(ev["evidence_dir"])
+        if corr_ld is None:
+            continue
+        if (clean_ld - float(corr_ld)) < float(min_corrupted_diff):
+            skipped += 1
+            continue
+        kept.append(ev)
+    return {
+        "corrupted_dir": patched_all.get("corrupted_dir"),
+        "evidence": kept,
+        "skipped_by_min_corrupted_diff": skipped,
+    }
+
+
+def load_computed_lds_cache(cache_file: Path) -> Dict[str, Any]:
+    if not cache_file.exists():
+        return {"version": 1, "samples": {}}
+    try:
+        payload = json.loads(cache_file.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"Warning: failed to parse cache file {cache_file}: {e}")
+        return {"version": 1, "samples": {}}
+    if not isinstance(payload, dict):
+        return {"version": 1, "samples": {}}
+    samples = payload.get("samples")
+    if not isinstance(samples, dict):
+        payload["samples"] = {}
+    if "version" not in payload:
+        payload["version"] = 1
+    return payload
+
+
+def write_computed_lds_cache(cache_file: Path, cache_payload: Dict[str, Any]) -> Path:
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    cache_file.write_text(
+        json.dumps(cache_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return cache_file
+
 def compute_layer_importance_entropy(
     clean_ld: float,
     corrupted: Dict[str, Any],
@@ -407,18 +458,70 @@ def main():
     ap.add_argument("--min_clean_ld", type=float, default=1.0)
     ap.add_argument("--min_corrupted_diff", type=float, default=0.001)
     ap.add_argument("--output", type=str, default="outputs")
+    ap.add_argument(
+        "--computed_lds_dir",
+        type=str,
+        default=None,
+        help="Optional directory containing computed_lds.txt cache to reuse.",
+    )
     args = ap.parse_args()
 
     data_root = Path(args.data_root)
     corrupted_root = Path(args.corrupted_data_root)
+    output_dir = Path(args.output)
     seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
     seq_len_label = seq_len_match.group(1) if seq_len_match else None
 
-    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
-    layers = get_layers(lm.model)
+    output_cache_path = output_dir / "computed_lds.txt"
+    cache_payload = load_computed_lds_cache(output_cache_path)
+    cache_samples = cache_payload.setdefault("samples", {})
+
+    if args.computed_lds_dir:
+        external_cache_path = Path(args.computed_lds_dir) / "computed_lds.txt"
+        external_payload = load_computed_lds_cache(external_cache_path)
+        ext_samples = external_payload.get("samples", {})
+        if ext_samples:
+            for sid, sval in ext_samples.items():
+                if sid not in cache_samples:
+                    cache_samples[sid] = sval
+            print(f"Loaded {len(ext_samples)} cached samples from: {external_cache_path}")
+        else:
+            print(f"No reusable cache entries found at: {external_cache_path}")
+
+    lm = None
+    layers = None
+    cache_dirty = False
+
+    def ensure_model_loaded():
+        nonlocal lm, layers
+        if lm is None or layers is None:
+            lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
+            layers = get_layers(lm.model)
+
+    def refresh_cache_metadata() -> None:
+        cache_payload["metadata"] = {
+            "data_root": str(data_root),
+            "corrupted_data_root": str(corrupted_root),
+            "seq_len_label": seq_len_label,
+            "min_clean_ld": float(args.min_clean_ld),
+            "min_corrupted_diff": float(args.min_corrupted_diff),
+            "num_cached_samples": len(cache_samples),
+        }
+
+    def flush_cache(force: bool = False) -> Optional[Path]:
+        nonlocal cache_dirty
+        if not force and not cache_dirty:
+            return None
+        refresh_cache_metadata()
+        cache_path = write_computed_lds_cache(output_cache_path, cache_payload)
+        cache_dirty = False
+        return cache_path
+
     sample_metrics = []
     processed_samples = 0
     target_processed_samples = max(args.limit, 0)
+    model_ran_samples = 0
+    cache_hit_samples = 0
 
     sample_dirs = iter_sample_dirs(data_root)
 
@@ -435,16 +538,91 @@ def main():
             )
             continue
 
-        # clean run
-        try:
-            clean = clean_run(lm, layers, sample_dir)
-        except Exception as e:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} "
-                f"skipped: failed to load/run clean sample ({e})"
+        sample_key = str(sample_dir.name)
+        cached_entry = cache_samples.get(sample_key)
+        cached_patched = None
+        if isinstance(cached_entry, dict):
+            if isinstance(cached_entry.get("patched"), dict):
+                cached_patched = cached_entry.get("patched")
+            elif isinstance(cached_entry.get("patched_all"), dict):
+                cached_patched = cached_entry.get("patched_all")
+
+        use_cached = (
+            isinstance(cached_entry, dict)
+            and isinstance(cached_entry.get("clean"), dict)
+            and isinstance(cached_entry.get("corrupted"), dict)
+            and isinstance(cached_patched, dict)
+        )
+
+        if use_cached:
+            clean = cached_entry["clean"]
+            corrupted = cached_entry["corrupted"]
+            patched = cached_patched
+            cache_hit_samples += 1
+        else:
+            ensure_model_loaded()
+
+            # clean run
+            try:
+                clean = clean_run(lm, layers, sample_dir)
+            except Exception as e:
+                print(
+                    f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} "
+                    f"skipped: failed to load/run clean sample ({e})"
+                )
+                continue
+
+            if float(clean["ld"]) < args.min_clean_ld:
+                print(
+                    f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
+                    f"skipped: LD(clean)={clean['ld']:.4f} < {args.min_clean_ld:.4f} "
+                    f"(evidence frames={num_evidence_frames})"
+                )
+                continue
+
+            # corrupted runs
+            corrupted = corrupted_runs(
+                lm,
+                layers,
+                corrupted_sample_dir,
+                clean["a_star_id"],
+                clean["a_minus_id"],
             )
-            continue
-        if clean["ld"] < args.min_clean_ld:
+
+            # patched runs (only compute evidence frames that satisfy min_corrupted_diff)
+            corrupted_ld_by_dir = {
+                e["evidence_dir"]: float(e["ld"]) for e in corrupted["evidence"]
+            }
+            patched = patched_runs(
+                lm,
+                layers,
+                corrupted_sample_dir,
+                clean["layer_states"],
+                clean["a_star_id"],
+                clean["a_minus_id"],
+                float(clean["ld"]),
+                corrupted_ld_by_dir,
+                float(args.min_corrupted_diff),
+            )
+
+            cache_samples[sample_key] = {
+                "clean": {
+                    "sample_id": clean["sample_id"],
+                    "answer": clean["answer"],
+                    "a_star_id": int(clean["a_star_id"]),
+                    "a_minus_id": int(clean["a_minus_id"]),
+                    "pred_token_id": int(clean["pred_token_id"]),
+                    "model_answer": clean["model_answer"],
+                    "ld": float(clean["ld"]),
+                },
+                "corrupted": corrupted,
+                "patched": patched,
+            }
+            cache_dirty = True
+            flush_cache()
+            model_ran_samples += 1
+
+        if float(clean["ld"]) < args.min_clean_ld:
             print(
                 f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
                 f"skipped: LD(clean)={clean['ld']:.4f} < {args.min_clean_ld:.4f} "
@@ -452,30 +630,17 @@ def main():
             )
             continue
 
-        # corrupted runs
-        corrupted = corrupted_runs(
-            lm,
-            layers,
-            corrupted_sample_dir,
-            clean["a_star_id"],
-            clean["a_minus_id"],
-        )
-
-        # patched runs
-        corrupted_ld_by_dir = {
-            e["evidence_dir"]: float(e["ld"]) for e in corrupted["evidence"]
-        }
-        patched = patched_runs(
-            lm,
-            layers,
-            corrupted_sample_dir,
-            clean["layer_states"],
-            clean["a_star_id"],
-            clean["a_minus_id"],
-            clean["ld"],
-            corrupted_ld_by_dir,
-            args.min_corrupted_diff,
-        )
+        if use_cached and isinstance(cached_entry.get("patched_all"), dict):
+            # Backward compatibility for old caches that stored unfiltered patched runs.
+            corrupted_ld_by_dir = {
+                e["evidence_dir"]: float(e["ld"]) for e in corrupted["evidence"]
+            }
+            patched = filter_patched_by_min_corrupted_diff(
+                float(clean["ld"]),
+                corrupted_ld_by_dir,
+                patched,
+                float(args.min_corrupted_diff),
+            )
         if len(patched["evidence"]) < 2:
             print(
                 f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
@@ -484,8 +649,10 @@ def main():
             )
             continue
 
+        cache_status = "cache-hit" if use_cached else "computed"
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={clean['sample_id']} "
+            f"source={cache_status} "
             f"LD(clean)={clean['ld']:.4f} a*={clean['a_star_id']} "
             f"a^-={clean['a_minus_id']} answer={clean['answer']!r} "
             f"model_answer={clean['model_answer']!r} (id={clean['pred_token_id']})"
@@ -520,15 +687,20 @@ def main():
         })
         processed_samples += 1
 
-    output_path = write_sample_metrics(sample_metrics, Path(args.output))
+    cache_path = flush_cache(force=True)
+    if cache_path is None:
+        cache_path = output_cache_path
+
+    output_path = write_sample_metrics(sample_metrics, output_dir)
     print(f"Wrote sample metrics to: {output_path}")
+    print(f"Wrote computed LD cache to: {cache_path}")
     print(
-        f"Model actually ran on {processed_samples} samples "
-        f"(target limit={target_processed_samples})."
+        f"Processed {processed_samples} samples (target limit={target_processed_samples}). "
+        f"Model ran for {model_ran_samples} samples, cache hits={cache_hit_samples}."
     )
     plot_path = plot_entropy_summary(
         sample_metrics,
-        Path(args.output),
+        output_dir,
         seq_len_label=seq_len_label,
     )
     if plot_path is not None:
