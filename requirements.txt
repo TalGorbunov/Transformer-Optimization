@@ -1,4 +1,9 @@
 torch
-transformer-lens==2.17.0
-transformers<5
-huggingface_hub<1.0
+transformers
+nnsight
+datasets
+pillow
+torchvision
+num2words
+huggingface-hub>=0.34.0,<1.0
+matplotlib

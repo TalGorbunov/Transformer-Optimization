@@ -1,5 +1,9 @@
 import ast
+import math
+import random
+from typing import Any, Dict, List, Optional
 import torch
+import matplotlib.pyplot as plt
 from PIL import Image
 from pathlib import Path
 
@@ -42,9 +46,6 @@ def describe(x, name="x", max_list=8):
     print(s[:500] + ("..." if len(s) > 500 else ""))
 
 
-num_of_frames = 8
-
-
 def load_mmred_sample(sample_dir: Path):
     """
     Returns:
@@ -64,10 +65,6 @@ def load_mmred_sample(sample_dir: Path):
     if not sample_dir.is_dir():
         raise FileNotFoundError(f"Sample directory not found: {sample_dir}")
     sample_id = sample_dir.name
-
-    # frames
-    frame_paths = [sample_dir / f"{i:03d}.png" for i in range(num_of_frames)]
-    frames = [Image.open(p).convert("RGB") for p in frame_paths]
 
     qa_path = sample_dir / "qa.txt"
     lines = qa_path.read_text(encoding="utf-8").splitlines()
@@ -103,6 +100,13 @@ def load_mmred_sample(sample_dir: Path):
     if answer_text is None:
         raise RuntimeError(f"Could not find answer in {qa_path}")
 
+    # frames: infer count from parsed states instead of using a global constant.
+    frame_paths = [sample_dir / f"{i:03d}.png" for i in range(len(states))]
+    missing = [p for p in frame_paths if not p.exists()]
+    if missing:
+        raise FileNotFoundError(f"Missing frame(s) for sample {sample_id}: {missing[0]}")
+    frames = [Image.open(p).convert("RGB") for p in frame_paths]
+
     return sample_id, frames, question_text, states, answer_text
 
 def print_top_k(logits, tokenizer, k=5):
@@ -114,3 +118,134 @@ def print_top_k(logits, tokenizer, k=5):
     print(f"\nTop-{k} probs:")
     for rank, tok_id in enumerate(top_ids, start=1):
         print(f"{rank:>2}. id={tok_id:<6} p={probs[tok_id].item():.4f} token={tokenizer.decode([tok_id])!r}")
+
+
+def iter_sample_dirs(data_root: Path) -> List[Path]:
+    """
+    Finds sample directories under data_root (directories that contain qa.txt).
+    """
+    out: List[Path] = []
+    for p in sorted(data_root.iterdir()):
+        if p.is_dir() and (p / "qa.txt").exists():
+            out.append(p)
+    return out
+
+
+def format_centered_indices(n: int, cell_width: int = 9) -> str:
+    return " ".join(str(i).center(cell_width) for i in range(n))
+
+
+def format_centered_values(vals: List[float], cell_width: int = 9, precision: int = 4) -> str:
+    return " ".join(f"{v:.{precision}f}".center(cell_width) for v in vals)
+
+
+def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
+    def _fmt_float_list(vals: List[float]) -> str:
+        return "[" + ", ".join(f"{v:.8f}" for v in vals) + "]"
+
+    lines: List[str] = []
+    for sm in sample_metrics:
+        lines.append(f"sample_id={sm['sample_id']}")
+        for lmtr in sm["layer_metrics"]["layers"]:
+            lines.append(
+                f"layer={lmtr['layer']} "
+                f"r={_fmt_float_list(lmtr['r'])} "
+                f"p={_fmt_float_list(lmtr['p'])} "
+                f"H_norm={lmtr['entropy']:.8f}"
+            )
+        lines.append("")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "sample_metrics.txt"
+    output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return output_path
+
+
+def plot_entropy_summary(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    n_bootstrap: int = 1000,
+    seed: int = 0,
+    seq_len_label: Optional[str] = None,
+) -> Optional[Path]:
+    """
+    Plot mean/median normalized entropy H(l)/N_evidence across layers
+    with 95% bootstrap CIs.
+    """
+    entropy_by_layer: Dict[int, List[float]] = {}
+    for sm in sample_metrics:
+        for lmtr in sm["layer_metrics"]["layers"]:
+            l = int(lmtr["layer"])
+            entropy_by_layer.setdefault(l, []).append(float(lmtr["entropy"]))
+
+    if not entropy_by_layer:
+        return None
+
+    rng = random.Random(seed)
+    layers = sorted(entropy_by_layer.keys())
+
+    means: List[float] = []
+    medians: List[float] = []
+    mean_lo: List[float] = []
+    mean_hi: List[float] = []
+    med_lo: List[float] = []
+    med_hi: List[float] = []
+
+    for l in layers:
+        vals = entropy_by_layer[l]
+        n = len(vals)
+        sorted_vals = sorted(vals)
+
+        mean = sum(vals) / n
+        median = sorted_vals[n // 2] if n % 2 == 1 else 0.5 * (sorted_vals[n // 2 - 1] + sorted_vals[n // 2])
+
+        boot_mean: List[float] = []
+        boot_median: List[float] = []
+        for _ in range(n_bootstrap):
+            sample = [vals[rng.randrange(n)] for _ in range(n)]
+            s_sorted = sorted(sample)
+            b_mean = sum(sample) / n
+            b_median = s_sorted[n // 2] if n % 2 == 1 else 0.5 * (s_sorted[n // 2 - 1] + s_sorted[n // 2])
+            boot_mean.append(b_mean)
+            boot_median.append(b_median)
+
+        boot_mean.sort()
+        boot_median.sort()
+        lo_idx = int(0.025 * (n_bootstrap - 1))
+        hi_idx = int(0.975 * (n_bootstrap - 1))
+
+        means.append(mean)
+        medians.append(median)
+        mean_lo.append(boot_mean[lo_idx])
+        mean_hi.append(boot_mean[hi_idx])
+        med_lo.append(boot_median[lo_idx])
+        med_hi.append(boot_median[hi_idx])
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    ax.plot(layers, means, color="#1f77b4", linewidth=2.2, label="Mean H(l)/N")
+    ax.fill_between(layers, mean_lo, mean_hi, color="#1f77b4", alpha=0.2, label="Mean 95% CI")
+    ax.plot(layers, medians, color="#d62728", linewidth=2.2, label="Median H(l)/N")
+    ax.fill_between(layers, med_lo, med_hi, color="#d62728", alpha=0.2, label="Median 95% CI")
+
+    title = "Normalized Entropy by Layer (H/N)"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_xlabel("Layer l", fontsize=11)
+    ax.set_ylabel("H(l)/N", fontsize=11)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    # Avoid label collisions on wide/deep models by showing a spaced subset of layers.
+    tick_step = max(1, math.ceil(len(layers) / 32))
+    xticks = layers[::tick_step]
+    if layers[-1] not in xticks:
+        xticks.append(layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    plot_path = output_dir / "entropy_summary.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path

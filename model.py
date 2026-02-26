@@ -1,13 +1,23 @@
 import torch
-from transformers import AutoProcessor, AutoModelForImageTextToText
+from transformers import AutoProcessor, AutoModelForVision2Seq, BitsAndBytesConfig
 
-MODEL_ID = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
+MODEL_ID = "Qwen/Qwen2.5-VL-32B-Instruct"
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_quant_type="nf4",
+)
+
 processor = AutoProcessor.from_pretrained(MODEL_ID)
-hf_model = AutoModelForImageTextToText.from_pretrained(
+model = AutoModelForVision2Seq.from_pretrained(
     MODEL_ID,
-    dtype=torch.float16,
-    device_map="cuda",
-).to("cuda").eval()
+    quantization_config=bnb_config,
+    device_map="cuda", 
+    trust_remote_code=True, 
+)
+model.eval()
 
 def get_layers(m):
     """
