@@ -256,18 +256,9 @@ def process_sample(sample_dir: Path) -> Dict[str, Any]:
     model_inputs = move_inputs_to_model_device(inputs)
     outputs = model(**model_inputs, output_attentions=True, use_cache=False, return_dict=True)
 
-    attentions = getattr(outputs, "attentions", None)
-    if (attentions is None or len(attentions) == 0) and getattr(outputs, "decoder_attentions", None) is not None:
-        attentions = outputs.decoder_attentions
-    if (attentions is None or len(attentions) == 0):
-        lm_out = getattr(outputs, "language_model_outputs", None)
-        if lm_out is not None and getattr(lm_out, "attentions", None) is not None:
-            attentions = lm_out.attentions
-
+    attentions = outputs.attentions
     if attentions is None:
-        raise RuntimeError(
-            "Model did not return attentions in known output fields."
-        )
+        raise RuntimeError("Model did not return outputs.attentions.")
 
     per_layer = compute_scores_from_attentions(attentions, frame_to_tokens)
 
