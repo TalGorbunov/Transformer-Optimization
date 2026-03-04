@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoProcessor, AutoModelForVision2Seq, BitsAndBytesConfig
+from transformers import AutoProcessor, AutoModelForImageTextToText, BitsAndBytesConfig
 
 MODEL_ID = "Qwen/Qwen2.5-VL-32B-Instruct"
 
@@ -10,8 +10,8 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_quant_type="nf4",
 )
 
-processor = AutoProcessor.from_pretrained(MODEL_ID)
-model = AutoModelForVision2Seq.from_pretrained(
+processor = AutoProcessor.from_pretrained(MODEL_ID, use_fast=False)
+model = AutoModelForImageTextToText.from_pretrained(
     MODEL_ID,
     quantization_config=bnb_config,
     device_map="cuda", 
