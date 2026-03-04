@@ -1,6 +1,7 @@
 import ast
 import math
 import random
+import re
 from typing import Any, Dict, List, Optional
 import torch
 import matplotlib.pyplot as plt
@@ -159,6 +160,49 @@ def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path)
     output_path = output_dir / "sample_metrics.txt"
     output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
     return output_path
+
+
+def parse_sample_metrics_file(sample_metrics_path: Path) -> Dict[str, Dict[int, List[float]]]:
+    if not sample_metrics_path.exists():
+        raise FileNotFoundError(f"Missing metrics file: {sample_metrics_path}")
+
+    layer_re = re.compile(r"^layer=(\d+)\s+r=(\[[^\]]*\])\s+p=(\[[^\]]*\])\s+H_norm=")
+    metrics_by_sample: Dict[str, Dict[int, List[float]]] = {}
+    current_sample_id: Optional[str] = None
+
+    for raw_line in sample_metrics_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("sample_id="):
+            current_sample_id = line.split("=", 1)[1].strip()
+            metrics_by_sample.setdefault(current_sample_id, {})
+            continue
+        if current_sample_id is None:
+            continue
+
+        match = layer_re.match(line)
+        if not match:
+            continue
+        layer_idx = int(match.group(1))
+        r_values = ast.literal_eval(match.group(2))
+        metrics_by_sample[current_sample_id][layer_idx] = [float(value) for value in r_values]
+
+    return metrics_by_sample
+
+
+def mean(values: List[float]) -> float:
+    return sum(values) / len(values)
+
+
+def append_metric(
+    target: Dict[int, List[float]],
+    layer_idx: int,
+    value: Optional[float],
+) -> None:
+    if value is None:
+        return
+    target.setdefault(layer_idx, []).append(value)
 
 
 def plot_entropy_summary(
