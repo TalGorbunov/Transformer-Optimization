@@ -568,6 +568,12 @@ def main() -> None:
     ap.add_argument("--data_root", type=str, required=True)
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--output", type=str, default="outputs")
+    ap.add_argument(
+        "--batch_size",
+        type=int,
+        default=8,
+        help="Number of evidence-frame corruption runs to execute together in one forward pass.",
+    )
 
     ap.add_argument("--lambda", dest="lambda_threshold", type=float, default=None)
     ap.add_argument(
@@ -578,6 +584,9 @@ def main() -> None:
     )
 
     args = ap.parse_args()
+
+    if args.batch_size <= 0:
+        raise ValueError("--batch_size must be a positive integer")
 
     lambda_threshold = resolve_lambda_threshold(args)
 
@@ -666,12 +675,23 @@ def main() -> None:
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
             f"LD_clean={clean_ld:.4f} lambda={lambda_threshold:.4f} "
-            f"a*={a_star_id} a^={a_hat_id} evidence_frames={valid_evidence_frames}"
+            f"a*={a_star_id} a^={a_hat_id} evidence_frames={valid_evidence_frames} "
+            f"batch_size={args.batch_size}"
         )
 
         evidence_token_positions = [frame_groups[frame_idx] for frame_idx in valid_evidence_frames]
+        chunk_size = min(args.batch_size, len(valid_evidence_frames))
+        evidence_chunks: List[List[int]] = [
+            evidence_token_positions[start:start + chunk_size]
+            for start in range(0, len(evidence_token_positions), chunk_size)
+        ]
+
+        batched_inputs_chunks: List[Dict[str, torch.Tensor]] = []
         try:
-            batched_inputs = repeat_inputs_for_batch(inputs, batch_size=len(valid_evidence_frames))
+            for evidence_chunk in evidence_chunks:
+                batched_inputs_chunks.append(
+                    repeat_inputs_for_batch(inputs, batch_size=len(evidence_chunk))
+                )
         except Exception as exc:
             print(
                 f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
@@ -687,23 +707,29 @@ def main() -> None:
             layer_corrupted_lds: List[float] = []
             layer_importances: List[float] = []
 
-            try:
-                corrupted_logits_batch = run_layer_multi_frame_corrupted_last_logits(
-                    lm=lm,
-                    layers=layers,
-                    batched_inputs=batched_inputs,
-                    layer_idx=layer_idx,
-                    token_positions_by_batch=evidence_token_positions,
-                )
-            except Exception as exc:
-                print(
-                    f"  layer={layer_idx} failed batched corruption forward ({exc}); "
-                    "using importance=0 for all evidence frames"
-                )
-                layer_corrupted_lds.extend([clean_ld] * len(valid_evidence_frames))
-                layer_importances.extend([0.0] * len(valid_evidence_frames))
-            else:
-                for batch_idx in range(len(valid_evidence_frames)):
+            for chunk_idx, (evidence_chunk, batched_inputs_chunk) in enumerate(
+                zip(evidence_chunks, batched_inputs_chunks),
+                start=1,
+            ):
+                try:
+                    corrupted_logits_batch = run_layer_multi_frame_corrupted_last_logits(
+                        lm=lm,
+                        layers=layers,
+                        batched_inputs=batched_inputs_chunk,
+                        layer_idx=layer_idx,
+                        token_positions_by_batch=evidence_chunk,
+                    )
+                except Exception as exc:
+                    print(
+                        f"  layer={layer_idx} failed batched corruption forward "
+                        f"(chunk {chunk_idx}/{len(evidence_chunks)}, {exc}); "
+                        "using importance=0 for this chunk"
+                    )
+                    layer_corrupted_lds.extend([clean_ld] * len(evidence_chunk))
+                    layer_importances.extend([0.0] * len(evidence_chunk))
+                    continue
+
+                for batch_idx in range(len(evidence_chunk)):
                     corrupted_ld = compute_ld(corrupted_logits_batch[batch_idx], a_star_id, a_hat_id)
                     importance = max(clean_ld - corrupted_ld, 0.0)
                     layer_corrupted_lds.append(corrupted_ld)
