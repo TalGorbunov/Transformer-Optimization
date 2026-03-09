@@ -135,5 +135,5 @@ result_aggregations/
 final_runs/
 
 logs/
-output/
+output*/
 scripts/
