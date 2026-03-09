@@ -156,6 +156,28 @@ def _to_hidden_tensor(x: Any) -> torch.Tensor:
     raise TypeError(f"Unsupported layer output type for corruption: {type(x)}")
 
 
+def infer_corrupted_data_root(clean_data_root: Path) -> Path:
+    clean_parts = list(clean_data_root.parts)
+    for clean_name in ("mmred_images", "mmred"):
+        if clean_name in clean_parts:
+            idx = clean_parts.index(clean_name)
+            new_parts = clean_parts[:]
+            new_parts[idx] = "mmred_corrupted"
+            return Path(*new_parts)
+    raise ValueError(
+        "Could not infer corrupted root from --data_root. "
+        "Please pass --corrupted_root explicitly."
+    )
+
+
+def resolve_corrupted_sample_dir(
+    corrupted_data_root: Path,
+    sample_id: str,
+    frame_idx: int,
+) -> Path:
+    return corrupted_data_root / sample_id / f"corrupted_frame_{frame_idx}"
+
+
 def append_answer_tokens_for_scoring(
     inputs: Dict[str, torch.Tensor],
     answer_token_ids: List[int],
@@ -236,29 +258,78 @@ def run_clean_sequence_logprob(
 def run_layer_multi_frame_corrupted_sequence_logprob(
     lm: LanguageModel,
     layers: Any,
-    batched_scoring_inputs: Dict[str, torch.Tensor],
+    clean_batched_scoring_inputs: Dict[str, torch.Tensor],
+    corrupted_batched_scoring_inputs: Dict[str, torch.Tensor],
     layer_idx: int,
     token_positions_by_batch: List[List[int]],
     prompt_len: int,
     answer_token_ids: List[int],
+    corruption_mode: str = "patch_from_corrupted",
 ) -> torch.Tensor:
     with torch.no_grad():
-        with lm.trace(batched_scoring_inputs):
-            try:
-                layer_out = _to_hidden_tensor(layers[layer_idx].output)
-                for batch_idx, token_positions in enumerate(token_positions_by_batch):
-                    if token_positions:
-                        layer_out[batch_idx, token_positions, :] = 0
-            except Exception:
-                # Some architectures expose output as tuple-like (hidden, ...)
-                layer_out = _to_hidden_tensor(layers[layer_idx].output[0])
-                for batch_idx, token_positions in enumerate(token_positions_by_batch):
-                    if token_positions:
-                        layer_out[batch_idx, token_positions, :] = 0
+        # Corrupted run: this is a normal forward pass on corrupted input frames.
+        # We save layer-l activations here and later patch them into the clean run.
+        with lm.trace(corrupted_batched_scoring_inputs):
+            corrupted_layer_saved = _to_hidden_tensor(layers[layer_idx].output).save()
 
+        # Clean run: this starts from the original clean sample. Corruption is injected
+        # only at layer l by patching evidence-frame token activations.
+        with lm.trace(clean_batched_scoring_inputs):
+            clean_layer_out = _to_hidden_tensor(layers[layer_idx].output)
+            if corruption_mode == "patch_from_corrupted":
+                corrupted_layer_out = _materialize_saved(corrupted_layer_saved)
+                for batch_idx, token_positions in enumerate(token_positions_by_batch):
+                    if token_positions:
+                        # Layerwise patching site:
+                        # copy corrupted evidence-frame token states into the clean run.
+                        clean_layer_out[batch_idx, token_positions, :] = corrupted_layer_out[
+                            batch_idx, token_positions, :
+                        ]
+            elif corruption_mode == "zero":
+                # Kept for easy future re-enable, but not used by default.
+                for batch_idx, token_positions in enumerate(token_positions_by_batch):
+                    if token_positions:
+                        clean_layer_out[batch_idx, token_positions, :] = 0
+            else:
+                raise ValueError(f"Unsupported corruption_mode={corruption_mode!r}")
             saved_logits = lm.output.logits.save()
     logits = _materialize_saved(saved_logits)
     return sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
+
+
+def concatenate_inputs_for_batch(inputs_list: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+    if not inputs_list:
+        raise ValueError("inputs_list must be non-empty")
+    if len(inputs_list) == 1:
+        return inputs_list[0]
+
+    out: Dict[str, torch.Tensor] = {}
+    keys = list(inputs_list[0].keys())
+    for key in keys:
+        values = [inputs[key] for inputs in inputs_list]
+        first_value = values[0]
+
+        if not torch.is_tensor(first_value):
+            out[key] = first_value
+            continue
+
+        if first_value.dim() == 0:
+            out[key] = torch.stack(values, dim=0)
+            continue
+
+        if int(first_value.shape[0]) == 1:
+            out[key] = torch.cat(values, dim=0)
+            continue
+
+        if key in {"pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw"}:
+            out[key] = torch.cat(values, dim=0)
+            continue
+
+        raise ValueError(
+            f"Cannot concatenate input {key!r} with shape={tuple(first_value.shape)}"
+        )
+
+    return out
 
 
 def compute_ld(answer_score: float, competitor_score: float) -> float:
@@ -638,12 +709,21 @@ def main() -> None:
         description=(
             "Compute per-layer evidence importances and entropies. "
             "For each sample: score the full GT answer sequence, choose a^ as the best non-a* full-answer "
-            "competitor over numeric candidates, skip if LD_clean < lambda, then zero evidence-frame tokens "
-            "at each layer and compute "
+            "competitor over numeric candidates, skip if LD_clean < lambda, then patch corrupted-run "
+            "evidence-frame activations into the clean run at each layer and compute "
             "importance=max(LD_clean-LD_corrupted,0)."
         )
     )
     ap.add_argument("--data_root", type=str, required=True)
+    ap.add_argument(
+        "--corrupted_root",
+        type=str,
+        default=None,
+        help=(
+            "Root directory for corrupted samples. If omitted, inferred from --data_root "
+            "(e.g., .../mmred_images/... -> .../mmred_corrupted/...)."
+        ),
+    )
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--output", type=str, default="outputs")
     ap.add_argument(
@@ -669,6 +749,11 @@ def main() -> None:
     lambda_threshold = resolve_lambda_threshold(args)
 
     data_root = Path(args.data_root)
+    corrupted_data_root = (
+        Path(args.corrupted_root)
+        if args.corrupted_root is not None
+        else infer_corrupted_data_root(data_root)
+    )
     output_dir = Path(args.output)
 
     seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
@@ -747,10 +832,19 @@ def main() -> None:
             continue
 
         valid_evidence_frames: List[int] = []
+        missing_corruption_dirs = 0
         for frame_idx in evidence_frames:
             if frame_idx >= len(frame_groups):
                 continue
             if not frame_groups[frame_idx]:
+                continue
+            corrupted_sample_dir = resolve_corrupted_sample_dir(
+                corrupted_data_root=corrupted_data_root,
+                sample_id=sample_id,
+                frame_idx=frame_idx,
+            )
+            if not corrupted_sample_dir.is_dir():
+                missing_corruption_dirs += 1
                 continue
             valid_evidence_frames.append(frame_idx)
 
@@ -761,31 +855,72 @@ def main() -> None:
             )
             continue
 
+        if missing_corruption_dirs > 0:
+            print(
+                f"  missing corrupted inputs for {missing_corruption_dirs} evidence frame(s); "
+                "using available corrupted_frame_* directories only"
+            )
+
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
             f"LD_clean={clean_ld:.4f} lambda={lambda_threshold:.4f} "
             f"a*={a_star_text} a^={a_hat_text} "
             f"evidence_frames={valid_evidence_frames} "
-            f"batch_size={args.batch_size}"
+            f"batch_size={args.batch_size} "
+            f"corrupted_root={corrupted_data_root}"
         )
 
-        evidence_token_positions = [frame_groups[frame_idx] for frame_idx in valid_evidence_frames]
-        chunk_size = min(args.batch_size, len(valid_evidence_frames))
-        evidence_chunks: List[List[int]] = [
-            evidence_token_positions[start:start + chunk_size]
-            for start in range(0, len(evidence_token_positions), chunk_size)
+        # Evidence-frame token indices are selected from the clean prompt tokenization.
+        # frame_groups[frame_idx] gives the exact token span for image frame frame_idx.
+        evidence_token_positions_by_frame: List[Tuple[int, List[int]]] = [
+            (frame_idx, frame_groups[frame_idx]) for frame_idx in valid_evidence_frames
+        ]
+        chunk_size = min(args.batch_size, len(evidence_token_positions_by_frame))
+        evidence_chunks: List[List[Tuple[int, List[int]]]] = [
+            evidence_token_positions_by_frame[start:start + chunk_size]
+            for start in range(0, len(evidence_token_positions_by_frame), chunk_size)
         ]
 
         batched_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
         batched_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+        batched_corrupted_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+        batched_corrupted_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
         try:
             for evidence_chunk in evidence_chunks:
-                repeated_inputs = repeat_inputs_for_batch(inputs, batch_size=len(evidence_chunk))
+                chunk_size_current = len(evidence_chunk)
+                repeated_inputs = repeat_inputs_for_batch(inputs, batch_size=chunk_size_current)
                 batched_answer_scoring_inputs_chunks.append(
                     append_answer_tokens_for_scoring(repeated_inputs, a_star_ids)
                 )
                 batched_competing_scoring_inputs_chunks.append(
                     append_answer_tokens_for_scoring(repeated_inputs, a_hat_ids)
+                )
+
+                corrupted_chunk_inputs: List[Dict[str, torch.Tensor]] = []
+                for frame_idx, _ in evidence_chunk:
+                    corrupted_sample_dir = resolve_corrupted_sample_dir(
+                        corrupted_data_root=corrupted_data_root,
+                        sample_id=sample_id,
+                        frame_idx=frame_idx,
+                    )
+                    _, corrupted_frames, corrupted_question, _, _ = load_mmred_sample(corrupted_sample_dir)
+                    corrupted_input = move_inputs_to_model_device(
+                        build_inputs(corrupted_frames, corrupted_question)
+                    )
+                    corrupted_prompt_len = int(corrupted_input["input_ids"].shape[1])
+                    if corrupted_prompt_len != prompt_len:
+                        raise ValueError(
+                            f"Prompt length mismatch for corrupted frame {frame_idx}: "
+                            f"clean={prompt_len} corrupted={corrupted_prompt_len}"
+                        )
+                    corrupted_chunk_inputs.append(corrupted_input)
+
+                corrupted_batched_inputs = concatenate_inputs_for_batch(corrupted_chunk_inputs)
+                batched_corrupted_answer_scoring_inputs_chunks.append(
+                    append_answer_tokens_for_scoring(corrupted_batched_inputs, a_star_ids)
+                )
+                batched_corrupted_competing_scoring_inputs_chunks.append(
+                    append_answer_tokens_for_scoring(corrupted_batched_inputs, a_hat_ids)
                 )
         except Exception as exc:
             print(
@@ -806,32 +941,43 @@ def main() -> None:
                 evidence_chunk,
                 batched_answer_scoring_inputs_chunk,
                 batched_competing_scoring_inputs_chunk,
+                batched_corrupted_answer_scoring_inputs_chunk,
+                batched_corrupted_competing_scoring_inputs_chunk,
             ) in enumerate(
                 zip(
                     evidence_chunks,
                     batched_answer_scoring_inputs_chunks,
                     batched_competing_scoring_inputs_chunks,
+                    batched_corrupted_answer_scoring_inputs_chunks,
+                    batched_corrupted_competing_scoring_inputs_chunks,
                 ),
                 start=1,
             ):
                 try:
+                    token_positions_by_batch = [
+                        token_positions for _, token_positions in evidence_chunk
+                    ]
                     corrupted_answer_scores = run_layer_multi_frame_corrupted_sequence_logprob(
                         lm=lm,
                         layers=layers,
-                        batched_scoring_inputs=batched_answer_scoring_inputs_chunk,
+                        clean_batched_scoring_inputs=batched_answer_scoring_inputs_chunk,
+                        corrupted_batched_scoring_inputs=batched_corrupted_answer_scoring_inputs_chunk,
                         layer_idx=layer_idx,
-                        token_positions_by_batch=evidence_chunk,
+                        token_positions_by_batch=token_positions_by_batch,
                         prompt_len=prompt_len,
                         answer_token_ids=a_star_ids,
+                        corruption_mode="patch_from_corrupted",
                     )
                     corrupted_competing_scores = run_layer_multi_frame_corrupted_sequence_logprob(
                         lm=lm,
                         layers=layers,
-                        batched_scoring_inputs=batched_competing_scoring_inputs_chunk,
+                        clean_batched_scoring_inputs=batched_competing_scoring_inputs_chunk,
+                        corrupted_batched_scoring_inputs=batched_corrupted_competing_scoring_inputs_chunk,
                         layer_idx=layer_idx,
-                        token_positions_by_batch=evidence_chunk,
+                        token_positions_by_batch=token_positions_by_batch,
                         prompt_len=prompt_len,
                         answer_token_ids=a_hat_ids,
+                        corruption_mode="patch_from_corrupted",
                     )
                 except Exception as exc:
                     print(
@@ -839,11 +985,12 @@ def main() -> None:
                         f"(chunk {chunk_idx}/{len(evidence_chunks)}, {exc}); "
                         "using importance=0 for this chunk"
                     )
-                    layer_corrupted_lds.extend([clean_ld] * len(evidence_chunk))
-                    layer_importances.extend([0.0] * len(evidence_chunk))
+                    chunk_count = len(evidence_chunk)
+                    layer_corrupted_lds.extend([clean_ld] * chunk_count)
+                    layer_importances.extend([0.0] * chunk_count)
                     continue
 
-                for batch_idx in range(len(evidence_chunk)):
+                for batch_idx in range(len(token_positions_by_batch)):
                     corrupted_ld = compute_ld(
                         float(corrupted_answer_scores[batch_idx].item()),
                         float(corrupted_competing_scores[batch_idx].item()),
