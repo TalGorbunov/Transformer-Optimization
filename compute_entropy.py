@@ -18,11 +18,11 @@ _STEPS_IN_ROOM_RE = re.compile(
 )
 
 
-def first_token_id_of_answer(answer_text: str) -> int:
+def token_ids_of_answer(answer_text: str) -> List[int]:
     ids = processor.tokenizer.encode(str(answer_text).strip(), add_special_tokens=False)
     if not ids:
         raise ValueError(f"Answer text tokenized to empty: {answer_text!r}")
-    return int(ids[0])
+    return [int(tok_id) for tok_id in ids]
 
 
 def build_prompt(question: str, num_frames: int) -> str:
@@ -156,46 +156,94 @@ def _to_hidden_tensor(x: Any) -> torch.Tensor:
     raise TypeError(f"Unsupported layer output type for corruption: {type(x)}")
 
 
-def run_clean_last_logits(lm: LanguageModel, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-    with torch.inference_mode():
-        with lm.trace(inputs):
-            saved_logits = lm.output.logits[:, -1, :].save()
-    return _materialize_saved(saved_logits)[0]
-
-
-def run_layer_frame_corrupted_last_logits(
-    lm: LanguageModel,
-    layers: Any,
+def append_answer_tokens_for_scoring(
     inputs: Dict[str, torch.Tensor],
-    layer_idx: int,
-    token_positions: List[int],
+    answer_token_ids: List[int],
+) -> Dict[str, torch.Tensor]:
+    if not answer_token_ids:
+        raise ValueError("answer_token_ids must be non-empty")
+
+    input_ids = inputs["input_ids"]
+    if input_ids.dim() != 2:
+        raise ValueError(f"Expected input_ids to be rank-2, got shape={tuple(input_ids.shape)}")
+
+    batch_size = int(input_ids.shape[0])
+    answer_tokens = torch.tensor(
+        answer_token_ids,
+        dtype=input_ids.dtype,
+        device=input_ids.device,
+    ).unsqueeze(0).repeat(batch_size, 1)
+
+    scored_inputs = dict(inputs)
+    scored_inputs["input_ids"] = torch.cat([input_ids, answer_tokens], dim=1)
+
+    if "attention_mask" in inputs and torch.is_tensor(inputs["attention_mask"]):
+        attention_mask = inputs["attention_mask"]
+        if attention_mask.dim() != 2 or int(attention_mask.shape[0]) != batch_size:
+            raise ValueError(
+                f"Expected attention_mask shape to be (batch, seq), got {tuple(attention_mask.shape)}"
+            )
+        suffix_attention = torch.ones(
+            (batch_size, len(answer_token_ids)),
+            dtype=attention_mask.dtype,
+            device=attention_mask.device,
+        )
+        scored_inputs["attention_mask"] = torch.cat([attention_mask, suffix_attention], dim=1)
+
+    return scored_inputs
+
+
+def sequence_logprob_from_logits(
+    logits: torch.Tensor,
+    prompt_len: int,
+    answer_token_ids: List[int],
 ) -> torch.Tensor:
-    if not token_positions:
-        return run_clean_last_logits(lm, inputs)
+    if logits.dim() != 3:
+        raise ValueError(f"Expected logits rank-3 [batch, seq, vocab], got {tuple(logits.shape)}")
+    if prompt_len <= 0:
+        raise ValueError("prompt_len must be >= 1")
+    if not answer_token_ids:
+        raise ValueError("answer_token_ids must be non-empty")
 
-    with torch.no_grad():
-        with lm.trace(inputs):
-            try:
-                layer_out = _to_hidden_tensor(layers[layer_idx].output)
-                layer_out[:, token_positions, :] = 0
-            except Exception:
-                # Some architectures expose output as tuple-like (hidden, ...)
-                layer_out = _to_hidden_tensor(layers[layer_idx].output[0])
-                layer_out[:, token_positions, :] = 0
+    batch_size = int(logits.shape[0])
+    device = logits.device
+    answer_len = len(answer_token_ids)
 
-            saved_logits = lm.output.logits[:, -1, :].save()
-    return _materialize_saved(saved_logits)[0]
+    token_positions = torch.arange(answer_len, device=device, dtype=torch.long) + (prompt_len - 1)
+    target_token_ids = torch.tensor(answer_token_ids, device=device, dtype=torch.long).unsqueeze(0)
+    target_token_ids = target_token_ids.repeat(batch_size, 1)
+
+    selected_logits = logits[:, token_positions, :]
+    log_probs = torch.log_softmax(selected_logits, dim=-1)
+    target_log_probs = torch.gather(log_probs, dim=-1, index=target_token_ids.unsqueeze(-1)).squeeze(-1)
+    return target_log_probs.sum(dim=1)
 
 
-def run_layer_multi_frame_corrupted_last_logits(
+def run_clean_sequence_logprob(
+    lm: LanguageModel,
+    scoring_inputs: Dict[str, torch.Tensor],
+    prompt_len: int,
+    answer_token_ids: List[int],
+) -> float:
+    with torch.inference_mode():
+        with lm.trace(scoring_inputs):
+            saved_logits = lm.output.logits.save()
+    logits = _materialize_saved(saved_logits)
+    scores = sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
+    return float(scores[0].item())
+
+
+def run_layer_multi_frame_corrupted_sequence_logprob(
     lm: LanguageModel,
     layers: Any,
-    batched_inputs: Dict[str, torch.Tensor],
+    batched_scoring_inputs: Dict[str, torch.Tensor],
     layer_idx: int,
     token_positions_by_batch: List[List[int]],
+    prompt_len: int,
+    answer_token_ids: List[int],
 ) -> torch.Tensor:
     with torch.no_grad():
-        with lm.trace(batched_inputs):
+        with lm.trace(batched_scoring_inputs):
             try:
                 layer_out = _to_hidden_tensor(layers[layer_idx].output)
                 for batch_idx, token_positions in enumerate(token_positions_by_batch):
@@ -208,24 +256,51 @@ def run_layer_multi_frame_corrupted_last_logits(
                     if token_positions:
                         layer_out[batch_idx, token_positions, :] = 0
 
-            saved_logits = lm.output.logits[:, -1, :].save()
-    return _materialize_saved(saved_logits)
+            saved_logits = lm.output.logits.save()
+    logits = _materialize_saved(saved_logits)
+    return sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
 
 
-def pick_best_competitor_token_id(last_logits_1d: torch.Tensor, a_star_id: int) -> int:
-    if a_star_id < 0 or a_star_id >= int(last_logits_1d.numel()):
-        raise ValueError(f"a* token id out of range: {a_star_id}")
-
-    competitor_logits = last_logits_1d.detach().clone()
-    competitor_logits[a_star_id] = torch.finfo(competitor_logits.dtype).min
-    a_hat_id = int(torch.argmax(competitor_logits).item())
-    if a_hat_id == a_star_id:
-        raise RuntimeError("Failed to select competitor token a^ distinct from a*.")
-    return a_hat_id
+def compute_ld(answer_score: float, competitor_score: float) -> float:
+    return float(answer_score - competitor_score)
 
 
-def compute_ld(last_logits_1d: torch.Tensor, a_star_id: int, a_hat_id: int) -> float:
-    return float((last_logits_1d[a_star_id] - last_logits_1d[a_hat_id]).item())
+def best_competing_answer(
+    lm: LanguageModel,
+    inputs: Dict[str, torch.Tensor],
+    prompt_len: int,
+    correct_answer_text: str,
+    max_answer_value: int,
+) -> Tuple[str, List[int], float]:
+    normalized_correct = str(correct_answer_text).strip()
+
+    best_text: Optional[str] = None
+    best_token_ids: Optional[List[int]] = None
+    best_score: Optional[float] = None
+
+    for value in range(max_answer_value + 1):
+        candidate_text = str(value)
+        if candidate_text == normalized_correct:
+            continue
+
+        candidate_token_ids = token_ids_of_answer(candidate_text)
+        candidate_scoring_inputs = append_answer_tokens_for_scoring(inputs, candidate_token_ids)
+        candidate_score = run_clean_sequence_logprob(
+            lm=lm,
+            scoring_inputs=candidate_scoring_inputs,
+            prompt_len=prompt_len,
+            answer_token_ids=candidate_token_ids,
+        )
+
+        if best_score is None or candidate_score > best_score:
+            best_text = candidate_text
+            best_token_ids = candidate_token_ids
+            best_score = candidate_score
+
+    if best_text is None or best_token_ids is None or best_score is None:
+        raise RuntimeError("Failed to select competing answer sequence.")
+
+    return best_text, best_token_ids, float(best_score)
 
 
 def normalize_to_probabilities(values: List[float]) -> List[float]:
@@ -328,8 +403,10 @@ def write_entropy_report(sample_metrics: List[Dict[str, Any]], output_dir: Path)
         lines.append(f"sample_id={sample['sample_id']}")
         lines.append(
             f"clean_ld={sample['clean_ld']:.8f} "
-            f"a_star_id={sample['a_star_id']} a_hat_id={sample['a_hat_id']} "
-            f"a_star_token={sample['a_star_token']!r} a_hat_token={sample['a_hat_token']!r}"
+            f"clean_answer_score={sample['clean_answer_score']:.8f} "
+            f"clean_competing_score={sample['clean_competing_score']:.8f} "
+            f"a_star_text={sample['a_star_text']!r} a_hat_text={sample['a_hat_text']!r} "
+            f"a_star_ids={sample['a_star_ids']} a_hat_ids={sample['a_hat_ids']}"
         )
         lines.append(f"evidence_frames={sample['evidence_frames']}")
         for layer_metrics in sample["layer_metrics"]["layers"]:
@@ -560,8 +637,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
             "Compute per-layer evidence importances and entropies. "
-            "For each sample: choose a* from GT answer, choose a^ as the best non-a* clean competitor, "
-            "skip if LD_clean < lambda, then zero evidence-frame tokens at each layer and compute "
+            "For each sample: score the full GT answer sequence, choose a^ as the best non-a* full-answer "
+            "competitor over numeric candidates, skip if LD_clean < lambda, then zero evidence-frame tokens "
+            "at each layer and compute "
             "importance=max(LD_clean-LD_corrupted,0)."
         )
     )
@@ -629,17 +707,28 @@ def main() -> None:
         inputs = move_inputs_to_model_device(build_inputs(frames, question))
 
         try:
-            clean_logits = run_clean_last_logits(lm, inputs)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean forward failed ({exc})")
-            continue
+            prompt_len = int(inputs["input_ids"].shape[1])
+            a_star_text = str(answer).strip()
+            a_star_ids = token_ids_of_answer(a_star_text)
 
-        try:
-            a_star_id = first_token_id_of_answer(answer)
-            a_hat_id = pick_best_competitor_token_id(clean_logits, a_star_id)
-            clean_ld = compute_ld(clean_logits, a_star_id, a_hat_id)
+            clean_answer_scoring_inputs = append_answer_tokens_for_scoring(inputs, a_star_ids)
+            clean_answer_score = run_clean_sequence_logprob(
+                lm=lm,
+                scoring_inputs=clean_answer_scoring_inputs,
+                prompt_len=prompt_len,
+                answer_token_ids=a_star_ids,
+            )
+
+            a_hat_text, a_hat_ids, clean_competing_score = best_competing_answer(
+                lm=lm,
+                inputs=inputs,
+                prompt_len=prompt_len,
+                correct_answer_text=a_star_text,
+                max_answer_value=len(frames),
+            )
+            clean_ld = compute_ld(clean_answer_score, clean_competing_score)
         except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: token/LD setup failed ({exc})")
+            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: sequence LD setup failed ({exc})")
             continue
 
         if clean_ld < lambda_threshold:
@@ -675,7 +764,8 @@ def main() -> None:
         print(
             f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
             f"LD_clean={clean_ld:.4f} lambda={lambda_threshold:.4f} "
-            f"a*={a_star_id} a^={a_hat_id} evidence_frames={valid_evidence_frames} "
+            f"a*={a_star_text} a^={a_hat_text} "
+            f"evidence_frames={valid_evidence_frames} "
             f"batch_size={args.batch_size}"
         )
 
@@ -686,11 +776,16 @@ def main() -> None:
             for start in range(0, len(evidence_token_positions), chunk_size)
         ]
 
-        batched_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+        batched_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+        batched_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
         try:
             for evidence_chunk in evidence_chunks:
-                batched_inputs_chunks.append(
-                    repeat_inputs_for_batch(inputs, batch_size=len(evidence_chunk))
+                repeated_inputs = repeat_inputs_for_batch(inputs, batch_size=len(evidence_chunk))
+                batched_answer_scoring_inputs_chunks.append(
+                    append_answer_tokens_for_scoring(repeated_inputs, a_star_ids)
+                )
+                batched_competing_scoring_inputs_chunks.append(
+                    append_answer_tokens_for_scoring(repeated_inputs, a_hat_ids)
                 )
         except Exception as exc:
             print(
@@ -707,17 +802,36 @@ def main() -> None:
             layer_corrupted_lds: List[float] = []
             layer_importances: List[float] = []
 
-            for chunk_idx, (evidence_chunk, batched_inputs_chunk) in enumerate(
-                zip(evidence_chunks, batched_inputs_chunks),
+            for chunk_idx, (
+                evidence_chunk,
+                batched_answer_scoring_inputs_chunk,
+                batched_competing_scoring_inputs_chunk,
+            ) in enumerate(
+                zip(
+                    evidence_chunks,
+                    batched_answer_scoring_inputs_chunks,
+                    batched_competing_scoring_inputs_chunks,
+                ),
                 start=1,
             ):
                 try:
-                    corrupted_logits_batch = run_layer_multi_frame_corrupted_last_logits(
+                    corrupted_answer_scores = run_layer_multi_frame_corrupted_sequence_logprob(
                         lm=lm,
                         layers=layers,
-                        batched_inputs=batched_inputs_chunk,
+                        batched_scoring_inputs=batched_answer_scoring_inputs_chunk,
                         layer_idx=layer_idx,
                         token_positions_by_batch=evidence_chunk,
+                        prompt_len=prompt_len,
+                        answer_token_ids=a_star_ids,
+                    )
+                    corrupted_competing_scores = run_layer_multi_frame_corrupted_sequence_logprob(
+                        lm=lm,
+                        layers=layers,
+                        batched_scoring_inputs=batched_competing_scoring_inputs_chunk,
+                        layer_idx=layer_idx,
+                        token_positions_by_batch=evidence_chunk,
+                        prompt_len=prompt_len,
+                        answer_token_ids=a_hat_ids,
                     )
                 except Exception as exc:
                     print(
@@ -730,7 +844,10 @@ def main() -> None:
                     continue
 
                 for batch_idx in range(len(evidence_chunk)):
-                    corrupted_ld = compute_ld(corrupted_logits_batch[batch_idx], a_star_id, a_hat_id)
+                    corrupted_ld = compute_ld(
+                        float(corrupted_answer_scores[batch_idx].item()),
+                        float(corrupted_competing_scores[batch_idx].item()),
+                    )
                     importance = max(clean_ld - corrupted_ld, 0.0)
                     layer_corrupted_lds.append(corrupted_ld)
                     layer_importances.append(importance)
@@ -778,10 +895,12 @@ def main() -> None:
             "sample_id": sample_id,
             "answer": answer,
             "clean_ld": clean_ld,
-            "a_star_id": a_star_id,
-            "a_hat_id": a_hat_id,
-            "a_star_token": processor.tokenizer.decode([a_star_id], skip_special_tokens=True).strip(),
-            "a_hat_token": processor.tokenizer.decode([a_hat_id], skip_special_tokens=True).strip(),
+            "clean_answer_score": clean_answer_score,
+            "clean_competing_score": clean_competing_score,
+            "a_star_text": a_star_text,
+            "a_hat_text": a_hat_text,
+            "a_star_ids": a_star_ids,
+            "a_hat_ids": a_hat_ids,
             "evidence_frames": list(valid_evidence_frames),
             "layer_metrics": {
                 "layers": per_layer_metrics,
