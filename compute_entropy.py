@@ -275,41 +275,11 @@ def format_corrupted_ld_table(
     return "\n".join(lines)
 
 
-def format_layer_invalidity_table(
-    sampled_counts: List[int],
-    invalid_counts: List[int],
-) -> str:
-    headers = ["layer", "sampled", "invalid", "invalid_pct"]
-    rows: List[List[str]] = []
-
-    for layer_idx, (sampled, invalid) in enumerate(zip(sampled_counts, invalid_counts)):
-        invalid_pct = (100.0 * float(invalid) / float(sampled)) if sampled > 0 else 0.0
-        rows.append([str(layer_idx), str(sampled), str(invalid), f"{invalid_pct:.2f}%"])
-
-    col_widths = [
-        max(
-            len(headers[col_idx]),
-            *(len(row[col_idx]) for row in rows),
-        )
-        for col_idx in range(len(headers))
-    ]
-
-    def _fmt_row(row: List[str]) -> str:
-        return "| " + " | ".join(
-            cell.rjust(col_widths[col_idx]) for col_idx, cell in enumerate(row)
-        ) + " |"
-
-    separator = "+-" + "-+-".join("-" * w for w in col_widths) + "-+"
-    lines = [separator, _fmt_row(headers), separator]
-    lines.extend(_fmt_row(row) for row in rows)
-    lines.append(separator)
-    return "\n".join(lines)
-
-
 def plot_layer_invalidity_rates(
     sampled_counts: List[int],
     invalid_counts: List[int],
     output_dir: Path,
+    seq_len_label: Optional[str] = None,
 ) -> Optional[Path]:
     try:
         import matplotlib.pyplot as plt
@@ -342,7 +312,8 @@ def plot_layer_invalidity_rates(
 
     fig.tight_layout()
     output_dir.mkdir(parents=True, exist_ok=True)
-    plot_path = output_dir / "layer_invalidity_rate.png"
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    plot_path = output_dir / f"layer_invalidity_rate{suffix}.png"
     fig.savefig(plot_path, bbox_inches="tight")
     plt.close(fig)
     return plot_path
@@ -366,7 +337,8 @@ def write_entropy_report(sample_metrics: List[Dict[str, Any]], output_dir: Path)
                 f"layer={layer_metrics['layer']} "
                 f"r={_fmt_float_list(layer_metrics['r'])} "
                 f"p={_fmt_float_list(layer_metrics['p'])} "
-                f"H_norm={layer_metrics['entropy']:.8f}"
+                f"H_norm={layer_metrics['entropy']:.8f} "
+                f"R_total={layer_metrics['total_importance']:.8f}"
             )
         lines.append("")
 
@@ -404,8 +376,6 @@ def plot_entropy_means_medians(
     median_values: List[float] = []
     mean_lo_values: List[float] = []
     mean_hi_values: List[float] = []
-    median_lo_values: List[float] = []
-    median_hi_values: List[float] = []
 
     for layer_idx in layers:
         values = entropy_by_layer[layer_idx]
@@ -420,34 +390,22 @@ def plot_entropy_means_medians(
 
         if n <= 1:
             mean_lo = mean_hi = mean_value
-            median_lo = median_hi = median_value
         else:
             boot_means: List[float] = []
-            boot_medians: List[float] = []
             for _ in range(n_bootstrap):
                 sample = [values[rng.randrange(n)] for _ in range(n)]
-                sample_sorted = sorted(sample)
                 boot_means.append(sum(sample) / n)
-                if n % 2 == 1:
-                    boot_medians.append(sample_sorted[n // 2])
-                else:
-                    boot_medians.append(0.5 * (sample_sorted[n // 2 - 1] + sample_sorted[n // 2]))
 
             boot_means.sort()
-            boot_medians.sort()
             lo_idx = int(0.025 * (n_bootstrap - 1))
             hi_idx = int(0.975 * (n_bootstrap - 1))
             mean_lo = boot_means[lo_idx]
             mean_hi = boot_means[hi_idx]
-            median_lo = boot_medians[lo_idx]
-            median_hi = boot_medians[hi_idx]
 
         mean_values.append(mean_value)
         median_values.append(median_value)
         mean_lo_values.append(mean_lo)
         mean_hi_values.append(mean_hi)
-        median_lo_values.append(median_lo)
-        median_hi_values.append(median_hi)
 
     fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
     ax.plot(layers, mean_values, color="#1f77b4", linewidth=2.2, label="Mean entropy")
@@ -460,14 +418,6 @@ def plot_entropy_means_medians(
         label="Mean 95% CI",
     )
     ax.plot(layers, median_values, color="#d62728", linewidth=2.2, label="Median entropy")
-    ax.fill_between(
-        layers,
-        median_lo_values,
-        median_hi_values,
-        color="#d62728",
-        alpha=0.2,
-        label="Median 95% CI",
-    )
 
     title = "Entropy by Layer"
     if seq_len_label:
@@ -487,7 +437,99 @@ def plot_entropy_means_medians(
     fig.tight_layout()
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    plot_path = output_dir / "entropy_summary.png"
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    plot_path = output_dir / f"entropy_summary{suffix}.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
+
+def plot_total_importance_mean(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    num_layers: int,
+    seq_len_label: Optional[str] = None,
+    n_bootstrap: int = 1000,
+    seed: int = 0,
+) -> Optional[Path]:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception as exc:
+        print(f"Skipping total-importance plot: matplotlib is not available ({exc})")
+        return None
+
+    if num_layers <= 0 or not sample_metrics:
+        return None
+
+    per_layer_values: Dict[int, List[float]] = {layer_idx: [] for layer_idx in range(num_layers)}
+    for sample in sample_metrics:
+        sample_layer_totals = {
+            int(layer_metrics["layer"]): float(layer_metrics.get("total_importance", sum(layer_metrics["r"])))
+            for layer_metrics in sample["layer_metrics"]["layers"]
+        }
+        for layer_idx in range(num_layers):
+            # Layers missing from sample_layer_totals are zero-importance/invalid for that sample.
+            per_layer_values[layer_idx].append(sample_layer_totals.get(layer_idx, 0.0))
+
+    rng = random.Random(seed)
+    layers = list(range(num_layers))
+    mean_values: List[float] = []
+    mean_lo_values: List[float] = []
+    mean_hi_values: List[float] = []
+
+    for layer_idx in layers:
+        values = per_layer_values[layer_idx]
+        n = len(values)
+        mean_value = (sum(values) / n) if n > 0 else 0.0
+
+        if n <= 1:
+            mean_lo = mean_hi = mean_value
+        else:
+            boot_means: List[float] = []
+            for _ in range(n_bootstrap):
+                sample = [values[rng.randrange(n)] for _ in range(n)]
+                boot_means.append(sum(sample) / n)
+            boot_means.sort()
+            lo_idx = int(0.025 * (n_bootstrap - 1))
+            hi_idx = int(0.975 * (n_bootstrap - 1))
+            mean_lo = boot_means[lo_idx]
+            mean_hi = boot_means[hi_idx]
+
+        mean_values.append(mean_value)
+        mean_lo_values.append(mean_lo)
+        mean_hi_values.append(mean_hi)
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    ax.plot(layers, mean_values, color="#2ca02c", linewidth=2.2, label="Mean total importance")
+    ax.fill_between(
+        layers,
+        mean_lo_values,
+        mean_hi_values,
+        color="#2ca02c",
+        alpha=0.2,
+        label="Mean 95% CI",
+    )
+
+    title = "Total Importance by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Total importance R(l)")
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+
+    tick_step = max(1, math.ceil(len(layers) / 32))
+    xticks = layers[::tick_step]
+    if layers[-1] not in xticks:
+        xticks.append(layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    plot_path = output_dir / f"total_importance_summary{suffix}.png"
     fig.savefig(plot_path, bbox_inches="tight")
     plt.close(fig)
     return plot_path
@@ -687,6 +729,7 @@ def main() -> None:
                 "r": layer_importances,
                 "p": layer_probabilities,
                 "entropy": layer_entropy,
+                "total_importance": float(sum(layer_importances)),
             })
 
         if all_layer_corrupted_ld_rows:
@@ -733,12 +776,22 @@ def main() -> None:
     else:
         print("Skipped entropy plot: no layer metrics available.")
 
-    print("Layer invalidity summary (invalid = all importances are 0, entropy undefined):")
-    print(format_layer_invalidity_table(layer_sampled_counts, layer_invalid_counts))
+    total_importance_plot_path = plot_total_importance_mean(
+        sample_metrics,
+        output_dir,
+        num_layers=num_layers,
+        seq_len_label=seq_len_label,
+    )
+    if total_importance_plot_path is not None:
+        print(f"Wrote total-importance plot to: {total_importance_plot_path}")
+    else:
+        print("Skipped total-importance plot: no layer metrics available.")
+
     invalidity_plot_path = plot_layer_invalidity_rates(
         layer_sampled_counts,
         layer_invalid_counts,
         output_dir,
+        seq_len_label=seq_len_label,
     )
     if invalidity_plot_path is not None:
         print(f"Wrote layer invalidity plot to: {invalidity_plot_path}")
