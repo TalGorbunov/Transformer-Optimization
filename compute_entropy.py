@@ -442,7 +442,10 @@ def plot_layer_invalidity_rates(
 
     fig, ax = plt.subplots(figsize=(11, 4.5), dpi=140)
     ax.bar(layers, invalid_rates, color="#ff7f0e", width=0.8)
-    ax.set_title("Layer Invalidity Rate (All Importances Zero)", fontsize=12, pad=10)
+    title = "Layer Invalidity Rate (All Importances Zero)"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=12, pad=10)
     ax.set_xlabel("Layer")
     ax.set_ylabel("Invalid rate (%)")
     ax.set_ylim(0.0, 100.0)
