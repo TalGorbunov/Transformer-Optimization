@@ -26,7 +26,7 @@ import re
 import shutil
 from typing import Dict, List, Tuple
 
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from PIL import Image, ImageDraw, ImageFont
 
 # Fixed room order (spec)
@@ -475,6 +475,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="seq_len_16")
     ap.add_argument("--split", default="train", choices=["train", "val", "test", "all"])
+    ap.add_argument(
+        "--dataset-root",
+        default=None,
+        help="Optional local HF dataset root containing seq_len_* folders saved via DatasetDict.save_to_disk.",
+    )
     ap.add_argument("--out", default="data/mmred_images")
     ap.add_argument("--limit", type=int, default=10, help="max rendered samples AFTER qtype filter")
     ap.add_argument("--corrupt_out", default="data/mmred_corrupted", help="Output root for corrupted samples")
@@ -493,7 +498,11 @@ def main():
     rendered = 0
     rendered_sample_dirs: List[str] = []
     for split_name in split_names:
-        ds = load_dataset("ef1e43ce/mmred", args.config, split=split_name)
+        if args.dataset_root:
+            ds_dict = load_from_disk(os.path.join(args.dataset_root, args.config))
+            ds = ds_dict[split_name]
+        else:
+            ds = load_dataset("ef1e43ce/mmred", args.config, split=split_name)
         for idx in range(len(ds)):
             ex = ds[idx]
 
