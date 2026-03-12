@@ -1,4 +1,5 @@
 import argparse
+import json
 import math
 import random
 import re
@@ -705,6 +706,36 @@ def resolve_lambda_threshold(args: argparse.Namespace) -> float:
     return float(lambda_arg)
 
 
+def load_clean_ld_cache(path: Path) -> Dict[str, float]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[WARN] Failed to parse clean LD cache at {path}: {exc}. Starting with empty cache.")
+        return {}
+
+    if not isinstance(payload, dict):
+        print(f"[WARN] Invalid clean LD cache format at {path}. Expected JSON object; starting empty.")
+        return {}
+
+    cache: Dict[str, float] = {}
+    for sample_id, value in payload.items():
+        if not isinstance(sample_id, str):
+            continue
+        try:
+            cache[sample_id] = float(value)
+        except Exception:
+            continue
+    return cache
+
+
+def save_clean_ld_cache(path: Path, cache: Dict[str, float]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    serializable = {sample_id: float(ld) for sample_id, ld in sorted(cache.items())}
+    path.write_text(json.dumps(serializable, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     start_time = time.perf_counter()
 
@@ -758,6 +789,12 @@ def main() -> None:
         else infer_corrupted_data_root(data_root)
     )
     output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    clean_ld_cache_path = output_dir / "clean_lds.json"
+    clean_ld_cache = load_clean_ld_cache(clean_ld_cache_path)
+    cache_updates = 0
+    if clean_ld_cache:
+        print(f"Loaded {len(clean_ld_cache)} cached clean LD values from: {clean_ld_cache_path}")
 
     seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
     seq_len_label = seq_len_match.group(1) if seq_len_match else None
@@ -792,6 +829,14 @@ def main() -> None:
             )
             continue
 
+        cached_clean_ld = clean_ld_cache.get(sample_id)
+        if cached_clean_ld is not None and cached_clean_ld < lambda_threshold:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped from cache: "
+                f"LD_clean={cached_clean_ld:.4f} < lambda={lambda_threshold:.4f}"
+            )
+            continue
+
         inputs = move_inputs_to_model_device(build_inputs(frames, question))
 
         try:
@@ -818,6 +863,11 @@ def main() -> None:
         except Exception as exc:
             print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: sequence LD setup failed ({exc})")
             continue
+
+        cached_before = clean_ld_cache.get(sample_id)
+        if cached_before is None or abs(cached_before - clean_ld) > 1e-12:
+            clean_ld_cache[sample_id] = clean_ld
+            cache_updates += 1
 
         if clean_ld < lambda_threshold:
             print(
@@ -1057,6 +1107,15 @@ def main() -> None:
             },
         })
         processed_samples += 1
+
+    if cache_updates > 0:
+        save_clean_ld_cache(clean_ld_cache_path, clean_ld_cache)
+        print(f"Updated clean LD cache at {clean_ld_cache_path} ({cache_updates} new/changed entries).")
+    elif not clean_ld_cache_path.exists():
+        save_clean_ld_cache(clean_ld_cache_path, clean_ld_cache)
+        print(f"Wrote empty clean LD cache to: {clean_ld_cache_path}")
+    else:
+        print(f"No clean LD cache updates. Reused existing cache at: {clean_ld_cache_path}")
 
     output_path = write_entropy_report(sample_metrics, output_dir)
     print(f"Wrote sample metrics to: {output_path}")
