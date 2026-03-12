@@ -31,7 +31,8 @@ python -u compute_entropy.py \
   --limit 10 \
   --lambda 1 \
   --batch_size 8 \
-  --output output/seq_len_16/lambda_1_generated_mmred
+  --output output/seq_len_16/lambda_1_generated_mmred \
+  --clean_ld_cache_dir output/seq_len_16/lambda_1_generated_mmred
 ```
 
 Arguments:
@@ -39,6 +40,7 @@ Arguments:
 - `--corrupted_root` (optional): corrupted sample root.
 - `--limit` (default `1`): number of accepted samples to process.
 - `--output` (default `outputs`): output directory.
+- `--clean_ld_cache_dir` (optional): directory where `clean_lds.json` is read/written. Defaults to `--output`.
 - `--batch_size` (default `8`): number of evidence-frame corruptions evaluated per forward pass chunk.
 - `--lambda` (optional): clean LD threshold.
 - `--min_clean_ld` (optional): alias for `--lambda` (backward compatibility). If both are given, values must match.

@@ -761,6 +761,15 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--output", type=str, default="outputs")
     ap.add_argument(
+        "--clean_ld_cache_dir",
+        type=str,
+        default=None,
+        help=(
+            "Directory containing clean_lds.json for loading/updating clean LD cache. "
+            "Defaults to --output when omitted."
+        ),
+    )
+    ap.add_argument(
         "--batch_size",
         type=int,
         default=8,
@@ -790,7 +799,9 @@ def main() -> None:
     )
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
-    clean_ld_cache_path = output_dir / "clean_lds.json"
+    clean_ld_cache_dir = Path(args.clean_ld_cache_dir) if args.clean_ld_cache_dir is not None else output_dir
+    clean_ld_cache_dir.mkdir(parents=True, exist_ok=True)
+    clean_ld_cache_path = clean_ld_cache_dir / "clean_lds.json"
     clean_ld_cache = load_clean_ld_cache(clean_ld_cache_path)
     cache_updates = 0
     if clean_ld_cache:
