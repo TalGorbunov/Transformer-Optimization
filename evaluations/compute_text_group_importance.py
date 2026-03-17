@@ -30,6 +30,55 @@ _QUESTION_MARKER = "Question:"
 _ANSWER_MARKER = "Answer:"
 _QUESTION_OPERATOR = "How many steps did"
 _QUESTION_RELATION = "spend in the"
+_ANSWER_ASSISTANT_IM_START = "answer_assistant_im_start"
+_ANSWER_ASSISTANT_ROLE = "answer_assistant_role"
+_ANSWER_ASSISTANT_NEWLINE = "answer_assistant_newline"
+
+
+def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:
+    if raw is None:
+        return list(range(num_layers))
+
+    selected: set[int] = set()
+    parts = [part.strip() for part in str(raw).split(",") if part.strip()]
+    if not parts:
+        raise ValueError("--layers must not be empty when provided")
+
+    for part in parts:
+        if ":" not in part:
+            try:
+                selected.add(int(part))
+            except ValueError as exc:
+                raise ValueError(f"Invalid layer index in --layers: {part!r}") from exc
+            continue
+
+        fields = part.split(":")
+        if len(fields) not in {2, 3}:
+            raise ValueError(
+                f"Invalid range in --layers: {part!r}. Expected start:end or start:end:step."
+            )
+        try:
+            start = int(fields[0])
+            end = int(fields[1])
+            step = int(fields[2]) if len(fields) == 3 else 1
+        except ValueError as exc:
+            raise ValueError(f"Invalid integer in --layers: {part!r}") from exc
+        if step <= 0:
+            raise ValueError(f"--layers step must be positive: {part!r}")
+        if end <= start:
+            raise ValueError(f"--layers range end must be greater than start: {part!r}")
+        for layer_idx in range(start, end, step):
+            selected.add(int(layer_idx))
+
+    selected_layers = sorted(selected)
+    invalid = [layer_idx for layer_idx in selected_layers if layer_idx < 0 or layer_idx >= num_layers]
+    if invalid:
+        raise ValueError(
+            f"--layers contains out-of-bounds layers: {invalid}. Valid range is [0, {num_layers - 1}]."
+        )
+    return selected_layers
+
+
 # Group-to-text mapping:
 # - character: the person name inside the question
 # - room: the room name inside the question
@@ -43,7 +92,9 @@ _QUESTION_RELATION = "spend in the"
 #   "Respond with a single integer from 0 to {num_frames} (0 is allowed). Output only the integer."
 # - assistant_prefix: the final assistant-side prefix after the user prompt, usually
 #   "<|im_start|>", "assistant", and "\\n"
-# - assistant_prefix_token_0 / _1 / _2: those 3 assistant_prefix tokens individually, in order
+# - answer_assistant_im_start: the "<|im_start|>" token in the final assistant prefix
+# - answer_assistant_role: the "assistant" token in the final assistant prefix
+# - answer_assistant_newline: the trailing "\\n" token in the final assistant prefix
 _ALL_GROUPS = [
     "character",
     "room",
@@ -55,9 +106,9 @@ _ALL_GROUPS = [
     "instruction_context",
     "instruction_output_rule",
     "assistant_prefix",
-    "assistant_prefix_token_0",
-    "assistant_prefix_token_1",
-    "assistant_prefix_token_2",
+    _ANSWER_ASSISTANT_IM_START,
+    _ANSWER_ASSISTANT_ROLE,
+    _ANSWER_ASSISTANT_NEWLINE,
 ]
 
 
@@ -570,14 +621,22 @@ def locate_group_token_positions(
         token_positions_full["assistant_prefix"] = assistant_prefix_positions
         group_summaries["assistant_prefix"] = summarize_token_positions(full_input_ids, assistant_prefix_positions)
         if len(assistant_prefix_positions) == 3:
-            for token_idx, position in enumerate(assistant_prefix_positions):
-                group_name = f"assistant_prefix_token_{token_idx}"
+            assistant_token_group_names = [
+                _ANSWER_ASSISTANT_IM_START,
+                _ANSWER_ASSISTANT_ROLE,
+                _ANSWER_ASSISTANT_NEWLINE,
+            ]
+            for group_name, position in zip(assistant_token_group_names, assistant_prefix_positions):
                 token_positions_full[group_name] = [int(position)]
                 group_summaries[group_name] = summarize_token_positions(full_input_ids, [int(position)])
         else:
-            for token_idx in range(3):
+            for group_name in [
+                _ANSWER_ASSISTANT_IM_START,
+                _ANSWER_ASSISTANT_ROLE,
+                _ANSWER_ASSISTANT_NEWLINE,
+            ]:
                 skipped_reasons.append(
-                    f"assistant_prefix_token_{token_idx}:expected_len_3(found={len(assistant_prefix_positions)})"
+                    f"{group_name}:expected_len_3(found={len(assistant_prefix_positions)})"
                 )
 
     return token_positions_full, group_summaries, skipped_reasons
@@ -1248,8 +1307,21 @@ def main() -> None:
     ap.add_argument(
         "--include_groups",
         type=str,
-        default="character,room,question_operator,question_relation,question_marker,answer_marker,question_punct,instruction_context,instruction_output_rule,assistant_prefix",
+        default=(
+            "character,room,question_operator,question_relation,question_marker,answer_marker,"
+            "question_punct,instruction_context,instruction_output_rule,assistant_prefix,"
+            f"{_ANSWER_ASSISTANT_IM_START},{_ANSWER_ASSISTANT_ROLE},{_ANSWER_ASSISTANT_NEWLINE}"
+        ),
         help=f"Comma-separated subset of: {','.join(_ALL_GROUPS)}",
+    )
+    ap.add_argument(
+        "--layers",
+        type=str,
+        default=None,
+        help=(
+            "Optional layer selection. Examples: --layers 32:42, --layers 0:64:2, "
+            "--layers 30,32,34,36,38,40"
+        ),
     )
     ap.add_argument(
         "--min_clean_correct_prob",
@@ -1293,6 +1365,7 @@ def main() -> None:
     lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
     num_layers = len(layers)
+    selected_layers = parse_layer_selection(args.layers, num_layers=num_layers)
 
     sample_dirs = iter_sample_dirs(data_root)
     if not sample_dirs:
@@ -1497,7 +1570,7 @@ def main() -> None:
 
         per_layer_metrics: List[Dict[str, Any]] = []
         all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
-        for layer_idx in range(num_layers):
+        for layer_idx in selected_layers:
             layer_sampled_counts[layer_idx] += 1
             per_group_corrupted_score: Dict[str, float] = {}
             per_group_signed_delta: Dict[str, float] = {}
@@ -1594,6 +1667,8 @@ def main() -> None:
             "clean_group_warnings": clean_group_warnings,
             "control_group_info": control_skip_info,
             "control_reason": control_reason,
+            "selected_layers": list(selected_layers),
+            "selected_layers_spec": args.layers,
             "layer_metrics": {"layers": per_layer_metrics},
         })
         processed_samples += 1
