@@ -807,6 +807,7 @@ def plot_total_importance_mean(
     seq_len_label: Optional[str] = None,
     n_bootstrap: int = 1000,
     seed: int = 0,
+    selected_layers: Optional[List[int]] = None,
 ) -> Optional[Path]:
     try:
         import matplotlib.pyplot as plt
@@ -816,17 +817,21 @@ def plot_total_importance_mean(
     if num_layers <= 0 or not sample_metrics:
         return None
 
-    per_layer_values: Dict[int, List[float]] = {layer_idx: [] for layer_idx in range(num_layers)}
+    layer_axis = list(selected_layers) if selected_layers is not None else list(range(num_layers))
+    if not layer_axis:
+        return None
+    per_layer_values: Dict[int, List[float]] = {layer_idx: [] for layer_idx in layer_axis}
     for sample in sample_metrics:
         layer_totals = {
             int(layer_metrics["layer"]): float(layer_metrics["total_importance"])
             for layer_metrics in sample["layer_metrics"]["layers"]
         }
-        for layer_idx in range(num_layers):
-            per_layer_values[layer_idx].append(layer_totals.get(layer_idx, 0.0))
+        for layer_idx in layer_axis:
+            if layer_idx in layer_totals:
+                per_layer_values[layer_idx].append(layer_totals[layer_idx])
 
     rng = random.Random(seed)
-    layers = list(range(num_layers))
+    layers = list(layer_axis)
     mean_values: List[float] = []
     mean_lo_values: List[float] = []
     mean_hi_values: List[float] = []
@@ -875,6 +880,7 @@ def plot_layer_invalidity_rates(
     layer_invalid_counts: List[int],
     output_dir: Path,
     seq_len_label: Optional[str] = None,
+    selected_layers: Optional[List[int]] = None,
 ) -> Optional[Path]:
     try:
         import matplotlib.pyplot as plt
@@ -884,7 +890,9 @@ def plot_layer_invalidity_rates(
     if not layer_sampled_counts or not any(layer_sampled_counts):
         return None
 
-    xs = list(range(len(layer_sampled_counts)))
+    xs = list(selected_layers) if selected_layers is not None else list(range(len(layer_sampled_counts)))
+    if not xs:
+        return None
     ys = [
         (float(layer_invalid_counts[idx]) / float(layer_sampled_counts[idx]))
         if layer_sampled_counts[idx] > 0 else 0.0
@@ -915,6 +923,7 @@ def plot_group_importance_heatmap(
     num_layers: int,
     include_groups: List[str],
     seq_len_label: Optional[str] = None,
+    selected_layers: Optional[List[int]] = None,
 ) -> Optional[Path]:
     try:
         import matplotlib.pyplot as plt
@@ -922,14 +931,17 @@ def plot_group_importance_heatmap(
         print(f"Skipping group-heatmap plot: matplotlib is not available ({exc})")
         return None
     group_order = _fixed_group_order_from_include(include_groups)
-    if num_layers <= 0 or not group_order or not sample_metrics:
+    layer_axis = list(selected_layers) if selected_layers is not None else list(range(num_layers))
+    if num_layers <= 0 or not group_order or not sample_metrics or not layer_axis:
         return None
 
-    sums = [[0.0 for _ in group_order] for _ in range(num_layers)]
-    counts = [[0 for _ in group_order] for _ in range(num_layers)]
+    sums = {layer_idx: [0.0 for _ in group_order] for layer_idx in layer_axis}
+    counts = {layer_idx: [0 for _ in group_order] for layer_idx in layer_axis}
     for sample in sample_metrics:
         for layer_metrics in sample["layer_metrics"]["layers"]:
             layer_idx = int(layer_metrics["layer"])
+            if layer_idx not in sums:
+                continue
             groups = list(layer_metrics["groups"])
             importance_values = [float(x) for x in layer_metrics["r"]]
             by_group = {groups[idx]: importance_values[idx] for idx in range(min(len(groups), len(importance_values)))}
@@ -943,19 +955,19 @@ def plot_group_importance_heatmap(
             (sums[layer_idx][g_idx] / counts[layer_idx][g_idx]) if counts[layer_idx][g_idx] > 0 else 0.0
             for g_idx in range(len(group_order))
         ]
-        for layer_idx in range(num_layers)
+        for layer_idx in layer_axis
     ]
 
-    fig, ax = plt.subplots(figsize=(9, max(4.5, num_layers * 0.18)), dpi=140)
+    fig, ax = plt.subplots(figsize=(9, max(4.5, len(layer_axis) * 0.18)), dpi=140)
     image = ax.imshow(means, aspect="auto", cmap="viridis", interpolation="nearest")
     ax.set_xticks(list(range(len(group_order))))
     ax.set_xticklabels(group_order, rotation=30, ha="right")
-    tick_step = max(1, math.ceil(num_layers / 32))
-    y_ticks = list(range(0, num_layers, tick_step))
-    if (num_layers - 1) not in y_ticks:
-        y_ticks.append(num_layers - 1)
-    ax.set_yticks(y_ticks)
-    ax.set_yticklabels([str(y) for y in y_ticks])
+    tick_step = max(1, math.ceil(len(layer_axis) / 32))
+    y_tick_positions = list(range(0, len(layer_axis), tick_step))
+    if (len(layer_axis) - 1) not in y_tick_positions:
+        y_tick_positions.append(len(layer_axis) - 1)
+    ax.set_yticks(y_tick_positions)
+    ax.set_yticklabels([str(layer_axis[pos]) for pos in y_tick_positions])
     ax.set_ylabel("Layer")
     ax.set_xlabel("Text group")
     title = "Mean Text-Group Importance Heatmap"
@@ -979,6 +991,7 @@ def plot_group_importance_lines(
     num_layers: int,
     include_groups: List[str],
     seq_len_label: Optional[str] = None,
+    selected_layers: Optional[List[int]] = None,
 ) -> Optional[Path]:
     try:
         import matplotlib.pyplot as plt
@@ -986,14 +999,21 @@ def plot_group_importance_lines(
         print(f"Skipping group-line plot: matplotlib is not available ({exc})")
         return None
     group_order = _fixed_group_order_from_include(include_groups)
-    if num_layers <= 0 or not group_order or not sample_metrics:
+    layer_axis = list(selected_layers) if selected_layers is not None else list(range(num_layers))
+    if num_layers <= 0 or not group_order or not sample_metrics or not layer_axis:
         return None
 
-    per_group_per_layer: Dict[str, List[float]] = {g: [0.0 for _ in range(num_layers)] for g in group_order}
-    per_group_per_layer_counts: Dict[str, List[int]] = {g: [0 for _ in range(num_layers)] for g in group_order}
+    per_group_per_layer: Dict[str, Dict[int, float]] = {
+        g: {layer_idx: 0.0 for layer_idx in layer_axis} for g in group_order
+    }
+    per_group_per_layer_counts: Dict[str, Dict[int, int]] = {
+        g: {layer_idx: 0 for layer_idx in layer_axis} for g in group_order
+    }
     for sample in sample_metrics:
         for layer_metrics in sample["layer_metrics"]["layers"]:
             layer_idx = int(layer_metrics["layer"])
+            if layer_idx not in layer_axis:
+                continue
             groups = list(layer_metrics["groups"])
             r_vals = [float(x) for x in layer_metrics["r"]]
             by_group = {groups[idx]: r_vals[idx] for idx in range(min(len(groups), len(r_vals)))}
@@ -1005,10 +1025,10 @@ def plot_group_importance_lines(
     fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
     for g in group_order:
         mean_vals = []
-        for layer_idx in range(num_layers):
+        for layer_idx in layer_axis:
             count = per_group_per_layer_counts[g][layer_idx]
             mean_vals.append((per_group_per_layer[g][layer_idx] / count) if count > 0 else 0.0)
-        ax.plot(range(num_layers), mean_vals, linewidth=2.0, label=g)
+        ax.plot(layer_axis, mean_vals, linewidth=2.0, label=g)
     title = "Mean Text-Group Importance by Layer"
     if seq_len_label:
         title = f"{title} ({seq_len_label})"
@@ -1017,10 +1037,10 @@ def plot_group_importance_lines(
     ax.set_ylabel("Mean importance")
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
     ax.legend(frameon=True)
-    tick_step = max(1, math.ceil(num_layers / 32))
-    xticks = list(range(0, num_layers, tick_step))
-    if (num_layers - 1) not in xticks:
-        xticks.append(num_layers - 1)
+    tick_step = max(1, math.ceil(len(layer_axis) / 32))
+    xticks = layer_axis[::tick_step]
+    if layer_axis[-1] not in xticks:
+        xticks.append(layer_axis[-1])
     ax.set_xticks(xticks)
     ax.tick_params(axis="x", labelrotation=45, labelsize=9)
     fig.tight_layout()
