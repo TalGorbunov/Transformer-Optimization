@@ -41,6 +41,9 @@ _ALL_GROUPS = [
     "instruction_context",
     "instruction_output_rule",
     "assistant_prefix",
+    "assistant_prefix_token_0",
+    "assistant_prefix_token_1",
+    "assistant_prefix_token_2",
 ]
 
 
@@ -552,6 +555,16 @@ def locate_group_token_positions(
     else:
         token_positions_full["assistant_prefix"] = assistant_prefix_positions
         group_summaries["assistant_prefix"] = summarize_token_positions(full_input_ids, assistant_prefix_positions)
+        if len(assistant_prefix_positions) == 3:
+            for token_idx, position in enumerate(assistant_prefix_positions):
+                group_name = f"assistant_prefix_token_{token_idx}"
+                token_positions_full[group_name] = [int(position)]
+                group_summaries[group_name] = summarize_token_positions(full_input_ids, [int(position)])
+        else:
+            for token_idx in range(3):
+                skipped_reasons.append(
+                    f"assistant_prefix_token_{token_idx}:expected_len_3(found={len(assistant_prefix_positions)})"
+                )
 
     return token_positions_full, group_summaries, skipped_reasons
 
