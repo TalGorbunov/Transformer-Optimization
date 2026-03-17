@@ -30,6 +30,20 @@ _QUESTION_MARKER = "Question:"
 _ANSWER_MARKER = "Answer:"
 _QUESTION_OPERATOR = "How many steps did"
 _QUESTION_RELATION = "spend in the"
+# Group-to-text mapping:
+# - character: the person name inside the question
+# - room: the room name inside the question
+# - question_operator: "How many steps did"
+# - question_relation: "spend in the"
+# - question_marker: "Question:"
+# - answer_marker: "Answer:"
+# - question_punct: the final "?" in the question
+# - instruction_context: "You will be shown {num_frames} frames describing steps in a house."
+# - instruction_output_rule:
+#   "Respond with a single integer from 0 to {num_frames} (0 is allowed). Output only the integer."
+# - assistant_prefix: the final assistant-side prefix after the user prompt, usually
+#   "<|im_start|>", "assistant", and "\\n"
+# - assistant_prefix_token_0 / _1 / _2: those 3 assistant_prefix tokens individually, in order
 _ALL_GROUPS = [
     "character",
     "room",
