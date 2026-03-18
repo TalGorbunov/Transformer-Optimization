@@ -555,6 +555,8 @@ def plot_group_importance_lines(
     selected_layers: List[int],
     group_order: List[str],
     seq_len_label: Optional[str] = None,
+    title_override: Optional[str] = None,
+    filename_stem: str = "group_importance_lines",
     n_bootstrap: int = 1000,
     seed: int = 0,
 ) -> Optional[Path]:
@@ -608,7 +610,7 @@ def plot_group_importance_lines(
             hi_vals.append(hi_value)
         line, = ax.plot(selected_layers, mean_vals, linewidth=2.0, label=group_name)
         ax.fill_between(selected_layers, lo_vals, hi_vals, color=line.get_color(), alpha=0.16)
-    title = "Mean Group Importance by Layer"
+    title = title_override or "Mean Group Importance by Layer"
     if seq_len_label:
         title = f"{title} ({seq_len_label})"
     ax.set_title(title, fontsize=13, pad=10)
@@ -625,7 +627,7 @@ def plot_group_importance_lines(
     fig.tight_layout()
 
     suffix = f"_{seq_len_label}" if seq_len_label else ""
-    plot_path = output_dir / f"group_importance_lines{suffix}.png"
+    plot_path = output_dir / f"{filename_stem}{suffix}.png"
     fig.savefig(plot_path, bbox_inches="tight")
     plt.close(fig)
     return plot_path
@@ -1066,7 +1068,7 @@ def main() -> None:
     )
 
     elapsed = time.perf_counter() - start_time
-    print(f"Done in {elapsed:.2f}s")
+    print(eval_utils.format_runtime(elapsed))
 
 
 if __name__ == "__main__":

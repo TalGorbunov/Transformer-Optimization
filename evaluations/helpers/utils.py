@@ -186,6 +186,14 @@ def resolve_seq_len_label(path_like: Any) -> Optional[str]:
     return match.group(1) if match else None
 
 
+def format_runtime(elapsed_seconds: float) -> str:
+    elapsed_seconds = float(elapsed_seconds)
+    elapsed_h = int(elapsed_seconds // 3600)
+    elapsed_m = int((elapsed_seconds % 3600) // 60)
+    elapsed_s = elapsed_seconds % 60.0
+    return f"Total runtime: {elapsed_h:02d}:{elapsed_m:02d}:{elapsed_s:05.2f} ({elapsed_seconds:.2f}s)"
+
+
 def parse_target_character_room(question_text: str) -> Optional[Tuple[str, str]]:
     match = _STEPS_IN_ROOM_RE.search(question_text)
     if not match:

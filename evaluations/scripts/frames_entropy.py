@@ -993,13 +993,7 @@ def main() -> None:
     )
 
     elapsed_seconds = time.perf_counter() - start_time
-    elapsed_h = int(elapsed_seconds // 3600)
-    elapsed_m = int((elapsed_seconds % 3600) // 60)
-    elapsed_s = elapsed_seconds % 60.0
-    print(
-        f"Total runtime: {elapsed_h:02d}:{elapsed_m:02d}:{elapsed_s:05.2f} "
-        f"({elapsed_seconds:.2f}s)"
-    )
+    print(eval_utils.format_runtime(elapsed_seconds))
 
 
 if __name__ == "__main__":

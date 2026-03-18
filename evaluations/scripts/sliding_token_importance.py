@@ -568,7 +568,7 @@ def main() -> None:
     )
 
     elapsed = time.perf_counter() - start_time
-    print(f"Done in {elapsed:.2f}s")
+    print(eval_utils.format_runtime(elapsed))
 
 
 if __name__ == "__main__":

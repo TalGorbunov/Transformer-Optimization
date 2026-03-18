@@ -344,6 +344,7 @@ def finalize_outputs(
             selected_layers=selected_layers,
             group_order=["last_token"],
             seq_len_label=seq_len_label,
+            title_override="Importance of restoring only the last token on a FULLY corrupted input",
         )
         if lines_path is not None:
             print(f"Wrote group-importance lines plot to: {lines_path}")
@@ -419,7 +420,7 @@ def main() -> None:
     )
 
     elapsed = time.perf_counter() - start_time
-    print(f"Done in {elapsed:.2f}s")
+    print(eval_utils.format_runtime(elapsed))
 
 
 if __name__ == "__main__":
