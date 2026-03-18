@@ -136,4 +136,4 @@ final_runs/
 
 logs/
 output*/
-scripts/
+/scripts/
