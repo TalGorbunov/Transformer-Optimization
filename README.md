@@ -1,8 +1,8 @@
 # Transformer-Optimization
 
-Main analysis entrypoint: `compute_entropy.py`.
+Main analysis entrypoint: `evaluations/frames_entropy.py`.
 
-## `evaluations/compute_text_group_importance.py`
+## `evaluations/text_group_importance.py`
 - Loads clean MMRed image-text samples from `--data_root`.
 - Keeps only samples where the clean model:
   - ranks the correct numeric answer as top-1 among valid answers `0..num_frames`
@@ -36,7 +36,7 @@ Patchability rules:
 
 CLI example:
 ```bash
-python -u evaluations/compute_text_group_importance.py \
+python -u evaluations/text_group_importance.py \
   --data_root data/mmred_images_generated/seq_len_16/all \
   --limit 10 \
   --batch_size 8 \
@@ -57,10 +57,10 @@ Outputs:
 
 Typical run:
 ```bash
-sbatch scripts/compute_text_importances.sh
+sbatch scripts/text_importances.sh
 ```
 
-## `compute_entropy.py` 
+## `evaluations/frames_entropy.py` 
 - Loads clean MMRed samples from `--data_root`.
 - Detects evidence frames from the question/state traces (pattern: `How many steps did <Name> spend in the <Room>`).
 - Scores full answer sequences (not single-step logits):
@@ -83,7 +83,7 @@ If `--corrupted_root` is omitted, it is inferred from `--data_root` by replacing
 
 ## CLI
 ```bash
-python -u compute_entropy.py \
+python -u evaluations/frames_entropy.py \
   --data_root data/mmred_images_generated/seq_len_16/all \
   --corrupted_root data/mmred_corrupted_generated/seq_len_16/all \
   --limit 10 \
@@ -115,9 +115,9 @@ Written under `--output`:
 - `entropy_summary[_seq_len_X].png`: mean/median layer entropy with bootstrap CIs.
 - `total_importance_summary[_seq_len_X].png`: mean total importance per layer with bootstrap CI.
 - `layer_invalidity_rate[_seq_len_X].png`: fraction of samples where a layer had zero total importance.
-- `run-<jobid>.log`: when using `scripts/compute_entropy.sh`.
+- `run-<jobid>.log`: when using `scripts/entropy.sh`.
 
 ## Typical run (SLURM)
 ```bash
-sbatch scripts/compute_entropy.sh
+sbatch scripts/entropy.sh
 ```

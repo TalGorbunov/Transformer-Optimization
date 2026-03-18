@@ -12,8 +12,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from evaluations import compute_frame_text_group_importance as ftgi
-from evaluations import compute_text_group_importance as tgi
+from evaluations import frame_text_group_importance as ftgi
+from evaluations import text_group_importance as tgi
 from evaluations.utils import iter_sample_dirs, load_mmred_sample
 from models.model import get_layers, model as base_model, processor
 

@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from nnsight import LanguageModel
 
-from evaluations import compute_text_group_importance as tgi
+from evaluations import text_group_importance as tgi
 
 
 def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:

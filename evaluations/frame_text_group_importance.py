@@ -13,7 +13,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from evaluations import compute_text_group_importance as tgi
+from evaluations import text_group_importance as tgi
 from models.model import get_layers, image_token_groups, model as base_model, processor
 
 try:
