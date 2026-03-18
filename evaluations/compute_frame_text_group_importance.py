@@ -391,6 +391,9 @@ def build_group_specific_controls(
         "clean_prompt_index": int(last_token_position),
         "control_prompt_index": int(last_token_position),
     }
+    character_control["group_positions"]["last_token"] = [int(last_token_position)]
+    character_control.setdefault("alignment_debug", {})
+    character_control["alignment_debug"]["last_token"] = dict(last_token_debug)
     room_control["group_positions"]["last_token"] = [int(last_token_position)]
     room_control.setdefault("alignment_debug", {})
     room_control["alignment_debug"]["last_token"] = dict(last_token_debug)
@@ -402,12 +405,56 @@ def build_group_specific_controls(
             "control_answer": None,
             "group_positions": {
                 "frames": list(clean_group_positions.get("frames", [])),
+                "last_token": [int(last_token_position)],
             },
-            "alignment_debug": {"frames": {"aligned": True}},
+            "alignment_debug": {"frames": {"aligned": True}, "last_token": dict(last_token_debug)},
         },
         "wrong_character": character_control,
         "wrong_room": room_control,
     }, issues
+
+
+def compute_token_control_difference(
+    lm: LanguageModel,
+    layers: Any,
+    clean_inputs: Dict[str, torch.Tensor],
+    control_inputs: Dict[str, torch.Tensor],
+    token_position: int,
+    layer_idx: int,
+) -> float:
+    with torch.no_grad():
+        with lm.trace(clean_inputs):
+            clean_layer_saved = tgi._to_hidden_tensor(layers[layer_idx].output).save()
+        with lm.trace(control_inputs):
+            control_layer_saved = tgi._to_hidden_tensor(layers[layer_idx].output).save()
+    clean_hidden = tgi._materialize_saved(clean_layer_saved)[0, int(token_position), :]
+    control_hidden = tgi._materialize_saved(control_layer_saved)[0, int(token_position), :]
+    return float(torch.norm(clean_hidden - control_hidden, p=2).item())
+
+
+def choose_strongest_last_token_control(
+    lm: LanguageModel,
+    layers: Any,
+    clean_inputs: Dict[str, torch.Tensor],
+    control_sources: Dict[str, Dict[str, Any]],
+    token_position: int,
+) -> Tuple[str, Dict[str, float]]:
+    if not layers:
+        raise ValueError("layers must be non-empty")
+    probe_layer_idx = len(layers) - 1
+    scores: Dict[str, float] = {}
+    for source_name in ("wrong_frames", "wrong_character", "wrong_room"):
+        control_payload = control_sources[source_name]
+        scores[source_name] = compute_token_control_difference(
+            lm=lm,
+            layers=layers,
+            clean_inputs=clean_inputs,
+            control_inputs=control_payload["control_inputs"],
+            token_position=token_position,
+            layer_idx=probe_layer_idx,
+        )
+    best_source = max(scores.items(), key=lambda item: item[1])[0]
+    return best_source, scores
 
 
 def locate_group_positions_and_metadata(
@@ -900,6 +947,27 @@ def main() -> None:
                 f"(issues={control_issues})"
             )
             continue
+        last_token_positions = [int(pos) for pos in group_positions.get("last_token", [])]
+        if not last_token_positions:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: missing last_token positions "
+                f"(warnings={group_warnings})"
+            )
+            continue
+        try:
+            last_token_control_source, last_token_control_scores = choose_strongest_last_token_control(
+                lm=lm,
+                layers=layers,
+                clean_inputs=inputs,
+                control_sources=group_specific_controls,
+                token_position=int(last_token_positions[-1]),
+            )
+        except Exception as exc:
+            print(
+                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to score last_token controls "
+                f"({exc})"
+            )
+            continue
 
         groups_payload: List[Dict[str, Any]] = []
         group_token_counts: Dict[str, int] = {}
@@ -919,7 +987,7 @@ def main() -> None:
                 control_source = group_specific_controls["wrong_room"]
                 control_positions = [int(pos) for pos in control_source["group_positions"].get("room", [])]
             elif group_name == "last_token":
-                control_source = group_specific_controls["wrong_room"]
+                control_source = group_specific_controls[last_token_control_source]
                 control_positions = [int(pos) for pos in control_source["group_positions"].get("last_token", [])]
             else:
                 skipped_groups[group_name] = "unsupported_group"
@@ -962,7 +1030,9 @@ def main() -> None:
             f"wrong_room={group_specific_controls['wrong_room']['control_value']!r} "
             f"clean_answer={a_star_text!r} "
             f"wrong_character_answer={group_specific_controls['wrong_character']['control_answer']!r} "
-            f"wrong_room_answer={group_specific_controls['wrong_room']['control_answer']!r}"
+            f"wrong_room_answer={group_specific_controls['wrong_room']['control_answer']!r} "
+            f"last_token_source={last_token_control_source} "
+            f"last_token_strengths={{{', '.join(f'{name}:{score:.4f}' for name, score in last_token_control_scores.items())}}}"
         )
         print(
             f"  alignment: character(clean_pos={group_specific_controls['wrong_character']['alignment_debug']['clean_positions']}, "
@@ -975,10 +1045,10 @@ def main() -> None:
             f"clean_idx={group_specific_controls['wrong_room']['alignment_debug']['clean_prompt_index']}, "
             f"control_idx={group_specific_controls['wrong_room']['alignment_debug']['control_prompt_index']}, "
             f"passed=True) "
-            f"last_token(clean_pos={group_specific_controls['wrong_room']['alignment_debug']['last_token']['clean_positions']}, "
-            f"control_pos={group_specific_controls['wrong_room']['alignment_debug']['last_token']['control_positions']}, "
-            f"clean_idx={group_specific_controls['wrong_room']['alignment_debug']['last_token']['clean_prompt_index']}, "
-            f"control_idx={group_specific_controls['wrong_room']['alignment_debug']['last_token']['control_prompt_index']}, "
+            f"last_token(clean_pos={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['clean_positions']}, "
+            f"control_pos={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['control_positions']}, "
+            f"clean_idx={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['clean_prompt_index']}, "
+            f"control_idx={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['control_prompt_index']}, "
             f"passed=True)"
         )
         if skipped_groups:
@@ -1121,6 +1191,10 @@ def main() -> None:
                     "control_question": group_specific_controls["wrong_frames"]["control_question"],
                     "control_answer": group_specific_controls["wrong_frames"]["control_answer"],
                     "alignment": group_specific_controls["wrong_frames"]["alignment_debug"],
+                },
+                "last_token_selection": {
+                    "selected_source": last_token_control_source,
+                    "scores": last_token_control_scores,
                 },
             },
             "skipped_groups": skipped_groups,
