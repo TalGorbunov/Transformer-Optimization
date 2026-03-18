@@ -1,8 +1,8 @@
 # Transformer-Optimization
 
-Main analysis entrypoint: `evaluations/frames_entropy.py`.
+Main analysis entrypoint: `evaluations/scripts/frames_entropy.py`.
 
-## `evaluations/frames_entropy.py` 
+## `evaluations/scripts/frames_entropy.py` 
 - Loads clean MMRed samples from `--data_root`.
 - Detects evidence frames from the question/state traces (pattern: `How many steps did <Name> spend in the <Room>`).
 - Scores full answer sequences (not single-step logits):
@@ -25,7 +25,7 @@ If `--corrupted_root` is omitted, it is inferred from `--data_root` by replacing
 
 ## CLI
 ```bash
-python -u evaluations/frames_entropy.py \
+python -u evaluations/scripts/frames_entropy.py \
   --data_root data/mmred_images_generated/seq_len_16/all \
   --corrupted_root data/mmred_corrupted_generated/seq_len_16/all \
   --limit 10 \

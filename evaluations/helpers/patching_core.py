@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import torch
 from nnsight import LanguageModel
 
-from evaluations import utils as eval_utils
+from evaluations.helpers import utils as eval_utils
 from models.model import model as base_model, processor
 
 iter_sample_dirs = eval_utils.iter_sample_dirs

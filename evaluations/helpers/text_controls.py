@@ -2,8 +2,13 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from evaluations import utils as eval_utils
-from evaluations.patching_core import build_inputs, build_prompt, move_inputs_to_model_device, processor
+from evaluations.helpers import utils as eval_utils
+from evaluations.helpers.patching_core import (
+    build_inputs,
+    build_prompt,
+    move_inputs_to_model_device,
+    processor,
+)
 
 _QUESTION_MARKER = "Question:"
 _ANSWER_MARKER = "Answer:"
