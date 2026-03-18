@@ -8,7 +8,6 @@ prefix when present.
 """
 
 import argparse
-import json
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -16,7 +15,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from nnsight import LanguageModel
 
 from evaluations import utils as eval_utils
-from evaluations import text_group_importance as tgi
+from evaluations import frame_text_group_importance as ftgi
+from evaluations import patching_core as tgi
+from evaluations import text_controls as tc
 
 
 def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:
@@ -29,18 +30,18 @@ def locate_non_image_prompt_token_positions(
     num_frames: int,
 ) -> Tuple[List[int], List[str]]:
     prompt = tgi.build_prompt(question, num_frames=num_frames)
-    prompt_token_ids, _ = tgi.tokenize_with_offsets_if_available(prompt)
+    prompt_token_ids, _ = tc.tokenize_with_offsets_if_available(prompt)
     if not prompt_token_ids:
         return [], ["prompt_tokenization_failed"]
 
     full_input_ids = [int(tok) for tok in inputs["input_ids"][0].tolist()]
-    prompt_start_in_full = tgi.find_subsequence(full_input_ids, prompt_token_ids)
+    prompt_start_in_full = tc.find_subsequence(full_input_ids, prompt_token_ids)
     if prompt_start_in_full is None:
         return [], ["prompt_subsequence_not_found_in_input_ids"]
 
     prompt_positions = list(range(prompt_start_in_full, prompt_start_in_full + len(prompt_token_ids)))
 
-    token_positions_full, _, group_warnings = tgi.locate_group_token_positions(
+    token_positions_full, _, group_warnings = tc.locate_group_token_positions(
         inputs=inputs,
         question=question,
         num_frames=num_frames,
@@ -114,11 +115,37 @@ def global_window_names(tail_non_image_tokens: int, window_size: int) -> List[st
     return [f"window_{idx}" for idx in range(count)]
 
 
-def main() -> None:
-    start_time = time.perf_counter()
+def write_sample_report(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
+    lines: List[str] = []
+    for sample in sample_metrics:
+        lines.append(f"sample_id={sample['sample_id']}")
+        lines.append(f"question={sample['question']}")
+        lines.append(f"answer={sample['answer']}")
+        lines.append(
+            f"clean_answer_score={sample['clean_answer_score']:.8f} "
+            f"clean_correct_prob={sample['clean_correct_prob']:.8f} "
+            f"clean_top1_correct={sample['clean_top1_correct']}"
+        )
+        lines.append(f"active_groups={sample['active_groups']}")
+        lines.append(f"group_token_counts={sample['group_token_counts']}")
+        if sample["skipped_groups"]:
+            lines.append(f"skipped_groups={sample['skipped_groups']}")
+        for layer_metrics in sample["layer_metrics"]["layers"]:
+            lines.append(
+                f"layer={layer_metrics['layer']} "
+                f"groups={layer_metrics['groups']} "
+                f"r={[round(float(x), 8) for x in layer_metrics['r']]} "
+                f"total_importance={float(layer_metrics['total_importance']):.8f}"
+            )
+        lines.append("")
 
-    # This variant reuses the matched-control setup from text-group patching,
-    # but scans contiguous windows over the prompt tail instead of named spans.
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "sample_metrics.txt"
+    output_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    return output_path
+
+
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
             "Measure late-layer answer-relevant information in sliding windows over non-image "
@@ -187,6 +214,292 @@ def main() -> None:
         raise ValueError("--window-size must be a positive integer")
     if args.tail_non_image_tokens <= 0:
         raise ValueError("--tail-non-image-tokens must be a positive integer")
+    return args
+
+
+def summarize_window_names(plot_window_names: List[str], sample_metrics: List[Dict[str, Any]]) -> List[str]:
+    if plot_window_names:
+        return plot_window_names
+    seen_window_names: List[str] = []
+    for sample in sample_metrics:
+        for group_name in sample["active_groups"]:
+            if group_name not in seen_window_names:
+                seen_window_names.append(group_name)
+    return seen_window_names
+
+
+def process_sample(
+    sample_dir: Path,
+    sample_index: int,
+    total_samples: int,
+    args: argparse.Namespace,
+    lm: LanguageModel,
+    layers: Any,
+    selected_layers: List[int],
+    clean_score_cache: Dict[str, Dict[str, Any]],
+) -> tuple[Optional[Dict[str, Any]], int]:
+    # Keep the same clean-answer filtering logic as the text-group experiment.
+    try:
+        sample_id, frames, question, states, answer = tgi.load_mmred_sample(sample_dir)
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_dir.name} skipped: load failure ({exc})")
+        return None, 0
+
+    if tc.parse_target_character_room(question) is None:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: could not parse question")
+        return None, 0
+
+    try:
+        inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
+        return None, 0
+
+    prompt_len = int(inputs["input_ids"].shape[1])
+    a_star_text = str(answer).strip()
+    try:
+        a_star_ids = tgi.token_ids_of_answer(a_star_text)
+        clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+            cache=clean_score_cache,
+            sample_id=sample_id,
+            num_frames=len(frames),
+            answer_text=a_star_text,
+            score_fn=lambda: tgi.score_valid_numeric_answers(
+                lm=lm,
+                inputs=inputs,
+                prompt_len=prompt_len,
+                num_frames=len(frames),
+            ),
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+        return None, 0
+
+    clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+    clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+    clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+    best_answer_text = str(clean_answer_metrics["best_answer_text"])
+    if not clean_top1_correct:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
+            f"not correct answer {a_star_text!r}"
+        )
+        return None, int(cache_was_updated)
+    if clean_correct_prob < args.min_clean_correct_prob:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"clean_correct_prob={clean_correct_prob:.4f} < threshold={args.min_clean_correct_prob:.4f}"
+        )
+        return None, int(cache_was_updated)
+    if args.min_clean_correct_logprob is not None and clean_answer_score < args.min_clean_correct_logprob:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"clean_answer_score={clean_answer_score:.4f} < threshold={args.min_clean_correct_logprob:.4f}"
+        )
+        return None, int(cache_was_updated)
+
+    clean_group_positions, clean_group_summaries, clean_group_warnings = tc.locate_group_token_positions(
+        inputs=inputs,
+        question=question,
+        num_frames=len(frames),
+    )
+    clean_prompt_positions, clean_prompt_warnings = locate_non_image_prompt_token_positions(
+        inputs=inputs,
+        question=question,
+        num_frames=len(frames),
+    )
+    if not clean_prompt_positions:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: no non-image prompt token positions "
+            f"(warnings={clean_prompt_warnings})"
+        )
+        return None, int(cache_was_updated)
+
+    control_inputs, control_question, control_group_positions, control_group_summaries, control_skip_info, control_reason = tc.choose_best_control(
+        frames=frames,
+        states=states,
+        question=question,
+        clean_inputs=inputs,
+        clean_group_positions=clean_group_positions,
+        include_groups=tc.parse_include_groups(",".join(tc.ALL_GROUPS)),
+    )
+    if control_inputs is None or control_question is None or control_reason is None:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to find aligned control "
+            f"(details={control_skip_info})"
+        )
+        return None, int(cache_was_updated)
+
+    control_prompt_positions, control_prompt_warnings = locate_non_image_prompt_token_positions(
+        inputs=control_inputs,
+        question=control_question,
+        num_frames=len(frames),
+    )
+    if not control_prompt_positions or len(clean_prompt_positions) != len(control_prompt_positions):
+        return None, int(cache_was_updated)
+
+    clean_windows, clean_window_warnings = build_sliding_windows(
+        full_input_ids=[int(tok) for tok in inputs["input_ids"][0].tolist()],
+        prompt_positions=clean_prompt_positions,
+        tail_non_image_tokens=args.tail_non_image_tokens,
+        window_size=args.window_size,
+    )
+    control_windows, control_window_warnings = build_sliding_windows(
+        full_input_ids=[int(tok) for tok in control_inputs["input_ids"][0].tolist()],
+        prompt_positions=control_prompt_positions,
+        tail_non_image_tokens=args.tail_non_image_tokens,
+        window_size=args.window_size,
+    )
+    if not clean_windows or len(clean_windows) != len(control_windows):
+        return None, int(cache_was_updated)
+
+    groups_payload: List[Dict[str, Any]] = []
+    skipped_groups: Dict[str, str] = {}
+    group_summaries: Dict[str, Dict[str, str]] = {}
+    group_token_counts: Dict[str, int] = {}
+    window_metadata: List[Dict[str, Any]] = []
+    control_windows_by_name = {window["name"]: window for window in control_windows}
+    for clean_window in clean_windows:
+        group_name = str(clean_window["name"])
+        control_window = control_windows_by_name.get(group_name)
+        if control_window is None:
+            skipped_groups[group_name] = "missing_control_window"
+            continue
+        clean_positions = [int(pos) for pos in clean_window["raw_positions"]]
+        control_positions = [int(pos) for pos in control_window["raw_positions"]]
+        if len(clean_positions) != len(control_positions):
+            skipped_groups[group_name] = f"token_count_mismatch(clean={len(clean_positions)},control={len(control_positions)})"
+            continue
+        group_token_counts[group_name] = len(clean_positions)
+        group_summaries[group_name] = {
+            "clean": tc._normalize_summary_text("".join(clean_window["decoded_tokens"])),
+            "control": tc._normalize_summary_text("".join(control_window["decoded_tokens"])),
+            "token_count": str(len(clean_positions)),
+        }
+        groups_payload.append({
+            "name": group_name,
+            "clean_positions": clean_positions,
+            "control_positions": control_positions,
+            "control_inputs": control_inputs,
+        })
+        window_metadata.append({
+            "name": group_name,
+            "window_index": int(clean_window["window_index"]),
+            "raw_positions": clean_positions,
+            "local_tail_positions": [int(pos) for pos in clean_window["local_tail_positions"]],
+            "clean_token_ids": [int(tok) for tok in clean_window["token_ids"]],
+            "clean_decoded_tokens": list(clean_window["decoded_tokens"]),
+            "control_token_ids": [int(tok) for tok in control_window["token_ids"]],
+            "control_decoded_tokens": list(control_window["decoded_tokens"]),
+        })
+    if not groups_payload:
+        return None, int(cache_was_updated)
+
+    try:
+        chunk_data = eval_utils.build_group_patch_batches(
+            groups_payload=groups_payload,
+            batch_size=args.batch_size,
+            clean_inputs=inputs,
+            answer_token_ids=a_star_ids,
+            repeat_inputs_for_batch=tgi.repeat_inputs_for_batch,
+            concatenate_inputs_for_batch=tgi.concatenate_inputs_for_batch,
+            append_answer_tokens_for_scoring=tgi.append_answer_tokens_for_scoring,
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build batched inputs ({exc})")
+        return None, int(cache_was_updated)
+
+    per_layer_metrics, all_layer_corrupted_rows = eval_utils.run_group_patch_layer_sweep(
+        selected_layers=selected_layers,
+        groups_payload=groups_payload,
+        chunk_data=chunk_data,
+        clean_answer_score=clean_answer_score,
+        lm=lm,
+        layers=layers,
+        prompt_len=prompt_len,
+        answer_token_ids=a_star_ids,
+        run_layer_patch=tgi.run_layer_multi_group_corrupted_sequence_logprob,
+        normalize_to_probabilities=tgi.normalize_to_probabilities,
+        entropy_from_probabilities=tgi.entropy_from_probabilities,
+        normalize_entropy=tgi.normalize_entropy,
+        logger=print,
+        include_signed_delta=True,
+        normalize_by_token_count=False,
+    )
+    if all_layer_corrupted_rows:
+        print("  Corrupted score table (rows=layers, columns=sliding windows):")
+        print(tgi.format_corrupted_score_table([group["name"] for group in groups_payload], all_layer_corrupted_rows))
+
+    return {
+        "sample_id": sample_id,
+        "answer": answer,
+        "question": question,
+        "control_question": control_question,
+        "control_character": control_reason["control_character"],
+        "control_room": control_reason["control_room"],
+        "control_answer": control_reason["control_answer"],
+        "clean_answer_score": clean_answer_score,
+        "clean_correct_prob": clean_correct_prob,
+        "clean_top1_correct": clean_top1_correct,
+        "best_answer_text": best_answer_text,
+        "a_star_text": a_star_text,
+        "a_star_ids": a_star_ids,
+        "active_groups": [group["name"] for group in groups_payload],
+        "group_token_counts": group_token_counts,
+        "skipped_groups": skipped_groups,
+        "group_summaries": group_summaries,
+        "clean_group_warnings": clean_group_warnings,
+        "control_group_info": control_skip_info,
+        "control_reason": control_reason,
+        "window_config": {
+            "window_size": int(args.window_size),
+            "tail_non_image_tokens": int(args.tail_non_image_tokens),
+            "available_non_image_prompt_tokens": len(clean_prompt_positions),
+            "scanned_tail_token_count": min(int(args.tail_non_image_tokens), len(clean_prompt_positions)),
+        },
+        "window_metadata": window_metadata,
+        "clean_prompt_warnings": clean_prompt_warnings,
+        "control_prompt_warnings": control_prompt_warnings,
+        "clean_window_warnings": clean_window_warnings,
+        "control_window_warnings": control_window_warnings,
+        "layer_metrics": {"layers": per_layer_metrics},
+    }, int(cache_was_updated)
+
+
+def finalize_outputs(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    num_layers: int,
+    selected_layers: List[int],
+    seq_len_label: Optional[str],
+    plot_window_names: List[str],
+    args: argparse.Namespace,
+) -> None:
+    text_report_path = write_sample_report(sample_metrics, output_dir)
+    json_path = tgi.write_metrics_json(sample_metrics, output_dir)
+    print(f"Wrote sample metrics text report to: {text_report_path}")
+    print(f"Wrote sample metrics JSON to: {json_path}")
+    print(f"Processed {len(sample_metrics)} samples (target limit={int(args.limit)}).")
+    summary_window_names = summarize_window_names(plot_window_names, sample_metrics)
+    tgi.print_group_summary(summary_window_names, sample_metrics)
+    if not args.disable_plots:
+        lines_path = ftgi.plot_group_importance_lines(
+            sample_metrics,
+            output_dir,
+            num_layers=num_layers,
+            group_order=summary_window_names,
+            selected_layers=selected_layers,
+            seq_len_label=seq_len_label,
+        )
+        if lines_path is not None:
+            print(f"Wrote group-importance lines plot to: {lines_path}")
+        else:
+            print("Skipped group-importance lines plot: insufficient data.")
+
+
+def main() -> None:
+    start_time = time.perf_counter()
+    args = parse_args()
 
     data_root = Path(args.data_root)
     output_dir = Path(args.output)
@@ -220,390 +533,34 @@ def main() -> None:
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= target_processed_samples:
             break
-
-        # Keep the same clean-answer filtering logic as the text-group experiment.
-        try:
-            sample_id, frames, question, states, answer = tgi.load_mmred_sample(sample_dir)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} skipped: load failure ({exc})")
-            continue
-
-        parsed = tgi.parse_target_character_room(question)
-        if parsed is None:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: could not parse question")
-            continue
-
-        try:
-            inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
-            continue
-
-        prompt_len = int(inputs["input_ids"].shape[1])
-        a_star_text = str(answer).strip()
-        try:
-            a_star_ids = tgi.token_ids_of_answer(a_star_text)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
-            continue
-
-        try:
-            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
-                cache=clean_score_cache,
-                sample_id=sample_id,
-                num_frames=len(frames),
-                answer_text=a_star_text,
-                score_fn=lambda: tgi.score_valid_numeric_answers(
-                    lm=lm,
-                    inputs=inputs,
-                    prompt_len=prompt_len,
-                    num_frames=len(frames),
-                ),
-            )
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-            continue
-        if cache_was_updated:
-            cache_updates += 1
-
-        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
-        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
-        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
-        best_answer_text = str(clean_answer_metrics["best_answer_text"])
-
-        if not clean_top1_correct:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
-                f"not correct answer {a_star_text!r}"
-            )
-            continue
-        if clean_correct_prob < args.min_clean_correct_prob:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                f"clean_correct_prob={clean_correct_prob:.4f} < threshold={args.min_clean_correct_prob:.4f}"
-            )
-            continue
-        if args.min_clean_correct_logprob is not None and clean_answer_score < args.min_clean_correct_logprob:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                f"clean_answer_score={clean_answer_score:.4f} < threshold={args.min_clean_correct_logprob:.4f}"
-            )
-            continue
-
-        clean_group_positions, clean_group_summaries, clean_group_warnings = tgi.locate_group_token_positions(
-            inputs=inputs,
-            question=question,
-            num_frames=len(frames),
+        sample_metrics_row, cache_delta = process_sample(
+            sample_dir=sample_dir,
+            sample_index=idx,
+            total_samples=len(sample_dirs),
+            args=args,
+            lm=lm,
+            layers=layers,
+            selected_layers=selected_layers,
+            clean_score_cache=clean_score_cache,
         )
-        clean_prompt_positions, clean_prompt_warnings = locate_non_image_prompt_token_positions(
-            inputs=inputs,
-            question=question,
-            num_frames=len(frames),
-        )
-        if not clean_prompt_positions:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no non-image prompt token positions "
-                f"(warnings={clean_prompt_warnings})"
-            )
+        cache_updates += cache_delta
+        if sample_metrics_row is None:
             continue
-
-        control_inputs, control_question, control_group_positions, control_group_summaries, control_skip_info, control_reason = tgi.choose_best_control(
-            frames=frames,
-            states=states,
-            question=question,
-            clean_inputs=inputs,
-            clean_group_positions=clean_group_positions,
-            include_groups=tgi.parse_include_groups(",".join(tgi._ALL_GROUPS)),
-        )
-        if control_inputs is None or control_question is None or control_reason is None:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to find aligned control "
-                f"(details={control_skip_info})"
-            )
-            continue
-
-        control_prompt_positions, control_prompt_warnings = locate_non_image_prompt_token_positions(
-            inputs=control_inputs,
-            question=control_question,
-            num_frames=len(frames),
-        )
-        if not control_prompt_positions:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: control has no non-image prompt token positions "
-                f"(warnings={control_prompt_warnings})"
-            )
-            continue
-        if len(clean_prompt_positions) != len(control_prompt_positions):
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: non-image prompt token count mismatch "
-                f"(clean={len(clean_prompt_positions)}, control={len(control_prompt_positions)})"
-            )
-            continue
-
-        clean_full_input_ids = [int(tok) for tok in inputs["input_ids"][0].tolist()]
-        control_full_input_ids = [int(tok) for tok in control_inputs["input_ids"][0].tolist()]
-        clean_windows, clean_window_warnings = build_sliding_windows(
-            full_input_ids=clean_full_input_ids,
-            prompt_positions=clean_prompt_positions,
-            tail_non_image_tokens=args.tail_non_image_tokens,
-            window_size=args.window_size,
-        )
-        control_windows, control_window_warnings = build_sliding_windows(
-            full_input_ids=control_full_input_ids,
-            prompt_positions=control_prompt_positions,
-            tail_non_image_tokens=args.tail_non_image_tokens,
-            window_size=args.window_size,
-        )
-        if not clean_windows:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no valid sliding windows "
-                f"(warnings={clean_window_warnings})"
-            )
-            continue
-        if len(clean_windows) != len(control_windows):
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: sliding window count mismatch "
-                f"(clean={len(clean_windows)}, control={len(control_windows)})"
-            )
-            continue
-
-        groups_payload: List[Dict[str, Any]] = []
-        skipped_groups: Dict[str, str] = {}
-        group_summaries: Dict[str, Dict[str, str]] = {}
-        group_token_counts: Dict[str, int] = {}
-        window_metadata: List[Dict[str, Any]] = []
-
-        control_windows_by_name = {window["name"]: window for window in control_windows}
-        for clean_window in clean_windows:
-            group_name = str(clean_window["name"])
-            control_window = control_windows_by_name.get(group_name)
-            if control_window is None:
-                skipped_groups[group_name] = "missing_control_window"
-                continue
-            clean_positions = [int(pos) for pos in clean_window["raw_positions"]]
-            control_positions = [int(pos) for pos in control_window["raw_positions"]]
-            if len(clean_positions) != len(control_positions):
-                skipped_groups[group_name] = (
-                    f"token_count_mismatch(clean={len(clean_positions)},control={len(control_positions)})"
-                )
-                continue
-
-            group_token_counts[group_name] = len(clean_positions)
-            group_summaries[group_name] = {
-                "clean": tgi._normalize_summary_text("".join(clean_window["decoded_tokens"])),
-                "control": tgi._normalize_summary_text("".join(control_window["decoded_tokens"])),
-                "token_count": str(len(clean_positions)),
-            }
-            groups_payload.append({
-                "name": group_name,
-                "clean_positions": clean_positions,
-                "control_positions": control_positions,
-                "control_inputs": control_inputs,
-            })
-            window_metadata.append({
-                "name": group_name,
-                "window_index": int(clean_window["window_index"]),
-                "raw_positions": clean_positions,
-                "local_tail_positions": [int(pos) for pos in clean_window["local_tail_positions"]],
-                "clean_token_ids": [int(tok) for tok in clean_window["token_ids"]],
-                "clean_decoded_tokens": list(clean_window["decoded_tokens"]),
-                "control_token_ids": [int(tok) for tok in control_window["token_ids"]],
-                "control_decoded_tokens": list(control_window["decoded_tokens"]),
-            })
-
-        if not groups_payload:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no valid active windows "
-                f"(skipped={skipped_groups}, clean_prompt_warnings={clean_prompt_warnings}, "
-                f"control_prompt_warnings={control_prompt_warnings})"
-            )
-            continue
-
-        active_group_names = [group["name"] for group in groups_payload]
-        print(
-            f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} clean_answer_score={clean_answer_score:.4f} "
-            f"clean_correct_prob={clean_correct_prob:.4f} control_question={control_question!r} "
-            f"control_character={control_reason['control_character']!r} "
-            f"control_room={control_reason['control_room']!r} "
-            f"control_answer={control_reason['control_answer']!r} "
-            f"active_windows={active_group_names} batch_size={args.batch_size}"
-        )
-        print(f"  active window token counts: {group_token_counts}")
-        if skipped_groups:
-            print(f"  skipped windows: {skipped_groups}")
-
-        chunk_size = min(args.batch_size, len(groups_payload))
-        group_chunks = [
-            groups_payload[start:start + chunk_size]
-            for start in range(0, len(groups_payload), chunk_size)
-        ]
-
-        # Pre-build the per-window batches once, then sweep across layers.
-        chunk_data: List[Dict[str, Any]] = []
-        try:
-            for group_chunk in group_chunks:
-                chunk_len = len(group_chunk)
-                repeated_clean_inputs = tgi.repeat_inputs_for_batch(inputs, batch_size=chunk_len)
-                clean_scoring_inputs = tgi.append_answer_tokens_for_scoring(repeated_clean_inputs, a_star_ids)
-                control_inputs_batch = tgi.concatenate_inputs_for_batch(
-                    [group_entry["control_inputs"] for group_entry in group_chunk]
-                )
-                control_scoring_inputs = tgi.append_answer_tokens_for_scoring(control_inputs_batch, a_star_ids)
-                chunk_data.append({
-                    "groups": group_chunk,
-                    "clean_scoring_inputs": clean_scoring_inputs,
-                    "control_scoring_inputs": control_scoring_inputs,
-                })
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build batched inputs ({exc})")
-            continue
-
-        per_layer_metrics: List[Dict[str, Any]] = []
-        all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
-        for layer_idx in selected_layers:
-            per_group_corrupted_score: Dict[str, float] = {}
-            per_group_signed_delta: Dict[str, float] = {}
-            per_group_importance: Dict[str, float] = {}
-
-            for chunk_idx, packed in enumerate(chunk_data, start=1):
-                group_chunk = packed["groups"]
-                clean_positions_by_batch = [group["clean_positions"] for group in group_chunk]
-                control_positions_by_batch = [group["control_positions"] for group in group_chunk]
-                try:
-                    corrupted_scores = tgi.run_layer_multi_group_corrupted_sequence_logprob(
-                        lm=lm,
-                        layers=layers,
-                        clean_batched_scoring_inputs=packed["clean_scoring_inputs"],
-                        control_batched_scoring_inputs=packed["control_scoring_inputs"],
-                        layer_idx=layer_idx,
-                        clean_token_positions_by_batch=clean_positions_by_batch,
-                        control_token_positions_by_batch=control_positions_by_batch,
-                        prompt_len=prompt_len,
-                        answer_token_ids=a_star_ids,
-                    )
-                except Exception as exc:
-                    print(
-                        f"  layer={layer_idx} failed batched corruption forward "
-                        f"(chunk {chunk_idx}/{len(chunk_data)}, {exc}); using clean score for this chunk"
-                    )
-                    for group in group_chunk:
-                        group_name = group["name"]
-                        per_group_corrupted_score[group_name] = clean_answer_score
-                        per_group_signed_delta[group_name] = 0.0
-                        per_group_importance[group_name] = 0.0
-                    continue
-
-                for batch_idx, group in enumerate(group_chunk):
-                    group_name = group["name"]
-                    corrupt_score = float(corrupted_scores[batch_idx].item())
-                    signed_delta = float(clean_answer_score - corrupt_score)
-                    importance = max(signed_delta, 0.0)
-                    per_group_corrupted_score[group_name] = corrupt_score
-                    per_group_signed_delta[group_name] = signed_delta
-                    per_group_importance[group_name] = importance
-
-            layer_group_order = [group["name"] for group in groups_payload]
-            corrupted_score_row = [per_group_corrupted_score.get(group_name, clean_answer_score) for group_name in layer_group_order]
-            signed_delta_row = [per_group_signed_delta.get(group_name, 0.0) for group_name in layer_group_order]
-            importance_row = [per_group_importance.get(group_name, 0.0) for group_name in layer_group_order]
-            all_layer_corrupted_rows.append((layer_idx, list(corrupted_score_row)))
-
-            total_importance = float(sum(importance_row))
-            if total_importance > 0.0:
-                probs = tgi.normalize_to_probabilities(importance_row)
-                entropy_value = tgi.normalize_entropy(
-                    tgi.entropy_from_probabilities(probs),
-                    num_groups=len(layer_group_order),
-                )
-            else:
-                probs = [0.0 for _ in importance_row]
-                entropy_value = None
-
-            per_layer_metrics.append({
-                "layer": layer_idx,
-                "groups": list(layer_group_order),
-                "corrupted_score": corrupted_score_row,
-                "signed_delta": signed_delta_row,
-                "r": importance_row,
-                "p": probs,
-                "entropy": entropy_value,
-                "total_importance": total_importance,
-            })
-
-        if all_layer_corrupted_rows:
-            print("  Corrupted score table (rows=layers, columns=sliding windows):")
-            print(tgi.format_corrupted_score_table(active_group_names, all_layer_corrupted_rows))
-
-        sample_metrics.append({
-            "sample_id": sample_id,
-            "answer": answer,
-            "question": question,
-            "control_question": control_question,
-            "control_character": control_reason["control_character"],
-            "control_room": control_reason["control_room"],
-            "control_answer": control_reason["control_answer"],
-            "clean_answer_score": clean_answer_score,
-            "clean_correct_prob": clean_correct_prob,
-            "clean_top1_correct": clean_top1_correct,
-            "best_answer_text": best_answer_text,
-            "a_star_text": a_star_text,
-            "a_star_ids": a_star_ids,
-            "active_groups": active_group_names,
-            "group_token_counts": group_token_counts,
-            "skipped_groups": skipped_groups,
-            "group_summaries": group_summaries,
-            "clean_group_warnings": clean_group_warnings,
-            "control_group_info": control_skip_info,
-            "control_reason": control_reason,
-            "window_config": {
-                "window_size": int(args.window_size),
-                "tail_non_image_tokens": int(args.tail_non_image_tokens),
-                "available_non_image_prompt_tokens": len(clean_prompt_positions),
-                "scanned_tail_token_count": min(int(args.tail_non_image_tokens), len(clean_prompt_positions)),
-            },
-            "window_metadata": window_metadata,
-            "selected_layers": list(selected_layers),
-            "selected_layers_spec": args.layers,
-            "clean_prompt_warnings": clean_prompt_warnings,
-            "control_prompt_warnings": control_prompt_warnings,
-            "clean_window_warnings": clean_window_warnings,
-            "control_window_warnings": control_window_warnings,
-            "layer_metrics": {"layers": per_layer_metrics},
-        })
+        sample_metrics_row["selected_layers"] = list(selected_layers)
+        sample_metrics_row["selected_layers_spec"] = args.layers
+        sample_metrics.append(sample_metrics_row)
         processed_samples += 1
 
     print(eval_utils.persist_clean_score_cache(clean_score_cache_path, clean_score_cache, cache_updates))
-
-    text_report_path = tgi.write_text_group_report(sample_metrics, output_dir)
-    json_path = tgi.write_metrics_json(sample_metrics, output_dir)
-    print(f"Wrote sample metrics text report to: {text_report_path}")
-    print(f"Wrote sample metrics JSON to: {json_path}")
-    print(
-        f"Processed {processed_samples} samples "
-        f"(target limit={target_processed_samples}, min_clean_correct_prob={args.min_clean_correct_prob:.4f})."
+    finalize_outputs(
+        sample_metrics=sample_metrics,
+        output_dir=output_dir,
+        num_layers=num_layers,
+        selected_layers=selected_layers,
+        seq_len_label=seq_len_label,
+        plot_window_names=plot_window_names,
+        args=args,
     )
-    summary_window_names = plot_window_names
-    if not summary_window_names:
-        seen_window_names: List[str] = []
-        for sample in sample_metrics:
-            for group_name in sample["active_groups"]:
-                if group_name not in seen_window_names:
-                    seen_window_names.append(group_name)
-        summary_window_names = seen_window_names
-    tgi.print_group_summary(summary_window_names, sample_metrics)
-
-    if not args.disable_plots:
-        lines_path = tgi.plot_group_importance_lines(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            include_groups=summary_window_names,
-            seq_len_label=seq_len_label,
-        )
-        if lines_path is not None:
-            print(f"Wrote group-importance lines plot to: {lines_path}")
-        else:
-            print("Skipped group-importance lines plot: insufficient data.")
 
     elapsed = time.perf_counter() - start_time
     print(f"Done in {elapsed:.2f}s")

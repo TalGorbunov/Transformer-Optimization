@@ -1,5 +1,7 @@
 import argparse
 import json
+import math
+import random
 import re
 import sys
 import time
@@ -13,7 +15,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from evaluations import text_group_importance as tgi
+from evaluations import patching_core as tgi
+from evaluations import text_controls as tc
 from evaluations import utils as eval_utils
 from models.model import get_layers, image_token_groups, model as base_model, processor
 
@@ -90,7 +93,7 @@ def build_composite_corrupted_frames(
 
 
 def replace_character_in_question(question: str, new_character: str) -> Optional[str]:
-    parsed = tgi.parse_target_character_room_with_spans(question)
+    parsed = tc.parse_target_character_room_with_spans(question)
     if parsed is None:
         return None
     _, _, char_span, _ = parsed
@@ -98,7 +101,7 @@ def replace_character_in_question(question: str, new_character: str) -> Optional
 
 
 def replace_room_in_question(question: str, new_room: str) -> Optional[str]:
-    parsed = tgi.parse_target_character_room_with_spans(question)
+    parsed = tc.parse_target_character_room_with_spans(question)
     if parsed is None:
         return None
     _, _, _, room_span = parsed
@@ -111,11 +114,11 @@ def build_prompt_context(
     num_frames: int,
 ) -> Optional[Dict[str, Any]]:
     prompt = tgi.build_prompt(question, num_frames=num_frames)
-    prompt_token_ids, _ = tgi.tokenize_with_offsets_if_available(prompt)
+    prompt_token_ids, _ = tc.tokenize_with_offsets_if_available(prompt)
     if not prompt_token_ids:
         return None
     full_input_ids = [int(tok) for tok in inputs["input_ids"][0].tolist()]
-    prompt_start_in_full = tgi.find_subsequence(full_input_ids, prompt_token_ids)
+    prompt_start_in_full = tc.find_subsequence(full_input_ids, prompt_token_ids)
     if prompt_start_in_full is None:
         return None
     return {
@@ -144,8 +147,8 @@ def validate_text_control_alignment(
     if control_context is None:
         return False, "control_prompt_context_unavailable", debug
 
-    clean_char_spans, _, clean_warnings = tgi.build_prompt_group_char_spans(clean_question, num_frames=num_frames)
-    control_char_spans, _, control_warnings = tgi.build_prompt_group_char_spans(control_question, num_frames=num_frames)
+    clean_char_spans, _, clean_warnings = tc.build_prompt_group_char_spans(clean_question, num_frames=num_frames)
+    control_char_spans, _, control_warnings = tc.build_prompt_group_char_spans(control_question, num_frames=num_frames)
     debug["clean_warnings"] = list(clean_warnings)
     debug["control_warnings"] = list(control_warnings)
 
@@ -193,7 +196,7 @@ def choose_aligned_single_field_control(
     clean_answer_text: str,
     field_name: str,
 ) -> Tuple[Optional[Dict[str, Any]], str]:
-    parsed = tgi.parse_target_character_room(clean_question)
+    parsed = tc.parse_target_character_room(clean_question)
     if parsed is None:
         return None, f"{field_name}:question_parse_failed"
     clean_character, clean_room = parsed
@@ -202,14 +205,14 @@ def choose_aligned_single_field_control(
     clean_seq_len = int(clean_inputs["input_ids"].shape[1])
 
     if field_name == "character":
-        candidates = [char for char in tgi.extract_characters_from_states(states) if char != clean_character]
+        candidates = [char for char in tc.extract_characters_from_states(states) if char != clean_character]
         sort_key = lambda value: (
             0 if len(processor.tokenizer(value, add_special_tokens=False)["input_ids"]) == 1 else 1,
             abs(len(str(value)) - len(clean_character)),
             str(value),
         )
     elif field_name == "room":
-        candidates = [room for room in tgi.extract_rooms_from_states(states) if room != clean_room]
+        candidates = [room for room in tc.extract_rooms_from_states(states) if room != clean_room]
         sort_key = lambda value: (
             0 if len(processor.tokenizer(value, add_special_tokens=False)["input_ids"]) == 1 else 1,
             abs(len(str(value)) - len(clean_room)),
@@ -225,10 +228,10 @@ def choose_aligned_single_field_control(
     for candidate_value in sorted(candidates, key=sort_key):
         if field_name == "character":
             control_question = replace_character_in_question(clean_question, str(candidate_value))
-            control_answer = tgi.count_steps_for_character_room(states, str(candidate_value), clean_room)
+            control_answer = tc.count_steps_for_character_room(states, str(candidate_value), clean_room)
         else:
             control_question = replace_room_in_question(clean_question, str(candidate_value))
-            control_answer = tgi.count_steps_for_character_room(states, clean_character, str(candidate_value))
+            control_answer = tc.count_steps_for_character_room(states, clean_character, str(candidate_value))
         if control_question is None:
             failures.append(f"{candidate_value}:question_rewrite_failed")
             continue
@@ -245,7 +248,7 @@ def choose_aligned_single_field_control(
                 f"{candidate_value}:seq_len_mismatch(clean={clean_seq_len},control={int(control_inputs['input_ids'].shape[1])})"
             )
             continue
-        control_group_positions, control_group_summaries, control_warnings = tgi.locate_group_token_positions(
+        control_group_positions, control_group_summaries, control_warnings = tc.locate_group_token_positions(
             inputs=control_inputs,
             question=control_question,
             num_frames=num_frames,
@@ -420,7 +423,7 @@ def locate_group_positions_and_metadata(
     num_frames: int,
     evidence_frame_indices: Sequence[int],
 ) -> Tuple[Dict[str, List[int]], Dict[str, Dict[str, Any]], List[str]]:
-    group_positions, _, warnings = tgi.locate_group_token_positions(
+    group_positions, _, warnings = tc.locate_group_token_positions(
         inputs=inputs,
         question=question,
         num_frames=num_frames,
@@ -582,7 +585,7 @@ def plot_group_importance_lines(
                     per_group_per_layer_values[group_name][layer_idx].append(by_group[group_name])
 
     fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
-    rng = tgi.random.Random(seed)
+    rng = random.Random(seed)
     for group_name in group_order:
         mean_vals = []
         lo_vals = []
@@ -616,7 +619,7 @@ def plot_group_importance_lines(
     ax.set_ylabel("Mean importance")
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
     ax.legend(frameon=True)
-    tick_step = max(1, tgi.math.ceil(len(selected_layers) / 32))
+    tick_step = max(1, math.ceil(len(selected_layers) / 32))
     xticks = selected_layers[::tick_step]
     if selected_layers[-1] not in xticks:
         xticks.append(selected_layers[-1])
@@ -638,11 +641,7 @@ def write_aggregate_metrics_json(payload: Dict[str, Any], output_dir: Path) -> P
     return output_path
 
 
-def main() -> None:
-    start_time = time.perf_counter()
-
-    # This script compares evidence-frame patching against aligned text and
-    # last-token controls on the same clean sample.
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
             "Compare layer-wise importance of evidence-frame tokens, character, room, and the last prompt "
@@ -711,6 +710,301 @@ def main() -> None:
         min_clean_correct_prob = float(args.lambda_threshold)
     elif args.min_clean_ld is not None:
         min_clean_correct_prob = float(args.min_clean_ld)
+    args.min_clean_correct_prob = min_clean_correct_prob
+    return args
+
+
+def process_sample(
+    sample_dir: Path,
+    sample_index: int,
+    total_samples: int,
+    lm: LanguageModel,
+    layers: Any,
+    selected_layers: List[int],
+    include_groups: List[str],
+    corrupted_data_root: Path,
+    clean_score_cache: Dict[str, Dict[str, Any]],
+    min_clean_correct_prob: float,
+) -> tuple[Optional[Dict[str, Any]], int]:
+    # Start from clean samples the model already answers correctly with high confidence.
+    try:
+        sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_dir.name} skipped: load failure ({exc})")
+        return None, 0
+
+    evidence_frame_indices = collect_evidence_frame_indices(question, states)
+    if len(evidence_frame_indices) < 1:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: no evidence frames")
+        return None, 0
+
+    try:
+        inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
+        return None, 0
+
+    prompt_len = int(inputs["input_ids"].shape[1])
+    a_star_text = str(answer).strip()
+    try:
+        a_star_ids = tgi.token_ids_of_answer(a_star_text)
+        clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+            cache=clean_score_cache,
+            sample_id=sample_id,
+            num_frames=len(frames),
+            answer_text=a_star_text,
+            score_fn=lambda: tgi.score_valid_numeric_answers(
+                lm=lm,
+                inputs=inputs,
+                prompt_len=prompt_len,
+                num_frames=len(frames),
+            ),
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+        return None, 0
+
+    clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+    clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+    clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+    best_answer_text = str(clean_answer_metrics["best_answer_text"])
+    if not clean_top1_correct:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
+            f"not correct answer {a_star_text!r}"
+        )
+        return None, int(cache_was_updated)
+    if clean_correct_prob < min_clean_correct_prob:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"clean_correct_prob={clean_correct_prob:.4f} < threshold={min_clean_correct_prob:.4f}"
+        )
+        return None, int(cache_was_updated)
+
+    group_positions, group_metadata, group_warnings = locate_group_positions_and_metadata(
+        inputs=inputs,
+        question=question,
+        num_frames=len(frames),
+        evidence_frame_indices=evidence_frame_indices,
+    )
+    group_specific_controls, control_issues = build_group_specific_controls(
+        sample_id=sample_id,
+        clean_inputs=inputs,
+        frames=frames,
+        question=question,
+        states=states,
+        clean_answer_text=a_star_text,
+        clean_group_positions=group_positions,
+        corrupted_data_root=corrupted_data_root,
+        evidence_frame_indices=evidence_frame_indices,
+    )
+    if group_specific_controls is None:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build aligned controls "
+            f"(issues={control_issues})"
+        )
+        return None, int(cache_was_updated)
+
+    last_token_positions = [int(pos) for pos in group_positions.get("last_token", [])]
+    if not last_token_positions:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: missing last_token positions "
+            f"(warnings={group_warnings})"
+        )
+        return None, int(cache_was_updated)
+    try:
+        last_token_control_source, last_token_control_scores = choose_strongest_last_token_control(
+            lm=lm,
+            layers=layers,
+            clean_inputs=inputs,
+            control_sources=group_specific_controls,
+            token_position=int(last_token_positions[-1]),
+        )
+    except Exception as exc:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to score last_token controls "
+            f"({exc})"
+        )
+        return None, int(cache_was_updated)
+
+    groups_payload: List[Dict[str, Any]] = []
+    group_token_counts: Dict[str, int] = {}
+    skipped_groups: Dict[str, str] = {}
+    for group_name in include_groups:
+        token_positions = [int(pos) for pos in group_positions.get(group_name, [])]
+        if not token_positions:
+            skipped_groups[group_name] = "missing_token_positions"
+            continue
+        if group_name == "frames":
+            control_source = group_specific_controls["wrong_frames"]
+            control_positions = [int(pos) for pos in control_source["group_positions"].get("frames", [])]
+        elif group_name == "character":
+            control_source = group_specific_controls["wrong_character"]
+            control_positions = [int(pos) for pos in control_source["group_positions"].get("character", [])]
+        elif group_name == "room":
+            control_source = group_specific_controls["wrong_room"]
+            control_positions = [int(pos) for pos in control_source["group_positions"].get("room", [])]
+        elif group_name == "last_token":
+            control_source = group_specific_controls[last_token_control_source]
+            control_positions = [int(pos) for pos in control_source["group_positions"].get("last_token", [])]
+        else:
+            skipped_groups[group_name] = "unsupported_group"
+            continue
+        if len(control_positions) != len(token_positions):
+            skipped_groups[group_name] = f"token_count_mismatch(clean={len(token_positions)},control={len(control_positions)})"
+            continue
+        groups_payload.append({
+            "name": group_name,
+            "clean_positions": token_positions,
+            "control_positions": control_positions,
+            "control_inputs": control_source["control_inputs"],
+        })
+        group_token_counts[group_name] = len(token_positions)
+
+    if not groups_payload:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: no valid groups "
+            f"(warnings={group_warnings}, skipped={skipped_groups})"
+        )
+        return None, int(cache_was_updated)
+
+    print(
+        f"[{sample_index}/{total_samples}] sample_id={sample_id} clean_answer_score={clean_answer_score:.4f} "
+        f"clean_correct_prob={clean_correct_prob:.4f} evidence_frames={evidence_frame_indices} "
+        f"active_groups={[group['name'] for group in groups_payload]} batch_size={len(groups_payload)}"
+    )
+    try:
+        chunk_data = eval_utils.build_group_patch_batches(
+            groups_payload=groups_payload,
+            batch_size=len(groups_payload),
+            clean_inputs=inputs,
+            answer_token_ids=a_star_ids,
+            repeat_inputs_for_batch=tgi.repeat_inputs_for_batch,
+            concatenate_inputs_for_batch=tgi.concatenate_inputs_for_batch,
+            append_answer_tokens_for_scoring=tgi.append_answer_tokens_for_scoring,
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build batched inputs ({exc})")
+        return None, int(cache_was_updated)
+
+    per_layer_metrics, all_layer_corrupted_rows = eval_utils.run_group_patch_layer_sweep(
+        selected_layers=selected_layers,
+        groups_payload=groups_payload,
+        chunk_data=chunk_data,
+        clean_answer_score=clean_answer_score,
+        lm=lm,
+        layers=layers,
+        prompt_len=prompt_len,
+        answer_token_ids=a_star_ids,
+        run_layer_patch=tgi.run_layer_multi_group_corrupted_sequence_logprob,
+        normalize_to_probabilities=tgi.normalize_to_probabilities,
+        entropy_from_probabilities=tgi.entropy_from_probabilities,
+        normalize_entropy=tgi.normalize_entropy,
+        logger=print,
+        include_signed_delta=False,
+        normalize_by_token_count=True,
+    )
+    if all_layer_corrupted_rows:
+        print("  Corrupted score table (rows=layers, columns=groups):")
+        print(tgi.format_corrupted_score_table([group["name"] for group in groups_payload], all_layer_corrupted_rows))
+
+    return {
+        "sample_id": sample_id,
+        "question": question,
+        "answer": answer,
+        "clean_answer_score": clean_answer_score,
+        "clean_correct_prob": clean_correct_prob,
+        "clean_top1_correct": clean_top1_correct,
+        "a_star_text": a_star_text,
+        "a_star_ids": a_star_ids,
+        "evidence_frames": [int(frame_idx) for frame_idx in evidence_frame_indices],
+        "active_groups": [group["name"] for group in groups_payload],
+        "group_token_counts": group_token_counts,
+        "group_positions": group_positions,
+        "group_metadata": group_metadata,
+        "group_warnings": group_warnings,
+        "control_debug": {
+            "wrong_character": {
+                "control_value": group_specific_controls["wrong_character"]["control_value"],
+                "control_question": group_specific_controls["wrong_character"]["control_question"],
+                "control_answer": group_specific_controls["wrong_character"]["control_answer"],
+                "alignment": group_specific_controls["wrong_character"]["alignment_debug"],
+            },
+            "wrong_room": {
+                "control_value": group_specific_controls["wrong_room"]["control_value"],
+                "control_question": group_specific_controls["wrong_room"]["control_question"],
+                "control_answer": group_specific_controls["wrong_room"]["control_answer"],
+                "alignment": group_specific_controls["wrong_room"]["alignment_debug"],
+            },
+            "wrong_frames": {
+                "control_question": group_specific_controls["wrong_frames"]["control_question"],
+                "control_answer": group_specific_controls["wrong_frames"]["control_answer"],
+                "alignment": group_specific_controls["wrong_frames"]["alignment_debug"],
+            },
+            "last_token_selection": {
+                "selected_source": last_token_control_source,
+                "scores": last_token_control_scores,
+            },
+        },
+        "skipped_groups": skipped_groups,
+        "layer_metrics": {"layers": per_layer_metrics},
+    }, int(cache_was_updated)
+
+
+def finalize_outputs(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    data_root: Path,
+    corrupted_data_root: Path,
+    selected_layers: List[int],
+    include_groups: List[str],
+    num_layers: int,
+    seq_len_label: Optional[str],
+    args: argparse.Namespace,
+) -> None:
+    text_report_path = write_group_ld_report(sample_metrics, output_dir)
+    sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
+    aggregate_metrics = build_aggregate_metrics(
+        sample_metrics,
+        num_layers=num_layers,
+        selected_layers=selected_layers,
+        group_order=include_groups,
+    )
+    aggregate_payload = {
+        "metadata": {
+            "model_name": getattr(base_model.config, "_name_or_path", str(type(base_model).__name__)),
+            "dataset_path": str(data_root),
+            "corrupted_root": str(corrupted_data_root),
+            "selected_layers": list(selected_layers),
+            "selected_layers_spec": args.layers,
+            "total_layer_count": int(num_layers),
+            "corruption_method": _CORRUPTION_METHOD,
+            "group_names": list(include_groups),
+        },
+        "aggregate": aggregate_metrics,
+    }
+    aggregate_json_path = write_aggregate_metrics_json(aggregate_payload, output_dir)
+    print(f"Wrote sample metrics text report to: {text_report_path}")
+    print(f"Wrote sample metrics JSON to: {sample_json_path}")
+    print(f"Wrote aggregate metrics JSON to: {aggregate_json_path}")
+    print(f"Processed {len(sample_metrics)} samples (target limit={int(args.limit)}).")
+    tgi.print_group_summary(include_groups, sample_metrics)
+    if not args.disable_plots:
+        lines_path = plot_group_importance_lines(
+            sample_metrics,
+            output_dir,
+            num_layers=num_layers,
+            selected_layers=selected_layers,
+            group_order=include_groups,
+            seq_len_label=seq_len_label,
+        )
+        if lines_path is not None:
+            print(f"Wrote group-importance lines plot to: {lines_path}")
+
+
+def main() -> None:
+    start_time = time.perf_counter()
+    args = parse_args()
 
     data_root = Path(args.data_root)
     corrupted_data_root = Path(args.corrupted_root) if args.corrupted_root is not None else infer_corrupted_data_root(data_root)
@@ -740,394 +1034,39 @@ def main() -> None:
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= int(args.limit):
             break
-
-        # Start from clean samples the model already answers correctly with high confidence.
-        try:
-            sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} skipped: load failure ({exc})")
-            continue
-
-        evidence_frame_indices = collect_evidence_frame_indices(question, states)
-        if len(evidence_frame_indices) < 1:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no evidence frames")
-            continue
-
-        try:
-            inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
-            continue
-
-        prompt_len = int(inputs["input_ids"].shape[1])
-        a_star_text = str(answer).strip()
-        try:
-            a_star_ids = tgi.token_ids_of_answer(a_star_text)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
-            continue
-
-        try:
-            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
-                cache=clean_ld_cache,
-                sample_id=sample_id,
-                num_frames=len(frames),
-                answer_text=a_star_text,
-                score_fn=lambda: tgi.score_valid_numeric_answers(
-                    lm=lm,
-                    inputs=inputs,
-                    prompt_len=prompt_len,
-                    num_frames=len(frames),
-                ),
-            )
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-            continue
-        if cache_was_updated:
-            cache_updates += 1
-
-        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
-        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
-        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
-        best_answer_text = str(clean_answer_metrics["best_answer_text"])
-
-        if not clean_top1_correct:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
-                f"not correct answer {a_star_text!r}"
-            )
-            continue
-        if clean_correct_prob < min_clean_correct_prob:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                f"clean_correct_prob={clean_correct_prob:.4f} < threshold={min_clean_correct_prob:.4f}"
-            )
-            continue
-
-        group_positions, group_metadata, group_warnings = locate_group_positions_and_metadata(
-            inputs=inputs,
-            question=question,
-            num_frames=len(frames),
-            evidence_frame_indices=evidence_frame_indices,
-        )
-        group_specific_controls, control_issues = build_group_specific_controls(
-            sample_id=sample_id,
-            clean_inputs=inputs,
-            frames=frames,
-            question=question,
-            states=states,
-            clean_answer_text=a_star_text,
-            clean_group_positions=group_positions,
+        sample_metrics_row, cache_delta = process_sample(
+            sample_dir=sample_dir,
+            sample_index=idx,
+            total_samples=len(sample_dirs),
+            lm=lm,
+            layers=layers,
+            selected_layers=selected_layers,
+            include_groups=include_groups,
             corrupted_data_root=corrupted_data_root,
-            evidence_frame_indices=evidence_frame_indices,
+            clean_score_cache=clean_ld_cache,
+            min_clean_correct_prob=min_clean_correct_prob,
         )
-        if group_specific_controls is None:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build aligned controls "
-                f"(issues={control_issues})"
-            )
+        cache_updates += cache_delta
+        if sample_metrics_row is None:
             continue
-        last_token_positions = [int(pos) for pos in group_positions.get("last_token", [])]
-        if not last_token_positions:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: missing last_token positions "
-                f"(warnings={group_warnings})"
-            )
-            continue
-        try:
-            last_token_control_source, last_token_control_scores = choose_strongest_last_token_control(
-                lm=lm,
-                layers=layers,
-                clean_inputs=inputs,
-                control_sources=group_specific_controls,
-                token_position=int(last_token_positions[-1]),
-            )
-        except Exception as exc:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to score last_token controls "
-                f"({exc})"
-            )
-            continue
-
-        groups_payload: List[Dict[str, Any]] = []
-        group_token_counts: Dict[str, int] = {}
-        skipped_groups: Dict[str, str] = {}
-        for group_name in include_groups:
-            token_positions = [int(pos) for pos in group_positions.get(group_name, [])]
-            if not token_positions:
-                skipped_groups[group_name] = "missing_token_positions"
-                continue
-            if group_name == "frames":
-                control_source = group_specific_controls["wrong_frames"]
-                control_positions = [int(pos) for pos in control_source["group_positions"].get("frames", [])]
-            elif group_name == "character":
-                control_source = group_specific_controls["wrong_character"]
-                control_positions = [int(pos) for pos in control_source["group_positions"].get("character", [])]
-            elif group_name == "room":
-                control_source = group_specific_controls["wrong_room"]
-                control_positions = [int(pos) for pos in control_source["group_positions"].get("room", [])]
-            elif group_name == "last_token":
-                control_source = group_specific_controls[last_token_control_source]
-                control_positions = [int(pos) for pos in control_source["group_positions"].get("last_token", [])]
-            else:
-                skipped_groups[group_name] = "unsupported_group"
-                continue
-            if len(control_positions) != len(token_positions):
-                skipped_groups[group_name] = (
-                    f"token_count_mismatch(clean={len(token_positions)},control={len(control_positions)})"
-                )
-                continue
-            groups_payload.append({
-                "name": group_name,
-                "clean_positions": token_positions,
-                "control_positions": control_positions,
-                "control_inputs": control_source["control_inputs"],
-                "control_source": (
-                    "wrong_frames"
-                    if group_name in {"frames"}
-                    else "wrong_character"
-                    if group_name in {"character"}
-                    else "wrong_room"
-                ),
-            })
-            group_token_counts[group_name] = len(token_positions)
-
-        if not groups_payload:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no valid groups "
-                f"(warnings={group_warnings}, skipped={skipped_groups})"
-            )
-            continue
-
-        print(
-            f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} clean_answer_score={clean_answer_score:.4f} "
-            f"clean_correct_prob={clean_correct_prob:.4f} evidence_frames={evidence_frame_indices} "
-            f"active_groups={[group['name'] for group in groups_payload]} batch_size={args.batch_size}"
-        )
-        print(f"  group token counts: {group_token_counts}")
-        print(
-            f"  controls: wrong_character={group_specific_controls['wrong_character']['control_value']!r} "
-            f"wrong_room={group_specific_controls['wrong_room']['control_value']!r} "
-            f"clean_answer={a_star_text!r} "
-            f"wrong_character_answer={group_specific_controls['wrong_character']['control_answer']!r} "
-            f"wrong_room_answer={group_specific_controls['wrong_room']['control_answer']!r} "
-            f"last_token_source={last_token_control_source} "
-            f"last_token_strengths={{{', '.join(f'{name}:{score:.4f}' for name, score in last_token_control_scores.items())}}}"
-        )
-        print(
-            f"  alignment: character(clean_pos={group_specific_controls['wrong_character']['alignment_debug']['clean_positions']}, "
-            f"control_pos={group_specific_controls['wrong_character']['alignment_debug']['control_positions']}, "
-            f"clean_idx={group_specific_controls['wrong_character']['alignment_debug']['clean_prompt_index']}, "
-            f"control_idx={group_specific_controls['wrong_character']['alignment_debug']['control_prompt_index']}, "
-            f"passed=True) "
-            f"room(clean_pos={group_specific_controls['wrong_room']['alignment_debug']['clean_positions']}, "
-            f"control_pos={group_specific_controls['wrong_room']['alignment_debug']['control_positions']}, "
-            f"clean_idx={group_specific_controls['wrong_room']['alignment_debug']['clean_prompt_index']}, "
-            f"control_idx={group_specific_controls['wrong_room']['alignment_debug']['control_prompt_index']}, "
-            f"passed=True) "
-            f"last_token(clean_pos={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['clean_positions']}, "
-            f"control_pos={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['control_positions']}, "
-            f"clean_idx={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['clean_prompt_index']}, "
-            f"control_idx={group_specific_controls[last_token_control_source]['alignment_debug']['last_token']['control_prompt_index']}, "
-            f"passed=True)"
-        )
-        if skipped_groups:
-            print(f"  skipped groups: {skipped_groups}")
-
-        chunk_size = min(args.batch_size, len(groups_payload))
-        group_chunks = [
-            groups_payload[start:start + chunk_size]
-            for start in range(0, len(groups_payload), chunk_size)
-        ]
-
-        # Build the batch layout once so each layer only runs the actual patching pass.
-        chunk_data: List[Dict[str, Any]] = []
-        try:
-            for group_chunk in group_chunks:
-                chunk_len = len(group_chunk)
-                repeated_clean_inputs = tgi.repeat_inputs_for_batch(inputs, batch_size=chunk_len)
-                clean_answer_chunk_inputs = tgi.append_answer_tokens_for_scoring(repeated_clean_inputs, a_star_ids)
-                control_inputs_batch = tgi.concatenate_inputs_for_batch(
-                    [group_entry["control_inputs"] for group_entry in group_chunk]
-                )
-                corrupted_answer_chunk_inputs = tgi.append_answer_tokens_for_scoring(control_inputs_batch, a_star_ids)
-                chunk_data.append({
-                    "groups": group_chunk,
-                    "clean_answer_inputs": clean_answer_chunk_inputs,
-                    "corrupted_answer_inputs": corrupted_answer_chunk_inputs,
-                })
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build batched inputs ({exc})")
-            continue
-
-        per_layer_metrics: List[Dict[str, Any]] = []
-        all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
-        for layer_idx in selected_layers:
-            per_group_corrupted_score: Dict[str, float] = {}
-            per_group_importance: Dict[str, float] = {}
-            per_group_normalized_importance: Dict[str, float] = {}
-
-            for chunk_idx, packed in enumerate(chunk_data, start=1):
-                group_chunk = packed["groups"]
-                clean_positions_by_batch = [group["clean_positions"] for group in group_chunk]
-                control_positions_by_batch = [group["control_positions"] for group in group_chunk]
-                try:
-                    corrupted_answer_scores = tgi.run_layer_multi_group_corrupted_sequence_logprob(
-                        lm=lm,
-                        layers=layers,
-                        clean_batched_scoring_inputs=packed["clean_answer_inputs"],
-                        control_batched_scoring_inputs=packed["corrupted_answer_inputs"],
-                        layer_idx=layer_idx,
-                        clean_token_positions_by_batch=clean_positions_by_batch,
-                        control_token_positions_by_batch=control_positions_by_batch,
-                        prompt_len=prompt_len,
-                        answer_token_ids=a_star_ids,
-                    )
-                except Exception as exc:
-                    print(
-                        f"  layer={layer_idx} failed batched corruption forward "
-                        f"(chunk {chunk_idx}/{len(chunk_data)}, {exc}); using clean score for this chunk"
-                    )
-                    for group in group_chunk:
-                        group_name = group["name"]
-                        per_group_corrupted_score[group_name] = clean_answer_score
-                        per_group_importance[group_name] = 0.0
-                        per_group_normalized_importance[group_name] = 0.0
-                    continue
-
-                for batch_idx, group in enumerate(group_chunk):
-                    group_name = group["name"]
-                    corrupted_score = float(corrupted_answer_scores[batch_idx].item())
-                    importance = max(clean_answer_score - corrupted_score, 0.0)
-                    token_count = max(1, len(group["clean_positions"]))
-                    per_group_corrupted_score[group_name] = corrupted_score
-                    per_group_importance[group_name] = importance
-                    per_group_normalized_importance[group_name] = importance / float(token_count)
-
-            layer_group_order = [group["name"] for group in groups_payload]
-            corrupted_score_row = [per_group_corrupted_score.get(group_name, clean_answer_score) for group_name in layer_group_order]
-            importance_row = [per_group_importance.get(group_name, 0.0) for group_name in layer_group_order]
-            normalized_row = [
-                per_group_normalized_importance.get(group_name, 0.0) for group_name in layer_group_order
-            ]
-            all_layer_corrupted_rows.append((layer_idx, list(corrupted_score_row)))
-
-            total_importance = float(sum(importance_row))
-            if total_importance > 0.0:
-                probs = tgi.normalize_to_probabilities(importance_row)
-                entropy_value = tgi.normalize_entropy(
-                    tgi.entropy_from_probabilities(probs),
-                    num_groups=len(layer_group_order),
-                )
-            else:
-                probs = [0.0 for _ in importance_row]
-                entropy_value = None
-
-            per_layer_metrics.append({
-                "layer": layer_idx,
-                "groups": list(layer_group_order),
-                "corrupted_score": corrupted_score_row,
-                "r": importance_row,
-                "r_normalized": normalized_row,
-                "p": probs,
-                "entropy": entropy_value,
-                "total_importance": total_importance,
-            })
-
-        if all_layer_corrupted_rows:
-            print("  Corrupted score table (rows=layers, columns=groups):")
-            print(tgi.format_corrupted_score_table([group["name"] for group in groups_payload], all_layer_corrupted_rows))
-
-        sample_metrics.append({
-            "sample_id": sample_id,
-            "question": question,
-            "answer": answer,
-            "clean_answer_score": clean_answer_score,
-            "clean_correct_prob": clean_correct_prob,
-            "clean_top1_correct": clean_top1_correct,
-            "a_star_text": a_star_text,
-            "a_star_ids": a_star_ids,
-            "evidence_frames": [int(frame_idx) for frame_idx in evidence_frame_indices],
-            "active_groups": [group["name"] for group in groups_payload],
-            "group_token_counts": group_token_counts,
-            "group_positions": group_positions,
-            "group_metadata": group_metadata,
-            "group_warnings": group_warnings,
-            "control_debug": {
-                "wrong_character": {
-                    "control_value": group_specific_controls["wrong_character"]["control_value"],
-                    "control_question": group_specific_controls["wrong_character"]["control_question"],
-                    "control_answer": group_specific_controls["wrong_character"]["control_answer"],
-                    "alignment": group_specific_controls["wrong_character"]["alignment_debug"],
-                },
-                "wrong_room": {
-                    "control_value": group_specific_controls["wrong_room"]["control_value"],
-                    "control_question": group_specific_controls["wrong_room"]["control_question"],
-                    "control_answer": group_specific_controls["wrong_room"]["control_answer"],
-                    "alignment": group_specific_controls["wrong_room"]["alignment_debug"],
-                },
-                "wrong_frames": {
-                    "control_question": group_specific_controls["wrong_frames"]["control_question"],
-                    "control_answer": group_specific_controls["wrong_frames"]["control_answer"],
-                    "alignment": group_specific_controls["wrong_frames"]["alignment_debug"],
-                },
-                "last_token_selection": {
-                    "selected_source": last_token_control_source,
-                    "scores": last_token_control_scores,
-                },
-            },
-            "skipped_groups": skipped_groups,
-            "selected_layers": list(selected_layers),
-            "selected_layers_spec": args.layers,
-            "layer_metrics": {"layers": per_layer_metrics},
-        })
+        sample_metrics_row["selected_layers"] = list(selected_layers)
+        sample_metrics_row["selected_layers_spec"] = args.layers
+        sample_metrics.append(sample_metrics_row)
         processed_samples += 1
 
     clean_ld_cache_path = clean_ld_cache_dir / "clean_scores.json"
     print(eval_utils.persist_clean_score_cache(clean_ld_cache_path, clean_ld_cache, cache_updates))
-
-    text_report_path = write_group_ld_report(sample_metrics, output_dir)
-    sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
-    aggregate_metrics = build_aggregate_metrics(
-        sample_metrics,
-        num_layers=num_layers,
+    finalize_outputs(
+        sample_metrics=sample_metrics,
+        output_dir=output_dir,
+        data_root=data_root,
+        corrupted_data_root=corrupted_data_root,
         selected_layers=selected_layers,
-        group_order=include_groups,
+        include_groups=include_groups,
+        num_layers=num_layers,
+        seq_len_label=seq_len_label,
+        args=args,
     )
-    aggregate_payload = {
-        "metadata": {
-            "model_name": getattr(base_model.config, "_name_or_path", str(type(base_model).__name__)),
-            "dataset_path": str(data_root),
-            "corrupted_root": str(corrupted_data_root),
-            "selected_layers": list(selected_layers),
-            "selected_layers_spec": args.layers,
-            "total_layer_count": int(num_layers),
-            "corruption_method": _CORRUPTION_METHOD,
-            "group_names": list(include_groups),
-        },
-        "aggregate": aggregate_metrics,
-    }
-    aggregate_json_path = write_aggregate_metrics_json(aggregate_payload, output_dir)
-    print(f"Wrote sample metrics text report to: {text_report_path}")
-    print(f"Wrote sample metrics JSON to: {sample_json_path}")
-    print(f"Wrote aggregate metrics JSON to: {aggregate_json_path}")
-    print(
-        f"Processed {processed_samples} samples "
-        f"(target limit={int(args.limit)}, min_clean_correct_prob={min_clean_correct_prob:.4f})."
-    )
-    tgi.print_group_summary(include_groups, sample_metrics)
-
-    if not args.disable_plots:
-        lines_path = plot_group_importance_lines(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            selected_layers=selected_layers,
-            group_order=include_groups,
-            seq_len_label=seq_len_label,
-        )
-        if lines_path is not None:
-            print(f"Wrote group-importance lines plot to: {lines_path}")
 
     elapsed = time.perf_counter() - start_time
     print(f"Done in {elapsed:.2f}s")

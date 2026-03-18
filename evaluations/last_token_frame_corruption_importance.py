@@ -1,6 +1,4 @@
 import argparse
-import json
-import re
 import sys
 import time
 from pathlib import Path
@@ -13,7 +11,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from evaluations import frame_text_group_importance as ftgi
-from evaluations import text_group_importance as tgi
+from evaluations import patching_core as tgi
 from evaluations import utils as eval_utils
 from evaluations.utils import iter_sample_dirs, load_mmred_sample
 from models.model import get_layers, model as base_model, processor
@@ -44,11 +42,7 @@ def write_sample_report(sample_metrics: List[Dict[str, Any]], output_dir: Path) 
     return output_path
 
 
-def main() -> None:
-    start_time = time.perf_counter()
-
-    # This is the narrowest ablation: corrupt all evidence frames, then patch back
-    # only the last prompt token to see where answer-relevant signal reappears.
+def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
             "Measure last-token importance by corrupting all evidence frames in the input, "
@@ -111,6 +105,253 @@ def main() -> None:
         min_clean_correct_prob = float(args.lambda_threshold)
     elif args.min_clean_ld is not None:
         min_clean_correct_prob = float(args.min_clean_ld)
+    args.min_clean_correct_prob = min_clean_correct_prob
+    return args
+
+
+def process_sample(
+    sample_dir: Path,
+    sample_index: int,
+    total_samples: int,
+    lm: LanguageModel,
+    layers: Any,
+    selected_layers: List[int],
+    corrupted_data_root: Path,
+    clean_score_cache: Dict[str, Dict[str, Any]],
+    min_clean_correct_prob: float,
+) -> tuple[Optional[Dict[str, Any]], int]:
+    # Reuse the same clean-answer gating as the broader patching experiments.
+    try:
+        sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_dir.name} skipped: load failure ({exc})")
+        return None, 0
+
+    evidence_frame_indices = ftgi.collect_evidence_frame_indices(question, states)
+    if len(evidence_frame_indices) < 1:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: no evidence frames")
+        return None, 0
+
+    try:
+        clean_inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
+        return None, 0
+
+    prompt_len = int(clean_inputs["input_ids"].shape[1])
+    last_token_position = prompt_len - 1
+    if last_token_position < 0:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: prompt has no last token")
+        return None, 0
+
+    a_star_text = str(answer).strip()
+    try:
+        a_star_ids = tgi.token_ids_of_answer(a_star_text)
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
+        return None, 0
+
+    try:
+        clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+            cache=clean_score_cache,
+            sample_id=sample_id,
+            num_frames=len(frames),
+            answer_text=a_star_text,
+            score_fn=lambda: tgi.score_valid_numeric_answers(
+                lm=lm,
+                inputs=clean_inputs,
+                prompt_len=prompt_len,
+                num_frames=len(frames),
+            ),
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+        return None, 0
+
+    clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+    clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+    clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+    best_answer_text = str(clean_answer_metrics["best_answer_text"])
+    if not clean_top1_correct:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
+            f"not correct answer {a_star_text!r}"
+        )
+        return None, int(cache_was_updated)
+    if clean_correct_prob < min_clean_correct_prob:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"clean_correct_prob={clean_correct_prob:.4f} < threshold={min_clean_correct_prob:.4f}"
+        )
+        return None, int(cache_was_updated)
+
+    corrupted_frames, corruption_issues = ftgi.build_composite_corrupted_frames(
+        sample_id=sample_id,
+        clean_frames=frames,
+        evidence_frame_indices=evidence_frame_indices,
+        corrupted_data_root=corrupted_data_root,
+    )
+    if corrupted_frames is None:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build corrupted frames "
+            f"(issues={corruption_issues})"
+        )
+        return None, int(cache_was_updated)
+
+    try:
+        corrupted_inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(corrupted_frames, question))
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to build corrupted inputs ({exc})")
+        return None, int(cache_was_updated)
+    if int(corrupted_inputs["input_ids"].shape[1]) != prompt_len:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: seq_len mismatch "
+            f"(clean={prompt_len}, corrupted={int(corrupted_inputs['input_ids'].shape[1])})"
+        )
+        return None, int(cache_was_updated)
+
+    clean_answer_inputs = tgi.append_answer_tokens_for_scoring(clean_inputs, a_star_ids)
+    corrupted_answer_inputs = tgi.append_answer_tokens_for_scoring(corrupted_inputs, a_star_ids)
+    try:
+        corrupted_answer_score = tgi.run_clean_sequence_logprob(
+            lm=lm,
+            scoring_inputs=corrupted_answer_inputs,
+            prompt_len=prompt_len,
+            answer_token_ids=a_star_ids,
+        )
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: failed to score corrupted input ({exc})")
+        return None, int(cache_was_updated)
+
+    print(
+        f"[{sample_index}/{total_samples}] sample_id={sample_id} clean_answer_score={clean_answer_score:.4f} "
+        f"corrupted_answer_score={corrupted_answer_score:.4f} "
+        f"clean_correct_prob={clean_correct_prob:.4f} evidence_frames={evidence_frame_indices} "
+        f"last_token_position={last_token_position}"
+    )
+
+    per_layer_metrics: List[Dict[str, Any]] = []
+    patched_score_rows: List[tuple[int, List[float]]] = []
+    for layer_idx in selected_layers:
+        try:
+            patched_scores = tgi.run_layer_multi_group_corrupted_sequence_logprob(
+                lm=lm,
+                layers=layers,
+                clean_batched_scoring_inputs=corrupted_answer_inputs,
+                control_batched_scoring_inputs=clean_answer_inputs,
+                layer_idx=layer_idx,
+                clean_token_positions_by_batch=[[int(last_token_position)]],
+                control_token_positions_by_batch=[[int(last_token_position)]],
+                prompt_len=prompt_len,
+                answer_token_ids=a_star_ids,
+            )
+            patched_score = float(patched_scores[0].item())
+        except Exception as exc:
+            print(f"  layer={layer_idx} failed corruption forward ({exc}); using corrupted score")
+            patched_score = corrupted_answer_score
+
+        signed_delta = float(patched_score - corrupted_answer_score)
+        importance = max(signed_delta, 0.0)
+        patched_score_rows.append((layer_idx, [patched_score]))
+        probs = [1.0] if importance > 0.0 else [0.0]
+        entropy_value = (
+            tgi.normalize_entropy(tgi.entropy_from_probabilities(probs), num_groups=1)
+            if importance > 0.0 else None
+        )
+        per_layer_metrics.append({
+            "layer": int(layer_idx),
+            "groups": ["last_token"],
+            "patched_score": [patched_score],
+            "corrupted_score": [corrupted_answer_score],
+            "signed_delta": [signed_delta],
+            "r": [importance],
+            "r_normalized": [importance],
+            "p": probs,
+            "entropy": entropy_value,
+            "total_importance": importance,
+        })
+
+    if patched_score_rows:
+        print("  Patched score table (rows=layers, columns=groups):")
+        print(tgi.format_corrupted_score_table(["last_token"], patched_score_rows))
+
+    return {
+        "sample_id": sample_id,
+        "question": question,
+        "answer": answer,
+        "clean_answer_score": clean_answer_score,
+        "corrupted_answer_score": corrupted_answer_score,
+        "clean_correct_prob": clean_correct_prob,
+        "clean_top1_correct": clean_top1_correct,
+        "a_star_text": a_star_text,
+        "a_star_ids": a_star_ids,
+        "evidence_frames": [int(frame_idx) for frame_idx in evidence_frame_indices],
+        "last_token_position": int(last_token_position),
+        "active_groups": ["last_token"],
+        "group_token_counts": {"last_token": 1},
+        "selected_layers": list(selected_layers),
+        "layer_metrics": {"layers": per_layer_metrics},
+    }, int(cache_was_updated)
+
+
+def finalize_outputs(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    data_root: Path,
+    corrupted_data_root: Path,
+    selected_layers: List[int],
+    num_layers: int,
+    seq_len_label: Optional[str],
+    min_clean_correct_prob: float,
+    args: argparse.Namespace,
+) -> None:
+    text_report_path = write_sample_report(sample_metrics, output_dir)
+    sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
+    aggregate_metrics = ftgi.build_aggregate_metrics(
+        sample_metrics,
+        num_layers=num_layers,
+        selected_layers=selected_layers,
+        group_order=["last_token"],
+    )
+    aggregate_payload = {
+        "metadata": {
+            "model_name": getattr(base_model.config, "_name_or_path", str(type(base_model).__name__)),
+            "dataset_path": str(data_root),
+            "corrupted_root": str(corrupted_data_root),
+            "selected_layers": list(selected_layers),
+            "selected_layers_spec": args.layers,
+            "total_layer_count": int(num_layers),
+            "corruption_method": "all_evidence_frames_corrupted_last_token_patch",
+            "group_names": ["last_token"],
+        },
+        "aggregate": aggregate_metrics,
+    }
+    aggregate_json_path = ftgi.write_aggregate_metrics_json(aggregate_payload, output_dir)
+    print(f"Wrote sample metrics text report to: {text_report_path}")
+    print(f"Wrote sample metrics JSON to: {sample_json_path}")
+    print(f"Wrote aggregate metrics JSON to: {aggregate_json_path}")
+    print(
+        f"Processed {len(sample_metrics)} samples "
+        f"(target limit={int(args.limit)}, min_clean_correct_prob={min_clean_correct_prob:.4f})."
+    )
+    tgi.print_group_summary(["last_token"], sample_metrics)
+
+    if not args.disable_plots:
+        lines_path = ftgi.plot_group_importance_lines(
+            sample_metrics,
+            output_dir,
+            num_layers=num_layers,
+            selected_layers=selected_layers,
+            group_order=["last_token"],
+            seq_len_label=seq_len_label,
+        )
+        if lines_path is not None:
+            print(f"Wrote group-importance lines plot to: {lines_path}")
+
+
+def main() -> None:
+    start_time = time.perf_counter()
+    args = parse_args()
 
     data_root = Path(args.data_root)
     corrupted_data_root = (
@@ -141,240 +382,40 @@ def main() -> None:
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= int(args.limit):
             break
-
-        # Reuse the same clean-answer gating as the broader patching experiments.
-        try:
-            sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} skipped: load failure ({exc})")
-            continue
-
-        evidence_frame_indices = ftgi.collect_evidence_frame_indices(question, states)
-        if len(evidence_frame_indices) < 1:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: no evidence frames")
-            continue
-
-        try:
-            clean_inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build clean inputs ({exc})")
-            continue
-
-        prompt_len = int(clean_inputs["input_ids"].shape[1])
-        last_token_position = prompt_len - 1
-        if last_token_position < 0:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: prompt has no last token")
-            continue
-
-        a_star_text = str(answer).strip()
-        try:
-            a_star_ids = tgi.token_ids_of_answer(a_star_text)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
-            continue
-
-        try:
-            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
-                cache=clean_ld_cache,
-                sample_id=sample_id,
-                num_frames=len(frames),
-                answer_text=a_star_text,
-                score_fn=lambda: tgi.score_valid_numeric_answers(
-                    lm=lm,
-                    inputs=clean_inputs,
-                    prompt_len=prompt_len,
-                    num_frames=len(frames),
-                ),
-            )
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-            continue
-        if cache_was_updated:
-            cache_updates += 1
-
-        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
-        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
-        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
-        best_answer_text = str(clean_answer_metrics["best_answer_text"])
-
-        if not clean_top1_correct:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean top-1 is {best_answer_text!r}, "
-                f"not correct answer {a_star_text!r}"
-            )
-            continue
-        if clean_correct_prob < min_clean_correct_prob:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                f"clean_correct_prob={clean_correct_prob:.4f} < threshold={min_clean_correct_prob:.4f}"
-            )
-            continue
-
-        corrupted_frames, corruption_issues = ftgi.build_composite_corrupted_frames(
-            sample_id=sample_id,
-            clean_frames=frames,
-            evidence_frame_indices=evidence_frame_indices,
+        sample_metrics_row, cache_delta = process_sample(
+            sample_dir=sample_dir,
+            sample_index=idx,
+            total_samples=len(sample_dirs),
+            lm=lm,
+            layers=layers,
+            selected_layers=selected_layers,
             corrupted_data_root=corrupted_data_root,
+            clean_score_cache=clean_ld_cache,
+            min_clean_correct_prob=min_clean_correct_prob,
         )
-        if corrupted_frames is None:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build corrupted frames "
-                f"(issues={corruption_issues})"
-            )
+        cache_updates += cache_delta
+        if sample_metrics_row is None:
             continue
-
-        try:
-            corrupted_inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(corrupted_frames, question))
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to build corrupted inputs ({exc})")
-            continue
-
-        if int(corrupted_inputs["input_ids"].shape[1]) != prompt_len:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: seq_len mismatch "
-                f"(clean={prompt_len}, corrupted={int(corrupted_inputs['input_ids'].shape[1])})"
-            )
-            continue
-
-        clean_answer_inputs = tgi.append_answer_tokens_for_scoring(clean_inputs, a_star_ids)
-        corrupted_answer_inputs = tgi.append_answer_tokens_for_scoring(corrupted_inputs, a_star_ids)
-        try:
-            corrupted_answer_score = tgi.run_clean_sequence_logprob(
-                lm=lm,
-                scoring_inputs=corrupted_answer_inputs,
-                prompt_len=prompt_len,
-                answer_token_ids=a_star_ids,
-            )
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: failed to score corrupted input ({exc})")
-            continue
-
-        print(
-            f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} clean_answer_score={clean_answer_score:.4f} "
-            f"corrupted_answer_score={corrupted_answer_score:.4f} "
-            f"clean_correct_prob={clean_correct_prob:.4f} evidence_frames={evidence_frame_indices} "
-            f"last_token_position={last_token_position}"
-        )
-
-        per_layer_metrics: List[Dict[str, Any]] = []
-        patched_score_rows: List[tuple[int, List[float]]] = []
-        for layer_idx in selected_layers:
-            try:
-                patched_scores = tgi.run_layer_multi_group_corrupted_sequence_logprob(
-                    lm=lm,
-                    layers=layers,
-                    clean_batched_scoring_inputs=corrupted_answer_inputs,
-                    control_batched_scoring_inputs=clean_answer_inputs,
-                    layer_idx=layer_idx,
-                    clean_token_positions_by_batch=[[int(last_token_position)]],
-                    control_token_positions_by_batch=[[int(last_token_position)]],
-                    prompt_len=prompt_len,
-                    answer_token_ids=a_star_ids,
-                )
-                patched_score = float(patched_scores[0].item())
-            except Exception as exc:
-                print(f"  layer={layer_idx} failed corruption forward ({exc}); using corrupted score")
-                patched_score = corrupted_answer_score
-
-            signed_delta = float(patched_score - corrupted_answer_score)
-            importance = max(signed_delta, 0.0)
-            patched_score_rows.append((layer_idx, [patched_score]))
-
-            if importance > 0.0:
-                probs = [1.0]
-                entropy_value = tgi.normalize_entropy(
-                    tgi.entropy_from_probabilities(probs),
-                    num_groups=1,
-                )
-            else:
-                probs = [0.0]
-                entropy_value = None
-
-            per_layer_metrics.append({
-                "layer": int(layer_idx),
-                "groups": ["last_token"],
-                "patched_score": [patched_score],
-                "corrupted_score": [corrupted_answer_score],
-                "signed_delta": [signed_delta],
-                "r": [importance],
-                "r_normalized": [importance],
-                "p": probs,
-                "entropy": entropy_value,
-                "total_importance": importance,
-            })
-
-        if patched_score_rows:
-            print("  Patched score table (rows=layers, columns=groups):")
-            print(tgi.format_corrupted_score_table(["last_token"], patched_score_rows))
-
-        sample_metrics.append({
-            "sample_id": sample_id,
-            "question": question,
-            "answer": answer,
-            "clean_answer_score": clean_answer_score,
-            "corrupted_answer_score": corrupted_answer_score,
-            "clean_correct_prob": clean_correct_prob,
-            "clean_top1_correct": clean_top1_correct,
-            "a_star_text": a_star_text,
-            "a_star_ids": a_star_ids,
-            "evidence_frames": [int(frame_idx) for frame_idx in evidence_frame_indices],
-            "last_token_position": int(last_token_position),
-            "active_groups": ["last_token"],
-            "group_token_counts": {"last_token": 1},
-            "selected_layers": list(selected_layers),
-            "selected_layers_spec": args.layers,
-            "control_debug": {
-                "control_type": "all_evidence_frames_corrupted",
-                "corrupted_root": str(corrupted_data_root),
-            },
-            "layer_metrics": {"layers": per_layer_metrics},
-        })
+        sample_metrics_row["selected_layers_spec"] = args.layers
+        sample_metrics_row["control_debug"] = {
+            "control_type": "all_evidence_frames_corrupted",
+            "corrupted_root": str(corrupted_data_root),
+        }
+        sample_metrics.append(sample_metrics_row)
         processed_samples += 1
 
     print(eval_utils.persist_clean_score_cache(clean_ld_cache_path, clean_ld_cache, cache_updates))
-
-    text_report_path = write_sample_report(sample_metrics, output_dir)
-    sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
-    aggregate_metrics = ftgi.build_aggregate_metrics(
-        sample_metrics,
-        num_layers=num_layers,
+    finalize_outputs(
+        sample_metrics=sample_metrics,
+        output_dir=output_dir,
+        data_root=data_root,
+        corrupted_data_root=corrupted_data_root,
         selected_layers=selected_layers,
-        group_order=["last_token"],
+        num_layers=num_layers,
+        seq_len_label=seq_len_label,
+        min_clean_correct_prob=min_clean_correct_prob,
+        args=args,
     )
-    aggregate_payload = {
-        "metadata": {
-            "model_name": getattr(base_model.config, "_name_or_path", str(type(base_model).__name__)),
-            "dataset_path": str(data_root),
-            "corrupted_root": str(corrupted_data_root),
-            "selected_layers": list(selected_layers),
-            "selected_layers_spec": args.layers,
-            "total_layer_count": int(num_layers),
-            "corruption_method": "all_evidence_frames_corrupted_last_token_patch",
-            "group_names": ["last_token"],
-        },
-        "aggregate": aggregate_metrics,
-    }
-    aggregate_json_path = ftgi.write_aggregate_metrics_json(aggregate_payload, output_dir)
-    print(f"Wrote sample metrics text report to: {text_report_path}")
-    print(f"Wrote sample metrics JSON to: {sample_json_path}")
-    print(f"Wrote aggregate metrics JSON to: {aggregate_json_path}")
-    print(
-        f"Processed {processed_samples} samples "
-        f"(target limit={int(args.limit)}, min_clean_correct_prob={min_clean_correct_prob:.4f})."
-    )
-    tgi.print_group_summary(["last_token"], sample_metrics)
-
-    if not args.disable_plots:
-        lines_path = ftgi.plot_group_importance_lines(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            selected_layers=selected_layers,
-            group_order=["last_token"],
-            seq_len_label=seq_len_label,
-        )
-        if lines_path is not None:
-            print(f"Wrote group-importance lines plot to: {lines_path}")
 
     elapsed = time.perf_counter() - start_time
     print(f"Done in {elapsed:.2f}s")

@@ -5,11 +5,12 @@ import random
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from nnsight import LanguageModel
 
+from evaluations import patching_core as core
 from evaluations import utils as eval_utils
 from evaluations.utils import iter_sample_dirs, load_mmred_sample
 from models.model import get_layers, image_token_groups, model as base_model, processor
@@ -19,80 +20,11 @@ _STEPS_IN_ROOM_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
-
-def token_ids_of_answer(answer_text: str) -> List[int]:
-    ids = processor.tokenizer.encode(str(answer_text).strip(), add_special_tokens=False)
-    if not ids:
-        raise ValueError(f"Answer text tokenized to empty: {answer_text!r}")
-    return [int(tok_id) for tok_id in ids]
-
-
-def build_prompt(question: str, num_frames: int) -> str:
-    return (
-        f"You will be shown {num_frames} frames describing steps in a house.\n"
-        f"Respond with a single integer from 0 to {num_frames} (0 is allowed). Output only the integer.\n"
-        f"Question: {question}\n"
-        "Answer: "
-    )
-
-
-def build_inputs(frames: Sequence[Any], question: str) -> Dict[str, torch.Tensor]:
-    prompt = build_prompt(question, num_frames=len(frames))
-    messages = [{
-        "role": "user",
-        "content": (
-            [{"type": "image", "image": im} for im in frames] +
-            [{"type": "text", "text": prompt}]
-        ),
-    }]
-    inputs = processor.apply_chat_template(
-        messages,
-        add_generation_prompt=True,
-        tokenize=True,
-        return_dict=True,
-        return_tensors="pt",
-    )
-    return dict(inputs)
-
-
-def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    device = next(base_model.parameters()).device
-    return {k: (v.to(device) if torch.is_tensor(v) else v) for k, v in inputs.items()}
-
-
-def repeat_inputs_for_batch(
-    inputs: Dict[str, torch.Tensor],
-    batch_size: int,
-) -> Dict[str, torch.Tensor]:
-    if batch_size <= 1:
-        return inputs
-
-    repeated: Dict[str, torch.Tensor] = {}
-    for key, value in inputs.items():
-        if not torch.is_tensor(value):
-            repeated[key] = value
-            continue
-
-        if value.dim() == 0:
-            repeated[key] = value.repeat(batch_size)
-            continue
-
-        # Text tensors are batch-major for a single sample and should be repeated on dim 0.
-        if int(value.shape[0]) == 1:
-            repeated[key] = value.repeat(batch_size, *([1] * (value.dim() - 1)))
-            continue
-
-        # Qwen-style multimodal tensors are not batch-major at batch=1; they are stacked over
-        # all image/video items. For repeated identical samples, concatenate them batch_size times.
-        if key in {"pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw"}:
-            repeated[key] = torch.cat([value] * batch_size, dim=0)
-            continue
-
-        raise ValueError(
-            f"Cannot batch-repeat input {key!r} with shape={tuple(value.shape)}"
-        )
-
-    return repeated
+token_ids_of_answer = core.token_ids_of_answer
+build_prompt = core.build_prompt
+build_inputs = core.build_inputs
+move_inputs_to_model_device = core.move_inputs_to_model_device
+repeat_inputs_for_batch = core.repeat_inputs_for_batch
 
 
 def parse_target_character_room(question_text: str) -> Optional[Tuple[str, str]]:
@@ -107,16 +39,8 @@ def collect_evidence_frame_indices(question: str, states: List[Dict[str, Any]]) 
     return eval_utils.collect_evidence_frame_indices(question, states)
 
 
-def _materialize_saved(x: Any) -> Any:
-    return x.value if hasattr(x, "value") else x
-
-
-def _to_hidden_tensor(x: Any) -> torch.Tensor:
-    if isinstance(x, torch.Tensor):
-        return x
-    if isinstance(x, (tuple, list)) and x:
-        return _to_hidden_tensor(x[0])
-    raise TypeError(f"Unsupported layer output type for corruption: {type(x)}")
+_materialize_saved = core._materialize_saved
+_to_hidden_tensor = core._to_hidden_tensor
 
 
 def infer_corrupted_data_root(clean_data_root: Path) -> Path:
@@ -131,81 +55,9 @@ def resolve_corrupted_sample_dir(
     return eval_utils.resolve_corrupted_sample_dir(corrupted_data_root, sample_id, frame_idx)
 
 
-def append_answer_tokens_for_scoring(
-    inputs: Dict[str, torch.Tensor],
-    answer_token_ids: List[int],
-) -> Dict[str, torch.Tensor]:
-    if not answer_token_ids:
-        raise ValueError("answer_token_ids must be non-empty")
-
-    input_ids = inputs["input_ids"]
-    if input_ids.dim() != 2:
-        raise ValueError(f"Expected input_ids to be rank-2, got shape={tuple(input_ids.shape)}")
-
-    batch_size = int(input_ids.shape[0])
-    answer_tokens = torch.tensor(
-        answer_token_ids,
-        dtype=input_ids.dtype,
-        device=input_ids.device,
-    ).unsqueeze(0).repeat(batch_size, 1)
-
-    scored_inputs = dict(inputs)
-    scored_inputs["input_ids"] = torch.cat([input_ids, answer_tokens], dim=1)
-
-    if "attention_mask" in inputs and torch.is_tensor(inputs["attention_mask"]):
-        attention_mask = inputs["attention_mask"]
-        if attention_mask.dim() != 2 or int(attention_mask.shape[0]) != batch_size:
-            raise ValueError(
-                f"Expected attention_mask shape to be (batch, seq), got {tuple(attention_mask.shape)}"
-            )
-        suffix_attention = torch.ones(
-            (batch_size, len(answer_token_ids)),
-            dtype=attention_mask.dtype,
-            device=attention_mask.device,
-        )
-        scored_inputs["attention_mask"] = torch.cat([attention_mask, suffix_attention], dim=1)
-
-    return scored_inputs
-
-
-def sequence_logprob_from_logits(
-    logits: torch.Tensor,
-    prompt_len: int,
-    answer_token_ids: List[int],
-) -> torch.Tensor:
-    if logits.dim() != 3:
-        raise ValueError(f"Expected logits rank-3 [batch, seq, vocab], got {tuple(logits.shape)}")
-    if prompt_len <= 0:
-        raise ValueError("prompt_len must be >= 1")
-    if not answer_token_ids:
-        raise ValueError("answer_token_ids must be non-empty")
-
-    batch_size = int(logits.shape[0])
-    device = logits.device
-    answer_len = len(answer_token_ids)
-
-    token_positions = torch.arange(answer_len, device=device, dtype=torch.long) + (prompt_len - 1)
-    target_token_ids = torch.tensor(answer_token_ids, device=device, dtype=torch.long).unsqueeze(0)
-    target_token_ids = target_token_ids.repeat(batch_size, 1)
-
-    selected_logits = logits[:, token_positions, :]
-    log_probs = torch.log_softmax(selected_logits, dim=-1)
-    target_log_probs = torch.gather(log_probs, dim=-1, index=target_token_ids.unsqueeze(-1)).squeeze(-1)
-    return target_log_probs.sum(dim=1)
-
-
-def run_clean_sequence_logprob(
-    lm: LanguageModel,
-    scoring_inputs: Dict[str, torch.Tensor],
-    prompt_len: int,
-    answer_token_ids: List[int],
-) -> float:
-    with torch.inference_mode():
-        with lm.trace(scoring_inputs):
-            saved_logits = lm.output.logits.save()
-    logits = _materialize_saved(saved_logits)
-    scores = sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
-    return float(scores[0].item())
+append_answer_tokens_for_scoring = core.append_answer_tokens_for_scoring
+sequence_logprob_from_logits = core.sequence_logprob_from_logits
+run_clean_sequence_logprob = core.run_clean_sequence_logprob
 
 
 def run_layer_multi_frame_corrupted_sequence_logprob(
@@ -250,39 +102,7 @@ def run_layer_multi_frame_corrupted_sequence_logprob(
     return sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
 
 
-def concatenate_inputs_for_batch(inputs_list: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
-    if not inputs_list:
-        raise ValueError("inputs_list must be non-empty")
-    if len(inputs_list) == 1:
-        return inputs_list[0]
-
-    out: Dict[str, torch.Tensor] = {}
-    keys = list(inputs_list[0].keys())
-    for key in keys:
-        values = [inputs[key] for inputs in inputs_list]
-        first_value = values[0]
-
-        if not torch.is_tensor(first_value):
-            out[key] = first_value
-            continue
-
-        if first_value.dim() == 0:
-            out[key] = torch.stack(values, dim=0)
-            continue
-
-        if int(first_value.shape[0]) == 1:
-            out[key] = torch.cat(values, dim=0)
-            continue
-
-        if key in {"pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw"}:
-            out[key] = torch.cat(values, dim=0)
-            continue
-
-        raise ValueError(
-            f"Cannot concatenate input {key!r} with shape={tuple(first_value.shape)}"
-        )
-
-    return out
+concatenate_inputs_for_batch = core.concatenate_inputs_for_batch
 
 
 def compute_ld(answer_score: float, competitor_score: float) -> float:
@@ -327,15 +147,8 @@ def best_competing_answer(
     return best_text, best_token_ids, float(best_score)
 
 
-def normalize_to_probabilities(values: List[float]) -> List[float]:
-    total = float(sum(values))
-    if total <= 0.0:
-        return [0.0 for _ in values]
-    return [float(v) / total for v in values]
-
-
-def entropy_from_probabilities(probs: List[float]) -> float:
-    return -sum(float(p) * math.log(float(p)) for p in probs if p > 0.0)
+normalize_to_probabilities = core.normalize_to_probabilities
+entropy_from_probabilities = core.entropy_from_probabilities
 
 
 def normalize_entropy(entropy: float, num_evidence_frames: int) -> float:
@@ -688,9 +501,7 @@ def save_clean_ld_cache(path: Path, cache: Dict[str, float]) -> None:
     path.write_text(json.dumps(serializable, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def main() -> None:
-    start_time = time.perf_counter()
-
+def parse_args() -> argparse.Namespace:
     # This is the original experiment: corrupt each evidence frame, patch the
     # corrupted activations layer-by-layer, and summarize the resulting entropy.
     ap = argparse.ArgumentParser(
@@ -729,7 +540,6 @@ def main() -> None:
         default=8,
         help="Number of evidence-frame corruption runs to execute together in one forward pass.",
     )
-
     ap.add_argument("--lambda", dest="lambda_threshold", type=float, default=None)
     ap.add_argument(
         "--min_clean_ld",
@@ -737,342 +547,328 @@ def main() -> None:
         default=None,
         help="Alias for --lambda (kept for backward compatibility).",
     )
-
     args = ap.parse_args()
-
     if args.batch_size <= 0:
         raise ValueError("--batch_size must be a positive integer")
+    return args
 
-    lambda_threshold = resolve_lambda_threshold(args)
 
-    data_root = Path(args.data_root)
-    corrupted_data_root = (
-        Path(args.corrupted_root)
-        if args.corrupted_root is not None
-        else infer_corrupted_data_root(data_root)
-    )
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    clean_ld_cache_dir = Path(args.clean_ld_cache_dir) if args.clean_ld_cache_dir is not None else output_dir
-    clean_ld_cache_dir.mkdir(parents=True, exist_ok=True)
-    clean_ld_cache_path = clean_ld_cache_dir / "clean_lds.json"
-    clean_ld_cache = load_clean_ld_cache(clean_ld_cache_path)
-    cache_updates = 0
-    if clean_ld_cache:
-        print(f"Loaded {len(clean_ld_cache)} cached clean LD values from: {clean_ld_cache_path}")
+def process_sample(
+    sample_dir: Path,
+    sample_index: int,
+    total_samples: int,
+    args: argparse.Namespace,
+    lm: LanguageModel,
+    layers: Any,
+    corrupted_data_root: Path,
+    clean_ld_cache: Dict[str, float],
+    lambda_threshold: float,
+) -> Tuple[Optional[Dict[str, Any]], int, List[int], List[int]]:
+    zero_counts = [0 for _ in range(len(layers))]
 
-    seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
-    seq_len_label = seq_len_match.group(1) if seq_len_match else None
+    try:
+        sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
+    except Exception as exc:
+        print(f"[{sample_index}/{total_samples}] sample_id={sample_dir.name} skipped: load failure ({exc})")
+        return None, 0, zero_counts, zero_counts.copy()
 
-    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
-    layers = get_layers(lm.model)
-    num_layers = len(layers)
-    layer_sampled_counts = [0 for _ in range(num_layers)]
-    layer_invalid_counts = [0 for _ in range(num_layers)]
-
-    sample_dirs = iter_sample_dirs(data_root)
-    sample_metrics: List[Dict[str, Any]] = []
-
-    processed_samples = 0
-    target_processed_samples = max(int(args.limit), 0)
-
-    for idx, sample_dir in enumerate(sample_dirs, start=1):
-        if processed_samples >= target_processed_samples:
-            break
-
-        try:
-            sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_dir.name} skipped: load failure ({exc})")
-            continue
-
-        evidence_frames = collect_evidence_frame_indices(question, states)
-        if len(evidence_frames) < 2:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
-                f"skipped: evidence frames={len(evidence_frames)} < 2"
-            )
-            continue
-
-        cached_clean_ld = clean_ld_cache.get(sample_id)
-        if cached_clean_ld is not None and cached_clean_ld < lambda_threshold:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped from cache: "
-                f"LD_clean={cached_clean_ld:.4f} < lambda={lambda_threshold:.4f}"
-            )
-            continue
-
-        inputs = move_inputs_to_model_device(build_inputs(frames, question))
-
-        try:
-            prompt_len = int(inputs["input_ids"].shape[1])
-            a_star_text = str(answer).strip()
-            a_star_ids = token_ids_of_answer(a_star_text)
-
-            clean_answer_scoring_inputs = append_answer_tokens_for_scoring(inputs, a_star_ids)
-            clean_answer_score = run_clean_sequence_logprob(
-                lm=lm,
-                scoring_inputs=clean_answer_scoring_inputs,
-                prompt_len=prompt_len,
-                answer_token_ids=a_star_ids,
-            )
-
-            a_hat_text, a_hat_ids, clean_competing_score = best_competing_answer(
-                lm=lm,
-                inputs=inputs,
-                prompt_len=prompt_len,
-                correct_answer_text=a_star_text,
-                max_answer_value=len(frames),
-            )
-            clean_ld = compute_ld(clean_answer_score, clean_competing_score)
-        except Exception as exc:
-            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: sequence LD setup failed ({exc})")
-            continue
-
-        cached_before = clean_ld_cache.get(sample_id)
-        if cached_before is None or abs(cached_before - clean_ld) > 1e-12:
-            clean_ld_cache[sample_id] = clean_ld
-            cache_updates += 1
-
-        if clean_ld < lambda_threshold:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                f"LD_clean={clean_ld:.4f} < lambda={lambda_threshold:.4f}"
-            )
-            continue
-
-        frame_groups = image_token_groups(inputs["input_ids"][0], expected_num_frames=len(frames))
-        if not frame_groups:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
-                f"skipped: no image token groups found in tokenized input"
-            )
-            continue
-
-        valid_evidence_frames: List[int] = []
-        missing_corruption_dirs = 0
-        for frame_idx in evidence_frames:
-            if frame_idx >= len(frame_groups):
-                continue
-            if not frame_groups[frame_idx]:
-                continue
-            corrupted_sample_dir = resolve_corrupted_sample_dir(
-                corrupted_data_root=corrupted_data_root,
-                sample_id=sample_id,
-                frame_idx=frame_idx,
-            )
-            if not corrupted_sample_dir.is_dir():
-                missing_corruption_dirs += 1
-                continue
-            valid_evidence_frames.append(frame_idx)
-
-        if not valid_evidence_frames:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
-                f"skipped: evidence frames exist but none map to image token spans"
-            )
-            continue
-
-        if missing_corruption_dirs > 0:
-            print(
-                f"  missing corrupted inputs for {missing_corruption_dirs} evidence frame(s); "
-                "using available corrupted_frame_* directories only"
-            )
-
+    evidence_frames = collect_evidence_frame_indices(question, states)
+    if len(evidence_frames) < 2:
         print(
-            f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
-            f"LD_clean={clean_ld:.4f} lambda={lambda_threshold:.4f} "
-            f"a*={a_star_text} a^={a_hat_text} "
-            f"evidence_frames={valid_evidence_frames} "
-            f"batch_size={args.batch_size} "
-            f"corrupted_root={corrupted_data_root}"
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+            f"skipped: evidence frames={len(evidence_frames)} < 2"
+        )
+        return None, 0, zero_counts, zero_counts.copy()
+
+    cached_clean_ld = clean_ld_cache.get(sample_id)
+    if cached_clean_ld is not None and cached_clean_ld < lambda_threshold:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped from cache: "
+            f"LD_clean={cached_clean_ld:.4f} < lambda={lambda_threshold:.4f}"
+        )
+        return None, 0, zero_counts, zero_counts.copy()
+
+    inputs = move_inputs_to_model_device(build_inputs(frames, question))
+
+    try:
+        prompt_len = int(inputs["input_ids"].shape[1])
+        a_star_text = str(answer).strip()
+        a_star_ids = token_ids_of_answer(a_star_text)
+
+        clean_answer_scoring_inputs = append_answer_tokens_for_scoring(inputs, a_star_ids)
+        clean_answer_score = run_clean_sequence_logprob(
+            lm=lm,
+            scoring_inputs=clean_answer_scoring_inputs,
+            prompt_len=prompt_len,
+            answer_token_ids=a_star_ids,
+        )
+        a_hat_text, a_hat_ids, clean_competing_score = best_competing_answer(
+            lm=lm,
+            inputs=inputs,
+            prompt_len=prompt_len,
+            correct_answer_text=a_star_text,
+            max_answer_value=len(frames),
+        )
+        clean_ld = compute_ld(clean_answer_score, clean_competing_score)
+    except Exception as exc:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+            f"skipped: sequence LD setup failed ({exc})"
+        )
+        return None, 0, zero_counts, zero_counts.copy()
+
+    cache_updates = 0
+    cached_before = clean_ld_cache.get(sample_id)
+    if cached_before is None or abs(cached_before - clean_ld) > 1e-12:
+        clean_ld_cache[sample_id] = clean_ld
+        cache_updates += 1
+
+    if clean_ld < lambda_threshold:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"LD_clean={clean_ld:.4f} < lambda={lambda_threshold:.4f}"
+        )
+        return None, cache_updates, zero_counts, zero_counts.copy()
+
+    frame_groups = image_token_groups(inputs["input_ids"][0], expected_num_frames=len(frames))
+    if not frame_groups:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+            f"skipped: no image token groups found in tokenized input"
+        )
+        return None, cache_updates, zero_counts, zero_counts.copy()
+
+    valid_evidence_frames: List[int] = []
+    missing_corruption_dirs = 0
+    for frame_idx in evidence_frames:
+        if frame_idx >= len(frame_groups):
+            continue
+        if not frame_groups[frame_idx]:
+            continue
+        corrupted_sample_dir = resolve_corrupted_sample_dir(
+            corrupted_data_root=corrupted_data_root,
+            sample_id=sample_id,
+            frame_idx=frame_idx,
+        )
+        if not corrupted_sample_dir.is_dir():
+            missing_corruption_dirs += 1
+            continue
+        valid_evidence_frames.append(frame_idx)
+
+    if not valid_evidence_frames:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+            f"skipped: evidence frames exist but none map to image token spans"
+        )
+        return None, cache_updates, zero_counts, zero_counts.copy()
+
+    if missing_corruption_dirs > 0:
+        print(
+            f"  missing corrupted inputs for {missing_corruption_dirs} evidence frame(s); "
+            "using available corrupted_frame_* directories only"
         )
 
-        # Evidence-frame token indices are selected from the clean prompt tokenization.
-        # frame_groups[frame_idx] gives the exact token span for image frame frame_idx.
-        evidence_token_positions_by_frame: List[Tuple[int, List[int]]] = [
-            (frame_idx, frame_groups[frame_idx]) for frame_idx in valid_evidence_frames
-        ]
-        chunk_size = min(args.batch_size, len(evidence_token_positions_by_frame))
-        evidence_chunks: List[List[Tuple[int, List[int]]]] = [
-            evidence_token_positions_by_frame[start:start + chunk_size]
-            for start in range(0, len(evidence_token_positions_by_frame), chunk_size)
-        ]
+    print(
+        f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+        f"LD_clean={clean_ld:.4f} lambda={lambda_threshold:.4f} "
+        f"a*={a_star_text} a^={a_hat_text} "
+        f"evidence_frames={valid_evidence_frames} "
+        f"batch_size={args.batch_size} "
+        f"corrupted_root={corrupted_data_root}"
+    )
 
-        batched_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
-        batched_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
-        batched_corrupted_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
-        batched_corrupted_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
-        try:
-            for evidence_chunk in evidence_chunks:
-                chunk_size_current = len(evidence_chunk)
-                repeated_inputs = repeat_inputs_for_batch(inputs, batch_size=chunk_size_current)
-                batched_answer_scoring_inputs_chunks.append(
-                    append_answer_tokens_for_scoring(repeated_inputs, a_star_ids)
-                )
-                batched_competing_scoring_inputs_chunks.append(
-                    append_answer_tokens_for_scoring(repeated_inputs, a_hat_ids)
-                )
+    # Frame groups come from the clean prompt tokenization, so every corruption
+    # run reuses the same token span for that evidence frame.
+    evidence_token_positions_by_frame: List[Tuple[int, List[int]]] = [
+        (frame_idx, frame_groups[frame_idx]) for frame_idx in valid_evidence_frames
+    ]
+    chunk_size = min(args.batch_size, len(evidence_token_positions_by_frame))
+    evidence_chunks: List[List[Tuple[int, List[int]]]] = [
+        evidence_token_positions_by_frame[start:start + chunk_size]
+        for start in range(0, len(evidence_token_positions_by_frame), chunk_size)
+    ]
 
-                corrupted_chunk_inputs: List[Dict[str, torch.Tensor]] = []
-                for frame_idx, _ in evidence_chunk:
-                    corrupted_sample_dir = resolve_corrupted_sample_dir(
-                        corrupted_data_root=corrupted_data_root,
-                        sample_id=sample_id,
-                        frame_idx=frame_idx,
-                    )
-                    _, corrupted_frames, corrupted_question, _, _ = load_mmred_sample(corrupted_sample_dir)
-                    corrupted_input = move_inputs_to_model_device(
-                        build_inputs(corrupted_frames, corrupted_question)
-                    )
-                    corrupted_prompt_len = int(corrupted_input["input_ids"].shape[1])
-                    if corrupted_prompt_len != prompt_len:
-                        raise ValueError(
-                            f"Prompt length mismatch for corrupted frame {frame_idx}: "
-                            f"clean={prompt_len} corrupted={corrupted_prompt_len}"
-                        )
-                    corrupted_chunk_inputs.append(corrupted_input)
-
-                corrupted_batched_inputs = concatenate_inputs_for_batch(corrupted_chunk_inputs)
-                batched_corrupted_answer_scoring_inputs_chunks.append(
-                    append_answer_tokens_for_scoring(corrupted_batched_inputs, a_star_ids)
-                )
-                batched_corrupted_competing_scoring_inputs_chunks.append(
-                    append_answer_tokens_for_scoring(corrupted_batched_inputs, a_hat_ids)
-                )
-        except Exception as exc:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} "
-                f"skipped: failed to build batched inputs ({exc})"
+    batched_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+    batched_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+    batched_corrupted_answer_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+    batched_corrupted_competing_scoring_inputs_chunks: List[Dict[str, torch.Tensor]] = []
+    try:
+        for evidence_chunk in evidence_chunks:
+            repeated_inputs = repeat_inputs_for_batch(inputs, batch_size=len(evidence_chunk))
+            batched_answer_scoring_inputs_chunks.append(
+                append_answer_tokens_for_scoring(repeated_inputs, a_star_ids)
             )
-            continue
+            batched_competing_scoring_inputs_chunks.append(
+                append_answer_tokens_for_scoring(repeated_inputs, a_hat_ids)
+            )
 
-        per_layer_metrics: List[Dict[str, Any]] = []
-        all_layer_corrupted_ld_rows: List[Tuple[int, List[float]]] = []
-        skipped_zero_importance_layers = 0
-        for layer_idx in range(len(layers)):
-            layer_sampled_counts[layer_idx] += 1
-            layer_corrupted_lds: List[float] = []
-            layer_importances: List[float] = []
-
-            for chunk_idx, (
-                evidence_chunk,
-                batched_answer_scoring_inputs_chunk,
-                batched_competing_scoring_inputs_chunk,
-                batched_corrupted_answer_scoring_inputs_chunk,
-                batched_corrupted_competing_scoring_inputs_chunk,
-            ) in enumerate(
-                zip(
-                    evidence_chunks,
-                    batched_answer_scoring_inputs_chunks,
-                    batched_competing_scoring_inputs_chunks,
-                    batched_corrupted_answer_scoring_inputs_chunks,
-                    batched_corrupted_competing_scoring_inputs_chunks,
-                ),
-                start=1,
-            ):
-                try:
-                    token_positions_by_batch = [
-                        token_positions for _, token_positions in evidence_chunk
-                    ]
-                    corrupted_answer_scores = run_layer_multi_frame_corrupted_sequence_logprob(
-                        lm=lm,
-                        layers=layers,
-                        clean_batched_scoring_inputs=batched_answer_scoring_inputs_chunk,
-                        corrupted_batched_scoring_inputs=batched_corrupted_answer_scoring_inputs_chunk,
-                        layer_idx=layer_idx,
-                        token_positions_by_batch=token_positions_by_batch,
-                        prompt_len=prompt_len,
-                        answer_token_ids=a_star_ids,
-                        corruption_mode="patch_from_corrupted",
+            corrupted_chunk_inputs: List[Dict[str, torch.Tensor]] = []
+            for frame_idx, _ in evidence_chunk:
+                corrupted_sample_dir = resolve_corrupted_sample_dir(
+                    corrupted_data_root=corrupted_data_root,
+                    sample_id=sample_id,
+                    frame_idx=frame_idx,
+                )
+                _, corrupted_frames, corrupted_question, _, _ = load_mmred_sample(corrupted_sample_dir)
+                corrupted_input = move_inputs_to_model_device(build_inputs(corrupted_frames, corrupted_question))
+                corrupted_prompt_len = int(corrupted_input["input_ids"].shape[1])
+                if corrupted_prompt_len != prompt_len:
+                    raise ValueError(
+                        f"Prompt length mismatch for corrupted frame {frame_idx}: "
+                        f"clean={prompt_len} corrupted={corrupted_prompt_len}"
                     )
-                    corrupted_competing_scores = run_layer_multi_frame_corrupted_sequence_logprob(
-                        lm=lm,
-                        layers=layers,
-                        clean_batched_scoring_inputs=batched_competing_scoring_inputs_chunk,
-                        corrupted_batched_scoring_inputs=batched_corrupted_competing_scoring_inputs_chunk,
-                        layer_idx=layer_idx,
-                        token_positions_by_batch=token_positions_by_batch,
-                        prompt_len=prompt_len,
-                        answer_token_ids=a_hat_ids,
-                        corruption_mode="patch_from_corrupted",
-                    )
-                except Exception as exc:
-                    print(
-                        f"  layer={layer_idx} failed batched corruption forward "
-                        f"(chunk {chunk_idx}/{len(evidence_chunks)}, {exc}); "
-                        "using importance=0 for this chunk"
-                    )
-                    chunk_count = len(evidence_chunk)
-                    layer_corrupted_lds.extend([clean_ld] * chunk_count)
-                    layer_importances.extend([0.0] * chunk_count)
-                    continue
+                corrupted_chunk_inputs.append(corrupted_input)
 
-                for batch_idx in range(len(token_positions_by_batch)):
-                    corrupted_ld = compute_ld(
-                        float(corrupted_answer_scores[batch_idx].item()),
-                        float(corrupted_competing_scores[batch_idx].item()),
-                    )
-                    importance = max(clean_ld - corrupted_ld, 0.0)
-                    layer_corrupted_lds.append(corrupted_ld)
-                    layer_importances.append(importance)
+            corrupted_batched_inputs = concatenate_inputs_for_batch(corrupted_chunk_inputs)
+            batched_corrupted_answer_scoring_inputs_chunks.append(
+                append_answer_tokens_for_scoring(corrupted_batched_inputs, a_star_ids)
+            )
+            batched_corrupted_competing_scoring_inputs_chunks.append(
+                append_answer_tokens_for_scoring(corrupted_batched_inputs, a_hat_ids)
+            )
+    except Exception as exc:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} "
+            f"skipped: failed to build batched inputs ({exc})"
+        )
+        return None, cache_updates, zero_counts, zero_counts.copy()
 
-            all_layer_corrupted_ld_rows.append((layer_idx, list(layer_corrupted_lds)))
+    per_layer_metrics: List[Dict[str, Any]] = []
+    all_layer_corrupted_ld_rows: List[Tuple[int, List[float]]] = []
+    layer_sampled_deltas = [0 for _ in range(len(layers))]
+    layer_invalid_deltas = [0 for _ in range(len(layers))]
+    skipped_zero_importance_layers = 0
 
-            if sum(layer_importances) <= 0.0:
-                layer_invalid_counts[layer_idx] += 1
-                skipped_zero_importance_layers += 1
+    for layer_idx in range(len(layers)):
+        layer_sampled_deltas[layer_idx] += 1
+        layer_corrupted_lds: List[float] = []
+        layer_importances: List[float] = []
+
+        for chunk_idx, (
+            evidence_chunk,
+            batched_answer_scoring_inputs_chunk,
+            batched_competing_scoring_inputs_chunk,
+            batched_corrupted_answer_scoring_inputs_chunk,
+            batched_corrupted_competing_scoring_inputs_chunk,
+        ) in enumerate(
+            zip(
+                evidence_chunks,
+                batched_answer_scoring_inputs_chunks,
+                batched_competing_scoring_inputs_chunks,
+                batched_corrupted_answer_scoring_inputs_chunks,
+                batched_corrupted_competing_scoring_inputs_chunks,
+            ),
+            start=1,
+        ):
+            try:
+                token_positions_by_batch = [token_positions for _, token_positions in evidence_chunk]
+                corrupted_answer_scores = run_layer_multi_frame_corrupted_sequence_logprob(
+                    lm=lm,
+                    layers=layers,
+                    clean_batched_scoring_inputs=batched_answer_scoring_inputs_chunk,
+                    corrupted_batched_scoring_inputs=batched_corrupted_answer_scoring_inputs_chunk,
+                    layer_idx=layer_idx,
+                    token_positions_by_batch=token_positions_by_batch,
+                    prompt_len=prompt_len,
+                    answer_token_ids=a_star_ids,
+                    corruption_mode="patch_from_corrupted",
+                )
+                corrupted_competing_scores = run_layer_multi_frame_corrupted_sequence_logprob(
+                    lm=lm,
+                    layers=layers,
+                    clean_batched_scoring_inputs=batched_competing_scoring_inputs_chunk,
+                    corrupted_batched_scoring_inputs=batched_corrupted_competing_scoring_inputs_chunk,
+                    layer_idx=layer_idx,
+                    token_positions_by_batch=token_positions_by_batch,
+                    prompt_len=prompt_len,
+                    answer_token_ids=a_hat_ids,
+                    corruption_mode="patch_from_corrupted",
+                )
+            except Exception as exc:
+                print(
+                    f"  layer={layer_idx} failed batched corruption forward "
+                    f"(chunk {chunk_idx}/{len(evidence_chunks)}, {exc}); "
+                    "using importance=0 for this chunk"
+                )
+                chunk_count = len(evidence_chunk)
+                layer_corrupted_lds.extend([clean_ld] * chunk_count)
+                layer_importances.extend([0.0] * chunk_count)
                 continue
 
-            layer_probabilities = normalize_to_probabilities(layer_importances)
-            layer_entropy = normalize_entropy(
-                entropy_from_probabilities(layer_probabilities),
-                num_evidence_frames=len(valid_evidence_frames),
-            )
+            for batch_idx in range(len(token_positions_by_batch)):
+                corrupted_ld = compute_ld(
+                    float(corrupted_answer_scores[batch_idx].item()),
+                    float(corrupted_competing_scores[batch_idx].item()),
+                )
+                importance = max(clean_ld - corrupted_ld, 0.0)
+                layer_corrupted_lds.append(corrupted_ld)
+                layer_importances.append(importance)
 
-            per_layer_metrics.append({
-                "layer": layer_idx,
-                "evidence_frames": list(valid_evidence_frames),
-                "corrupted_ld": layer_corrupted_lds,
-                "r": layer_importances,
-                "p": layer_probabilities,
-                "entropy": layer_entropy,
-                "total_importance": float(sum(layer_importances)),
-            })
+        all_layer_corrupted_ld_rows.append((layer_idx, list(layer_corrupted_lds)))
 
-        if all_layer_corrupted_ld_rows:
-            print("  Corrupted LD table (rows=layers, columns=evidence frames):")
-            print(format_corrupted_ld_table(valid_evidence_frames, all_layer_corrupted_ld_rows))
-
-        if not per_layer_metrics:
-            print(
-                f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: "
-                "all layers had zero total importance"
-            )
+        if sum(layer_importances) <= 0.0:
+            layer_invalid_deltas[layer_idx] += 1
+            skipped_zero_importance_layers += 1
             continue
 
-        if skipped_zero_importance_layers > 0:
-            print(
-                f"  skipped zero-importance layers: {skipped_zero_importance_layers}"
-            )
-
-        sample_metrics.append({
-            "sample_id": sample_id,
-            "answer": answer,
-            "clean_ld": clean_ld,
-            "clean_answer_score": clean_answer_score,
-            "clean_competing_score": clean_competing_score,
-            "a_star_text": a_star_text,
-            "a_hat_text": a_hat_text,
-            "a_star_ids": a_star_ids,
-            "a_hat_ids": a_hat_ids,
+        layer_probabilities = normalize_to_probabilities(layer_importances)
+        layer_entropy = normalize_entropy(
+            entropy_from_probabilities(layer_probabilities),
+            num_evidence_frames=len(valid_evidence_frames),
+        )
+        per_layer_metrics.append({
+            "layer": layer_idx,
             "evidence_frames": list(valid_evidence_frames),
-            "layer_metrics": {
-                "layers": per_layer_metrics,
-            },
+            "corrupted_ld": layer_corrupted_lds,
+            "r": layer_importances,
+            "p": layer_probabilities,
+            "entropy": layer_entropy,
+            "total_importance": float(sum(layer_importances)),
         })
-        processed_samples += 1
 
+    if all_layer_corrupted_ld_rows:
+        print("  Corrupted LD table (rows=layers, columns=evidence frames):")
+        print(format_corrupted_ld_table(valid_evidence_frames, all_layer_corrupted_ld_rows))
+
+    if not per_layer_metrics:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            "all layers had zero total importance"
+        )
+        return None, cache_updates, layer_sampled_deltas, layer_invalid_deltas
+
+    if skipped_zero_importance_layers > 0:
+        print(f"  skipped zero-importance layers: {skipped_zero_importance_layers}")
+
+    return {
+        "sample_id": sample_id,
+        "answer": answer,
+        "clean_ld": clean_ld,
+        "clean_answer_score": clean_answer_score,
+        "clean_competing_score": clean_competing_score,
+        "a_star_text": a_star_text,
+        "a_hat_text": a_hat_text,
+        "a_star_ids": a_star_ids,
+        "a_hat_ids": a_hat_ids,
+        "evidence_frames": list(valid_evidence_frames),
+        "layer_metrics": {"layers": per_layer_metrics},
+    }, cache_updates, layer_sampled_deltas, layer_invalid_deltas
+
+
+def finalize_outputs(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    clean_ld_cache_path: Path,
+    clean_ld_cache: Dict[str, float],
+    cache_updates: int,
+    processed_samples: int,
+    target_processed_samples: int,
+    lambda_threshold: float,
+    num_layers: int,
+    layer_sampled_counts: List[int],
+    layer_invalid_counts: List[int],
+    seq_len_label: Optional[str],
+) -> None:
     if cache_updates > 0:
         save_clean_ld_cache(clean_ld_cache_path, clean_ld_cache)
         print(f"Updated clean LD cache at {clean_ld_cache_path} ({cache_updates} new/changed entries).")
@@ -1116,6 +912,80 @@ def main() -> None:
         print(f"Wrote layer invalidity plot to: {invalidity_plot_path}")
     else:
         print("Skipped layer invalidity plot: no matplotlib available.")
+
+
+def main() -> None:
+    start_time = time.perf_counter()
+    args = parse_args()
+    lambda_threshold = resolve_lambda_threshold(args)
+
+    data_root = Path(args.data_root)
+    corrupted_data_root = Path(args.corrupted_root) if args.corrupted_root is not None else infer_corrupted_data_root(data_root)
+    output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    clean_ld_cache_dir = Path(args.clean_ld_cache_dir) if args.clean_ld_cache_dir is not None else output_dir
+    clean_ld_cache_dir.mkdir(parents=True, exist_ok=True)
+    clean_ld_cache_path = clean_ld_cache_dir / "clean_lds.json"
+    clean_ld_cache = load_clean_ld_cache(clean_ld_cache_path)
+    cache_updates = 0
+    if clean_ld_cache:
+        print(f"Loaded {len(clean_ld_cache)} cached clean LD values from: {clean_ld_cache_path}")
+
+    seq_len_label = eval_utils.resolve_seq_len_label(data_root)
+
+    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
+    layers = get_layers(lm.model)
+    num_layers = len(layers)
+    layer_sampled_counts = [0 for _ in range(num_layers)]
+    layer_invalid_counts = [0 for _ in range(num_layers)]
+
+    sample_dirs = iter_sample_dirs(data_root)
+    if not sample_dirs:
+        raise RuntimeError(f"No sample directories found under: {data_root}")
+
+    sample_metrics: List[Dict[str, Any]] = []
+    processed_samples = 0
+    target_processed_samples = max(int(args.limit), 0)
+
+    for idx, sample_dir in enumerate(sample_dirs, start=1):
+        if processed_samples >= target_processed_samples:
+            break
+        sample_metrics_row, cache_delta, sampled_deltas, invalid_deltas = process_sample(
+            sample_dir=sample_dir,
+            sample_index=idx,
+            total_samples=len(sample_dirs),
+            args=args,
+            lm=lm,
+            layers=layers,
+            corrupted_data_root=corrupted_data_root,
+            clean_ld_cache=clean_ld_cache,
+            lambda_threshold=lambda_threshold,
+        )
+        cache_updates += cache_delta
+        for layer_idx, delta in enumerate(sampled_deltas):
+            layer_sampled_counts[layer_idx] += delta
+        for layer_idx, delta in enumerate(invalid_deltas):
+            layer_invalid_counts[layer_idx] += delta
+        if sample_metrics_row is None:
+            continue
+        sample_metrics.append(sample_metrics_row)
+        processed_samples += 1
+
+    finalize_outputs(
+        sample_metrics=sample_metrics,
+        output_dir=output_dir,
+        clean_ld_cache_path=clean_ld_cache_path,
+        clean_ld_cache=clean_ld_cache,
+        cache_updates=cache_updates,
+        processed_samples=processed_samples,
+        target_processed_samples=target_processed_samples,
+        lambda_threshold=lambda_threshold,
+        num_layers=num_layers,
+        layer_sampled_counts=layer_sampled_counts,
+        layer_invalid_counts=layer_invalid_counts,
+        seq_len_label=seq_len_label,
+    )
 
     elapsed_seconds = time.perf_counter() - start_time
     elapsed_h = int(elapsed_seconds // 3600)

@@ -4,7 +4,7 @@ import random
 import re
 import json
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import torch
@@ -399,6 +399,148 @@ def persist_clean_score_cache(
         save_clean_score_cache(path, cache)
         return f"Wrote empty clean-score cache to: {path}"
     return f"No clean-score cache updates. Reused existing cache at: {path}"
+
+
+def build_group_patch_batches(
+    groups_payload: List[Dict[str, Any]],
+    batch_size: int,
+    clean_inputs: Dict[str, Any],
+    answer_token_ids: List[int],
+    repeat_inputs_for_batch: Callable[[Dict[str, Any], int], Dict[str, Any]],
+    concatenate_inputs_for_batch: Callable[[List[Dict[str, Any]]], Dict[str, Any]],
+    append_answer_tokens_for_scoring: Callable[[Dict[str, Any], List[int]], Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    if batch_size <= 0:
+        raise ValueError("batch_size must be positive")
+    if not groups_payload:
+        return []
+
+    chunk_size = min(batch_size, len(groups_payload))
+    group_chunks = [
+        groups_payload[start:start + chunk_size]
+        for start in range(0, len(groups_payload), chunk_size)
+    ]
+
+    chunk_data: List[Dict[str, Any]] = []
+    for group_chunk in group_chunks:
+        chunk_len = len(group_chunk)
+        repeated_clean_inputs = repeat_inputs_for_batch(clean_inputs, batch_size=chunk_len)
+        clean_scoring_inputs = append_answer_tokens_for_scoring(repeated_clean_inputs, answer_token_ids)
+        control_inputs_batch = concatenate_inputs_for_batch(
+            [group_entry["control_inputs"] for group_entry in group_chunk]
+        )
+        control_scoring_inputs = append_answer_tokens_for_scoring(control_inputs_batch, answer_token_ids)
+        chunk_data.append({
+            "groups": group_chunk,
+            "clean_scoring_inputs": clean_scoring_inputs,
+            "control_scoring_inputs": control_scoring_inputs,
+        })
+    return chunk_data
+
+
+def run_group_patch_layer_sweep(
+    selected_layers: List[int],
+    groups_payload: List[Dict[str, Any]],
+    chunk_data: List[Dict[str, Any]],
+    clean_answer_score: float,
+    lm: Any,
+    layers: Any,
+    prompt_len: int,
+    answer_token_ids: List[int],
+    run_layer_patch: Callable[..., Any],
+    normalize_to_probabilities: Callable[[List[float]], List[float]],
+    entropy_from_probabilities: Callable[[List[float]], float],
+    normalize_entropy: Callable[[float, int], float],
+    logger: Callable[[str], None] = print,
+    include_signed_delta: bool = True,
+    normalize_by_token_count: bool = False,
+) -> Tuple[List[Dict[str, Any]], List[Tuple[int, List[float]]]]:
+    per_layer_metrics: List[Dict[str, Any]] = []
+    all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
+    layer_group_order = [group["name"] for group in groups_payload]
+
+    for layer_idx in selected_layers:
+        per_group_corrupted_score: Dict[str, float] = {}
+        per_group_signed_delta: Dict[str, float] = {}
+        per_group_importance: Dict[str, float] = {}
+        per_group_normalized_importance: Dict[str, float] = {}
+
+        for chunk_idx, packed in enumerate(chunk_data, start=1):
+            group_chunk = packed["groups"]
+            clean_positions_by_batch = [group["clean_positions"] for group in group_chunk]
+            control_positions_by_batch = [group["control_positions"] for group in group_chunk]
+            try:
+                corrupted_scores = run_layer_patch(
+                    lm=lm,
+                    layers=layers,
+                    clean_batched_scoring_inputs=packed["clean_scoring_inputs"],
+                    control_batched_scoring_inputs=packed["control_scoring_inputs"],
+                    layer_idx=layer_idx,
+                    clean_token_positions_by_batch=clean_positions_by_batch,
+                    control_token_positions_by_batch=control_positions_by_batch,
+                    prompt_len=prompt_len,
+                    answer_token_ids=answer_token_ids,
+                )
+            except Exception as exc:
+                logger(
+                    f"  layer={layer_idx} failed batched corruption forward "
+                    f"(chunk {chunk_idx}/{len(chunk_data)}, {exc}); using clean score for this chunk"
+                )
+                for group in group_chunk:
+                    group_name = group["name"]
+                    per_group_corrupted_score[group_name] = clean_answer_score
+                    per_group_signed_delta[group_name] = 0.0
+                    per_group_importance[group_name] = 0.0
+                    if normalize_by_token_count:
+                        per_group_normalized_importance[group_name] = 0.0
+                continue
+
+            for batch_idx, group in enumerate(group_chunk):
+                group_name = group["name"]
+                corrupted_score = float(corrupted_scores[batch_idx].item())
+                signed_delta = float(clean_answer_score - corrupted_score)
+                importance = max(signed_delta, 0.0)
+                per_group_corrupted_score[group_name] = corrupted_score
+                per_group_signed_delta[group_name] = signed_delta
+                per_group_importance[group_name] = importance
+                if normalize_by_token_count:
+                    token_count = max(1, len(group["clean_positions"]))
+                    per_group_normalized_importance[group_name] = importance / float(token_count)
+
+        corrupted_score_row = [per_group_corrupted_score.get(group_name, clean_answer_score) for group_name in layer_group_order]
+        signed_delta_row = [per_group_signed_delta.get(group_name, 0.0) for group_name in layer_group_order]
+        importance_row = [per_group_importance.get(group_name, 0.0) for group_name in layer_group_order]
+        all_layer_corrupted_rows.append((layer_idx, list(corrupted_score_row)))
+
+        total_importance = float(sum(importance_row))
+        if total_importance > 0.0:
+            probs = normalize_to_probabilities(importance_row)
+            entropy_value = normalize_entropy(
+                entropy_from_probabilities(probs),
+                len(layer_group_order),
+            )
+        else:
+            probs = [0.0 for _ in importance_row]
+            entropy_value = None
+
+        layer_metrics: Dict[str, Any] = {
+            "layer": layer_idx,
+            "groups": list(layer_group_order),
+            "corrupted_score": corrupted_score_row,
+            "r": importance_row,
+            "p": probs,
+            "entropy": entropy_value,
+            "total_importance": total_importance,
+        }
+        if include_signed_delta:
+            layer_metrics["signed_delta"] = signed_delta_row
+        if normalize_by_token_count:
+            layer_metrics["r_normalized"] = [
+                per_group_normalized_importance.get(group_name, 0.0) for group_name in layer_group_order
+            ]
+        per_layer_metrics.append(layer_metrics)
+
+    return per_layer_metrics, all_layer_corrupted_rows
 
 
 def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
