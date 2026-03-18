@@ -15,51 +15,12 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from nnsight import LanguageModel
 
+from evaluations import utils as eval_utils
 from evaluations import text_group_importance as tgi
 
 
 def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:
-    if raw is None:
-        return list(range(num_layers))
-
-    selected: set[int] = set()
-    parts = [part.strip() for part in str(raw).split(",") if part.strip()]
-    if not parts:
-        raise ValueError("--layers must not be empty when provided")
-
-    for part in parts:
-        if ":" not in part:
-            try:
-                selected.add(int(part))
-            except ValueError as exc:
-                raise ValueError(f"Invalid layer index in --layers: {part!r}") from exc
-            continue
-
-        fields = part.split(":")
-        if len(fields) not in {2, 3}:
-            raise ValueError(
-                f"Invalid range in --layers: {part!r}. Expected start:end or start:end:step."
-            )
-        try:
-            start = int(fields[0])
-            end = int(fields[1])
-            step = int(fields[2]) if len(fields) == 3 else 1
-        except ValueError as exc:
-            raise ValueError(f"Invalid integer in --layers: {part!r}") from exc
-        if step <= 0:
-            raise ValueError(f"--layers step must be positive: {part!r}")
-        if end <= start:
-            raise ValueError(f"--layers range end must be greater than start: {part!r}")
-        for layer_idx in range(start, end, step):
-            selected.add(int(layer_idx))
-
-    selected_layers = sorted(selected)
-    invalid = [layer_idx for layer_idx in selected_layers if layer_idx < 0 or layer_idx >= num_layers]
-    if invalid:
-        raise ValueError(
-            f"--layers contains out-of-bounds layers: {invalid}. Valid range is [0, {num_layers - 1}]."
-        )
-    return selected_layers
+    return eval_utils.parse_layer_selection(raw, num_layers)
 
 
 def locate_non_image_prompt_token_positions(
@@ -156,6 +117,8 @@ def global_window_names(tail_non_image_tokens: int, window_size: int) -> List[st
 def main() -> None:
     start_time = time.perf_counter()
 
+    # This variant reuses the matched-control setup from text-group patching,
+    # but scans contiguous windows over the prompt tail instead of named spans.
     ap = argparse.ArgumentParser(
         description=(
             "Measure late-layer answer-relevant information in sliding windows over non-image "
@@ -238,10 +201,7 @@ def main() -> None:
     if clean_score_cache:
         print(f"Loaded {len(clean_score_cache)} cached clean-score entries from: {clean_score_cache_path}")
 
-    seq_len_label = None
-    seq_len_match = tgi.re.search(r"(seq_len_\d+)", str(data_root))
-    if seq_len_match:
-        seq_len_label = seq_len_match.group(1)
+    seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
     lm = LanguageModel(tgi.base_model, tokenizer=tgi.processor.tokenizer)
     layers = tgi.get_layers(lm.model)
@@ -255,14 +215,13 @@ def main() -> None:
     target_processed_samples = int(args.limit)
     processed_samples = 0
     sample_metrics: List[Dict[str, Any]] = []
-    layer_sampled_counts = [0 for _ in range(num_layers)]
-    layer_invalid_counts = [0 for _ in range(num_layers)]
     plot_window_names = global_window_names(args.tail_non_image_tokens, args.window_size)
 
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= target_processed_samples:
             break
 
+        # Keep the same clean-answer filtering logic as the text-group experiment.
         try:
             sample_id, frames, question, states, answer = tgi.load_mmred_sample(sample_dir)
         except Exception as exc:
@@ -288,43 +247,29 @@ def main() -> None:
             print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
             continue
 
-        cache_entry = clean_score_cache.get(sample_id)
-        if cache_entry is not None:
-            cached_num_frames = int(cache_entry.get("num_frames", -1))
-            cached_answer = str(cache_entry.get("answer_text", ""))
-            if cached_num_frames == len(frames) and cached_answer == a_star_text:
-                clean_answer_score = float(cache_entry.get("clean_answer_score", float("-inf")))
-                clean_correct_prob = float(cache_entry.get("clean_correct_prob", 0.0))
-                clean_top1_correct = bool(cache_entry.get("clean_top1_correct", False))
-                best_answer_text = str(cache_entry.get("best_answer_text", ""))
-            else:
-                cache_entry = None
-
-        if cache_entry is None:
-            try:
-                candidate_scores = tgi.score_valid_numeric_answers(
+        try:
+            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+                cache=clean_score_cache,
+                sample_id=sample_id,
+                num_frames=len(frames),
+                answer_text=a_star_text,
+                score_fn=lambda: tgi.score_valid_numeric_answers(
                     lm=lm,
                     inputs=inputs,
                     prompt_len=prompt_len,
                     num_frames=len(frames),
-                )
-            except Exception as exc:
-                print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-                continue
-
-            clean_answer_score = float(candidate_scores["scores_by_answer"].get(a_star_text, float("-inf")))
-            clean_correct_prob = float(candidate_scores["probs_by_answer"].get(a_star_text, 0.0))
-            best_answer_text = str(candidate_scores["best_answer_text"])
-            clean_top1_correct = (best_answer_text == a_star_text)
-            clean_score_cache[sample_id] = {
-                "num_frames": len(frames),
-                "answer_text": a_star_text,
-                "clean_answer_score": clean_answer_score,
-                "clean_correct_prob": clean_correct_prob,
-                "clean_top1_correct": clean_top1_correct,
-                "best_answer_text": best_answer_text,
-            }
+                ),
+            )
+        except Exception as exc:
+            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+            continue
+        if cache_was_updated:
             cache_updates += 1
+
+        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+        best_answer_text = str(clean_answer_metrics["best_answer_text"])
 
         if not clean_top1_correct:
             print(
@@ -493,6 +438,7 @@ def main() -> None:
             for start in range(0, len(groups_payload), chunk_size)
         ]
 
+        # Pre-build the per-window batches once, then sweep across layers.
         chunk_data: List[Dict[str, Any]] = []
         try:
             for group_chunk in group_chunks:
@@ -515,7 +461,6 @@ def main() -> None:
         per_layer_metrics: List[Dict[str, Any]] = []
         all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
         for layer_idx in selected_layers:
-            layer_sampled_counts[layer_idx] += 1
             per_group_corrupted_score: Dict[str, float] = {}
             per_group_signed_delta: Dict[str, float] = {}
             per_group_importance: Dict[str, float] = {}
@@ -573,7 +518,6 @@ def main() -> None:
             else:
                 probs = [0.0 for _ in importance_row]
                 entropy_value = None
-                layer_invalid_counts[layer_idx] += 1
 
             per_layer_metrics.append({
                 "layer": layer_idx,
@@ -628,14 +572,7 @@ def main() -> None:
         })
         processed_samples += 1
 
-    if cache_updates > 0:
-        tgi.save_clean_score_cache(clean_score_cache_path, clean_score_cache)
-        print(f"Updated clean-score cache at {clean_score_cache_path} ({cache_updates} new/changed entries).")
-    elif not clean_score_cache_path.exists():
-        tgi.save_clean_score_cache(clean_score_cache_path, clean_score_cache)
-        print(f"Wrote empty clean-score cache to: {clean_score_cache_path}")
-    else:
-        print(f"No clean-score cache updates. Reused existing cache at: {clean_score_cache_path}")
+    print(eval_utils.persist_clean_score_cache(clean_score_cache_path, clean_score_cache, cache_updates))
 
     text_report_path = tgi.write_text_group_report(sample_metrics, output_dir)
     json_path = tgi.write_metrics_json(sample_metrics, output_dir)
@@ -656,46 +593,11 @@ def main() -> None:
     tgi.print_group_summary(summary_window_names, sample_metrics)
 
     if not args.disable_plots:
-        total_importance_plot_path = tgi.plot_total_importance_mean(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            seq_len_label=seq_len_label,
-        )
-        if total_importance_plot_path is not None:
-            print(f"Wrote total-importance plot to: {total_importance_plot_path}")
-        else:
-            print("Skipped total-importance plot: no layer metrics available.")
-
-        invalidity_plot_path = tgi.plot_layer_invalidity_rates(
-            layer_sampled_counts,
-            layer_invalid_counts,
-            output_dir,
-            seq_len_label=seq_len_label,
-        )
-        if invalidity_plot_path is not None:
-            print(f"Wrote layer invalidity plot to: {invalidity_plot_path}")
-        else:
-            print("Skipped layer invalidity plot: no matplotlib available.")
-
-        heatmap_group_order = summary_window_names
-        heatmap_path = tgi.plot_group_importance_heatmap(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            include_groups=heatmap_group_order,
-            seq_len_label=seq_len_label,
-        )
-        if heatmap_path is not None:
-            print(f"Wrote group-importance heatmap to: {heatmap_path}")
-        else:
-            print("Skipped group-importance heatmap: insufficient data.")
-
         lines_path = tgi.plot_group_importance_lines(
             sample_metrics,
             output_dir,
             num_layers=num_layers,
-            include_groups=heatmap_group_order,
+            include_groups=summary_window_names,
             seq_len_label=seq_len_label,
         )
         if lines_path is not None:

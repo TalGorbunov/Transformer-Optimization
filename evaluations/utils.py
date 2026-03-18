@@ -2,11 +2,18 @@ import ast
 import math
 import random
 import re
-from typing import Any, Dict, List, Optional
-import torch
-import matplotlib.pyplot as plt
-from PIL import Image
+import json
 from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+
+import matplotlib.pyplot as plt
+import torch
+from PIL import Image
+
+_STEPS_IN_ROOM_RE = re.compile(
+    r"How many steps did\s+([A-Za-z]+)\s+spend in\s+the\s+([A-Za-z]+)",
+    flags=re.IGNORECASE,
+)
 
 def describe(x, name="x", max_list=8):
     """Print structure + (if tensor) shape/dtype/device."""
@@ -132,12 +139,266 @@ def iter_sample_dirs(data_root: Path) -> List[Path]:
     return out
 
 
+def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:
+    if raw is None:
+        return list(range(num_layers))
+
+    selected: set[int] = set()
+    parts = [part.strip() for part in str(raw).split(",") if part.strip()]
+    if not parts:
+        raise ValueError("--layers must not be empty when provided")
+
+    for part in parts:
+        if ":" not in part:
+            try:
+                selected.add(int(part))
+            except ValueError as exc:
+                raise ValueError(f"Invalid layer index in --layers: {part!r}") from exc
+            continue
+
+        fields = part.split(":")
+        if len(fields) not in {2, 3}:
+            raise ValueError(f"Invalid range in --layers: {part!r}. Expected start:end or start:end:step.")
+        try:
+            start = int(fields[0])
+            end = int(fields[1])
+            step = int(fields[2]) if len(fields) == 3 else 1
+        except ValueError as exc:
+            raise ValueError(f"Invalid integer in --layers: {part!r}") from exc
+        if step <= 0:
+            raise ValueError(f"--layers step must be positive: {part!r}")
+        if end <= start:
+            raise ValueError(f"--layers range end must be greater than start: {part!r}")
+        for layer_idx in range(start, end, step):
+            selected.add(int(layer_idx))
+
+    selected_layers = sorted(selected)
+    invalid = [layer_idx for layer_idx in selected_layers if layer_idx < 0 or layer_idx >= num_layers]
+    if invalid:
+        raise ValueError(
+            f"--layers contains out-of-bounds layers: {invalid}. Valid range is [0, {num_layers - 1}]."
+        )
+    return selected_layers
+
+
+def resolve_seq_len_label(path_like: Any) -> Optional[str]:
+    match = re.search(r"(seq_len_\d+)", str(path_like))
+    return match.group(1) if match else None
+
+
+def parse_target_character_room(question_text: str) -> Optional[Tuple[str, str]]:
+    match = _STEPS_IN_ROOM_RE.search(question_text)
+    if not match:
+        return None
+    character = match.group(1).strip()
+    room = match.group(2).strip()
+    normalized_room = room[:1].upper() + room[1:].lower() if room else room
+    return character, normalized_room
+
+
+def parse_target_character_room_with_spans(
+    question_text: str,
+) -> Optional[Tuple[str, str, Tuple[int, int], Tuple[int, int]]]:
+    match = _STEPS_IN_ROOM_RE.search(question_text)
+    if not match:
+        return None
+    character = match.group(1).strip()
+    room = match.group(2).strip()
+    normalized_room = room[:1].upper() + room[1:].lower() if room else room
+    return character, normalized_room, match.span(1), match.span(2)
+
+
+def rooms_to_room2chars(rooms: Dict[str, Any]) -> Dict[str, List[str]]:
+    if not isinstance(rooms, dict):
+        return {}
+    if any(isinstance(value, list) for value in rooms.values()):
+        room_to_chars: Dict[str, List[str]] = {}
+        for room_name, chars in rooms.items():
+            if not isinstance(room_name, str):
+                continue
+            normalized_room = room_name[:1].upper() + room_name[1:].lower() if room_name else room_name
+            room_to_chars.setdefault(normalized_room, [])
+            if isinstance(chars, list):
+                room_to_chars[normalized_room].extend(str(char) for char in chars)
+        return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
+
+    room_to_chars: Dict[str, List[str]] = {}
+    for char_name, room_name in rooms.items():
+        if not isinstance(room_name, str):
+            continue
+        normalized_room = room_name[:1].upper() + room_name[1:].lower()
+        room_to_chars.setdefault(normalized_room, []).append(str(char_name))
+    return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
+
+
+def extract_characters_from_states(states: List[Dict[str, Any]]) -> List[str]:
+    chars: set[str] = set()
+    for state in states:
+        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
+        room_to_chars = rooms_to_room2chars(step_rooms)
+        for room_chars in room_to_chars.values():
+            chars.update(str(char) for char in room_chars)
+    return sorted(chars)
+
+
+def extract_rooms_from_states(states: List[Dict[str, Any]]) -> List[str]:
+    rooms: set[str] = set()
+    for state in states:
+        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
+        room_to_chars = rooms_to_room2chars(step_rooms)
+        rooms.update(str(room) for room in room_to_chars.keys())
+    return sorted(rooms)
+
+
+def count_steps_for_character_room(states: List[Dict[str, Any]], character: str, room: str) -> int:
+    target_room = room[:1].upper() + room[1:].lower() if room else room
+    count = 0
+    for state in states:
+        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
+        room_to_chars = rooms_to_room2chars(step_rooms)
+        if character in room_to_chars.get(target_room, []):
+            count += 1
+    return count
+
+
+def collect_evidence_frame_indices(question: str, states: List[Dict[str, Any]]) -> List[int]:
+    parsed = parse_target_character_room(question)
+    if parsed is None:
+        return []
+    character, room = parsed
+    frame_indices: List[int] = []
+    for frame_idx, state in enumerate(states):
+        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
+        room_to_chars = rooms_to_room2chars(step_rooms)
+        if character in room_to_chars.get(room, []):
+            frame_indices.append(frame_idx)
+    return frame_indices
+
+
+def infer_corrupted_data_root(clean_data_root: Path) -> Path:
+    clean_parts = list(clean_data_root.parts)
+    for clean_name in ("mmred_images", "mmred"):
+        if clean_name in clean_parts:
+            idx = clean_parts.index(clean_name)
+            new_parts = clean_parts[:]
+            new_parts[idx] = "mmred_corrupted"
+            return Path(*new_parts)
+    raise ValueError("Could not infer corrupted root from --data_root. Please pass --corrupted_root explicitly.")
+
+
+def resolve_corrupted_sample_dir(corrupted_data_root: Path, sample_id: str, frame_idx: int) -> Path:
+    return corrupted_data_root / sample_id / f"corrupted_frame_{frame_idx}"
+
+
 def format_centered_indices(n: int, cell_width: int = 9) -> str:
     return " ".join(str(i).center(cell_width) for i in range(n))
 
 
 def format_centered_values(vals: List[float], cell_width: int = 9, precision: int = 4) -> str:
     return " ".join(f"{v:.{precision}f}".center(cell_width) for v in vals)
+
+
+def format_corrupted_score_table(group_names: List[str], layer_rows: List[Tuple[int, List[float]]]) -> str:
+    if not group_names or not layer_rows:
+        return "<none>"
+    cell_width = 12
+    header = "layer".ljust(7) + " ".join(name[:cell_width].center(cell_width) for name in group_names)
+    rows = [header]
+    for layer_idx, row in layer_rows:
+        values = " ".join(f"{value:.4f}".center(cell_width) for value in row)
+        rows.append(f"{str(layer_idx).ljust(7)}{values}")
+    return "\n".join(rows)
+
+
+def write_metrics_json(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "sample_metrics.json"
+    output_path.write_text(json.dumps(sample_metrics, indent=2) + "\n", encoding="utf-8")
+    return output_path
+
+
+def print_group_summary(group_names: List[str], sample_metrics: List[Dict[str, Any]]) -> None:
+    counts_by_group = {group: 0 for group in group_names}
+    for sample in sample_metrics:
+        for group in sample["active_groups"]:
+            if group in counts_by_group:
+                counts_by_group[group] += 1
+    print("Active-group coverage:")
+    for group in group_names:
+        print(f"  {group}: {counts_by_group.get(group, 0)} sample(s)")
+
+
+def load_clean_score_cache(path: Path) -> Dict[str, Dict[str, Any]]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[WARN] Failed to parse clean-score cache at {path}: {exc}. Starting with empty cache.")
+        return {}
+    if not isinstance(payload, dict):
+        print(f"[WARN] Invalid clean-score cache format at {path}. Expected JSON object; starting empty.")
+        return {}
+    cache: Dict[str, Dict[str, Any]] = {}
+    for sample_id, value in payload.items():
+        if isinstance(sample_id, str) and isinstance(value, dict):
+            cache[sample_id] = value
+    return cache
+
+
+def save_clean_score_cache(path: Path, cache: Dict[str, Dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    serializable = {sample_id: cache[sample_id] for sample_id in sorted(cache.keys())}
+    path.write_text(json.dumps(serializable, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def get_or_compute_clean_answer_metrics(
+    cache: Dict[str, Dict[str, Any]],
+    sample_id: str,
+    num_frames: int,
+    answer_text: str,
+    score_fn: Callable[[], Dict[str, Any]],
+) -> Tuple[Dict[str, Any], bool]:
+    cache_entry = cache.get(sample_id)
+    normalized_answer = str(answer_text).strip()
+    if cache_entry is not None:
+        cached_num_frames = int(cache_entry.get("num_frames", -1))
+        cached_answer = str(cache_entry.get("answer_text", ""))
+        if cached_num_frames == num_frames and cached_answer == normalized_answer:
+            return {
+                "clean_answer_score": float(cache_entry.get("clean_answer_score", float("-inf"))),
+                "clean_correct_prob": float(cache_entry.get("clean_correct_prob", 0.0)),
+                "clean_top1_correct": bool(cache_entry.get("clean_top1_correct", False)),
+                "best_answer_text": str(cache_entry.get("best_answer_text", "")),
+            }, False
+
+    candidate_scores = score_fn()
+    metrics = {
+        "clean_answer_score": float(candidate_scores["scores_by_answer"].get(normalized_answer, float("-inf"))),
+        "clean_correct_prob": float(candidate_scores["probs_by_answer"].get(normalized_answer, 0.0)),
+        "best_answer_text": str(candidate_scores["best_answer_text"]),
+    }
+    metrics["clean_top1_correct"] = (metrics["best_answer_text"] == normalized_answer)
+    cache[sample_id] = {
+        "num_frames": num_frames,
+        "answer_text": normalized_answer,
+        **metrics,
+    }
+    return metrics, True
+
+
+def persist_clean_score_cache(
+    path: Path,
+    cache: Dict[str, Dict[str, Any]],
+    cache_updates: int,
+) -> str:
+    if cache_updates > 0:
+        save_clean_score_cache(path, cache)
+        return f"Updated clean-score cache at {path} ({cache_updates} new/changed entries)."
+    if not path.exists():
+        save_clean_score_cache(path, cache)
+        return f"Wrote empty clean-score cache to: {path}"
+    return f"No clean-score cache updates. Reused existing cache at: {path}"
 
 
 def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:

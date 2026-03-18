@@ -14,6 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from evaluations import frame_text_group_importance as ftgi
 from evaluations import text_group_importance as tgi
+from evaluations import utils as eval_utils
 from evaluations.utils import iter_sample_dirs, load_mmred_sample
 from models.model import get_layers, model as base_model, processor
 
@@ -46,6 +47,8 @@ def write_sample_report(sample_metrics: List[Dict[str, Any]], output_dir: Path) 
 def main() -> None:
     start_time = time.perf_counter()
 
+    # This is the narrowest ablation: corrupt all evidence frames, then patch back
+    # only the last prompt token to see where answer-relevant signal reappears.
     ap = argparse.ArgumentParser(
         description=(
             "Measure last-token importance by corrupting all evidence frames in the input, "
@@ -122,8 +125,7 @@ def main() -> None:
     clean_ld_cache = tgi.load_clean_score_cache(clean_ld_cache_path)
     cache_updates = 0
 
-    seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
-    seq_len_label = seq_len_match.group(1) if seq_len_match else None
+    seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
     lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
@@ -136,13 +138,11 @@ def main() -> None:
 
     processed_samples = 0
     sample_metrics: List[Dict[str, Any]] = []
-    layer_sampled_counts = [0 for _ in range(num_layers)]
-    layer_invalid_counts = [0 for _ in range(num_layers)]
-
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= int(args.limit):
             break
 
+        # Reuse the same clean-answer gating as the broader patching experiments.
         try:
             sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
         except Exception as exc:
@@ -173,43 +173,29 @@ def main() -> None:
             print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
             continue
 
-        cache_entry = clean_ld_cache.get(sample_id)
-        if cache_entry is not None:
-            cached_num_frames = int(cache_entry.get("num_frames", -1))
-            cached_answer = str(cache_entry.get("answer_text", ""))
-            if cached_num_frames == len(frames) and cached_answer == a_star_text:
-                clean_answer_score = float(cache_entry.get("clean_answer_score", float("-inf")))
-                clean_correct_prob = float(cache_entry.get("clean_correct_prob", 0.0))
-                clean_top1_correct = bool(cache_entry.get("clean_top1_correct", False))
-                best_answer_text = str(cache_entry.get("best_answer_text", ""))
-            else:
-                cache_entry = None
-
-        if cache_entry is None:
-            try:
-                candidate_scores = tgi.score_valid_numeric_answers(
+        try:
+            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+                cache=clean_ld_cache,
+                sample_id=sample_id,
+                num_frames=len(frames),
+                answer_text=a_star_text,
+                score_fn=lambda: tgi.score_valid_numeric_answers(
                     lm=lm,
                     inputs=clean_inputs,
                     prompt_len=prompt_len,
                     num_frames=len(frames),
-                )
-            except Exception as exc:
-                print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-                continue
-
-            clean_answer_score = float(candidate_scores["scores_by_answer"].get(a_star_text, float("-inf")))
-            clean_correct_prob = float(candidate_scores["probs_by_answer"].get(a_star_text, 0.0))
-            best_answer_text = str(candidate_scores["best_answer_text"])
-            clean_top1_correct = (best_answer_text == a_star_text)
-            clean_ld_cache[sample_id] = {
-                "num_frames": len(frames),
-                "answer_text": a_star_text,
-                "clean_answer_score": clean_answer_score,
-                "clean_correct_prob": clean_correct_prob,
-                "clean_top1_correct": clean_top1_correct,
-                "best_answer_text": best_answer_text,
-            }
+                ),
+            )
+        except Exception as exc:
+            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+            continue
+        if cache_was_updated:
             cache_updates += 1
+
+        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+        best_answer_text = str(clean_answer_metrics["best_answer_text"])
 
         if not clean_top1_correct:
             print(
@@ -273,7 +259,6 @@ def main() -> None:
         per_layer_metrics: List[Dict[str, Any]] = []
         patched_score_rows: List[tuple[int, List[float]]] = []
         for layer_idx in selected_layers:
-            layer_sampled_counts[layer_idx] += 1
             try:
                 patched_scores = tgi.run_layer_multi_group_corrupted_sequence_logprob(
                     lm=lm,
@@ -304,7 +289,6 @@ def main() -> None:
             else:
                 probs = [0.0]
                 entropy_value = None
-                layer_invalid_counts[layer_idx] += 1
 
             per_layer_metrics.append({
                 "layer": int(layer_idx),
@@ -347,11 +331,7 @@ def main() -> None:
         })
         processed_samples += 1
 
-    tgi.save_clean_score_cache(clean_ld_cache_path, clean_ld_cache)
-    if cache_updates > 0:
-        print(f"Updated clean answer-score cache at {clean_ld_cache_path} ({cache_updates} new/changed entries).")
-    else:
-        print(f"No clean answer-score cache updates. Reused existing cache at: {clean_ld_cache_path}")
+    print(eval_utils.persist_clean_score_cache(clean_ld_cache_path, clean_ld_cache, cache_updates))
 
     text_report_path = write_sample_report(sample_metrics, output_dir)
     sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
@@ -385,37 +365,6 @@ def main() -> None:
     tgi.print_group_summary(["last_token"], sample_metrics)
 
     if not args.disable_plots:
-        total_importance_plot_path = tgi.plot_total_importance_mean(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            seq_len_label=seq_len_label,
-            selected_layers=selected_layers,
-        )
-        if total_importance_plot_path is not None:
-            print(f"Wrote total-importance plot to: {total_importance_plot_path}")
-
-        invalidity_plot_path = tgi.plot_layer_invalidity_rates(
-            layer_sampled_counts,
-            layer_invalid_counts,
-            output_dir,
-            seq_len_label=seq_len_label,
-            selected_layers=selected_layers,
-        )
-        if invalidity_plot_path is not None:
-            print(f"Wrote layer invalidity plot to: {invalidity_plot_path}")
-
-        heatmap_path = ftgi.plot_group_importance_heatmap(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            selected_layers=selected_layers,
-            group_order=["last_token"],
-            seq_len_label=seq_len_label,
-        )
-        if heatmap_path is not None:
-            print(f"Wrote group-importance heatmap to: {heatmap_path}")
-
         lines_path = ftgi.plot_group_importance_lines(
             sample_metrics,
             output_dir,

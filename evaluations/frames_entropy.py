@@ -10,8 +10,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import torch
 from nnsight import LanguageModel
 
-from model import model as base_model, processor, get_layers, image_token_groups
-from utils import iter_sample_dirs, load_mmred_sample
+from evaluations import utils as eval_utils
+from evaluations.utils import iter_sample_dirs, load_mmred_sample
+from models.model import get_layers, image_token_groups, model as base_model, processor
 
 _STEPS_IN_ROOM_RE = re.compile(
     r"How many steps did\s+([A-Za-z]+)\s+spend in\s+the\s+([A-Za-z]+)",
@@ -95,54 +96,15 @@ def repeat_inputs_for_batch(
 
 
 def parse_target_character_room(question_text: str) -> Optional[Tuple[str, str]]:
-    match = _STEPS_IN_ROOM_RE.search(question_text)
-    if not match:
-        return None
-
-    character = match.group(1).strip()
-    room = match.group(2).strip()
-    normalized_room = room[:1].upper() + room[1:].lower() if room else room
-    return character, normalized_room
+    return eval_utils.parse_target_character_room(question_text)
 
 
 def rooms_to_room2chars(rooms: Dict[str, Any]) -> Dict[str, List[str]]:
-    if not isinstance(rooms, dict):
-        return {}
-
-    if any(isinstance(value, list) for value in rooms.values()):
-        room_to_chars: Dict[str, List[str]] = {}
-        for room_name, chars in rooms.items():
-            if not isinstance(room_name, str):
-                continue
-            normalized_room = room_name[:1].upper() + room_name[1:].lower() if room_name else room_name
-            room_to_chars.setdefault(normalized_room, [])
-            if isinstance(chars, list):
-                room_to_chars[normalized_room].extend(str(char) for char in chars)
-        return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
-
-    room_to_chars: Dict[str, List[str]] = {}
-    for char_name, room_name in rooms.items():
-        if not isinstance(room_name, str):
-            continue
-        normalized_room = room_name[:1].upper() + room_name[1:].lower()
-        room_to_chars.setdefault(normalized_room, []).append(str(char_name))
-    return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
+    return eval_utils.rooms_to_room2chars(rooms)
 
 
 def collect_evidence_frame_indices(question: str, states: List[Dict[str, Any]]) -> List[int]:
-    parsed = parse_target_character_room(question)
-    if parsed is None:
-        return []
-
-    character, room = parsed
-    frame_indices: List[int] = []
-    for frame_idx, state in enumerate(states):
-        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
-        room_to_chars = rooms_to_room2chars(step_rooms)
-        if character in room_to_chars.get(room, []):
-            frame_indices.append(frame_idx)
-
-    return frame_indices
+    return eval_utils.collect_evidence_frame_indices(question, states)
 
 
 def _materialize_saved(x: Any) -> Any:
@@ -158,17 +120,7 @@ def _to_hidden_tensor(x: Any) -> torch.Tensor:
 
 
 def infer_corrupted_data_root(clean_data_root: Path) -> Path:
-    clean_parts = list(clean_data_root.parts)
-    for clean_name in ("mmred_images", "mmred"):
-        if clean_name in clean_parts:
-            idx = clean_parts.index(clean_name)
-            new_parts = clean_parts[:]
-            new_parts[idx] = "mmred_corrupted"
-            return Path(*new_parts)
-    raise ValueError(
-        "Could not infer corrupted root from --data_root. "
-        "Please pass --corrupted_root explicitly."
-    )
+    return eval_utils.infer_corrupted_data_root(clean_data_root)
 
 
 def resolve_corrupted_sample_dir(
@@ -176,7 +128,7 @@ def resolve_corrupted_sample_dir(
     sample_id: str,
     frame_idx: int,
 ) -> Path:
-    return corrupted_data_root / sample_id / f"corrupted_frame_{frame_idx}"
+    return eval_utils.resolve_corrupted_sample_dir(corrupted_data_root, sample_id, frame_idx)
 
 
 def append_answer_tokens_for_scoring(
@@ -739,6 +691,8 @@ def save_clean_ld_cache(path: Path, cache: Dict[str, float]) -> None:
 def main() -> None:
     start_time = time.perf_counter()
 
+    # This is the original experiment: corrupt each evidence frame, patch the
+    # corrupted activations layer-by-layer, and summarize the resulting entropy.
     ap = argparse.ArgumentParser(
         description=(
             "Compute per-layer evidence importances and entropies. "

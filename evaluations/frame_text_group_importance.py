@@ -14,6 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from evaluations import text_group_importance as tgi
+from evaluations import utils as eval_utils
 from models.model import get_layers, image_token_groups, model as base_model, processor
 
 try:
@@ -42,67 +43,23 @@ def parse_include_groups(raw: Optional[str]) -> List[str]:
 
 
 def parse_target_character_room(question_text: str) -> Optional[Tuple[str, str]]:
-    match = _STEPS_IN_ROOM_RE.search(question_text)
-    if not match:
-        return None
-    character = match.group(1).strip()
-    room = match.group(2).strip()
-    normalized_room = room[:1].upper() + room[1:].lower() if room else room
-    return character, normalized_room
+    return eval_utils.parse_target_character_room(question_text)
 
 
 def rooms_to_room2chars(rooms: Dict[str, Any]) -> Dict[str, List[str]]:
-    if not isinstance(rooms, dict):
-        return {}
-    if any(isinstance(value, list) for value in rooms.values()):
-        room_to_chars: Dict[str, List[str]] = {}
-        for room_name, chars in rooms.items():
-            if not isinstance(room_name, str):
-                continue
-            normalized_room = room_name[:1].upper() + room_name[1:].lower() if room_name else room_name
-            room_to_chars.setdefault(normalized_room, [])
-            if isinstance(chars, list):
-                room_to_chars[normalized_room].extend(str(char) for char in chars)
-        return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
-
-    room_to_chars: Dict[str, List[str]] = {}
-    for char_name, room_name in rooms.items():
-        if not isinstance(room_name, str):
-            continue
-        normalized_room = room_name[:1].upper() + room_name[1:].lower()
-        room_to_chars.setdefault(normalized_room, []).append(str(char_name))
-    return {room: sorted(set(chars)) for room, chars in room_to_chars.items()}
+    return eval_utils.rooms_to_room2chars(rooms)
 
 
 def collect_evidence_frame_indices(question: str, states: List[Dict[str, Any]]) -> List[int]:
-    parsed = parse_target_character_room(question)
-    if parsed is None:
-        return []
-    character, room = parsed
-    frame_indices: List[int] = []
-    for frame_idx, state in enumerate(states):
-        step_rooms = state.get("rooms", {}) if isinstance(state, dict) else {}
-        room_to_chars = rooms_to_room2chars(step_rooms)
-        if character in room_to_chars.get(room, []):
-            frame_indices.append(frame_idx)
-    return frame_indices
+    return eval_utils.collect_evidence_frame_indices(question, states)
 
 
 def infer_corrupted_data_root(clean_data_root: Path) -> Path:
-    clean_parts = list(clean_data_root.parts)
-    for clean_name in ("mmred_images", "mmred"):
-        if clean_name in clean_parts:
-            idx = clean_parts.index(clean_name)
-            new_parts = clean_parts[:]
-            new_parts[idx] = "mmred_corrupted"
-            return Path(*new_parts)
-    raise ValueError(
-        "Could not infer corrupted root from --data_root. Please pass --corrupted_root explicitly."
-    )
+    return eval_utils.infer_corrupted_data_root(clean_data_root)
 
 
 def resolve_corrupted_sample_dir(corrupted_data_root: Path, sample_id: str, frame_idx: int) -> Path:
-    return corrupted_data_root / sample_id / f"corrupted_frame_{frame_idx}"
+    return eval_utils.resolve_corrupted_sample_dir(corrupted_data_root, sample_id, frame_idx)
 
 
 def build_composite_corrupted_frames(
@@ -591,68 +548,6 @@ def build_aggregate_metrics(
     }
 
 
-def plot_group_importance_heatmap(
-    sample_metrics: List[Dict[str, Any]],
-    output_dir: Path,
-    num_layers: int,
-    selected_layers: List[int],
-    group_order: List[str],
-    seq_len_label: Optional[str] = None,
-) -> Optional[Path]:
-    try:
-        import matplotlib.pyplot as plt
-    except Exception as exc:
-        print(f"Skipping group-heatmap plot: matplotlib is not available ({exc})")
-        return None
-    if num_layers <= 0 or not sample_metrics or not selected_layers:
-        return None
-
-    sums = {layer_idx: [0.0 for _ in group_order] for layer_idx in selected_layers}
-    counts = {layer_idx: [0 for _ in group_order] for layer_idx in selected_layers}
-    for sample in sample_metrics:
-        for layer_metrics in sample["layer_metrics"]["layers"]:
-            layer_idx = int(layer_metrics["layer"])
-            if layer_idx not in sums:
-                continue
-            groups = list(layer_metrics["groups"])
-            importance_values = [float(x) for x in layer_metrics["r"]]
-            by_group = {groups[idx]: importance_values[idx] for idx in range(min(len(groups), len(importance_values)))}
-            for group_idx, group_name in enumerate(group_order):
-                if group_name in by_group:
-                    sums[layer_idx][group_idx] += by_group[group_name]
-                    counts[layer_idx][group_idx] += 1
-
-    means = [
-        [
-            (sums[layer_idx][group_idx] / counts[layer_idx][group_idx]) if counts[layer_idx][group_idx] > 0 else 0.0
-            for group_idx in range(len(group_order))
-        ]
-        for layer_idx in selected_layers
-    ]
-
-    fig, ax = plt.subplots(figsize=(10, max(5, 0.22 * len(selected_layers))), dpi=140)
-    im = ax.imshow(means, aspect="auto", interpolation="nearest")
-    ax.set_yticks(range(len(selected_layers)))
-    ax.set_yticklabels([str(idx) for idx in selected_layers])
-    ax.set_xticks(range(len(group_order)))
-    ax.set_xticklabels(group_order, rotation=45, ha="right")
-    title = "Mean Group Importance Heatmap"
-    if seq_len_label:
-        title = f"{title} ({seq_len_label})"
-    ax.set_title(title, fontsize=13, pad=10)
-    ax.set_xlabel("Group")
-    ax.set_ylabel("Layer")
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("Mean importance", rotation=90)
-    fig.tight_layout()
-
-    suffix = f"_{seq_len_label}" if seq_len_label else ""
-    plot_path = output_dir / f"group_importance_heatmap{suffix}.png"
-    fig.savefig(plot_path, bbox_inches="tight")
-    plt.close(fig)
-    return plot_path
-
-
 def plot_group_importance_lines(
     sample_metrics: List[Dict[str, Any]],
     output_dir: Path,
@@ -746,6 +641,8 @@ def write_aggregate_metrics_json(payload: Dict[str, Any], output_dir: Path) -> P
 def main() -> None:
     start_time = time.perf_counter()
 
+    # This script compares evidence-frame patching against aligned text and
+    # last-token controls on the same clean sample.
     ap = argparse.ArgumentParser(
         description=(
             "Compare layer-wise importance of evidence-frame tokens, character, room, and the last prompt "
@@ -826,8 +723,7 @@ def main() -> None:
     clean_ld_cache = tgi.load_clean_score_cache(clean_ld_cache_path)
     cache_updates = 0
 
-    seq_len_match = re.search(r"(seq_len_\d+)", str(data_root))
-    seq_len_label = seq_len_match.group(1) if seq_len_match else None
+    seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
     lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
     layers = get_layers(lm.model)
@@ -841,13 +737,11 @@ def main() -> None:
 
     processed_samples = 0
     sample_metrics: List[Dict[str, Any]] = []
-    layer_sampled_counts = [0 for _ in range(num_layers)]
-    layer_invalid_counts = [0 for _ in range(num_layers)]
-
     for idx, sample_dir in enumerate(sample_dirs, start=1):
         if processed_samples >= int(args.limit):
             break
 
+        # Start from clean samples the model already answers correctly with high confidence.
         try:
             sample_id, frames, question, states, answer = load_mmred_sample(sample_dir)
         except Exception as exc:
@@ -873,43 +767,29 @@ def main() -> None:
             print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: invalid answer tokenization ({exc})")
             continue
 
-        cache_entry = clean_ld_cache.get(sample_id)
-        if cache_entry is not None:
-            cached_num_frames = int(cache_entry.get("num_frames", -1))
-            cached_answer = str(cache_entry.get("answer_text", ""))
-            if cached_num_frames == len(frames) and cached_answer == a_star_text:
-                clean_answer_score = float(cache_entry.get("clean_answer_score", float("-inf")))
-                clean_correct_prob = float(cache_entry.get("clean_correct_prob", 0.0))
-                clean_top1_correct = bool(cache_entry.get("clean_top1_correct", False))
-                best_answer_text = str(cache_entry.get("best_answer_text", ""))
-            else:
-                cache_entry = None
-
-        if cache_entry is None:
-            try:
-                candidate_scores = tgi.score_valid_numeric_answers(
+        try:
+            clean_answer_metrics, cache_was_updated = eval_utils.get_or_compute_clean_answer_metrics(
+                cache=clean_ld_cache,
+                sample_id=sample_id,
+                num_frames=len(frames),
+                answer_text=a_star_text,
+                score_fn=lambda: tgi.score_valid_numeric_answers(
                     lm=lm,
                     inputs=inputs,
                     prompt_len=prompt_len,
                     num_frames=len(frames),
-                )
-            except Exception as exc:
-                print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
-                continue
-
-            clean_answer_score = float(candidate_scores["scores_by_answer"].get(a_star_text, float("-inf")))
-            clean_correct_prob = float(candidate_scores["probs_by_answer"].get(a_star_text, 0.0))
-            best_answer_text = str(candidate_scores["best_answer_text"])
-            clean_top1_correct = (best_answer_text == a_star_text)
-            clean_ld_cache[sample_id] = {
-                "num_frames": len(frames),
-                "answer_text": a_star_text,
-                "clean_answer_score": clean_answer_score,
-                "clean_correct_prob": clean_correct_prob,
-                "clean_top1_correct": clean_top1_correct,
-                "best_answer_text": best_answer_text,
-            }
+                ),
+            )
+        except Exception as exc:
+            print(f"[{idx}/{len(sample_dirs)}] sample_id={sample_id} skipped: clean scoring failed ({exc})")
+            continue
+        if cache_was_updated:
             cache_updates += 1
+
+        clean_answer_score = float(clean_answer_metrics["clean_answer_score"])
+        clean_correct_prob = float(clean_answer_metrics["clean_correct_prob"])
+        clean_top1_correct = bool(clean_answer_metrics["clean_top1_correct"])
+        best_answer_text = str(clean_answer_metrics["best_answer_text"])
 
         if not clean_top1_correct:
             print(
@@ -1060,6 +940,7 @@ def main() -> None:
             for start in range(0, len(groups_payload), chunk_size)
         ]
 
+        # Build the batch layout once so each layer only runs the actual patching pass.
         chunk_data: List[Dict[str, Any]] = []
         try:
             for group_chunk in group_chunks:
@@ -1082,7 +963,6 @@ def main() -> None:
         per_layer_metrics: List[Dict[str, Any]] = []
         all_layer_corrupted_rows: List[Tuple[int, List[float]]] = []
         for layer_idx in selected_layers:
-            layer_sampled_counts[layer_idx] += 1
             per_group_corrupted_score: Dict[str, float] = {}
             per_group_importance: Dict[str, float] = {}
             per_group_normalized_importance: Dict[str, float] = {}
@@ -1142,7 +1022,6 @@ def main() -> None:
             else:
                 probs = [0.0 for _ in importance_row]
                 entropy_value = None
-                layer_invalid_counts[layer_idx] += 1
 
             per_layer_metrics.append({
                 "layer": layer_idx,
@@ -1205,11 +1084,7 @@ def main() -> None:
         processed_samples += 1
 
     clean_ld_cache_path = clean_ld_cache_dir / "clean_scores.json"
-    tgi.save_clean_score_cache(clean_ld_cache_path, clean_ld_cache)
-    if cache_updates > 0:
-        print(f"Updated clean answer-score cache at {clean_ld_cache_path} ({cache_updates} new/changed entries).")
-    else:
-        print(f"No clean answer-score cache updates. Reused existing cache at: {clean_ld_cache_path}")
+    print(eval_utils.persist_clean_score_cache(clean_ld_cache_path, clean_ld_cache, cache_updates))
 
     text_report_path = write_group_ld_report(sample_metrics, output_dir)
     sample_json_path = tgi.write_metrics_json(sample_metrics, output_dir)
@@ -1243,34 +1118,6 @@ def main() -> None:
     tgi.print_group_summary(include_groups, sample_metrics)
 
     if not args.disable_plots:
-        total_importance_plot_path = tgi.plot_total_importance_mean(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            seq_len_label=seq_len_label,
-            selected_layers=selected_layers,
-        )
-        if total_importance_plot_path is not None:
-            print(f"Wrote total-importance plot to: {total_importance_plot_path}")
-        invalidity_plot_path = tgi.plot_layer_invalidity_rates(
-            layer_sampled_counts,
-            layer_invalid_counts,
-            output_dir,
-            seq_len_label=seq_len_label,
-            selected_layers=selected_layers,
-        )
-        if invalidity_plot_path is not None:
-            print(f"Wrote layer invalidity plot to: {invalidity_plot_path}")
-        heatmap_path = plot_group_importance_heatmap(
-            sample_metrics,
-            output_dir,
-            num_layers=num_layers,
-            selected_layers=selected_layers,
-            group_order=include_groups,
-            seq_len_label=seq_len_label,
-        )
-        if heatmap_path is not None:
-            print(f"Wrote group-importance heatmap to: {heatmap_path}")
         lines_path = plot_group_importance_lines(
             sample_metrics,
             output_dir,
