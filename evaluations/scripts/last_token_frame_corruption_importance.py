@@ -17,13 +17,13 @@ from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
 from models.model import get_layers, model as base_model, processor
 
 
-def format_last_token_score_table(layer_rows: List[tuple[int, float]]) -> str:
+def format_last_token_importance_table(layer_rows: List[tuple[int, float]]) -> str:
     if not layer_rows:
         return "<none>"
-    header = "layer".ljust(7) + "patched_score".center(16)
+    header = "layer".ljust(7) + "importance".center(16)
     rows = [header]
-    for layer_idx, patched_score in layer_rows:
-        rows.append(f"{str(layer_idx).ljust(7)}{f'{patched_score:.4f}'.center(16)}")
+    for layer_idx, importance in layer_rows:
+        rows.append(f"{str(layer_idx).ljust(7)}{f'{importance:.4f}'.center(16)}")
     return "\n".join(rows)
 
 
@@ -199,7 +199,7 @@ def compute_last_token_layer_metrics(
     answer_token_ids: List[int],
 ) -> tuple[List[Dict[str, Any]], List[tuple[int, float]]]:
     per_layer_metrics: List[Dict[str, Any]] = []
-    patched_score_rows: List[tuple[int, float]] = []
+    importance_rows: List[tuple[int, float]] = []
     for layer_idx in selected_layers:
         try:
             patched_score = tgi.run_layer_corrupted_sequence_logprob(
@@ -219,7 +219,7 @@ def compute_last_token_layer_metrics(
 
         signed_delta = float(patched_score - corrupted_answer_score)
         importance = max(signed_delta, 0.0)
-        patched_score_rows.append((layer_idx, patched_score))
+        importance_rows.append((layer_idx, importance))
         per_layer_metrics.append({
             "layer": int(layer_idx),
             "patched_score": patched_score,
@@ -227,7 +227,7 @@ def compute_last_token_layer_metrics(
             "signed_delta": signed_delta,
             "importance": importance,
         })
-    return per_layer_metrics, patched_score_rows
+    return per_layer_metrics, importance_rows
 
 
 def parse_args() -> argparse.Namespace:
@@ -381,7 +381,7 @@ def process_sample(
         "patched_token_position=-1"
     )
 
-    per_layer_metrics, patched_score_rows = compute_last_token_layer_metrics(
+    per_layer_metrics, importance_rows = compute_last_token_layer_metrics(
         lm=lm,
         layers=layers,
         selected_layers=selected_layers,
@@ -392,9 +392,9 @@ def process_sample(
         answer_token_ids=a_star_ids,
     )
 
-    if patched_score_rows:
-        print("  Patched score table (rows=layers):")
-        print(format_last_token_score_table(patched_score_rows))
+    if importance_rows:
+        print("  Importance table (rows=layers):")
+        print(format_last_token_importance_table(importance_rows))
 
     return {
         "sample_id": sample_id,
