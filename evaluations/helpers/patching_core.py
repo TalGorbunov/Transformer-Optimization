@@ -1,6 +1,5 @@
 import math
-from pathlib import Path
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence
 
 import torch
 from nnsight import LanguageModel
@@ -265,18 +264,6 @@ def normalize_entropy(entropy: float, num_groups: int) -> float:
     if num_groups <= 1:
         return 0.0
     return float(entropy / math.log(num_groups))
-
-
-def load_clean_score_cache(path: Path) -> Dict[str, Dict[str, Any]]:
-    return eval_utils.load_clean_score_cache(path)
-
-
-def save_clean_score_cache(path: Path, cache: Dict[str, Dict[str, Any]]) -> None:
-    eval_utils.save_clean_score_cache(path, cache)
-
-
-def write_metrics_json(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
-    return eval_utils.write_metrics_json(sample_metrics, output_dir)
 
 
 def score_valid_numeric_answers(
