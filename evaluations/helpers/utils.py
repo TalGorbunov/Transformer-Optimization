@@ -298,6 +298,33 @@ def resolve_corrupted_sample_dir(corrupted_data_root: Path, sample_id: str, fram
     return corrupted_data_root / sample_id / f"corrupted_frame_{frame_idx}"
 
 
+def build_composite_corrupted_frames(
+    sample_id: str,
+    clean_frames: List[Any],
+    evidence_frame_indices: List[int],
+    corrupted_data_root: Path,
+) -> Tuple[Optional[List[Any]], Dict[str, str]]:
+    corrupted_frames = list(clean_frames)
+    issues: Dict[str, str] = {}
+    for frame_idx in evidence_frame_indices:
+        corrupted_sample_dir = resolve_corrupted_sample_dir(corrupted_data_root, sample_id, int(frame_idx))
+        if not corrupted_sample_dir.is_dir():
+            issues[f"frame_{frame_idx}"] = "missing_corrupted_sample_dir"
+            return None, issues
+        try:
+            _, corrupted_sample_frames, _, _, _ = load_mmred_sample(corrupted_sample_dir)
+        except Exception as exc:
+            issues[f"frame_{frame_idx}"] = f"load_failure({exc})"
+            return None, issues
+        if len(corrupted_sample_frames) != len(clean_frames):
+            issues[f"frame_{frame_idx}"] = (
+                f"frame_count_mismatch(clean={len(clean_frames)},corrupted={len(corrupted_sample_frames)})"
+            )
+            return None, issues
+        corrupted_frames[int(frame_idx)] = corrupted_sample_frames[int(frame_idx)]
+    return corrupted_frames, issues
+
+
 def format_centered_indices(n: int, cell_width: int = 9) -> str:
     return " ".join(str(i).center(cell_width) for i in range(n))
 
@@ -322,6 +349,13 @@ def write_metrics_json(sample_metrics: List[Dict[str, Any]], output_dir: Path) -
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / "sample_metrics.json"
     output_path.write_text(json.dumps(sample_metrics, indent=2) + "\n", encoding="utf-8")
+    return output_path
+
+
+def write_aggregate_metrics_json(payload: Dict[str, Any], output_dir: Path) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = output_dir / "aggregate_metrics.json"
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return output_path
 
 
@@ -549,6 +583,127 @@ def run_group_patch_layer_sweep(
         per_layer_metrics.append(layer_metrics)
 
     return per_layer_metrics, all_layer_corrupted_rows
+
+
+def build_aggregate_metrics(
+    sample_metrics: List[Dict[str, Any]],
+    num_layers: int,
+    selected_layers: List[int],
+    group_order: List[str],
+) -> Dict[str, Any]:
+    mean_importance_by_group: Dict[str, List[float]] = {group: [0.0 for _ in range(num_layers)] for group in group_order}
+    mean_normalized_importance_by_group: Dict[str, List[float]] = {
+        group: [0.0 for _ in range(num_layers)] for group in group_order
+    }
+    counts_by_group: Dict[str, List[int]] = {group: [0 for _ in range(num_layers)] for group in group_order}
+
+    for sample in sample_metrics:
+        for layer_metrics in sample["layer_metrics"]["layers"]:
+            layer_idx = int(layer_metrics["layer"])
+            groups = list(layer_metrics["groups"])
+            raw_values = [float(x) for x in layer_metrics["r"]]
+            norm_values = [float(x) for x in layer_metrics.get("r_normalized", layer_metrics["r"])]
+            for idx, group_name in enumerate(groups):
+                mean_importance_by_group[group_name][layer_idx] += raw_values[idx]
+                mean_normalized_importance_by_group[group_name][layer_idx] += norm_values[idx]
+                counts_by_group[group_name][layer_idx] += 1
+
+    for group_name in group_order:
+        for layer_idx in selected_layers:
+            count = counts_by_group[group_name][layer_idx]
+            if count > 0:
+                mean_importance_by_group[group_name][layer_idx] /= count
+                mean_normalized_importance_by_group[group_name][layer_idx] /= count
+
+    return {
+        "groups": list(group_order),
+        "selected_layers": list(selected_layers),
+        "mean_importance_by_group": mean_importance_by_group,
+        "mean_normalized_importance_by_group": mean_normalized_importance_by_group,
+        "counts_by_group": counts_by_group,
+    }
+
+
+def plot_group_importance_lines(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    num_layers: int,
+    selected_layers: List[int],
+    group_order: List[str],
+    seq_len_label: Optional[str] = None,
+    title_override: Optional[str] = None,
+    filename_stem: str = "group_importance_lines",
+    n_bootstrap: int = 1000,
+    seed: int = 0,
+) -> Optional[Path]:
+    if num_layers <= 0 or not sample_metrics or not selected_layers or not group_order:
+        return None
+
+    per_group_per_layer_values: Dict[str, Dict[int, List[float]]] = {
+        group: {layer_idx: [] for layer_idx in selected_layers} for group in group_order
+    }
+    for sample in sample_metrics:
+        for layer_metrics in sample["layer_metrics"]["layers"]:
+            layer_idx = int(layer_metrics["layer"])
+            if layer_idx not in per_group_per_layer_values[group_order[0]]:
+                continue
+            groups = list(layer_metrics["groups"])
+            values = [float(x) for x in layer_metrics["r"]]
+            by_group = {groups[idx]: values[idx] for idx in range(min(len(groups), len(values)))}
+            for group_name in group_order:
+                if group_name in by_group:
+                    per_group_per_layer_values[group_name][layer_idx].append(by_group[group_name])
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    rng = random.Random(seed)
+    for group_name in group_order:
+        mean_vals = []
+        lo_vals = []
+        hi_vals = []
+        for layer_idx in selected_layers:
+            values = per_group_per_layer_values[group_name][layer_idx]
+            n = len(values)
+            mean_value = (sum(values) / n) if n > 0 else 0.0
+            if n <= 1:
+                lo_value = hi_value = mean_value
+            else:
+                boot_means: List[float] = []
+                for _ in range(n_bootstrap):
+                    sample = [values[rng.randrange(n)] for _ in range(n)]
+                    boot_means.append(sum(sample) / n)
+                boot_means.sort()
+                lo_idx = int(0.025 * (n_bootstrap - 1))
+                hi_idx = int(0.975 * (n_bootstrap - 1))
+                lo_value = boot_means[lo_idx]
+                hi_value = boot_means[hi_idx]
+            mean_vals.append(mean_value)
+            lo_vals.append(lo_value)
+            hi_vals.append(hi_value)
+        line, = ax.plot(selected_layers, mean_vals, linewidth=2.0, label=group_name)
+        ax.fill_between(selected_layers, lo_vals, hi_vals, color=line.get_color(), alpha=0.16)
+
+    title = title_override or "Mean Group Importance by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Mean importance")
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    tick_step = max(1, math.ceil(len(selected_layers) / 32))
+    xticks = selected_layers[::tick_step]
+    if selected_layers[-1] not in xticks:
+        xticks.append(selected_layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    plot_path = output_dir / f"{filename_stem}{suffix}.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
 
 
 def write_sample_metrics(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:

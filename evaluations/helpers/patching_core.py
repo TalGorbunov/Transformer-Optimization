@@ -114,6 +114,16 @@ def _to_hidden_tensor(x: Any) -> torch.Tensor:
     raise TypeError(f"Unsupported layer output type for corruption: {type(x)}")
 
 
+def _normalize_token_positions(token_positions: Sequence[int], prompt_len: int) -> List[int]:
+    normalized: List[int] = []
+    for position in token_positions:
+        position_int = int(position)
+        if position_int < 0:
+            position_int = int(prompt_len) + position_int
+        normalized.append(position_int)
+    return normalized
+
+
 def append_answer_tokens_for_scoring(
     inputs: Dict[str, torch.Tensor],
     answer_token_ids: List[int],
@@ -205,12 +215,39 @@ def run_layer_multi_group_corrupted_sequence_logprob(
             for batch_idx, (clean_positions, control_positions) in enumerate(
                 zip(clean_token_positions_by_batch, control_token_positions_by_batch)
             ):
+                clean_positions = _normalize_token_positions(clean_positions, prompt_len=prompt_len)
+                control_positions = _normalize_token_positions(control_positions, prompt_len=prompt_len)
                 if clean_positions and control_positions:
                     clean_layer_out[batch_idx, clean_positions, :] = control_layer_out[batch_idx, control_positions, :]
             saved_logits = lm.output.logits.save()
 
     logits = _materialize_saved(saved_logits)
     return sequence_logprob_from_logits(logits, prompt_len=prompt_len, answer_token_ids=answer_token_ids)
+
+
+def run_layer_corrupted_sequence_logprob(
+    lm: LanguageModel,
+    layers: Any,
+    clean_scoring_inputs: Dict[str, torch.Tensor],
+    control_scoring_inputs: Dict[str, torch.Tensor],
+    layer_idx: int,
+    clean_token_positions: Sequence[int],
+    control_token_positions: Sequence[int],
+    prompt_len: int,
+    answer_token_ids: List[int],
+) -> float:
+    scores = run_layer_multi_group_corrupted_sequence_logprob(
+        lm=lm,
+        layers=layers,
+        clean_batched_scoring_inputs=clean_scoring_inputs,
+        control_batched_scoring_inputs=control_scoring_inputs,
+        layer_idx=layer_idx,
+        clean_token_positions_by_batch=[list(clean_token_positions)],
+        control_token_positions_by_batch=[list(control_token_positions)],
+        prompt_len=prompt_len,
+        answer_token_ids=answer_token_ids,
+    )
+    return float(scores[0].item())
 
 
 def normalize_to_probabilities(values: List[float]) -> List[float]:
@@ -230,10 +267,6 @@ def normalize_entropy(entropy: float, num_groups: int) -> float:
     return float(entropy / math.log(num_groups))
 
 
-def format_corrupted_score_table(group_names: List[str], layer_rows: List[Tuple[int, List[float]]]) -> str:
-    return eval_utils.format_corrupted_score_table(group_names, layer_rows)
-
-
 def load_clean_score_cache(path: Path) -> Dict[str, Dict[str, Any]]:
     return eval_utils.load_clean_score_cache(path)
 
@@ -244,10 +277,6 @@ def save_clean_score_cache(path: Path, cache: Dict[str, Dict[str, Any]]) -> None
 
 def write_metrics_json(sample_metrics: List[Dict[str, Any]], output_dir: Path) -> Path:
     return eval_utils.write_metrics_json(sample_metrics, output_dir)
-
-
-def print_group_summary(group_names: List[str], sample_metrics: List[Dict[str, Any]]) -> None:
-    eval_utils.print_group_summary(group_names, sample_metrics)
 
 
 def score_valid_numeric_answers(
