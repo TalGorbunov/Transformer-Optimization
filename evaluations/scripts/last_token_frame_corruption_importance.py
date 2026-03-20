@@ -1,3 +1,13 @@
+"""
+Last-token restoration experiment.
+
+For each MMRed sample, this script corrupts all evidence frames, measures how much the
+clean answer score drops, and then patches only the last prompt token activation from
+the clean run back into the corrupted run at each layer. The resulting per-layer
+importance values estimate how much answer-relevant information is carried by that last
+prompt token representation.
+"""
+
 import argparse
 import sys
 import time
