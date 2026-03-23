@@ -256,6 +256,21 @@ def _bootstrap_center_and_ci(
     return center, boot_values[lo_idx], boot_values[hi_idx]
 
 
+def _mean(values: List[float]) -> float:
+    return (sum(values) / len(values)) if values else 0.0
+
+
+def _sample_mode_title_suffix(sample_payload: Dict[str, Any]) -> str:
+    mode = str(sample_payload.get("sample_mode", "")).strip()
+    policy = str(sample_payload.get("patch_target_policy", "")).strip()
+    parts = []
+    if mode:
+        parts.append(f"mode={mode}")
+    if policy:
+        parts.append(f"target={policy}")
+    return " | ".join(parts)
+
+
 def _plot_attention_importance_subplot(
     ax: Any,
     summary: Dict[str, List[float]],
@@ -355,6 +370,229 @@ def plot_attention_importance_summary(
     _plot_attention_importance_subplot(axes[0], mean_summary, "Mean")
     _plot_attention_importance_subplot(axes[1], median_summary, "Median")
     fig.tight_layout()
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
+def plot_token_recovery_heatmap(
+    sample_payload: Dict[str, Any],
+    output_dir: Path,
+    seq_len_label: Optional[str] = None,
+    use_clamped: bool = True,
+    file_prefix: Optional[str] = None,
+) -> Optional[Path]:
+    token_metadata = list(sample_payload.get("token_metadata", []))
+    layer_metrics = list(sample_payload.get("layer_metrics", {}).get("layers", []))
+    if not token_metadata or not layer_metrics:
+        return None
+
+    value_key = "clamped_recovery_by_token" if use_clamped else "raw_recovery_by_token"
+    matrix = [
+        [float(value) for value in layer_metric.get(value_key, [])]
+        for layer_metric in layer_metrics
+    ]
+    if not matrix or not matrix[0]:
+        return None
+
+    split_points = [(0, math.ceil(len(token_metadata) / 2))]
+    if len(token_metadata) > 1:
+        split_points.append((split_points[0][1], len(token_metadata)))
+
+    fig_width = max(14, 0.7 * max(end - start for start, end in split_points))
+    fig_height = 5.5 * len(split_points)
+    fig, axes = plt.subplots(len(split_points), 1, figsize=(fig_width, fig_height), dpi=140, squeeze=False)
+    axes_flat = [ax for row in axes for ax in row]
+    image = None
+    for subplot_idx, (ax, (start_idx, end_idx)) in enumerate(zip(axes_flat, split_points), start=1):
+        slice_matrix = [row[start_idx:end_idx] for row in matrix]
+        image = ax.imshow(
+            slice_matrix,
+            aspect="auto",
+            interpolation="nearest",
+            cmap="viridis",
+            vmin=0.0,
+            vmax=1.0 if use_clamped else None,
+        )
+        xticks = list(range(end_idx - start_idx))
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(
+            [
+                f"{token_metadata[token_idx]['token_index']}:{token_metadata[token_idx]['token_text']}"
+                for token_idx in range(start_idx, end_idx)
+            ],
+            rotation=60,
+            ha="right",
+            fontsize=8,
+        )
+        ax.set_yticks(list(range(len(layer_metrics))))
+        ax.set_yticklabels([str(int(layer_metric["layer"])) for layer_metric in layer_metrics], fontsize=9)
+        ax.set_xlabel(f"Token index and token text (part {subplot_idx})")
+        ax.set_ylabel("Layer")
+
+    title = "Clamped Token Recovery Heatmap" if use_clamped else "Raw Token Recovery Heatmap"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    mode_suffix = _sample_mode_title_suffix(sample_payload)
+    if mode_suffix:
+        title = f"{title}\n{mode_suffix}"
+    axes_flat[0].set_title(title, fontsize=13, pad=10)
+    fig.subplots_adjust(right=0.88, hspace=0.55)
+    cbar_ax = fig.add_axes([0.91, 0.18, 0.018, 0.68])
+    cbar = fig.colorbar(image, cax=cbar_ax)
+    cbar.set_label("Recovery")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    filename = "token_recovery_heatmap" if use_clamped else "token_recovery_heatmap_raw"
+    prefix = f"{file_prefix}_" if file_prefix else ""
+    output_path = output_dir / f"{prefix}{filename}{suffix}.png"
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
+def plot_topk_token_mass(
+    sample_payload: Dict[str, Any],
+    output_dir: Path,
+    top_ks: List[int],
+    seq_len_label: Optional[str] = None,
+    file_prefix: Optional[str] = None,
+) -> List[Path]:
+    token_statistics = list(sample_payload.get("token_min_clamped_summary", []))
+    if not token_statistics:
+        raise ValueError(
+            "Missing token_min_clamped_summary in aggregate payload. "
+            "Re-run the experiment with the updated script so the aggregate JSON includes per-sample min clamped recovery."
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_paths: List[Path] = []
+    rng = random.Random(0)
+    for top_k in top_ks:
+        top_rows = token_statistics[: min(int(top_k), len(token_statistics))]
+        if not top_rows:
+            continue
+
+        labels = [
+            f"{row['token_index']}:{row['token_text']}\n[{row['word_label']}]"
+            for row in top_rows
+        ]
+        centers: List[float] = []
+        lo_values: List[float] = []
+        hi_values: List[float] = []
+        for row in top_rows:
+            values = [float(value) for value in row.get("per_sample_min_clamped", [])]
+            center, lo_value, hi_value = _bootstrap_center_and_ci(values, _mean, 1000, rng)
+            centers.append(center)
+            lo_values.append(lo_value)
+            hi_values.append(hi_value)
+
+        x_positions = list(range(len(top_rows)))
+        lower_err = [max(0.0, center - lo) for center, lo in zip(centers, lo_values)]
+        upper_err = [max(0.0, hi - center) for center, hi in zip(centers, hi_values)]
+
+        fig_width = max(12, 1.25 * len(top_rows))
+        fig, ax = plt.subplots(figsize=(fig_width, 6), dpi=140)
+        ax.bar(
+            x_positions,
+            centers,
+            yerr=[lower_err, upper_err],
+            capsize=4,
+            color="#1f77b4",
+            alpha=0.85,
+        )
+        ax.set_xticks(x_positions)
+        ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=9)
+        ax.set_ylabel("Mean minimum clamped recovery")
+        title = f"Top-{top_k} Tokens by Minimum Clamped Recovery"
+        if seq_len_label:
+            title = f"{title} ({seq_len_label})"
+        ax.set_title(title, fontsize=13, pad=10)
+        ax.set_ylim(0.0, 1.0)
+        ax.grid(axis="y", alpha=0.25, linestyle="--", linewidth=0.8)
+
+        fig.tight_layout()
+        prefix = f"{file_prefix}_" if file_prefix else ""
+        output_path = output_dir / f"{prefix}top_{top_k}_token_mass{'_' + seq_len_label if seq_len_label else ''}.png"
+        fig.savefig(output_path, bbox_inches="tight")
+        plt.close(fig)
+        output_paths.append(output_path)
+
+    return output_paths
+
+
+def plot_first_last_token_importance_lines(
+    sample_payload: Dict[str, Any],
+    output_dir: Path,
+    seq_len_label: Optional[str] = None,
+    file_prefix: Optional[str] = None,
+) -> Optional[Path]:
+    token_metadata = list(sample_payload.get("token_metadata", []))
+    layer_metrics = list(sample_payload.get("layer_metrics", {}).get("layers", []))
+    first_last_stats = sample_payload.get("first_last_token_layer_summary", {})
+    if len(token_metadata) < 1 or not layer_metrics:
+        return None
+
+    first_token_idx = 0
+    last_token_idx = len(token_metadata) - 1
+    layers = [int(layer_metric["layer"]) for layer_metric in layer_metrics]
+    rng = random.Random(0)
+    first_vals: List[float] = []
+    first_lo: List[float] = []
+    first_hi: List[float] = []
+    last_vals: List[float] = []
+    last_lo: List[float] = []
+    last_hi: List[float] = []
+    for layer_metric in layer_metrics:
+        layer_idx = int(layer_metric["layer"])
+        first_dist = [float(value) for value in first_last_stats.get("first", {}).get(str(layer_idx), [])]
+        last_dist = [float(value) for value in first_last_stats.get("last", {}).get(str(layer_idx), [])]
+
+        if first_dist:
+            center, lo_value, hi_value = _bootstrap_center_and_ci(first_dist, _mean, 1000, rng)
+        else:
+            center = lo_value = hi_value = float(layer_metric["clamped_recovery_by_token"][first_token_idx])
+        first_vals.append(center)
+        first_lo.append(lo_value)
+        first_hi.append(hi_value)
+
+        if last_dist:
+            center, lo_value, hi_value = _bootstrap_center_and_ci(last_dist, _mean, 1000, rng)
+        else:
+            center = lo_value = hi_value = float(layer_metric["clamped_recovery_by_token"][last_token_idx])
+        last_vals.append(center)
+        last_lo.append(lo_value)
+        last_hi.append(hi_value)
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    first_line, = ax.plot(layers, first_vals, linewidth=2.2, label=f"first: {token_metadata[first_token_idx]['token_text']}")
+    ax.fill_between(layers, first_lo, first_hi, color=first_line.get_color(), alpha=0.18, label="first 95% CI")
+    last_line, = ax.plot(layers, last_vals, linewidth=2.2, label=f"last: {token_metadata[last_token_idx]['token_text']}")
+    ax.fill_between(layers, last_lo, last_hi, color=last_line.get_color(), alpha=0.18, label="last 95% CI")
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Clamped recovery")
+    title = "First vs Last Token Recovery by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    mode_suffix = _sample_mode_title_suffix(sample_payload)
+    if mode_suffix:
+        title = f"{title}\n{mode_suffix}"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_ylim(0.0, 1.0)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    tick_step = max(1, math.ceil(len(layers) / 32))
+    xticks = layers[::tick_step]
+    if layers[-1] not in xticks:
+        xticks.append(layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"{file_prefix}_" if file_prefix else ""
+    output_path = output_dir / f"{prefix}first_last_token_lines{'_' + seq_len_label if seq_len_label else ''}.png"
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
     return output_path

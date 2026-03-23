@@ -215,11 +215,11 @@ def compute_last_token_layer_metrics(
             patched_score = tgi.run_layer_corrupted_sequence_logprob(
                 lm=lm,
                 layers=layers,
-                clean_scoring_inputs=corrupted_answer_inputs,
-                control_scoring_inputs=clean_answer_inputs,
+                target_scoring_inputs=corrupted_answer_inputs,
+                source_scoring_inputs=clean_answer_inputs,
                 layer_idx=layer_idx,
-                clean_token_positions=[-1],
-                control_token_positions=[-1],
+                target_token_positions=[-1],
+                source_token_positions=[-1],
                 prompt_len=prompt_len,
                 answer_token_ids=answer_token_ids,
             )

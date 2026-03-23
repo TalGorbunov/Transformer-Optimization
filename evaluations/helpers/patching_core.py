@@ -117,6 +117,8 @@ def _normalize_token_positions(token_positions: Sequence[int], prompt_len: int) 
     normalized: List[int] = []
     for position in token_positions:
         position_int = int(position)
+        # Negative indices are interpreted relative to the prompt, not the
+        # answer-appended scoring suffix.
         if position_int < 0:
             position_int = int(prompt_len) + position_int
         normalized.append(position_int)
@@ -135,6 +137,8 @@ def append_answer_tokens_for_scoring(
         raise ValueError(f"Expected input_ids to be rank-2, got shape={tuple(input_ids.shape)}")
 
     batch_size = int(input_ids.shape[0])
+    # We score a full answer sequence by appending its tokens to the prompt and
+    # then reading the model logits at the appended positions.
     answer_tokens = torch.tensor(
         answer_token_ids,
         dtype=input_ids.dtype,
@@ -171,6 +175,8 @@ def sequence_logprob_from_logits(
     batch_size = int(logits.shape[0])
     device = logits.device
     answer_len = len(answer_token_ids)
+    # The logit at prompt_len - 1 predicts the first appended answer token, and
+    # each later appended token is predicted one position later.
     token_positions = torch.arange(answer_len, device=device, dtype=torch.long) + (prompt_len - 1)
     target_token_ids = torch.tensor(answer_token_ids, device=device, dtype=torch.long).unsqueeze(0).repeat(batch_size, 1)
     selected_logits = logits[:, token_positions, :]
@@ -193,31 +199,35 @@ def run_clean_sequence_logprob(
     return float(scores[0].item())
 
 
-def run_layer_multi_group_corrupted_sequence_logprob(
+def run_layer_token_patch_logprob_batch(
     lm: LanguageModel,
     layers: Any,
-    clean_batched_scoring_inputs: Dict[str, torch.Tensor],
-    control_batched_scoring_inputs: Dict[str, torch.Tensor],
+    target_batched_scoring_inputs: Dict[str, torch.Tensor],
+    source_batched_scoring_inputs: Dict[str, torch.Tensor],
     layer_idx: int,
-    clean_token_positions_by_batch: List[List[int]],
-    control_token_positions_by_batch: List[List[int]],
+    target_token_positions_by_batch: List[List[int]],
+    source_token_positions_by_batch: List[List[int]],
     prompt_len: int,
     answer_token_ids: List[int],
 ) -> torch.Tensor:
     with torch.no_grad():
-        with lm.trace(control_batched_scoring_inputs):
-            control_layer_saved = _to_hidden_tensor(layers[layer_idx].output).save()
+        with lm.trace(source_batched_scoring_inputs):
+            # Save the donor activations from the source run once, then copy the
+            # selected token states into the target run below.
+            source_layer_saved = _to_hidden_tensor(layers[layer_idx].output).save()
 
-        with lm.trace(clean_batched_scoring_inputs):
-            clean_layer_out = _to_hidden_tensor(layers[layer_idx].output)
-            control_layer_out = _materialize_saved(control_layer_saved)
-            for batch_idx, (clean_positions, control_positions) in enumerate(
-                zip(clean_token_positions_by_batch, control_token_positions_by_batch)
+        with lm.trace(target_batched_scoring_inputs):
+            target_layer_out = _to_hidden_tensor(layers[layer_idx].output)
+            source_layer_out = _materialize_saved(source_layer_saved)
+            for batch_idx, (target_positions, source_positions) in enumerate(
+                zip(target_token_positions_by_batch, source_token_positions_by_batch)
             ):
-                clean_positions = _normalize_token_positions(clean_positions, prompt_len=prompt_len)
-                control_positions = _normalize_token_positions(control_positions, prompt_len=prompt_len)
-                if clean_positions and control_positions:
-                    clean_layer_out[batch_idx, clean_positions, :] = control_layer_out[batch_idx, control_positions, :]
+                target_positions = _normalize_token_positions(target_positions, prompt_len=prompt_len)
+                source_positions = _normalize_token_positions(source_positions, prompt_len=prompt_len)
+                if target_positions and source_positions:
+                    # Token patching happens at one layer only: replace the target
+                    # token hidden states with donor hidden states at that layer.
+                    target_layer_out[batch_idx, target_positions, :] = source_layer_out[batch_idx, source_positions, :]
             saved_logits = lm.output.logits.save()
 
     logits = _materialize_saved(saved_logits)
@@ -227,22 +237,22 @@ def run_layer_multi_group_corrupted_sequence_logprob(
 def run_layer_corrupted_sequence_logprob(
     lm: LanguageModel,
     layers: Any,
-    clean_scoring_inputs: Dict[str, torch.Tensor],
-    control_scoring_inputs: Dict[str, torch.Tensor],
+    target_scoring_inputs: Dict[str, torch.Tensor],
+    source_scoring_inputs: Dict[str, torch.Tensor],
     layer_idx: int,
-    clean_token_positions: Sequence[int],
-    control_token_positions: Sequence[int],
+    target_token_positions: Sequence[int],
+    source_token_positions: Sequence[int],
     prompt_len: int,
     answer_token_ids: List[int],
 ) -> float:
-    scores = run_layer_multi_group_corrupted_sequence_logprob(
+    scores = run_layer_token_patch_logprob_batch(
         lm=lm,
         layers=layers,
-        clean_batched_scoring_inputs=clean_scoring_inputs,
-        control_batched_scoring_inputs=control_scoring_inputs,
+        target_batched_scoring_inputs=target_scoring_inputs,
+        source_batched_scoring_inputs=source_scoring_inputs,
         layer_idx=layer_idx,
-        clean_token_positions_by_batch=[list(clean_token_positions)],
-        control_token_positions_by_batch=[list(control_token_positions)],
+        target_token_positions_by_batch=[list(target_token_positions)],
+        source_token_positions_by_batch=[list(source_token_positions)],
         prompt_len=prompt_len,
         answer_token_ids=answer_token_ids,
     )
@@ -260,12 +270,6 @@ def entropy_from_probabilities(probs: List[float]) -> float:
     return -sum(float(prob) * math.log(float(prob)) for prob in probs if prob > 0.0)
 
 
-def normalize_entropy(entropy: float, num_groups: int) -> float:
-    if num_groups <= 1:
-        return 0.0
-    return float(entropy / math.log(num_groups))
-
-
 def score_valid_numeric_answers(
     lm: LanguageModel,
     inputs: Dict[str, torch.Tensor],
@@ -273,6 +277,8 @@ def score_valid_numeric_answers(
     num_frames: int,
 ) -> Dict[str, Any]:
     scores_by_answer: Dict[str, float] = {}
+    # MMRed answers are restricted to integers in [0, num_frames], so we can
+    # normalize over the full valid answer set directly.
     for value in range(num_frames + 1):
         answer_text = str(value)
         answer_ids = token_ids_of_answer(answer_text)
