@@ -60,6 +60,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
+import matplotlib.pyplot as plt
 import torch
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -114,6 +115,9 @@ _PER_SAMPLE_FIELDS = [
     "transfer_layers",
     "transfer_layer_indices",
     "include_bos",
+    "allow_first_token_if_no_bos",
+    "spared_prompt_kind",
+    "spared_prompt_index",
     "k_donors",
     "num_frames",
     "num_frame_groups",
@@ -140,6 +144,8 @@ class SampleLayout:
     frame_groups: Tuple[Tuple[int, ...], ...]
     image_tokens_per_frame: Tuple[int, ...]
     room_text: str
+    room_positions: Tuple[int, ...]
+    character_positions: Tuple[int, ...]
     room_span_len: int
     prompt_input_ids: Tuple[int, ...]
     prompt_decoded_tokens: Tuple[str, ...]
@@ -162,9 +168,13 @@ class AttentionPolicy:
     carrier_index: int
     bos_index: Optional[int]
     include_bos: bool
+    allow_first_token_if_no_bos: bool
+    spared_prompt_index: Optional[int]
+    spared_prompt_kind: str
     wait_layer: int
     transfer_layers: int
     num_model_layers: int
+    frame_group_by_token: Dict[int, Tuple[int, ...]]
 
     @property
     def transfer_layer_indices(self) -> Tuple[int, ...]:
@@ -237,6 +247,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     ap.add_argument("--include_bos", action=argparse.BooleanOptionalAction, default=True)
+    ap.add_argument(
+        "--allow_first_token_if_no_bos",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help=(
+            "If --include_bos is enabled but no real BOS token is detected, spare prompt position 0 "
+            "from the ABP mask instead."
+        ),
+    )
     ap.add_argument("--skip_hallway", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument("--debug_tokenization", action="store_true")
     return ap.parse_args()
@@ -420,6 +439,8 @@ def build_sample_layout(
         question_text_start_in_prompt + int(room_span_in_question[1]),
     )
 
+    character_token_span = _token_span_from_char_span(prompt_text, character_span_in_prompt)
+    character_positions = _positions_from_token_span(prompt_text_start, character_token_span)
     room_token_span = _token_span_from_char_span(prompt_text, room_span_in_prompt)
     room_positions = _positions_from_token_span(prompt_text_start, room_token_span)
     if not room_positions:
@@ -448,6 +469,8 @@ def build_sample_layout(
         frame_groups=tuple(tuple(int(position) for position in group) for group in frame_groups),
         image_tokens_per_frame=tuple(len(group) for group in frame_groups),
         room_text=str(room_text),
+        room_positions=tuple(int(position) for position in room_positions),
+        character_positions=tuple(int(position) for position in character_positions),
         room_span_len=len(room_positions),
         prompt_input_ids=tuple(int(token_id) for token_id in input_ids),
         prompt_decoded_tokens=tuple(str(token) for token in prompt_decoded_tokens),
@@ -735,24 +758,69 @@ def _ensure_mask_tensor(mask: torch.Tensor, batch_size: int) -> torch.Tensor:
     raise ValueError(f"Cannot expand attention mask {tuple(mask.shape)} to batch_size={batch_size}")
 
 
+def _build_frame_group_by_token(layout: SampleLayout) -> Dict[int, Tuple[int, ...]]:
+    frame_group_by_token: Dict[int, Tuple[int, ...]] = {}
+    for frame_idx, group in enumerate(layout.frame_groups):
+        normalized_group = tuple(int(position) for position in group)
+        if not normalized_group:
+            continue
+        if int(layout.carrier_index) in normalized_group:
+            raise RuntimeError(
+                f"sample_id={layout.sample_id}: carrier_index={layout.carrier_index} unexpectedly appears "
+                f"inside frame group {frame_idx}"
+            )
+        for position in normalized_group:
+            if position < 0 or position >= int(layout.prompt_len):
+                raise RuntimeError(
+                    f"sample_id={layout.sample_id}: frame group {frame_idx} position={position} is outside "
+                    f"prompt_len={layout.prompt_len}"
+                )
+            if position in frame_group_by_token:
+                raise RuntimeError(
+                    f"sample_id={layout.sample_id}: overlapping frame groups at token position={position}"
+                )
+            frame_group_by_token[int(position)] = normalized_group
+    return frame_group_by_token
+
+
 def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) -> List[int]:
     """Return the ABP key set for one prompt query position.
 
     Transfer stage:
-    - non-carrier prompt tokens are self-only (plus BOS if enabled)
+    - frame tokens may attend densely within their own frame block
+    - non-frame, non-carrier prompt tokens are self-only (plus BOS if enabled)
     - the carrier token may attend to all earlier prompt tokens and itself
 
     Post-transfer stage:
     - everyone, including the carrier token, is self-only (plus BOS if enabled)
     """
     allowed: set[int] = {int(query_idx)}
-    if policy.include_bos and policy.bos_index is not None:
-        allowed.add(int(policy.bos_index))
-    if stage == "transfer" and int(query_idx) == int(policy.carrier_index):
-        allowed.update(range(0, int(policy.carrier_index) + 1))
-        if not policy.include_bos and policy.bos_index is not None:
-            allowed.discard(int(policy.bos_index))
+    if policy.include_bos and policy.spared_prompt_index is not None:
+        allowed.add(int(policy.spared_prompt_index))
+    if stage == "transfer":
+        if int(query_idx) == int(policy.carrier_index):
+            allowed.update(range(0, int(policy.carrier_index) + 1))
+            if not policy.include_bos and policy.spared_prompt_index is not None:
+                allowed.discard(int(policy.spared_prompt_index))
+        else:
+            same_frame_group = policy.frame_group_by_token.get(int(query_idx))
+            if same_frame_group is not None:
+                allowed.update(int(position) for position in same_frame_group)
     return sorted(allowed)
+
+
+def resolve_spared_prompt_index(
+    layout: SampleLayout,
+    include_bos: bool,
+    allow_first_token_if_no_bos: bool,
+) -> Tuple[Optional[int], str]:
+    if not include_bos:
+        return None, "disabled"
+    if layout.bos_index is not None:
+        return int(layout.bos_index), "real_bos"
+    if allow_first_token_if_no_bos and int(layout.carrier_index) > 0:
+        return 0, "first_token_fallback"
+    return None, "no_bos_found"
 
 
 def build_abp_attention_policy(
@@ -760,6 +828,7 @@ def build_abp_attention_policy(
     wait_layer: int,
     transfer_layers: int,
     include_bos: bool,
+    allow_first_token_if_no_bos: bool,
 ) -> AttentionPolicy:
     """Create the multimodal AF1 ABP schedule.
 
@@ -778,14 +847,23 @@ def build_abp_attention_policy(
             f"wait_layer + transfer_layers must be <= {num_layers}; "
             f"received {wait_layer} + {transfer_layers}"
         )
+    spared_prompt_index, spared_prompt_kind = resolve_spared_prompt_index(
+        layout=layout,
+        include_bos=bool(include_bos),
+        allow_first_token_if_no_bos=bool(allow_first_token_if_no_bos),
+    )
     return AttentionPolicy(
         prompt_len=int(layout.prompt_len),
         carrier_index=int(layout.carrier_index),
         bos_index=layout.bos_index,
         include_bos=bool(include_bos),
+        allow_first_token_if_no_bos=bool(allow_first_token_if_no_bos),
+        spared_prompt_index=spared_prompt_index,
+        spared_prompt_kind=str(spared_prompt_kind),
         wait_layer=int(wait_layer),
         transfer_layers=int(transfer_layers),
         num_model_layers=int(num_layers),
+        frame_group_by_token=_build_frame_group_by_token(layout),
     )
 
 
@@ -825,31 +903,71 @@ def build_abp_attention_mask(
 
 
 def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> List[str]:
-    non_last_prompt_token = next(
+    frame_prompt_token = next(
         (
             position
             for group in layout.frame_groups
             for position in group
-            if position not in {layout.carrier_index, layout.bos_index}
+            if position not in {layout.carrier_index, policy.spared_prompt_index}
         ),
-        max(0, layout.carrier_index - 1),
+        None,
     )
-    transfer_non_last = _allowed_prompt_keys(non_last_prompt_token, policy=policy, stage="transfer")
+    non_frame_prompt_token = next(
+        (
+            position
+            for position in range(layout.prompt_len)
+            if position not in policy.frame_group_by_token
+            and position not in {layout.carrier_index, policy.spared_prompt_index}
+        ),
+        None,
+    )
     transfer_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="transfer")
     post_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="post_transfer")
 
-    expected_non_last = [non_last_prompt_token]
-    if policy.include_bos and layout.bos_index is not None and layout.bos_index != non_last_prompt_token:
-        expected_non_last = sorted(expected_non_last + [layout.bos_index])
-    if transfer_non_last != expected_non_last:
-        raise RuntimeError(
-            f"ABP validation failed for non-last token {non_last_prompt_token}: "
-            f"expected {expected_non_last}, got {transfer_non_last}"
+    frame_transfer_note = "ABP frame token transfer connectivity: no frame tokens present"
+    if frame_prompt_token is not None:
+        transfer_frame = _allowed_prompt_keys(frame_prompt_token, policy=policy, stage="transfer")
+        same_frame_group = sorted(policy.frame_group_by_token[int(frame_prompt_token)])
+        expected_frame = list(same_frame_group)
+        if (
+            policy.include_bos
+            and policy.spared_prompt_index is not None
+            and policy.spared_prompt_index not in expected_frame
+        ):
+            expected_frame = sorted(expected_frame + [policy.spared_prompt_index])
+        if transfer_frame != expected_frame:
+            raise RuntimeError(
+                f"ABP validation failed for frame token {frame_prompt_token}: "
+                f"expected {expected_frame}, got {transfer_frame}"
+            )
+        frame_transfer_note = (
+            f"ABP frame token transfer connectivity: query={frame_prompt_token} "
+            f"frame_size={len(same_frame_group)} dense_intra_frame=yes"
+        )
+
+    non_frame_transfer_note = "ABP non-frame token allowed keys at transfer: none"
+    if non_frame_prompt_token is not None:
+        transfer_non_frame = _allowed_prompt_keys(non_frame_prompt_token, policy=policy, stage="transfer")
+        expected_non_frame = [non_frame_prompt_token]
+        if (
+            policy.include_bos
+            and policy.spared_prompt_index is not None
+            and policy.spared_prompt_index != non_frame_prompt_token
+        ):
+            expected_non_frame = sorted(expected_non_frame + [policy.spared_prompt_index])
+        if transfer_non_frame != expected_non_frame:
+            raise RuntimeError(
+                f"ABP validation failed for non-frame token {non_frame_prompt_token}: "
+                f"expected {expected_non_frame}, got {transfer_non_frame}"
+            )
+        non_frame_transfer_note = (
+            f"ABP non-frame token allowed keys at transfer: "
+            f"query={non_frame_prompt_token} keys={transfer_non_frame}"
         )
 
     expected_transfer_last = list(range(0, layout.carrier_index + 1))
-    if not policy.include_bos and layout.bos_index is not None:
-        expected_transfer_last = [idx for idx in expected_transfer_last if idx != layout.bos_index]
+    if not policy.include_bos and policy.spared_prompt_index is not None:
+        expected_transfer_last = [idx for idx in expected_transfer_last if idx != policy.spared_prompt_index]
     if transfer_last != expected_transfer_last:
         raise RuntimeError(
             f"ABP validation failed for carrier transfer stage: "
@@ -857,8 +975,12 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         )
 
     expected_post_last = [layout.carrier_index]
-    if policy.include_bos and layout.bos_index is not None and layout.bos_index != layout.carrier_index:
-        expected_post_last = sorted(expected_post_last + [layout.bos_index])
+    if (
+        policy.include_bos
+        and policy.spared_prompt_index is not None
+        and policy.spared_prompt_index != layout.carrier_index
+    ):
+        expected_post_last = sorted(expected_post_last + [policy.spared_prompt_index])
     if post_last != expected_post_last:
         raise RuntimeError(
             f"ABP validation failed for carrier post-transfer stage: "
@@ -866,11 +988,369 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         )
 
     return [
-        f"ABP non-last token allowed keys at transfer: query={non_last_prompt_token} keys={transfer_non_last}",
+        f"ABP spared prompt token: kind={policy.spared_prompt_kind} index={policy.spared_prompt_index}",
+        frame_transfer_note,
+        non_frame_transfer_note,
         f"ABP carrier allowed keys at transfer: query={layout.carrier_index} keys={transfer_last}",
         f"ABP carrier allowed keys after transfer: query={layout.carrier_index} keys={post_last}",
         "ABP scoring suffix rows keep the base causal mask when answer tokens are appended for scoring.",
     ]
+
+
+def format_transition_frame_debug(layout: SampleLayout, policy: AttentionPolicy) -> str:
+    frame_sizes = [len(group) for group in layout.frame_groups]
+    empty_frame_groups = sum(1 for group in layout.frame_groups if not group)
+    dense_intra_frame = True
+    cross_frame_leak = False
+    for group in layout.frame_groups:
+        if not group:
+            continue
+        group_set = {int(position) for position in group}
+        transfer_keys = set(_allowed_prompt_keys(int(group[0]), policy=policy, stage="transfer"))
+        if not group_set.issubset(transfer_keys):
+            dense_intra_frame = False
+        other_frame_positions = set(policy.frame_group_by_token) - group_set
+        if transfer_keys & other_frame_positions:
+            cross_frame_leak = True
+    return (
+        f"transition_frame_blocks frames={len(layout.frame_groups)} "
+        f"tokens_per_frame={frame_sizes} "
+        f"empty_frame_groups={empty_frame_groups} "
+        f"dense_intra_frame={dense_intra_frame} "
+        f"cross_frame_leak={cross_frame_leak} "
+        "base_causal_preserved=True"
+    )
+
+
+def build_carrier_attention_groups(
+    layout: SampleLayout,
+) -> List[Tuple[str, Tuple[int, ...]]]:
+    assigned: set[int] = set()
+    groups: List[Tuple[str, Tuple[int, ...]]] = []
+
+    def claim(label: str, positions: Sequence[int]) -> None:
+        normalized_positions: List[int] = []
+        for position in positions:
+            token_idx = int(position)
+            if token_idx < 0 or token_idx >= int(layout.prompt_len):
+                continue
+            if token_idx in assigned:
+                continue
+            normalized_positions.append(token_idx)
+            assigned.add(token_idx)
+        groups.append((label, tuple(normalized_positions)))
+
+    claim("self", [int(layout.carrier_index)])
+    claim("first_token", [0] if int(layout.prompt_len) > 0 else [])
+    claim("character", layout.character_positions)
+    claim("room", layout.room_positions)
+    claim(
+        "all_frames_sum",
+        [
+            position
+            for group in layout.frame_groups
+            for position in group
+            if int(position) != int(layout.carrier_index)
+        ],
+    )
+    claim("everything_else", [position for position in range(int(layout.prompt_len)) if position not in assigned])
+
+    covered_positions = sum(len(positions) for _, positions in groups)
+    if covered_positions != int(layout.prompt_len):
+        raise RuntimeError(
+            f"sample_id={layout.sample_id}: carrier-attention groups cover {covered_positions} prompt tokens, "
+            f"expected {layout.prompt_len}"
+        )
+    return groups
+
+
+def restrict_carrier_attention_summary_to_layers(
+    summary: Dict[str, Any],
+    selected_layers: Sequence[int],
+) -> Dict[str, Any]:
+    layer_positions = {
+        int(layer_idx): position
+        for position, layer_idx in enumerate(summary["layers"])
+    }
+    selected = [int(layer_idx) for layer_idx in selected_layers if int(layer_idx) in layer_positions]
+    return {
+        **summary,
+        "layers": selected,
+        "group_values": {
+            label: [values[layer_positions[layer_idx]] for layer_idx in selected]
+            for label, values in summary["group_values"].items()
+        },
+    }
+
+
+def compute_normalized_carrier_attention_by_group(
+    outputs: Any,
+    layout: SampleLayout,
+    groups: Sequence[Tuple[str, Tuple[int, ...]]],
+    include_labels: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    attentions = getattr(outputs, "attentions", None)
+    if attentions is None:
+        raise RuntimeError("Expected output attentions, but outputs.attentions is None")
+
+    layers = list(range(len(attentions)))
+    included_labels = tuple(
+        label for label, _ in groups if include_labels is None or label in set(include_labels)
+    )
+    if not included_labels:
+        raise ValueError("No carrier-attention groups selected for normalization")
+    grouped_positions = {label: positions for label, positions in groups if label in included_labels}
+    group_values: Dict[str, List[float]] = {label: [] for label in included_labels}
+    max_layer_sum_deviation = 0.0
+
+    for layer_attention in attentions:
+        attn_tensor = layer_attention
+        if isinstance(attn_tensor, (tuple, list)):
+            if len(attn_tensor) != 1 or not torch.is_tensor(attn_tensor[0]):
+                raise TypeError(f"Unsupported attention tensor wrapper type: {type(layer_attention)}")
+            attn_tensor = attn_tensor[0]
+        if not torch.is_tensor(attn_tensor):
+            raise TypeError(f"Unsupported attention tensor type: {type(layer_attention)}")
+
+        if attn_tensor.dim() == 4:
+            carrier_attention = attn_tensor[0, :, int(layout.carrier_index), : int(layout.prompt_len)]
+        elif attn_tensor.dim() == 3:
+            carrier_attention = attn_tensor[:, int(layout.carrier_index), : int(layout.prompt_len)]
+        else:
+            raise ValueError(f"Expected attention tensor with rank 3 or 4, got shape={tuple(attn_tensor.shape)}")
+        carrier_attention = carrier_attention.to(dtype=torch.float64)
+
+        per_group_mass: Dict[str, torch.Tensor] = {}
+        for label in included_labels:
+            positions = grouped_positions[label]
+            if positions:
+                position_index = torch.tensor(list(positions), device=carrier_attention.device, dtype=torch.long)
+                per_group_mass[label] = carrier_attention.index_select(1, position_index).sum(dim=1)
+            else:
+                per_group_mass[label] = torch.zeros(
+                    carrier_attention.shape[0],
+                    device=carrier_attention.device,
+                    dtype=carrier_attention.dtype,
+                )
+
+        total_mass = torch.zeros_like(next(iter(per_group_mass.values())))
+        for value in per_group_mass.values():
+            total_mass = total_mass + value
+        normalized_mass = {
+            label: value / total_mass.clamp_min(torch.finfo(carrier_attention.dtype).eps)
+            for label, value in per_group_mass.items()
+        }
+        layer_sum = torch.zeros_like(total_mass)
+        for value in normalized_mass.values():
+            layer_sum = layer_sum + value
+        max_layer_sum_deviation = max(
+            max_layer_sum_deviation,
+            float((layer_sum - 1.0).abs().max().detach().cpu().item()),
+        )
+        for label, value in normalized_mass.items():
+            group_values[label].append(float(value.mean().detach().cpu().item()))
+
+    return {
+        "layers": layers,
+        "group_values": group_values,
+        "max_layer_sum_deviation": float(max_layer_sum_deviation),
+        "group_sizes": {label: int(len(grouped_positions[label])) for label in included_labels},
+    }
+
+
+def plot_carrier_attention_summary(
+    summary: Dict[str, Any],
+    output_path: Path,
+    sample: PreparedSample,
+    title_suffix: str,
+    last_transfer_layer: Optional[int],
+) -> Path:
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    layers = [int(layer_idx) for layer_idx in summary["layers"]]
+    group_values = summary["group_values"]
+    plot_order = [
+        "self",
+        "first_token",
+        "all_frames_sum",
+        "room",
+        "character",
+        "everything_else",
+    ]
+    for label in plot_order:
+        values = group_values.get(label)
+        if values is None:
+            continue
+        ax.plot(layers, [float(value) for value in values], linewidth=2.0, label=label)
+    if last_transfer_layer is not None:
+        ax.axvline(
+            int(last_transfer_layer),
+            color="black",
+            linestyle=":",
+            linewidth=1.2,
+            label="last_transfer_layer",
+        )
+
+    ax.set_title(
+        f"{sample.sample_id}\n{title_suffix}",
+        fontsize=12,
+        pad=10,
+    )
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Normalized attention mass")
+    ax.set_ylim(0.0, 1.0)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
+def build_informative_carrier_attention_summary(
+    outputs: Any,
+    layout: SampleLayout,
+    groups: Sequence[Tuple[str, Tuple[int, ...]]],
+) -> Dict[str, Any]:
+    informative_labels = [label for label, _ in groups if label != "everything_else"]
+    return compute_normalized_carrier_attention_by_group(
+        outputs,
+        layout=layout,
+        groups=groups,
+        include_labels=informative_labels,
+    )
+
+
+def compute_carrier_attention_delta_summary(
+    clean_summary: Dict[str, Any],
+    mask_only_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    if list(clean_summary["layers"]) != list(mask_only_summary["layers"]):
+        raise ValueError("Carrier-attention delta requires matching layer grids")
+    if list(clean_summary["group_values"]) != list(mask_only_summary["group_values"]):
+        raise ValueError("Carrier-attention delta requires matching group labels")
+
+    return {
+        "layers": list(clean_summary["layers"]),
+        "group_values": {
+            label: [
+                float(mask_only_value - clean_value)
+                for clean_value, mask_only_value in zip(
+                    clean_summary["group_values"][label],
+                    mask_only_summary["group_values"][label],
+                )
+            ]
+            for label in clean_summary["group_values"]
+        },
+    }
+
+
+def plot_carrier_attention_clean_vs_mask_only(
+    clean_summary: Dict[str, Any],
+    mask_only_summary: Dict[str, Any],
+    output_path: Path,
+    sample: PreparedSample,
+    last_transfer_layer: Optional[int],
+) -> Path:
+    fig, ax = plt.subplots(figsize=(12, 7), dpi=140)
+    layers = [int(layer_idx) for layer_idx in clean_summary["layers"]]
+    labels = [
+        label
+        for label in ["self", "first_token", "all_frames_sum", "room", "character", "everything_else"]
+        if label in clean_summary["group_values"]
+    ]
+    color_map = plt.get_cmap("tab20")
+
+    for idx, label in enumerate(labels):
+        color = color_map(idx % 20)
+        ax.plot(
+            layers,
+            [float(value) for value in clean_summary["group_values"][label]],
+            linewidth=2.0,
+            color=color,
+            linestyle="-",
+            label=f"{label} clean",
+        )
+        ax.plot(
+            layers,
+            [float(value) for value in mask_only_summary["group_values"][label]],
+            linewidth=2.0,
+            color=color,
+            linestyle="--",
+            label=f"{label} mask_only",
+        )
+    if last_transfer_layer is not None:
+        ax.axvline(
+            int(last_transfer_layer),
+            color="black",
+            linestyle=":",
+            linewidth=1.2,
+            label="last_transfer_layer",
+        )
+
+    ax.set_title(
+        f"{sample.sample_id}\nCarrier informative attention: clean vs mask_only",
+        fontsize=12,
+        pad=10,
+    )
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Normalized attention mass")
+    ax.set_ylim(0.0, 1.0)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True, ncol=2, fontsize=8)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
+def plot_carrier_attention_delta_summary(
+    delta_summary: Dict[str, Any],
+    output_path: Path,
+    sample: PreparedSample,
+    last_transfer_layer: Optional[int],
+) -> Path:
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    layers = [int(layer_idx) for layer_idx in delta_summary["layers"]]
+    plot_order = [
+        label
+        for label in ["self", "first_token", "all_frames_sum", "room", "character", "everything_else"]
+        if label in delta_summary["group_values"]
+    ]
+    for label in plot_order:
+        values = delta_summary["group_values"][label]
+        ax.plot(layers, [float(value) for value in values], linewidth=2.0, label=label)
+
+    ax.axhline(0.0, color="black", linewidth=1.0, linestyle=":")
+    if last_transfer_layer is not None:
+        ax.axvline(
+            int(last_transfer_layer),
+            color="black",
+            linestyle=":",
+            linewidth=1.2,
+            label="last_transfer_layer",
+        )
+    ax.set_title(
+        f"{sample.sample_id}\nCarrier informative attention delta: mask_only - clean",
+        fontsize=12,
+        pad=10,
+    )
+    ax.set_xlabel("Layer")
+    ax.set_ylabel("Delta attention mass")
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
 
 
 def _patch_frame_groups(
@@ -888,13 +1368,14 @@ def _patch_frame_groups(
 def _run_model_forward(
     inputs: Dict[str, torch.Tensor],
     output_hidden_states: bool = False,
+    output_attentions: bool = False,
 ) -> Any:
     force_eager_attention_backend()
     with torch.inference_mode():
         return base_model(
             **inputs,
             use_cache=False,
-            output_attentions=False,
+            output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=True,
         )
@@ -1118,8 +1599,15 @@ def compute_all_frame_group_means_for_sample(
     return frame_means, {"cache_hits": cache_hits, "cache_misses": cache_misses}
 
 
-def run_clean_model(inputs: Dict[str, torch.Tensor]) -> Any:
-    return _run_model_forward(inputs, output_hidden_states=False)
+def run_clean_model(
+    inputs: Dict[str, torch.Tensor],
+    output_attentions: bool = False,
+) -> Any:
+    return _run_model_forward(
+        inputs,
+        output_hidden_states=False,
+        output_attentions=output_attentions,
+    )
 
 
 def run_model_with_intervention(
@@ -1128,6 +1616,7 @@ def run_model_with_intervention(
     frame_group_means: Optional[Dict[int, torch.Tensor]],
     policy: AttentionPolicy,
     mode: str,
+    output_attentions: bool = False,
 ) -> Any:
     """Run the model with the selected intervention mode.
 
@@ -1209,7 +1698,7 @@ def run_model_with_intervention(
             return base_model(
                 **inputs,
                 use_cache=False,
-                output_attentions=False,
+                output_attentions=output_attentions,
                 output_hidden_states=False,
                 return_dict=True,
             )
@@ -1329,6 +1818,9 @@ def _evaluated_row(
             "transfer_layers": int(policy.transfer_layers),
             "transfer_layer_indices": json.dumps(list(policy.transfer_layer_indices)),
             "include_bos": int(bool(policy.include_bos)),
+            "allow_first_token_if_no_bos": int(bool(policy.allow_first_token_if_no_bos)),
+            "spared_prompt_kind": policy.spared_prompt_kind,
+            "spared_prompt_index": "" if policy.spared_prompt_index is None else int(policy.spared_prompt_index),
             "k_donors": int(k_donors_requested),
             "num_frames": int(sample.layout.seq_len),
             "num_frame_groups": int(len(sample.layout.frame_groups)),
@@ -1356,6 +1848,7 @@ def _skipped_row(
     wait_layer: Optional[int] = None,
     transfer_layers: Optional[int] = None,
     include_bos: Optional[bool] = None,
+    allow_first_token_if_no_bos: Optional[bool] = None,
     k_donors: Optional[int] = None,
     layout_status: str = "skipped",
     layout_details: Optional[str] = None,
@@ -1374,6 +1867,9 @@ def _skipped_row(
             "wait_layer": "" if wait_layer is None else int(wait_layer),
             "transfer_layers": "" if transfer_layers is None else int(transfer_layers),
             "include_bos": "" if include_bos is None else int(bool(include_bos)),
+            "allow_first_token_if_no_bos": (
+                "" if allow_first_token_if_no_bos is None else int(bool(allow_first_token_if_no_bos))
+            ),
             "k_donors": "" if k_donors is None else int(k_donors),
         }
     )
@@ -1539,11 +2035,13 @@ def main() -> None:
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     print(
         f"[config] mode={args.mode} include_bos={bool(args.include_bos)} "
+        f"allow_first_token_if_no_bos={bool(args.allow_first_token_if_no_bos)} "
         f"skip_hallway={bool(args.skip_hallway)}"
     )
 
     output_dir = Path(args.output_dir)
     cache_dir = Path(args.cache_dir)
+    per_sample_plot_dir = output_dir / "per_sample_plots"
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1552,6 +2050,7 @@ def main() -> None:
     validation_notes: List[str] = []
     donor_notes: List[str] = []
     cache_notes: List[str] = []
+    carrier_attention_plot_path: Optional[Path] = None
     validation_notes.append(f"mode={args.mode}: {intervention_mode_summary(args.mode)}")
     if args.mode == "full_af1":
         validation_notes.append("mode=full_af1: wait-boundary patching and ABP masking are both enabled.")
@@ -1593,6 +2092,7 @@ def main() -> None:
                         "wait_layer": int(args.wait_layer),
                         "transfer_layers": int(args.transfer_layers),
                         "include_bos": int(bool(args.include_bos)),
+                        "allow_first_token_if_no_bos": int(bool(args.allow_first_token_if_no_bos)),
                         "k_donors": int(args.k_donors),
                     }
                 )
@@ -1638,6 +2138,7 @@ def main() -> None:
                     wait_layer=args.wait_layer,
                     transfer_layers=args.transfer_layers,
                     include_bos=bool(args.include_bos),
+                    allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
                     k_donors=args.k_donors,
                     layout_status=report["status"],
                     layout_details=report["details"],
@@ -1681,8 +2182,11 @@ def main() -> None:
             wait_layer=args.wait_layer,
             transfer_layers=args.transfer_layers,
             include_bos=bool(args.include_bos),
+            allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
         )
         if enable_abp_mask:
+            if args.debug_tokenization:
+                print(f"[debug][mode={args.mode}] seq_len={seq_len} {format_transition_frame_debug(reference_layout, policy)}")
             for note in _validate_attention_policy(reference_layout, policy=policy):
                 validation_notes.append(f"seq_len={seq_len}: {note}")
                 print(f"[validation][mode={args.mode}] seq_len={seq_len} {note}")
@@ -1745,6 +2249,7 @@ def main() -> None:
                         wait_layer=args.wait_layer,
                         transfer_layers=args.transfer_layers,
                         include_bos=bool(args.include_bos),
+                        allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
                         k_donors=args.k_donors,
                         layout_status="exact_match",
                         layout_details="exact_match",
@@ -1778,6 +2283,88 @@ def main() -> None:
                 frame_group_means=frame_group_means,
                 policy=policy,
                 mode=args.mode,
+            )
+            clean_inputs = move_inputs_to_model_device(item.inputs_cpu)
+            clean_outputs_with_attentions = run_clean_model(clean_inputs, output_attentions=True)
+            carrier_attention_groups = build_carrier_attention_groups(item.layout)
+            transfer_layer_indices = tuple(int(layer_idx) for layer_idx in policy.transfer_layer_indices)
+            last_transfer_layer = transfer_layer_indices[-1] if transfer_layer_indices else None
+            carrier_attention_raw_summary = restrict_carrier_attention_summary_to_layers(
+                compute_normalized_carrier_attention_by_group(
+                    clean_outputs_with_attentions,
+                    layout=item.layout,
+                    groups=carrier_attention_groups,
+                ),
+                transfer_layer_indices,
+            )
+            carrier_attention_informative_clean_summary = restrict_carrier_attention_summary_to_layers(
+                build_informative_carrier_attention_summary(
+                    clean_outputs_with_attentions,
+                    layout=item.layout,
+                    groups=carrier_attention_groups,
+                ),
+                transfer_layer_indices,
+            )
+            mask_only_outputs_with_attentions = run_model_with_intervention(
+                clean_inputs,
+                layout=item.layout,
+                frame_group_means=None,
+                policy=policy,
+                mode="mask_only",
+                output_attentions=True,
+            )
+            carrier_attention_informative_mask_only_summary = restrict_carrier_attention_summary_to_layers(
+                build_informative_carrier_attention_summary(
+                    mask_only_outputs_with_attentions,
+                    layout=item.layout,
+                    groups=carrier_attention_groups,
+                ),
+                transfer_layer_indices,
+            )
+            carrier_attention_delta_summary = compute_carrier_attention_delta_summary(
+                clean_summary=carrier_attention_informative_clean_summary,
+                mask_only_summary=carrier_attention_informative_mask_only_summary,
+            )
+            current_carrier_attention_plot_path = plot_carrier_attention_summary(
+                carrier_attention_raw_summary,
+                output_path=per_sample_plot_dir / f"{item.sample_id}_carrier_attention_raw.png",
+                sample=item,
+                title_suffix="Carrier attention by prompt token group during transfer",
+                last_transfer_layer=last_transfer_layer,
+            )
+            informative_only_plot_path = plot_carrier_attention_summary(
+                carrier_attention_informative_clean_summary,
+                output_path=per_sample_plot_dir / f"{item.sample_id}_carrier_attention_informative_only.png",
+                sample=item,
+                title_suffix="Carrier attention by informative prompt token group during transfer",
+                last_transfer_layer=last_transfer_layer,
+            )
+            clean_vs_mask_only_plot_path = plot_carrier_attention_clean_vs_mask_only(
+                clean_summary=carrier_attention_informative_clean_summary,
+                mask_only_summary=carrier_attention_informative_mask_only_summary,
+                output_path=per_sample_plot_dir / f"{item.sample_id}_carrier_attention_clean_vs_mask_only.png",
+                sample=item,
+                last_transfer_layer=last_transfer_layer,
+            )
+            delta_plot_path = plot_carrier_attention_delta_summary(
+                carrier_attention_delta_summary,
+                output_path=per_sample_plot_dir / f"{item.sample_id}_carrier_attention_delta_mask_minus_clean.png",
+                sample=item,
+                last_transfer_layer=last_transfer_layer,
+            )
+            if carrier_attention_plot_path is None:
+                carrier_attention_plot_path = current_carrier_attention_plot_path
+            print(
+                f"[seq_len={seq_len}][mode={args.mode}] carrier_attention_plot={current_carrier_attention_plot_path} "
+                f"informative_only_plot={informative_only_plot_path} "
+                f"clean_vs_mask_only_plot={clean_vs_mask_only_plot_path} "
+                f"delta_plot={delta_plot_path} "
+                f"group_sizes={json.dumps(carrier_attention_raw_summary['group_sizes'], sort_keys=True)} "
+                f"raw_max_layer_sum_deviation={carrier_attention_raw_summary['max_layer_sum_deviation']:.3e} "
+                f"informative_clean_max_layer_sum_deviation="
+                f"{carrier_attention_informative_clean_summary['max_layer_sum_deviation']:.3e} "
+                f"informative_mask_only_max_layer_sum_deviation="
+                f"{carrier_attention_informative_mask_only_summary['max_layer_sum_deviation']:.3e}"
             )
             row = _evaluated_row(
                 sample=item,
@@ -1837,6 +2424,7 @@ def main() -> None:
             "dtype": args.dtype,
             "seed": args.seed,
             "include_bos": bool(args.include_bos),
+            "allow_first_token_if_no_bos": bool(args.allow_first_token_if_no_bos),
             "skip_hallway": bool(args.skip_hallway),
             "donor_policy": _DONOR_POLICY,
             "wait_layer_semantics": (
@@ -1859,6 +2447,7 @@ def main() -> None:
     print(
         json.dumps(
             {
+                "carrier_attention_plot": None if carrier_attention_plot_path is None else str(carrier_attention_plot_path),
                 "summary_csv": str(summary_csv_path),
                 "per_sample_csv": str(per_sample_csv_path),
                 "markdown_summary": str(markdown_summary_path),

@@ -6,6 +6,157 @@ from typing import Any, Dict, List, Optional
 import matplotlib.pyplot as plt
 
 
+def plot_layer_metric_lines(
+    sample_metrics: List[Dict[str, Any]],
+    output_dir: Path,
+    selected_layers: List[int],
+    metric_key: str,
+    seq_len_label: Optional[str] = None,
+    title_override: Optional[str] = None,
+    filename_stem: str = "layer_metric_lines",
+    line_label: Optional[str] = None,
+    y_label: Optional[str] = None,
+    x_label: str = "Layer",
+    n_bootstrap: int = 1000,
+    seed: int = 0,
+) -> Optional[Path]:
+    if not sample_metrics or not selected_layers:
+        return None
+
+    per_layer_values: Dict[int, List[float]] = {layer_idx: [] for layer_idx in selected_layers}
+    for sample in sample_metrics:
+        for layer_metrics in sample.get("layer_metrics", {}).get("layers", []):
+            layer_idx = int(layer_metrics["layer"])
+            if layer_idx not in per_layer_values:
+                continue
+            value = layer_metrics.get(metric_key)
+            if value is None:
+                continue
+            per_layer_values[layer_idx].append(float(value))
+
+    if not any(per_layer_values[layer_idx] for layer_idx in selected_layers):
+        return None
+
+    rng = random.Random(seed)
+    mean_vals: List[float] = []
+    lo_vals: List[float] = []
+    hi_vals: List[float] = []
+    for layer_idx in selected_layers:
+        values = per_layer_values[layer_idx]
+        center, lo_value, hi_value = _bootstrap_center_and_ci(values, _mean, n_bootstrap, rng)
+        mean_vals.append(center)
+        lo_vals.append(lo_value)
+        hi_vals.append(hi_value)
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    label = line_label or metric_key
+    ax.plot(selected_layers, mean_vals, linewidth=2.0, label=label)
+    ax.fill_between(selected_layers, lo_vals, hi_vals, alpha=0.16)
+    title = title_override or f"Mean {metric_key} by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label or f"Mean {metric_key}")
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    tick_step = max(1, math.ceil(len(selected_layers) / 32))
+    xticks = selected_layers[::tick_step]
+    if selected_layers[-1] not in xticks:
+        xticks.append(selected_layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    plot_path = output_dir / f"{filename_stem}{suffix}.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
+
+def plot_single_sample_layer_metric(
+    sample_payload: Dict[str, Any],
+    output_dir: Path,
+    metric_key: str,
+    seq_len_label: Optional[str] = None,
+    title_override: Optional[str] = None,
+    filename_stem: str = "sample_layer_metric",
+    y_label: Optional[str] = None,
+    file_prefix: Optional[str] = None,
+    threshold: Optional[float] = None,
+    peak_layer: Optional[int] = None,
+    first_significant_layer: Optional[int] = None,
+    x_label: str = "Layer",
+) -> Optional[Path]:
+    layer_metrics = list(sample_payload.get("layer_metrics", {}).get("layers", []))
+    if not layer_metrics:
+        return None
+
+    layers: List[int] = []
+    values: List[float] = []
+    value_by_layer: Dict[int, float] = {}
+    for layer_metric in layer_metrics:
+        value = layer_metric.get(metric_key)
+        if value is None:
+            continue
+        layer_idx = int(layer_metric["layer"])
+        layers.append(layer_idx)
+        values.append(float(value))
+        value_by_layer[layer_idx] = float(value)
+
+    if not layers:
+        return None
+
+    fig, ax = plt.subplots(figsize=(11, 6), dpi=140)
+    ax.plot(layers, values, marker="o", linewidth=2.0, label=metric_key)
+    if threshold is not None:
+        ax.axhline(float(threshold), color="#ff7f0e", linestyle="--", linewidth=1.4, label="threshold")
+    if peak_layer is not None and int(peak_layer) in value_by_layer:
+        ax.scatter(
+            [int(peak_layer)],
+            [value_by_layer[int(peak_layer)]],
+            color="#d62728",
+            s=70,
+            zorder=3,
+            label="peak",
+        )
+    if first_significant_layer is not None and int(first_significant_layer) in value_by_layer:
+        ax.scatter(
+            [int(first_significant_layer)],
+            [value_by_layer[int(first_significant_layer)]],
+            color="#2ca02c",
+            s=70,
+            zorder=3,
+            label="first significant",
+        )
+
+    title = title_override or f"{sample_payload.get('sample_id', 'sample')} {metric_key} by Layer"
+    if seq_len_label:
+        title = f"{title} ({seq_len_label})"
+    ax.set_title(title, fontsize=13, pad=10)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label or metric_key)
+    ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
+    ax.legend(frameon=True)
+    tick_step = max(1, math.ceil(len(layers) / 32))
+    xticks = layers[::tick_step]
+    if layers[-1] not in xticks:
+        xticks.append(layers[-1])
+    ax.set_xticks(xticks)
+    ax.tick_params(axis="x", labelrotation=45, labelsize=9)
+    fig.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = f"_{seq_len_label}" if seq_len_label else ""
+    prefix = f"{file_prefix}_" if file_prefix else ""
+    plot_path = output_dir / f"{prefix}{filename_stem}{suffix}.png"
+    fig.savefig(plot_path, bbox_inches="tight")
+    plt.close(fig)
+    return plot_path
+
+
 def plot_last_token_importance_lines(
     sample_metrics: List[Dict[str, Any]],
     output_dir: Path,
