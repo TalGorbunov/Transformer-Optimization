@@ -14,11 +14,14 @@ Important method notes:
   - if `wait_layer == 0`, replace `x^(0)` before layer 0 runs
 - This script does not apply ABP masking. It is strictly the existing
   `wait_only` intervention.
+- Donor hybrids keep the target prompt/question fixed while donor frames vary,
+  and wait-boundary patching is applied to frame groups plus one all-non-frame
+  prompt token set.
 - `score_drop` is defined from the gold-answer sequence score:
   `clean_score - intervention_score`.
 
 Example:
-python evaluations/scripts/af1/af1_qwen_vl_wait_only_sweep.py \
+python evaluations/scripts/af1/wait_only_sweep.py \
   --split train \
   --seq_lens 8 \
   --max_samples 8 \
@@ -164,7 +167,7 @@ class _WaitBoundaryCaptured(RuntimeError):
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
-            "Sweep AF1 wait-boundary frame-group patching on MMRed/Qwen-VL "
+            "Sweep AF1 wait-boundary frame-group plus non-frame prompt patching on MMRed/Qwen-VL "
             "without ABP masking and plot score drop vs wait layer."
         )
     )
@@ -195,7 +198,10 @@ def parse_args() -> argparse.Namespace:
         "--k_donors",
         type=int,
         default=4,
-        help="Maximum number of compatible donors to average for each frame-group conditional mean.",
+        help=(
+            "Maximum number of compatible donors to average for each frame-group "
+            "or non-frame conditional mean."
+        ),
     )
     ap.add_argument("--cache_dir", type=str, default="outputs/af1_frame_cama_cache")
     ap.add_argument("--recompute_cache", action="store_true")
@@ -653,6 +659,28 @@ def build_hybrid_sample(
     }
 
 
+def all_non_frame_prompt_positions(layout: SampleLayout) -> Tuple[int, ...]:
+    frame_positions = {int(position) for group in layout.frame_groups for position in group}
+    return tuple(position for position in range(int(layout.prompt_len)) if position not in frame_positions)
+
+
+def build_non_frame_hybrid_sample(
+    target_sample: PreparedSample,
+    donor_sample: PreparedSample,
+) -> Dict[str, Any]:
+    if target_sample.layout.seq_len != donor_sample.layout.seq_len:
+        raise ValueError(
+            f"Incompatible seq_len for non-frame hybrid sample: target={target_sample.layout.seq_len}, "
+            f"donor={donor_sample.layout.seq_len}"
+        )
+    return {
+        "sample_id": f"{target_sample.sample_id}__non_frame__donor_{donor_sample.sample_id}",
+        "frames": list(donor_sample.frames),
+        "question": target_sample.question,
+        "layout": target_sample.layout,
+    }
+
+
 @contextmanager
 def temporary_layer_wrappers(layers: Sequence[Any], wrapper_factory: Any) -> Iterator[None]:
     original_forwards: Dict[int, Any] = {}
@@ -709,6 +737,22 @@ def _patch_frame_groups(
         replacement = frame_group_means[frame_idx].to(device=patched.device, dtype=patched.dtype)
         patched[:, list(positions), :] = replacement.unsqueeze(0)
     return patched
+
+
+def _patch_non_frame_prompt_tokens(
+    patched_hidden_states: torch.Tensor,
+    layout: SampleLayout,
+    non_frame_mean_block: torch.Tensor,
+) -> torch.Tensor:
+    non_frame_positions = all_non_frame_prompt_positions(layout)
+    if not non_frame_positions:
+        return patched_hidden_states
+    replacement = non_frame_mean_block.to(
+        device=patched_hidden_states.device,
+        dtype=patched_hidden_states.dtype,
+    )
+    patched_hidden_states[:, list(non_frame_positions), :] = replacement.unsqueeze(0)
+    return patched_hidden_states
 
 
 def _run_model_forward(
@@ -807,6 +851,32 @@ def _conditional_mean_cache_path(
     )
 
 
+def _non_frame_conditional_mean_cache_path(
+    cache_dir: Path,
+    model_name: str,
+    seq_len: int,
+    target_sample_id: str,
+    wait_layer: int,
+    k_donors_used: int,
+    donor_policy: str,
+    donor_ids: Sequence[str],
+    layout_hash_value: str,
+) -> Path:
+    donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
+    return (
+        cache_dir
+        / canonical_model_slug(model_name)
+        / f"seq_len_{seq_len}"
+        / f"wait_{wait_layer}"
+        / f"target_{target_sample_id}"
+        / (
+            f"non_frame_k_{k_donors_used}_policy_{donor_policy_hash}_"
+            f"donors_{donor_ids_hash}_layout_{layout_hash_value}.pt"
+        )
+    )
+
+
 def compute_frame_group_conditional_mean(
     target_sample: PreparedSample,
     frame_idx: int,
@@ -881,6 +951,86 @@ def compute_frame_group_conditional_mean(
     return mean_block, False
 
 
+def compute_non_frame_conditional_mean(
+    target_sample: PreparedSample,
+    donor_samples: Sequence[PreparedSample],
+    wait_layer: int,
+    batch_size: int,
+    cache_dir: Path,
+    recompute_cache: bool,
+    donor_policy: str,
+) -> Tuple[torch.Tensor, bool]:
+    if len(donor_samples) < 2:
+        raise ValueError(
+            f"Need at least two donors to estimate a non-frame conditional mean, got {len(donor_samples)} "
+            f"for target={target_sample.sample_id}"
+        )
+
+    non_frame_positions = all_non_frame_prompt_positions(target_sample.layout)
+    if not non_frame_positions:
+        raise RuntimeError(f"target={target_sample.sample_id}: no non-frame prompt positions found")
+
+    donor_ids = [sample.sample_id for sample in donor_samples]
+    cache_path = _non_frame_conditional_mean_cache_path(
+        cache_dir=cache_dir,
+        model_name=MODEL_ID,
+        seq_len=target_sample.layout.seq_len,
+        target_sample_id=target_sample.sample_id,
+        wait_layer=wait_layer,
+        k_donors_used=len(donor_samples),
+        donor_policy=donor_policy,
+        donor_ids=donor_ids,
+        layout_hash_value=layout_hash(target_sample.layout),
+    )
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if cache_path.exists() and not recompute_cache:
+        payload = torch.load(cache_path, map_location="cpu")
+        return payload["mean_block"].to(dtype=torch.float32), True
+
+    blocks: List[torch.Tensor] = []
+    for donor_batch in batched(list(donor_samples), batch_size=batch_size):
+        hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
+        for donor_sample in donor_batch:
+            hybrid = build_non_frame_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample)
+            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
+            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
+
+        batched_inputs = core.concatenate_inputs_for_batch(hybrid_inputs_list)
+        blocks.append(
+            _capture_wait_boundary_blocks(
+                batched_inputs,
+                wait_layer=wait_layer,
+                positions=non_frame_positions,
+            )
+        )
+
+    mean_block = torch.cat(blocks, dim=0).mean(dim=0).to(dtype=torch.float32).cpu()
+    torch.save(
+        {
+            "mean_block": mean_block,
+            "metadata": {
+                "model_name": MODEL_ID,
+                "seq_len": int(target_sample.layout.seq_len),
+                "target_sample_id": target_sample.sample_id,
+                "wait_layer": int(wait_layer),
+                "k_donors_requested": int(len(donor_samples)),
+                "k_donors_used": int(len(donor_samples)),
+                "donor_policy": donor_policy,
+                "donor_ids": list(donor_ids),
+                "layout_hash": layout_hash(target_sample.layout),
+                "num_positions": int(len(non_frame_positions)),
+                "cache_semantics": (
+                    "all-non-frame prompt conditional mean at x^(L_wait) estimated from hybrid contexts "
+                    "that keep the target text prompt fixed and replace the entire frame set with donor frames"
+                ),
+            },
+        },
+        cache_path,
+    )
+    return mean_block, False
+
+
 def compute_all_frame_group_means_for_sample(
     target_sample: PreparedSample,
     donor_samples: Sequence[PreparedSample],
@@ -930,6 +1080,7 @@ def run_model_with_intervention(
     inputs: Dict[str, torch.Tensor],
     layout: SampleLayout,
     frame_group_means: Dict[int, torch.Tensor],
+    non_frame_prompt_mean: torch.Tensor,
     policy: WaitOnlyPolicy,
 ) -> Any:
     layers = get_layers(base_model)
@@ -952,6 +1103,11 @@ def run_model_with_intervention(
                     layout=layout,
                     frame_group_means=frame_group_means,
                 )
+                patched_hidden_states = _patch_non_frame_prompt_tokens(
+                    patched_hidden_states,
+                    layout=layout,
+                    non_frame_mean_block=non_frame_prompt_mean,
+                )
                 if args:
                     args = (patched_hidden_states,) + tuple(args[1:])
                 else:
@@ -964,6 +1120,11 @@ def run_model_with_intervention(
                     hidden_out,
                     layout=layout,
                     frame_group_means=frame_group_means,
+                )
+                patched_hidden_out = _patch_non_frame_prompt_tokens(
+                    patched_hidden_out,
+                    layout=layout,
+                    non_frame_mean_block=non_frame_prompt_mean,
                 )
                 return (patched_hidden_out,) + tuple(outputs[1:])
             return outputs
@@ -1041,6 +1202,7 @@ def run_clean_sample(sample: PreparedSample) -> Dict[str, Any]:
 def run_intervention_sample(
     sample: PreparedSample,
     frame_group_means: Dict[int, torch.Tensor],
+    non_frame_prompt_mean: torch.Tensor,
     policy: WaitOnlyPolicy,
 ) -> Dict[str, Any]:
     intervention_inputs = move_inputs_to_model_device(sample.inputs_cpu)
@@ -1052,6 +1214,7 @@ def run_intervention_sample(
             scoring_inputs,
             layout=sample.layout,
             frame_group_means=frame_group_means,
+            non_frame_prompt_mean=non_frame_prompt_mean,
             policy=policy,
         ),
     )
@@ -1335,7 +1498,7 @@ def write_markdown_summary(
         "",
         "- Mode run: `wait_only` only.",
         "- `wait_layer` uses the same AF1 `L_wait` semantics as the source script.",
-        "- Conditional-mean patching is applied to frame token groups only.",
+        "- Conditional-mean patching is applied to frame token groups plus one all-non-frame prompt token set.",
         "- No ABP masking is applied anywhere in this sweep.",
         "- `score_drop = clean_score - intervention_score`, where both scores are gold-answer sequence scores.",
         "- `n_total` counts selected samples and `n_used` counts samples that passed compatibility and donor checks.",
@@ -1397,7 +1560,9 @@ def main() -> None:
     cache_notes: List[str] = []
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
 
-    validation_notes.append("mode=wait_only: wait-boundary patching only; later attention remains clean.")
+    validation_notes.append(
+        "mode=wait_only: wait-boundary patching is applied to frame groups plus all non-frame prompt tokens; later attention remains clean."
+    )
     validation_notes.append(
         "wait_layer semantics: if wait_layer > 0, patch x^(L_wait) at layer output wait_layer - 1; "
         "if wait_layer == 0, patch x^(0) before layer 0."
@@ -1629,6 +1794,17 @@ def main() -> None:
                 )
                 seq_cache_hits += int(cache_stats["cache_hits"])
                 seq_cache_misses += int(cache_stats["cache_misses"])
+                non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
+                    target_sample=item,
+                    donor_samples=donor_pool,
+                    wait_layer=int(wait_layer),
+                    batch_size=args.batch_size,
+                    cache_dir=cache_dir,
+                    recompute_cache=bool(args.recompute_cache),
+                    donor_policy=_DONOR_POLICY,
+                )
+                seq_cache_hits += int(non_frame_cache_hit)
+                seq_cache_misses += int(not non_frame_cache_hit)
 
                 clean_cache_key = (int(item.layout.seq_len), item.sample_id)
                 clean_metrics = clean_metrics_cache.get(clean_cache_key)
@@ -1638,6 +1814,7 @@ def main() -> None:
                 af1_metrics = run_intervention_sample(
                     item,
                     frame_group_means=frame_group_means,
+                    non_frame_prompt_mean=non_frame_prompt_mean,
                     policy=policy,
                 )
 
@@ -1658,7 +1835,8 @@ def main() -> None:
                 )
 
             cache_notes.append(
-                f"seq_len={seq_len} wait_layer={int(wait_layer)}: conditional-mean cache_hits={seq_cache_hits} "
+                f"seq_len={seq_len} wait_layer={int(wait_layer)}: frame-group+non-frame conditional-mean "
+                f"cache_hits={seq_cache_hits} "
                 f"cache_misses={seq_cache_misses} layout_hash={compatible_layout_hash}"
             )
             summary_rows.append(

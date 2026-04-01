@@ -11,9 +11,10 @@ What this script does:
    - `full_af1`: wait-boundary patching plus ABP masking
    - `wait_only`: wait-boundary patching only
    - `mask_only`: ABP masking only
-3. Uses frame-group conditional means when the selected mode includes
-   wait-boundary patching.
-4. Leaves all text/question/template tokens untouched during the wait stage.
+3. Uses frame-group conditional means plus one all-non-frame prompt
+   conditional mean when the selected mode includes wait-boundary patching.
+4. Keeps the current target prompt/question fixed while donor hybrids change
+   only frame inputs.
 5. Applies an ABP-style attention policy after the wait boundary when the
    selected mode includes masking:
    - transfer stage: only the prompt carrier token may attend to earlier
@@ -24,8 +25,8 @@ What this script does:
 
 Important method notes:
 - This is not literal token-level CAMA from the paper. It is a multimodal
-  adaptation that applies conditional-mean replacement only to frame token
-  groups while keeping text prompt tokens clean.
+  adaptation that applies conditional-mean replacement to frame token groups
+  plus one all-non-frame prompt token set.
 - A single donor is not treated as a conditional mean. We require at least
   two compatible donors and average over up to `k_donors` hybrid contexts.
 - `wait_layer` follows the paper's `L_wait` semantics: it is the number of
@@ -38,7 +39,7 @@ Important method notes:
   "replace x^(L_wait), then restrict attention afterward" semantics.
 
 Example:
-python evaluations/scripts/af1/af1_qwen_vl_frame_cama.py \
+python evaluations/scripts/af1/full_pipeline.py \
   --split train \
   --seq_lens 8 \
   --max_samples 8 \
@@ -222,7 +223,10 @@ def parse_args() -> argparse.Namespace:
         "--k_donors",
         type=int,
         default=4,
-        help="Maximum number of compatible donors to average for each frame-group conditional mean.",
+        help=(
+            "Maximum number of compatible donors to average for each frame-group "
+            "or non-frame conditional mean."
+        ),
     )
     ap.add_argument("--cache_dir", type=str, default="outputs/af1_frame_cama_cache")
     ap.add_argument("--recompute_cache", action="store_true")
@@ -297,9 +301,9 @@ def intervention_mode_flags(mode: str) -> Dict[str, bool]:
 
 def intervention_mode_summary(mode: str) -> str:
     summaries = {
-        "full_af1": "patch frame groups at x^(L_wait) and apply ABP masking afterward",
-        "wait_only": "patch frame groups at x^(L_wait) but keep all later attention clean",
-        "mask_only": "skip frame patching and apply only the ABP transfer/self-only mask",
+        "full_af1": "patch frame groups and all non-frame prompt tokens at x^(L_wait) and apply ABP masking afterward",
+        "wait_only": "patch frame groups and all non-frame prompt tokens at x^(L_wait) but keep all later attention clean",
+        "mask_only": "skip all wait-boundary patching and apply only the ABP transfer/self-only mask",
     }
     return summaries[mode]
 
@@ -744,6 +748,31 @@ def build_hybrid_sample(
     }
 
 
+def all_non_frame_prompt_positions(layout: SampleLayout) -> Tuple[int, ...]:
+    frame_positions = {int(position) for group in layout.frame_groups for position in group}
+    return tuple(position for position in range(int(layout.prompt_len)) if position not in frame_positions)
+
+
+def build_non_frame_hybrid_sample(
+    target_sample: PreparedSample,
+    donor_sample: PreparedSample,
+) -> Dict[str, Any]:
+    """Build one hybrid context for the all-non-frame prompt conditional mean."""
+    if target_sample.layout.seq_len != donor_sample.layout.seq_len:
+        raise ValueError(
+            f"Incompatible seq_len for non-frame hybrid sample: target={target_sample.layout.seq_len}, "
+            f"donor={donor_sample.layout.seq_len}"
+        )
+    return {
+        "sample_id": f"{target_sample.sample_id}__non_frame__donor_{donor_sample.sample_id}",
+        "frames": list(donor_sample.frames),
+        "question": target_sample.question,
+        # The prompt text stays fixed to the target sample; all frames come from
+        # the donor so the non-frame mean is estimated from donor frame sets.
+        "layout": target_sample.layout,
+    }
+
+
 @contextmanager
 def temporary_layer_wrappers(layers: Sequence[Any], wrapper_factory: Any) -> Iterator[None]:
     original_forwards: Dict[int, Any] = {}
@@ -1072,6 +1101,22 @@ def _patch_frame_groups(
     return patched
 
 
+def _patch_non_frame_prompt_tokens(
+    patched_hidden_states: torch.Tensor,
+    layout: SampleLayout,
+    non_frame_mean_block: torch.Tensor,
+) -> torch.Tensor:
+    non_frame_positions = all_non_frame_prompt_positions(layout)
+    if not non_frame_positions:
+        return patched_hidden_states
+    replacement = non_frame_mean_block.to(
+        device=patched_hidden_states.device,
+        dtype=patched_hidden_states.dtype,
+    )
+    patched_hidden_states[:, list(non_frame_positions), :] = replacement.unsqueeze(0)
+    return patched_hidden_states
+
+
 def _run_model_forward(
     inputs: Dict[str, torch.Tensor],
     output_hidden_states: bool = False,
@@ -1178,6 +1223,32 @@ def _conditional_mean_cache_path(
     )
 
 
+def _non_frame_conditional_mean_cache_path(
+    cache_dir: Path,
+    model_name: str,
+    seq_len: int,
+    target_sample_id: str,
+    wait_layer: int,
+    k_donors_used: int,
+    donor_policy: str,
+    donor_ids: Sequence[str],
+    layout_hash_value: str,
+) -> Path:
+    donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
+    donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
+    return (
+        cache_dir
+        / canonical_model_slug(model_name)
+        / f"seq_len_{seq_len}"
+        / f"wait_{wait_layer}"
+        / f"target_{target_sample_id}"
+        / (
+            f"non_frame_k_{k_donors_used}_policy_{donor_policy_hash}_"
+            f"donors_{donor_ids_hash}_layout_{layout_hash_value}.pt"
+        )
+    )
+
+
 def compute_frame_group_conditional_mean(
     target_sample: PreparedSample,
     frame_idx: int,
@@ -1267,6 +1338,89 @@ def compute_frame_group_conditional_mean(
     return mean_block, False
 
 
+def compute_non_frame_conditional_mean(
+    target_sample: PreparedSample,
+    donor_samples: Sequence[PreparedSample],
+    wait_layer: int,
+    batch_size: int,
+    cache_dir: Path,
+    recompute_cache: bool,
+    donor_policy: str,
+) -> Tuple[torch.Tensor, bool]:
+    """Estimate one conditional mean for all non-frame prompt tokens."""
+    if len(donor_samples) < 2:
+        raise ValueError(
+            f"Need at least two donors to estimate a non-frame conditional mean, got {len(donor_samples)} "
+            f"for target={target_sample.sample_id}"
+        )
+
+    non_frame_positions = all_non_frame_prompt_positions(target_sample.layout)
+    if not non_frame_positions:
+        raise RuntimeError(f"target={target_sample.sample_id}: no non-frame prompt positions found")
+
+    donor_ids = [sample.sample_id for sample in donor_samples]
+    cache_path = _non_frame_conditional_mean_cache_path(
+        cache_dir=cache_dir,
+        model_name=MODEL_ID,
+        seq_len=target_sample.layout.seq_len,
+        target_sample_id=target_sample.sample_id,
+        wait_layer=wait_layer,
+        k_donors_used=len(donor_samples),
+        donor_policy=donor_policy,
+        donor_ids=donor_ids,
+        layout_hash_value=layout_hash(target_sample.layout),
+    )
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if cache_path.exists() and not recompute_cache:
+        payload = torch.load(cache_path, map_location="cpu")
+        return payload["mean_block"].to(dtype=torch.float32), True
+
+    blocks: List[torch.Tensor] = []
+    for donor_batch in batched(list(donor_samples), batch_size=batch_size):
+        hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
+        for donor_sample in donor_batch:
+            hybrid = build_non_frame_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample)
+            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
+            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
+
+        # Batched hybrid evaluation is safe only because layout validation
+        # guarantees exact prompt/token alignment across compatible donors.
+        batched_inputs = core.concatenate_inputs_for_batch(hybrid_inputs_list)
+        blocks.append(
+            _capture_wait_boundary_blocks(
+                batched_inputs,
+                wait_layer=wait_layer,
+                positions=non_frame_positions,
+            )
+        )
+
+    mean_block = torch.cat(blocks, dim=0).mean(dim=0).to(dtype=torch.float32).cpu()
+    torch.save(
+        {
+            "mean_block": mean_block,
+            "metadata": {
+                "model_name": MODEL_ID,
+                "seq_len": int(target_sample.layout.seq_len),
+                "target_sample_id": target_sample.sample_id,
+                "wait_layer": int(wait_layer),
+                "k_donors_requested": int(len(donor_samples)),
+                "k_donors_used": int(len(donor_samples)),
+                "donor_policy": donor_policy,
+                "donor_ids": list(donor_ids),
+                "layout_hash": layout_hash(target_sample.layout),
+                "num_positions": int(len(non_frame_positions)),
+                "cache_semantics": (
+                    "all-non-frame prompt conditional mean at x^(L_wait) estimated from hybrid contexts "
+                    "that keep the target text prompt fixed and replace the entire frame set with donor frames"
+                ),
+            },
+        },
+        cache_path,
+    )
+    return mean_block, False
+
+
 def compute_all_frame_group_means_for_sample(
     target_sample: PreparedSample,
     donor_samples: Sequence[PreparedSample],
@@ -1317,6 +1471,7 @@ def run_model_with_intervention(
     inputs: Dict[str, torch.Tensor],
     layout: SampleLayout,
     frame_group_means: Optional[Dict[int, torch.Tensor]],
+    non_frame_prompt_mean: Optional[torch.Tensor],
     policy: AttentionPolicy,
     mode: str,
     output_attentions: bool = False,
@@ -1329,18 +1484,21 @@ def run_model_with_intervention(
     - `mask_only`: ABP mask only
 
     Why these modes matter:
-    - `wait_only` helps estimate when frame-specific information has already
-      been transferred away from frame tokens: if replacing frame groups at a
-      layer no longer hurts, the transfer may already be complete.
+    - `wait_only` helps estimate when information in the patched wait-boundary
+      token sets has already been transferred away: if replacing those token
+      sets at a layer no longer hurts, the transfer may already be complete.
     - `mask_only` isolates the effect of the ABP transfer/self-only bottleneck
-      without also removing information from the frame groups at the wait
+      without also removing information from the wait-boundary token sets at the
       boundary.
     """
     mode_flags = intervention_mode_flags(mode)
     enable_wait_patch = mode_flags["enable_wait_patch"]
     enable_abp_mask = mode_flags["enable_abp_mask"]
-    if enable_wait_patch and frame_group_means is None:
-        raise ValueError(f"mode={mode!r} requires frame_group_means, but none were provided.")
+    if enable_wait_patch and (frame_group_means is None or non_frame_prompt_mean is None):
+        raise ValueError(
+            f"mode={mode!r} requires both frame_group_means and non_frame_prompt_mean, "
+            "but one or both were not provided."
+        )
 
     layers = get_layers(base_model)
     if int(policy.num_model_layers) != len(layers):
@@ -1373,6 +1531,11 @@ def run_model_with_intervention(
                     layout=layout,
                     frame_group_means=frame_group_means or {},
                 )
+                patched_hidden_states = _patch_non_frame_prompt_tokens(
+                    patched_hidden_states,
+                    layout=layout,
+                    non_frame_mean_block=non_frame_prompt_mean,
+                )
                 if args:
                     args = (patched_hidden_states,) + tuple(args[1:])
                 else:
@@ -1389,6 +1552,11 @@ def run_model_with_intervention(
                     hidden_out,
                     layout=layout,
                     frame_group_means=frame_group_means or {},
+                )
+                patched_hidden_out = _patch_non_frame_prompt_tokens(
+                    patched_hidden_out,
+                    layout=layout,
+                    non_frame_mean_block=non_frame_prompt_mean,
                 )
                 return (patched_hidden_out,) + tuple(outputs[1:])
             return outputs
@@ -1467,6 +1635,7 @@ def run_clean_sample(sample: PreparedSample) -> Dict[str, Any]:
 def run_intervention_sample(
     sample: PreparedSample,
     frame_group_means: Optional[Dict[int, torch.Tensor]],
+    non_frame_prompt_mean: Optional[torch.Tensor],
     policy: AttentionPolicy,
     mode: str,
 ) -> Dict[str, Any]:
@@ -1480,6 +1649,7 @@ def run_intervention_sample(
             scoring_inputs,
             layout=sample.layout,
             frame_group_means=frame_group_means,
+            non_frame_prompt_mean=non_frame_prompt_mean,
             policy=policy,
             mode=mode,
         ),
@@ -1666,11 +1836,11 @@ def write_markdown_summary(
         "## Method",
         "",
         f"- Mode run: `{config['mode']}`.",
-        "- `full_af1` = wait-boundary frame-group patching plus ABP masking afterward.",
-        "- `wait_only` = wait-boundary frame-group patching only, with later attention left clean.",
-        "- `mask_only` = ABP masking only, with no frame-group patching at the wait boundary.",
-        "- This script implements AF1 with frame-group conditional mean at the wait boundary.",
-        "- Text/question/template tokens are kept clean during the waiting stage.",
+        "- `full_af1` = wait-boundary frame-group plus non-frame prompt patching, then ABP masking afterward.",
+        "- `wait_only` = wait-boundary frame-group plus non-frame prompt patching only, with later attention left clean.",
+        "- `mask_only` = ABP masking only, with no wait-boundary patching.",
+        "- This script implements AF1 with frame-group conditional means plus one all-non-frame prompt conditional mean at the wait boundary.",
+        "- Donor hybrids keep the target prompt text fixed while changing only the frame inputs.",
         "- Hallway samples are skipped by default because their room tokenization differs.",
         "- Transfer uses an ABP-style policy where the prompt carrier token can read earlier prompt tokens only during the configured transfer layers, then becomes self-only.",
         "- Faithfulness is defined as intervention accuracy on the subset of used samples that the clean model got correct.",
@@ -1690,9 +1860,9 @@ def write_markdown_summary(
             "## Method Notes / Limitations",
             "",
             "- This is a multimodal adaptation of CAMA, not the paper's exact token-level text-token formulation.",
-            "- Conditional-mean replacement is applied only to frame token groups; text tokens remain untouched during waiting.",
+            "- Conditional-mean replacement is applied to frame token groups plus one all-non-frame prompt token set.",
             "- The conditional mean is estimated from compatible hybrid contexts, so donor/layout compatibility is required before a sample is used.",
-            "- Cached conditional means are target-sample-specific and donor-set-specific; they are not reusable global means.",
+            "- Cached conditional means are target-sample-specific and donor-set-specific; frame-group and non-frame caches are not reusable global means.",
             "- In `mask_only`, the `af1_*` output columns still mean 'intervention result' even though no wait-boundary patch is applied.",
             "",
             "## Runtime",
@@ -1745,11 +1915,11 @@ def main() -> None:
         validation_notes.append("mode=full_af1: wait-boundary patching and ABP masking are both enabled.")
     elif args.mode == "wait_only":
         validation_notes.append(
-            "mode=wait_only: ABP masking is disabled entirely; this isolates when frame information is still needed in frame groups."
+            "mode=wait_only: ABP masking is disabled entirely; this isolates when the patched wait-boundary token sets are still needed."
         )
     else:
         validation_notes.append(
-            "mode=mask_only: wait-boundary frame patching is disabled entirely; this isolates the transfer/self-only attention bottleneck."
+            "mode=mask_only: wait-boundary patching is disabled entirely; this isolates the transfer/self-only attention bottleneck."
         )
 
     for seq_len in args.seq_lens:
@@ -1922,6 +2092,7 @@ def main() -> None:
 
             donor_ids: List[str] = []
             frame_group_means: Optional[Dict[int, torch.Tensor]] = None
+            non_frame_prompt_mean: Optional[torch.Tensor] = None
             if enable_wait_patch:
                 donor_pool = select_donor_pool(
                     target_sample=item,
@@ -1968,11 +2139,23 @@ def main() -> None:
                 )
                 seq_cache_hits += int(cache_stats["cache_hits"])
                 seq_cache_misses += int(cache_stats["cache_misses"])
+                non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
+                    target_sample=item,
+                    donor_samples=donor_pool,
+                    wait_layer=args.wait_layer,
+                    batch_size=args.batch_size,
+                    cache_dir=cache_dir,
+                    recompute_cache=bool(args.recompute_cache),
+                    donor_policy=_DONOR_POLICY,
+                )
+                seq_cache_hits += int(non_frame_cache_hit)
+                seq_cache_misses += int(not non_frame_cache_hit)
 
             clean_metrics = run_clean_sample(item)
             af1_metrics = run_intervention_sample(
                 item,
                 frame_group_means=frame_group_means,
+                non_frame_prompt_mean=non_frame_prompt_mean,
                 policy=policy,
                 mode=args.mode,
             )
@@ -1993,7 +2176,8 @@ def main() -> None:
 
         if enable_wait_patch:
             cache_notes.append(
-                f"seq_len={seq_len}: conditional-mean cache_hits={seq_cache_hits} cache_misses={seq_cache_misses} "
+                f"seq_len={seq_len}: frame-group+non-frame conditional-mean cache_hits={seq_cache_hits} "
+                f"cache_misses={seq_cache_misses} "
                 f"layout_hash={compatible_layout_hash}"
             )
         else:
