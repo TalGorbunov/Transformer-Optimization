@@ -39,7 +39,6 @@ class TokenLayout:
     sample_id: str
     seq_len: int
     prompt_len: int
-    bos_index: Optional[int]
     carrier_index: int
     carrier_token_id: int
     carrier_token_text: str
@@ -71,7 +70,6 @@ def serialize_token_layout(layout: TokenLayout) -> Dict[str, Any]:
         "sample_id": layout.sample_id,
         "seq_len": int(layout.seq_len),
         "prompt_len": int(layout.prompt_len),
-        "bos_index": layout.bos_index,
         "carrier_index": int(layout.carrier_index),
         "carrier_token_id": int(layout.carrier_token_id),
         "carrier_token_text": str(layout.carrier_token_text),
@@ -102,7 +100,6 @@ def deserialize_token_layout(raw: Any) -> TokenLayout:
         sample_id=str(raw["sample_id"]),
         seq_len=int(raw["seq_len"]),
         prompt_len=int(raw["prompt_len"]),
-        bos_index=raw["bos_index"],
         carrier_index=int(raw["carrier_index"]),
         carrier_token_id=int(raw["carrier_token_id"]),
         carrier_token_text=str(raw["carrier_token_text"]),
@@ -257,8 +254,6 @@ def build_token_layout(
     answer_prefix_span = (answer_prefix_start, prompt_text_span[1])
     question_span = (question_start, answer_prefix_start)
 
-    bos_token_id = getattr(processor.tokenizer, "bos_token_id", None)
-    bos_index = 0 if bos_token_id is not None and input_ids[0] == int(bos_token_id) else None
     carrier_index = prompt_len - 1
     if carrier_index < 0:
         raise RuntimeError(f"sample_id={sample_id}: invalid carrier index {carrier_index}")
@@ -322,7 +317,6 @@ def build_token_layout(
         sample_id=sample_id,
         seq_len=len(frames),
         prompt_len=prompt_len,
-        bos_index=bos_index,
         carrier_index=carrier_index,
         carrier_token_id=int(input_ids[carrier_index]),
         carrier_token_text=sanitize_token_text(prompt_decoded_tokens[carrier_index]),
@@ -420,7 +414,7 @@ def assert_layout_patchable(
 def _make_frame_units(layout: TokenLayout) -> List[PatchUnit]:
     units: List[PatchUnit] = []
     for frame_idx, group in enumerate(layout.frame_groups):
-        positions = tuple(int(position) for position in group if position != layout.carrier_index and position != layout.bos_index)
+        positions = tuple(int(position) for position in group if position != layout.carrier_index)
         if not positions:
             continue
         cache_keys = tuple(f"frame_{frame_idx}_offset_{offset}" for offset, _ in enumerate(positions))
@@ -439,7 +433,7 @@ def _make_frame_units(layout: TokenLayout) -> List[PatchUnit]:
 def _make_fixed_template_units(layout: TokenLayout) -> List[PatchUnit]:
     units: List[PatchUnit] = []
     for ordinal, position in enumerate(layout.fixed_template_positions):
-        if position == layout.carrier_index or position == layout.bos_index:
+        if position == layout.carrier_index:
             continue
         token_id = int(layout.prompt_input_ids[position])
         cache_key = f"fixed_template_idx_{ordinal}_tok_{token_id}"
@@ -458,7 +452,7 @@ def _make_fixed_template_units(layout: TokenLayout) -> List[PatchUnit]:
 def _make_question_fixed_units(layout: TokenLayout) -> List[PatchUnit]:
     units: List[PatchUnit] = []
     for ordinal, position in enumerate(layout.question_fixed_positions):
-        if position == layout.carrier_index or position == layout.bos_index:
+        if position == layout.carrier_index:
             continue
         token_id = int(layout.prompt_input_ids[position])
         cache_key = f"question_fixed_idx_{ordinal}_tok_{token_id}"
@@ -477,7 +471,7 @@ def _make_question_fixed_units(layout: TokenLayout) -> List[PatchUnit]:
 def _make_character_units(layout: TokenLayout) -> List[PatchUnit]:
     units: List[PatchUnit] = []
     for offset, position in enumerate(layout.character_positions):
-        if position == layout.carrier_index or position == layout.bos_index:
+        if position == layout.carrier_index:
             continue
         token_id = int(layout.prompt_input_ids[position])
         cache_key = f"character_slot_offset_{offset}_tok_{token_id}"
@@ -497,7 +491,7 @@ def _make_room_units(layout: TokenLayout) -> List[PatchUnit]:
     units: List[PatchUnit] = []
     bucket_prefix = f"room_span_len_{layout.room_span_len}"
     for offset, position in enumerate(layout.room_positions):
-        if position == layout.carrier_index or position == layout.bos_index:
+        if position == layout.carrier_index:
             continue
         token_id = int(layout.prompt_input_ids[position])
         cache_key = f"{bucket_prefix}_offset_{offset}_tok_{token_id}"
@@ -545,7 +539,7 @@ def patch_units_for_mode(layout: TokenLayout, wait_patch_mode: str) -> List[Patc
         positions = tuple(
             int(position)
             for position in unit.positions
-            if position != layout.carrier_index and position != layout.bos_index
+            if position != layout.carrier_index
         )
         if not positions:
             continue
@@ -589,8 +583,6 @@ def format_token_debug_rows(layout: TokenLayout, patch_units: Sequence[PatchUnit
     lines = ["idx\tid\ttoken\ttags"]
     for idx, token_id in enumerate(layout.prompt_input_ids):
         tags: List[str] = []
-        if layout.bos_index is not None and idx == layout.bos_index:
-            tags.append("BOS")
         if idx == layout.carrier_index:
             tags.append("CARRIER")
         if idx in frame_lookup:
@@ -653,13 +645,9 @@ def allowed_key_positions(
     query_idx: int,
     carrier_index: int,
     key_len: int,
-    keep_bos_access: bool,
     stage: str,
 ) -> List[int]:
-    allowed: set[int] = set()
-    if keep_bos_access and key_len > 0:
-        allowed.add(0)
-    allowed.add(query_idx)
+    allowed: set[int] = {int(query_idx)}
 
     if query_idx == carrier_index and stage == "transfer":
         allowed.update(range(0, min(query_idx, key_len - 1) + 1))
@@ -672,7 +660,6 @@ def allowed_key_positions(
 def build_af1_attention_mask(
     base_mask: torch.Tensor,
     carrier_index: int,
-    keep_bos_access: bool,
     stage: str,
 ) -> torch.Tensor:
     batch_size, _, query_len, key_len = base_mask.shape
@@ -685,7 +672,6 @@ def build_af1_attention_mask(
             query_idx=query_idx,
             carrier_index=carrier_index,
             key_len=key_len,
-            keep_bos_access=keep_bos_access,
             stage=stage,
         )
         for key_idx in allowed:
@@ -703,13 +689,12 @@ def build_af1_attention_mask(
 
 def validate_attention_mask_behavior(
     layout: TokenLayout,
-    keep_bos_access: bool,
 ) -> List[str]:
     non_carrier_query = next(
         (
             position
             for position in layout.fixed_template_positions
-            if position != layout.carrier_index and position != layout.bos_index
+            if position != layout.carrier_index
         ),
         max(0, layout.carrier_index - 1),
     )
@@ -717,27 +702,22 @@ def validate_attention_mask_behavior(
         query_idx=layout.carrier_index,
         carrier_index=layout.carrier_index,
         key_len=layout.prompt_len,
-        keep_bos_access=keep_bos_access,
         stage="transfer",
     )
     compute_keys = allowed_key_positions(
         query_idx=layout.carrier_index,
         carrier_index=layout.carrier_index,
         key_len=layout.prompt_len,
-        keep_bos_access=keep_bos_access,
         stage="compute",
     )
     non_carrier_keys = allowed_key_positions(
         query_idx=non_carrier_query,
         carrier_index=layout.carrier_index,
         key_len=layout.prompt_len,
-        keep_bos_access=keep_bos_access,
         stage="transfer",
     )
 
-    expected_non_carrier = sorted(
-        set([non_carrier_query] + ([0] if keep_bos_access and non_carrier_query != 0 else []))
-    )
+    expected_non_carrier = [non_carrier_query]
     if non_carrier_keys != expected_non_carrier:
         raise RuntimeError(
             f"AF1 mask validation failed for non-carrier token {non_carrier_query}: "
@@ -750,7 +730,7 @@ def validate_attention_mask_behavior(
             f"AF1 mask validation failed for carrier transfer stage: expected {expected_transfer}, got {transfer_keys}"
         )
 
-    expected_compute = sorted(set([layout.carrier_index] + ([0] if keep_bos_access else [])))
+    expected_compute = [layout.carrier_index]
     if compute_keys != expected_compute:
         raise RuntimeError(
             f"AF1 mask validation failed for carrier compute stage: expected {expected_compute}, got {compute_keys}"
@@ -803,7 +783,6 @@ def run_model_with_af1(
     cache: Dict[str, Any],
     wait_until_layer: int,
     transfer_layers: int,
-    keep_bos_access: bool,
     patch_units: Sequence[PatchUnit],
     apply_patch: bool,
     apply_mask: bool,
@@ -831,7 +810,6 @@ def run_model_with_af1(
                 kwargs["attention_mask"] = build_af1_attention_mask(
                     expanded_mask,
                     carrier_index=layout.carrier_index,
-                    keep_bos_access=keep_bos_access,
                     stage=stage,
                 )
 
@@ -1040,7 +1018,6 @@ def evaluate_af1_sample(
     wait_patch_mode: str,
     wait_until_layer: int,
     transfer_layers: int,
-    keep_bos_access: bool,
     debug_tokenization: bool,
     sample_index: int,
     mask_only: bool,
@@ -1072,7 +1049,6 @@ def evaluate_af1_sample(
         cache=cache,
         wait_until_layer=wait_until_layer,
         transfer_layers=transfer_layers,
-        keep_bos_access=keep_bos_access,
         patch_units=patch_units,
         apply_patch=apply_patch,
         apply_mask=apply_mask,
@@ -1122,7 +1098,6 @@ def evaluate_af1_sample(
         "wait_patch_mode": wait_patch_mode,
         "wait_until_layer": int(wait_until_layer),
         "transfer_layers": int(transfer_layers),
-        "keep_bos_access": int(bool(keep_bos_access)),
         "mask_only": int(bool(mask_only)),
         "patch_only": int(bool(patch_only)),
         "room_text": layout.room_text,
@@ -1263,7 +1238,6 @@ def validate_single_sample(
     wait_patch_mode: str,
     wait_until_layer: int,
     transfer_layers: int,
-    keep_bos_access: bool,
     mask_only: bool,
     patch_only: bool,
 ) -> List[str]:
@@ -1275,7 +1249,7 @@ def validate_single_sample(
     if not patch_units:
         raise RuntimeError("Validation sample produced no patch units")
 
-    mask_notes = validate_attention_mask_behavior(layout=layout, keep_bos_access=keep_bos_access)
+    mask_notes = validate_attention_mask_behavior(layout=layout)
 
     clean_metrics = score_valid_numeric_answers_with_runner(
         clean_inputs,
@@ -1293,7 +1267,6 @@ def validate_single_sample(
             cache=cache,
             wait_until_layer=wait_until_layer,
             transfer_layers=transfer_layers,
-            keep_bos_access=keep_bos_access,
             patch_units=patch_units,
             apply_patch=not mask_only,
             apply_mask=not patch_only,

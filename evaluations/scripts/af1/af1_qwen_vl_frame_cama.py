@@ -19,7 +19,6 @@ What this script does:
    - transfer stage: only the prompt carrier token may attend to earlier
      prompt tokens; every other prompt token is self-only
    - post-transfer stage: the carrier token also becomes self-only
-     - optional BOS access follows the paper's BOS exception idea
 
 Important method notes:
 - This is not literal token-level CAMA from the paper. It is a multimodal
@@ -114,10 +113,6 @@ _PER_SAMPLE_FIELDS = [
     "wait_layer",
     "transfer_layers",
     "transfer_layer_indices",
-    "include_bos",
-    "allow_first_token_if_no_bos",
-    "spared_prompt_kind",
-    "spared_prompt_index",
     "k_donors",
     "num_frames",
     "num_frame_groups",
@@ -136,7 +131,6 @@ class SampleLayout:
     sample_id: str
     seq_len: int
     prompt_len: int
-    bos_index: Optional[int]
     carrier_index: int
     carrier_token_id: int
     carrier_token_text: str
@@ -166,11 +160,6 @@ class PreparedSample:
 class AttentionPolicy:
     prompt_len: int
     carrier_index: int
-    bos_index: Optional[int]
-    include_bos: bool
-    allow_first_token_if_no_bos: bool
-    spared_prompt_index: Optional[int]
-    spared_prompt_kind: str
     wait_layer: int
     transfer_layers: int
     num_model_layers: int
@@ -244,16 +233,6 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Intervention mode: full_af1 = patch + mask, wait_only = patch only, "
             "mask_only = mask only."
-        ),
-    )
-    ap.add_argument("--include_bos", action=argparse.BooleanOptionalAction, default=True)
-    ap.add_argument(
-        "--allow_first_token_if_no_bos",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help=(
-            "If --include_bos is enabled but no real BOS token is detected, spare prompt position 0 "
-            "from the ABP mask instead."
         ),
     )
     ap.add_argument("--skip_hallway", action=argparse.BooleanOptionalAction, default=True)
@@ -446,8 +425,6 @@ def build_sample_layout(
     if not room_positions:
         raise RuntimeError(f"sample_id={sample_id}: empty room token span")
 
-    bos_token_id = getattr(processor.tokenizer, "bos_token_id", None)
-    bos_index = 0 if bos_token_id is not None and input_ids[0] == int(bos_token_id) else None
     carrier_index = prompt_len - 1
     prompt_decoded_tokens = decode_token_ids(input_ids)
 
@@ -461,7 +438,6 @@ def build_sample_layout(
         sample_id=sample_id,
         seq_len=len(frames),
         prompt_len=prompt_len,
-        bos_index=bos_index,
         carrier_index=carrier_index,
         carrier_token_id=int(input_ids[carrier_index]),
         carrier_token_text=sanitize_token_text(prompt_decoded_tokens[carrier_index]),
@@ -485,7 +461,6 @@ def _layout_signature_payload(layout: SampleLayout) -> Dict[str, Any]:
         "carrier_index": int(layout.carrier_index),
         "carrier_token_id": int(layout.carrier_token_id),
         "carrier_token_text": layout.carrier_token_text,
-        "bos_index": layout.bos_index,
         "image_tokens_per_frame": list(layout.image_tokens_per_frame),
         "frame_groups": [list(group) for group in layout.frame_groups],
         "room_span_len": int(layout.room_span_len),
@@ -506,8 +481,6 @@ def format_token_debug_rows(layout: SampleLayout) -> str:
     lines = ["idx\tid\ttoken\ttags"]
     for idx, token_id in enumerate(layout.prompt_input_ids):
         tags: List[str] = []
-        if layout.bos_index is not None and idx == layout.bos_index:
-            tags.append("BOS")
         if idx == layout.carrier_index:
             tags.append("CARRIER")
         if idx in frame_lookup:
@@ -788,47 +761,26 @@ def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) ->
 
     Transfer stage:
     - frame tokens may attend densely within their own frame block
-    - non-frame, non-carrier prompt tokens are self-only (plus BOS if enabled)
+    - non-frame, non-carrier prompt tokens are self-only
     - the carrier token may attend to all earlier prompt tokens and itself
 
     Post-transfer stage:
-    - everyone, including the carrier token, is self-only (plus BOS if enabled)
+    - everyone, including the carrier token, is self-only
     """
     allowed: set[int] = {int(query_idx)}
-    if policy.include_bos and policy.spared_prompt_index is not None:
-        allowed.add(int(policy.spared_prompt_index))
     if stage == "transfer":
         if int(query_idx) == int(policy.carrier_index):
             allowed.update(range(0, int(policy.carrier_index) + 1))
-            if not policy.include_bos and policy.spared_prompt_index is not None:
-                allowed.discard(int(policy.spared_prompt_index))
         else:
             same_frame_group = policy.frame_group_by_token.get(int(query_idx))
             if same_frame_group is not None:
                 allowed.update(int(position) for position in same_frame_group)
     return sorted(allowed)
 
-
-def resolve_spared_prompt_index(
-    layout: SampleLayout,
-    include_bos: bool,
-    allow_first_token_if_no_bos: bool,
-) -> Tuple[Optional[int], str]:
-    if not include_bos:
-        return None, "disabled"
-    if layout.bos_index is not None:
-        return int(layout.bos_index), "real_bos"
-    if allow_first_token_if_no_bos and int(layout.carrier_index) > 0:
-        return 0, "first_token_fallback"
-    return None, "no_bos_found"
-
-
 def build_abp_attention_policy(
     layout: SampleLayout,
     wait_layer: int,
     transfer_layers: int,
-    include_bos: bool,
-    allow_first_token_if_no_bos: bool,
 ) -> AttentionPolicy:
     """Create the multimodal AF1 ABP schedule.
 
@@ -847,19 +799,9 @@ def build_abp_attention_policy(
             f"wait_layer + transfer_layers must be <= {num_layers}; "
             f"received {wait_layer} + {transfer_layers}"
         )
-    spared_prompt_index, spared_prompt_kind = resolve_spared_prompt_index(
-        layout=layout,
-        include_bos=bool(include_bos),
-        allow_first_token_if_no_bos=bool(allow_first_token_if_no_bos),
-    )
     return AttentionPolicy(
         prompt_len=int(layout.prompt_len),
         carrier_index=int(layout.carrier_index),
-        bos_index=layout.bos_index,
-        include_bos=bool(include_bos),
-        allow_first_token_if_no_bos=bool(allow_first_token_if_no_bos),
-        spared_prompt_index=spared_prompt_index,
-        spared_prompt_kind=str(spared_prompt_kind),
         wait_layer=int(wait_layer),
         transfer_layers=int(transfer_layers),
         num_model_layers=int(num_layers),
@@ -908,7 +850,7 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
             position
             for group in layout.frame_groups
             for position in group
-            if position not in {layout.carrier_index, policy.spared_prompt_index}
+            if position != layout.carrier_index
         ),
         None,
     )
@@ -917,7 +859,7 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
             position
             for position in range(layout.prompt_len)
             if position not in policy.frame_group_by_token
-            and position not in {layout.carrier_index, policy.spared_prompt_index}
+            and position != layout.carrier_index
         ),
         None,
     )
@@ -929,12 +871,6 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         transfer_frame = _allowed_prompt_keys(frame_prompt_token, policy=policy, stage="transfer")
         same_frame_group = sorted(policy.frame_group_by_token[int(frame_prompt_token)])
         expected_frame = list(same_frame_group)
-        if (
-            policy.include_bos
-            and policy.spared_prompt_index is not None
-            and policy.spared_prompt_index not in expected_frame
-        ):
-            expected_frame = sorted(expected_frame + [policy.spared_prompt_index])
         if transfer_frame != expected_frame:
             raise RuntimeError(
                 f"ABP validation failed for frame token {frame_prompt_token}: "
@@ -949,12 +885,6 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
     if non_frame_prompt_token is not None:
         transfer_non_frame = _allowed_prompt_keys(non_frame_prompt_token, policy=policy, stage="transfer")
         expected_non_frame = [non_frame_prompt_token]
-        if (
-            policy.include_bos
-            and policy.spared_prompt_index is not None
-            and policy.spared_prompt_index != non_frame_prompt_token
-        ):
-            expected_non_frame = sorted(expected_non_frame + [policy.spared_prompt_index])
         if transfer_non_frame != expected_non_frame:
             raise RuntimeError(
                 f"ABP validation failed for non-frame token {non_frame_prompt_token}: "
@@ -966,8 +896,6 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         )
 
     expected_transfer_last = list(range(0, layout.carrier_index + 1))
-    if not policy.include_bos and policy.spared_prompt_index is not None:
-        expected_transfer_last = [idx for idx in expected_transfer_last if idx != policy.spared_prompt_index]
     if transfer_last != expected_transfer_last:
         raise RuntimeError(
             f"ABP validation failed for carrier transfer stage: "
@@ -975,12 +903,6 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         )
 
     expected_post_last = [layout.carrier_index]
-    if (
-        policy.include_bos
-        and policy.spared_prompt_index is not None
-        and policy.spared_prompt_index != layout.carrier_index
-    ):
-        expected_post_last = sorted(expected_post_last + [policy.spared_prompt_index])
     if post_last != expected_post_last:
         raise RuntimeError(
             f"ABP validation failed for carrier post-transfer stage: "
@@ -988,7 +910,6 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
         )
 
     return [
-        f"ABP spared prompt token: kind={policy.spared_prompt_kind} index={policy.spared_prompt_index}",
         frame_transfer_note,
         non_frame_transfer_note,
         f"ABP carrier allowed keys at transfer: query={layout.carrier_index} keys={transfer_last}",
@@ -1548,10 +1469,6 @@ def compute_frame_group_conditional_mean(
                 "donor_policy": donor_policy,
                 "donor_ids": list(donor_ids),
                 "layout_hash": layout_hash(target_sample.layout),
-                # BOS is not part of the cache key because these activations are
-                # captured before any ABP masking happens, so the BOS flag does
-                # not affect the cached wait-boundary activations.
-                "bos_affects_cached_activation": False,
                 "cache_semantics": (
                     "frame-group conditional mean at x^(L_wait) estimated from hybrid contexts "
                     "that keep the target frame fixed, replace the other frames with donor frames, "
@@ -1817,10 +1734,6 @@ def _evaluated_row(
             "wait_layer": int(policy.wait_layer),
             "transfer_layers": int(policy.transfer_layers),
             "transfer_layer_indices": json.dumps(list(policy.transfer_layer_indices)),
-            "include_bos": int(bool(policy.include_bos)),
-            "allow_first_token_if_no_bos": int(bool(policy.allow_first_token_if_no_bos)),
-            "spared_prompt_kind": policy.spared_prompt_kind,
-            "spared_prompt_index": "" if policy.spared_prompt_index is None else int(policy.spared_prompt_index),
             "k_donors": int(k_donors_requested),
             "num_frames": int(sample.layout.seq_len),
             "num_frame_groups": int(len(sample.layout.frame_groups)),
@@ -1847,8 +1760,6 @@ def _skipped_row(
     donor_ids: Optional[Sequence[str]] = None,
     wait_layer: Optional[int] = None,
     transfer_layers: Optional[int] = None,
-    include_bos: Optional[bool] = None,
-    allow_first_token_if_no_bos: Optional[bool] = None,
     k_donors: Optional[int] = None,
     layout_status: str = "skipped",
     layout_details: Optional[str] = None,
@@ -1866,10 +1777,6 @@ def _skipped_row(
             "donor_ids": json.dumps(list(donor_ids)) if donor_ids is not None else "",
             "wait_layer": "" if wait_layer is None else int(wait_layer),
             "transfer_layers": "" if transfer_layers is None else int(transfer_layers),
-            "include_bos": "" if include_bos is None else int(bool(include_bos)),
-            "allow_first_token_if_no_bos": (
-                "" if allow_first_token_if_no_bos is None else int(bool(allow_first_token_if_no_bos))
-            ),
             "k_donors": "" if k_donors is None else int(k_donors),
         }
     )
@@ -2034,9 +1941,7 @@ def main() -> None:
     runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     print(
-        f"[config] mode={args.mode} include_bos={bool(args.include_bos)} "
-        f"allow_first_token_if_no_bos={bool(args.allow_first_token_if_no_bos)} "
-        f"skip_hallway={bool(args.skip_hallway)}"
+        f"[config] mode={args.mode} skip_hallway={bool(args.skip_hallway)}"
     )
 
     output_dir = Path(args.output_dir)
@@ -2091,8 +1996,6 @@ def main() -> None:
                         "mode": args.mode,
                         "wait_layer": int(args.wait_layer),
                         "transfer_layers": int(args.transfer_layers),
-                        "include_bos": int(bool(args.include_bos)),
-                        "allow_first_token_if_no_bos": int(bool(args.allow_first_token_if_no_bos)),
                         "k_donors": int(args.k_donors),
                     }
                 )
@@ -2137,8 +2040,6 @@ def main() -> None:
                     layout=item.layout,
                     wait_layer=args.wait_layer,
                     transfer_layers=args.transfer_layers,
-                    include_bos=bool(args.include_bos),
-                    allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
                     k_donors=args.k_donors,
                     layout_status=report["status"],
                     layout_details=report["details"],
@@ -2181,8 +2082,6 @@ def main() -> None:
             layout=reference_layout,
             wait_layer=args.wait_layer,
             transfer_layers=args.transfer_layers,
-            include_bos=bool(args.include_bos),
-            allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
         )
         if enable_abp_mask:
             if args.debug_tokenization:
@@ -2248,8 +2147,6 @@ def main() -> None:
                         donor_ids=donor_ids,
                         wait_layer=args.wait_layer,
                         transfer_layers=args.transfer_layers,
-                        include_bos=bool(args.include_bos),
-                        allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
                         k_donors=args.k_donors,
                         layout_status="exact_match",
                         layout_details="exact_match",
@@ -2423,8 +2320,6 @@ def main() -> None:
             "device": args.device,
             "dtype": args.dtype,
             "seed": args.seed,
-            "include_bos": bool(args.include_bos),
-            "allow_first_token_if_no_bos": bool(args.allow_first_token_if_no_bos),
             "skip_hallway": bool(args.skip_hallway),
             "donor_policy": _DONOR_POLICY,
             "wait_layer_semantics": (

@@ -45,7 +45,6 @@ _PER_SAMPLE_FIELDS = [
     "clean_correct_prob",
     "clean_answer_score",
     "transfer_layers",
-    "allow_bos_attention",
     "non_frame_prompt_self_only",
     "carrier_index",
     "carrier_token",
@@ -88,18 +87,6 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--limit", type=int, default=1)
     ap.add_argument("--output", type=str, default="outputs/find_full_af1_mask_transition")
     ap.add_argument("--starting-layer", type=int, required=True, dest="starting_layer")
-    ap.add_argument(
-        "--allow_bos_attention",
-        type=_parse_bool,
-        default=False,
-        help="Whether the carrier is allowed to keep attending to BOS while all other previous tokens are masked.",
-    )
-    ap.add_argument(
-        "--allow_first_token_if_no_bos",
-        type=_parse_bool,
-        default=False,
-        help="If BOS attention is allowed but no real BOS token is present, optionally spare token position 0 instead.",
-    )
     ap.add_argument(
         "--non_frame_prompt_self_only",
         type=_parse_bool,
@@ -183,26 +170,11 @@ def parse_transfer_layer_selection(raw: str) -> List[int]:
 
 def resolve_blocked_key_positions(
     carrier_index: int,
-    bos_index: Optional[int],
-    allow_bos_attention: bool,
-    allow_first_token_if_no_bos: bool,
-) -> Tuple[List[int], Optional[int], str]:
-    spared_position: Optional[int] = None
-    spared_token_kind = "neither"
-    if allow_bos_attention:
-        if bos_index is not None:
-            spared_position = int(bos_index)
-            spared_token_kind = "real_bos"
-        elif allow_first_token_if_no_bos and int(carrier_index) > 0:
-            spared_position = 0
-            spared_token_kind = "first_token_fallback"
-
+) -> List[int]:
     blocked_positions: List[int] = []
     for position in range(int(carrier_index)):
-        if spared_position is not None and int(position) == int(spared_position):
-            continue
         blocked_positions.append(int(position))
-    return blocked_positions, spared_position, spared_token_kind
+    return blocked_positions
 
 
 def build_frame_group_by_token(layout: af1_utils.TokenLayout) -> Dict[int, Tuple[int, ...]]:
@@ -233,61 +205,43 @@ def allowed_transition_prompt_keys(
     query_idx: int,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool = False,
 ) -> Optional[List[int]]:
     if int(query_idx) == int(layout.carrier_index):
-        allowed = set(range(0, int(layout.carrier_index) + 1))
-        if spared_position is not None:
-            allowed.add(int(spared_position))
-        return sorted(allowed)
+        return list(range(0, int(layout.carrier_index) + 1))
 
     same_frame_group = frame_group_by_token.get(int(query_idx))
     if same_frame_group is None:
         return None
 
-    allowed = {int(position) for position in same_frame_group}
-    if spared_position is not None:
-        allowed.add(int(spared_position))
-    return sorted(allowed)
+    return sorted(int(position) for position in same_frame_group)
 
 
 def allowed_post_transfer_prompt_keys(
     query_idx: int,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool = False,
 ) -> Optional[List[int]]:
     if int(query_idx) == int(layout.carrier_index):
-        allowed = {int(layout.carrier_index)}
-        if spared_position is not None:
-            allowed.add(int(spared_position))
-        return sorted(allowed)
+        return [int(layout.carrier_index)]
 
     same_frame_group = frame_group_by_token.get(int(query_idx))
     if same_frame_group is None:
         if non_frame_prompt_self_only:
-            allowed = {int(query_idx)}
-            if spared_position is not None:
-                allowed.add(int(spared_position))
-            return sorted(allowed)
+            return [int(query_idx)]
         return None
 
-    allowed = {int(position) for position in same_frame_group}
-    if spared_position is not None:
-        allowed.add(int(spared_position))
-    return sorted(allowed)
+    return sorted(int(position) for position in same_frame_group)
 
 
 def build_frame_aware_prompt_attention_mask(
     base_mask: torch.Tensor,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
     allowed_prompt_keys_fn: Callable[
-        [int, af1_utils.TokenLayout, Dict[int, Tuple[int, ...]], Optional[int], bool],
+        [int, af1_utils.TokenLayout, Dict[int, Tuple[int, ...]], bool],
         Optional[List[int]],
     ],
 ) -> torch.Tensor:
@@ -310,7 +264,6 @@ def build_frame_aware_prompt_attention_mask(
             query_idx=query_idx,
             layout=layout,
             frame_group_by_token=frame_group_by_token,
-            spared_position=spared_position,
             non_frame_prompt_self_only=non_frame_prompt_self_only,
         )
         if allowed_keys is None:
@@ -332,14 +285,12 @@ def build_transition_attention_mask(
     base_mask: torch.Tensor,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
 ) -> torch.Tensor:
     return build_frame_aware_prompt_attention_mask(
         base_mask=base_mask,
         layout=layout,
         frame_group_by_token=frame_group_by_token,
-        spared_position=spared_position,
         non_frame_prompt_self_only=non_frame_prompt_self_only,
         allowed_prompt_keys_fn=allowed_transition_prompt_keys,
     )
@@ -349,14 +300,12 @@ def build_post_transfer_attention_mask(
     base_mask: torch.Tensor,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
 ) -> torch.Tensor:
     return build_frame_aware_prompt_attention_mask(
         base_mask=base_mask,
         layout=layout,
         frame_group_by_token=frame_group_by_token,
-        spared_position=spared_position,
         non_frame_prompt_self_only=non_frame_prompt_self_only,
         allowed_prompt_keys_fn=allowed_post_transfer_prompt_keys,
     )
@@ -379,7 +328,6 @@ def run_model_with_last_token_mask(
     layers: Any,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
     start_layer: int,
     transfer_layers: int,
@@ -409,7 +357,6 @@ def run_model_with_last_token_mask(
                     expanded_mask,
                     layout=layout,
                     frame_group_by_token=frame_group_by_token,
-                    spared_position=spared_position,
                     non_frame_prompt_self_only=non_frame_prompt_self_only,
                 )
             elif layer_stage == "post_transfer":
@@ -417,7 +364,6 @@ def run_model_with_last_token_mask(
                     expanded_mask,
                     layout=layout,
                     frame_group_by_token=frame_group_by_token,
-                    spared_position=spared_position,
                     non_frame_prompt_self_only=non_frame_prompt_self_only,
                 )
             else:
@@ -443,7 +389,6 @@ def run_window_ablation_logprob(
     layers: Any,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
     start_layer: int,
     transfer_layers: int,
@@ -455,7 +400,6 @@ def run_window_ablation_logprob(
         layers=layers,
         layout=layout,
         frame_group_by_token=frame_group_by_token,
-        spared_position=spared_position,
         non_frame_prompt_self_only=non_frame_prompt_self_only,
         start_layer=start_layer,
         transfer_layers=transfer_layers,
@@ -470,7 +414,6 @@ def run_window_ablation_logprob(
 def format_transition_mask_debug(
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
 ) -> str:
     frame_sizes = [len(group) for group in layout.frame_groups]
@@ -487,18 +430,14 @@ def format_transition_mask_debug(
                     query_idx=int(query_idx),
                     layout=layout,
                     frame_group_by_token=frame_group_by_token,
-                    spared_position=spared_position,
                     non_frame_prompt_self_only=non_frame_prompt_self_only,
                 )
                 or []
             )
-            allowed_without_spared = set(allowed_keys)
-            if spared_position is not None:
-                allowed_without_spared.discard(int(spared_position))
-            if not group_set.issubset(allowed_without_spared):
+            if not group_set.issubset(allowed_keys):
                 dense_intra_frame_policy = False
             other_frame_positions = set(frame_group_by_token) - group_set
-            if allowed_without_spared & other_frame_positions:
+            if allowed_keys & other_frame_positions:
                 cross_frame_isolation = False
     return (
         f"transition_frame_blocks frames={len(layout.frame_groups)} "
@@ -514,22 +453,17 @@ def format_transition_mask_debug(
 def format_post_transfer_mask_debug(
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
 ) -> str:
     carrier_allowed_keys = allowed_post_transfer_prompt_keys(
         query_idx=int(layout.carrier_index),
         layout=layout,
         frame_group_by_token=frame_group_by_token,
-        spared_position=spared_position,
         non_frame_prompt_self_only=non_frame_prompt_self_only,
     ) or []
-    expected_keys = {int(layout.carrier_index)}
-    if spared_position is not None:
-        expected_keys.add(int(spared_position))
     return (
         f"post_transfer_carrier_allowed_keys={carrier_allowed_keys} "
-        f"carrier_self_only={set(carrier_allowed_keys) == expected_keys} "
+        f"carrier_self_only={set(carrier_allowed_keys) == {int(layout.carrier_index)}} "
         f"non_frame_prompt_self_only={bool(non_frame_prompt_self_only)}"
     )
 
@@ -585,7 +519,6 @@ def compute_metrics_for_transfer_length(
     layers: Any,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
-    spared_position: Optional[int],
     non_frame_prompt_self_only: bool,
     prompt_len: int,
     gold_answer_ids: List[int],
@@ -614,7 +547,7 @@ def compute_metrics_for_transfer_length(
         if transfer_layer is not None:
             print(
                 f"{debug_prefix} representative_transfer_layer={int(transfer_layer)} "
-                f"{format_transition_mask_debug(layout, frame_group_by_token, spared_position, non_frame_prompt_self_only)}"
+                f"{format_transition_mask_debug(layout, frame_group_by_token, non_frame_prompt_self_only)}"
             )
         post_transfer_layer = next(
             (
@@ -637,19 +570,18 @@ def compute_metrics_for_transfer_length(
         else:
             print(
                 f"{debug_prefix} representative_post_transfer_layer={int(post_transfer_layer)} "
-                f"{format_post_transfer_mask_debug(layout, frame_group_by_token, spared_position, non_frame_prompt_self_only)}"
+                f"{format_post_transfer_mask_debug(layout, frame_group_by_token, non_frame_prompt_self_only)}"
             )
     try:
         ablated_answer_score = run_window_ablation_logprob(
             gold_scoring_inputs,
             layers=layers,
-                layout=layout,
-                frame_group_by_token=frame_group_by_token,
-                spared_position=spared_position,
-                non_frame_prompt_self_only=non_frame_prompt_self_only,
-                start_layer=int(boundary_layer),
-                transfer_layers=transfer_layers,
-                prompt_len=prompt_len,
+            layout=layout,
+            frame_group_by_token=frame_group_by_token,
+            non_frame_prompt_self_only=non_frame_prompt_self_only,
+            start_layer=int(boundary_layer),
+            transfer_layers=transfer_layers,
+            prompt_len=prompt_len,
             answer_token_ids=gold_answer_ids,
         )
     except Exception as exc:
@@ -694,8 +626,6 @@ def compute_sample_payload(
     total_samples: int,
     layers: Any,
     starting_layer: int,
-    allow_bos_attention: bool,
-    allow_first_token_if_no_bos: bool,
     non_frame_prompt_self_only: bool,
     min_clean_correct_prob: Optional[float],
     debug_masks: bool,
@@ -719,17 +649,14 @@ def compute_sample_payload(
         print(f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: input/layout build failed ({exc})")
         return None
 
-    blocked_key_positions, spared_position, spared_token_kind = resolve_blocked_key_positions(
+    blocked_key_positions = resolve_blocked_key_positions(
         carrier_index=int(layout.carrier_index),
-        bos_index=layout.bos_index,
-        allow_bos_attention=allow_bos_attention,
-        allow_first_token_if_no_bos=allow_first_token_if_no_bos,
     )
     frame_group_by_token = build_frame_group_by_token(layout)
     if debug_masks:
         print(
             f"[debug][{sample_index}/{total_samples}] sample_id={sample_id} "
-            f"{format_transition_mask_debug(layout, frame_group_by_token, spared_position, non_frame_prompt_self_only)}"
+            f"{format_transition_mask_debug(layout, frame_group_by_token, non_frame_prompt_self_only)}"
         )
 
     prompt_len = int(layout.prompt_len)
@@ -772,10 +699,7 @@ def compute_sample_payload(
         f"carrier_index={layout.carrier_index} "
         f"legacy_blocked_tokens={len(blocked_key_positions)} "
         f"transfer_layers={json.dumps([int(value) for value in transfer_lengths])} "
-        f"allow_bos_attention={bool(allow_bos_attention)} "
         f"non_frame_prompt_self_only={bool(non_frame_prompt_self_only)} "
-        f"bos_handling={spared_token_kind} "
-        f"spared_position={'none' if spared_position is None else int(spared_position)}"
     )
 
     results_by_transfer_length: Dict[str, Dict[str, Any]] = {}
@@ -788,7 +712,6 @@ def compute_sample_payload(
             layers=layers,
             layout=layout,
             frame_group_by_token=frame_group_by_token,
-            spared_position=spared_position,
             non_frame_prompt_self_only=non_frame_prompt_self_only,
             prompt_len=prompt_len,
             gold_answer_ids=gold_answer_ids,
@@ -821,11 +744,7 @@ def compute_sample_payload(
         "clean_correct": int(clean_correct),
         "clean_correct_prob": float(clean_correct_prob),
         "clean_answer_score": float(clean_answer_score),
-        "allow_bos_attention": bool(allow_bos_attention),
-        "allow_first_token_if_no_bos": bool(allow_first_token_if_no_bos),
         "non_frame_prompt_self_only": bool(non_frame_prompt_self_only),
-        "spared_position": spared_position,
-        "spared_token_kind": spared_token_kind,
         "carrier_index": int(layout.carrier_index),
         "carrier_token": str(layout.carrier_token_text),
         "blocked_token_count": int(len(blocked_key_positions)),
@@ -1294,7 +1213,6 @@ def build_per_sample_rows(
                 "clean_correct_prob": float(sample["clean_correct_prob"]),
                 "clean_answer_score": float(sample["clean_answer_score"]),
                 "transfer_layers": json.dumps(sample.get("transfer_lengths", [])),
-                "allow_bos_attention": int(bool(sample["allow_bos_attention"])),
                 "non_frame_prompt_self_only": int(bool(sample["non_frame_prompt_self_only"])),
                 "carrier_index": int(sample["carrier_index"]),
                 "carrier_token": sample["carrier_token"],
@@ -1417,8 +1335,6 @@ def write_outputs(
         "limit": int(args.limit),
         "starting_layer": int(starting_layer),
         "transfer_layers": [int(value) for value in transfer_lengths],
-        "allow_bos_attention": bool(args.allow_bos_attention),
-        "allow_first_token_if_no_bos": bool(args.allow_first_token_if_no_bos),
         "non_frame_prompt_self_only": bool(args.non_frame_prompt_self_only),
         "min_clean_correct_prob": (
             None if args.min_clean_correct_prob is None else float(args.min_clean_correct_prob)
@@ -1430,10 +1346,9 @@ def write_outputs(
         ),
         "blocked_keys_definition": (
             "per-sample blocked_token_count is retained as a legacy carrier-only compatibility/debug count of "
-            "previous prompt tokens before the carrier excluding any spared BOS/first-token fallback; under the "
-            "active mask, frame-token queries are restricted to their own frame block (plus optional spared "
-            "BOS/first token), non-frame prompt rows keep the base mask during transfer, and if "
-            "non_frame_prompt_self_only is enabled they become self-plus-optional-spared-token only after "
+            "previous prompt tokens before the carrier; under the active mask, frame-token queries are "
+            "restricted to their own frame block, non-frame prompt rows keep the base mask during transfer, "
+            "and if non_frame_prompt_self_only is enabled they become self-only only after "
             "transfer; the carrier keeps access to earlier prompt tokens during transfer before becoming "
             "self-only after transfer"
         ),
@@ -1493,8 +1408,6 @@ def main() -> None:
             total_samples=len(sample_dirs),
             layers=layers,
             starting_layer=starting_layer,
-            allow_bos_attention=bool(args.allow_bos_attention),
-            allow_first_token_if_no_bos=bool(args.allow_first_token_if_no_bos),
             non_frame_prompt_self_only=bool(args.non_frame_prompt_self_only),
             min_clean_correct_prob=args.min_clean_correct_prob,
             debug_masks=bool(args.debug_masks),
@@ -1534,8 +1447,6 @@ def main() -> None:
         f"(target limit={int(args.limit)}, scanned={scanned_samples}/{len(sample_dirs)}, "
         f"starting_layer={int(starting_layer)}, "
         f"transfer_layers={json.dumps([int(value) for value in transfer_lengths])}, "
-        f"allow_bos_attention={bool(args.allow_bos_attention)}, "
-        f"allow_first_token_if_no_bos={bool(args.allow_first_token_if_no_bos)}, "
         f"non_frame_prompt_self_only={bool(args.non_frame_prompt_self_only)}, "
         f"min_clean_correct_prob="
         f"{'none' if args.min_clean_correct_prob is None else f'{float(args.min_clean_correct_prob):.4f}'})."
