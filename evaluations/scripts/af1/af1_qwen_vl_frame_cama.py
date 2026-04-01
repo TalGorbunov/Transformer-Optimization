@@ -37,7 +37,7 @@ Important method notes:
   "replace x^(L_wait), then restrict attention afterward" semantics.
 
 Example:
-python evaluations/scripts/af1_qwen_vl_frame_cama.py \
+python evaluations/scripts/af1/af1_qwen_vl_frame_cama.py \
   --split train \
   --seq_lens 8 \
   --max_samples 8 \
@@ -63,7 +63,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 import matplotlib.pyplot as plt
 import torch
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
