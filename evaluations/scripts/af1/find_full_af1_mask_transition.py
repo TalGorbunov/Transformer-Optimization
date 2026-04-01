@@ -1,13 +1,16 @@
 """
 Find full-AF1 masking score-drop curves as a function of transfer length for one start layer.
 
-For each retained MMRed sample:
+For each retained MMRed sample in the clean-correct analysis:
 - define the carrier as the final prompt token before answer generation
 - score the clean gold answer
 - for one tested start layer l and every tested transfer length t:
   - at layers l .. l + t - 1, apply the frame-aware transition mask
   - at layers >= l + t, apply the post-transfer AF1 mask
 - record score_drop = clean_answer_score - ablated_answer_score
+
+In parallel, the script also computes an all-samples aggregate curve that uses
+each sample's frozen clean top-1 answer as the target under masking.
 """
 
 import argparse
@@ -34,6 +37,7 @@ from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
 from models.model import force_eager_attention_backend, get_layers, model as base_model
 
 _RESULTS_KEY = "full_af1_results"
+_ALL_SAMPLES_RESULTS_KEY = "full_af1_results_all_samples_clean_top1"
 _PLOT_COLOR = "#ff7f0e"
 _PER_SAMPLE_FIELDS = [
     "sample_id",
@@ -515,13 +519,13 @@ def compute_metrics_for_transfer_length(
     starting_layer: int,
     num_layers: int,
     clean_answer_score: float,
-    gold_scoring_inputs: Dict[str, torch.Tensor],
+    target_scoring_inputs: Dict[str, torch.Tensor],
     layers: Any,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
     non_frame_prompt_self_only: bool,
     prompt_len: int,
-    gold_answer_ids: List[int],
+    target_answer_ids: List[int],
     transfer_layers: int,
     debug_masks: bool,
 ) -> Dict[str, Any]:
@@ -574,7 +578,7 @@ def compute_metrics_for_transfer_length(
             )
     try:
         ablated_answer_score = run_window_ablation_logprob(
-            gold_scoring_inputs,
+            target_scoring_inputs,
             layers=layers,
             layout=layout,
             frame_group_by_token=frame_group_by_token,
@@ -582,7 +586,7 @@ def compute_metrics_for_transfer_length(
             start_layer=int(boundary_layer),
             transfer_layers=transfer_layers,
             prompt_len=prompt_len,
-            answer_token_ids=gold_answer_ids,
+            answer_token_ids=target_answer_ids,
         )
     except Exception as exc:
         print(
@@ -661,7 +665,6 @@ def compute_sample_payload(
 
     prompt_len = int(layout.prompt_len)
     gold_answer_text = str(answer_text).strip()
-    gold_answer_ids = core.token_ids_of_answer(gold_answer_text)
 
     clean_metrics = af1_utils.score_valid_numeric_answers_with_runner(
         clean_inputs,
@@ -671,29 +674,36 @@ def compute_sample_payload(
     )
     clean_pred = str(clean_metrics["best_answer_text"]).strip()
     clean_correct = int(clean_pred == gold_answer_text)
+    retained_for_main_plot = bool(clean_correct)
     if not clean_correct:
         print(
-            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
-            f"clean top-1 is {clean_pred!r}, not gold answer {gold_answer_text!r}"
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} excluded from clean-correct plot: "
+            f"clean top-1 is {clean_pred!r}, not gold answer {gold_answer_text!r}; "
+            "keeping all-samples clean-top1 analysis"
         )
-        return None
 
     clean_answer_score = float(clean_metrics["scores_by_answer"].get(gold_answer_text, float("-inf")))
     clean_correct_prob = float(clean_metrics["probs_by_answer"].get(gold_answer_text, 0.0))
-    if min_clean_correct_prob is not None and clean_correct_prob < float(min_clean_correct_prob):
+    if retained_for_main_plot and min_clean_correct_prob is not None and clean_correct_prob < float(min_clean_correct_prob):
         print(
-            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} excluded from clean-correct plot: "
             f"clean_correct_prob={clean_correct_prob:.4f} < "
-            f"min_clean_correct_prob={float(min_clean_correct_prob):.4f}"
+            f"min_clean_correct_prob={float(min_clean_correct_prob):.4f}; "
+            "keeping all-samples clean-top1 analysis"
         )
-        return None
+        retained_for_main_plot = False
 
-    gold_scoring_inputs = core.append_answer_tokens_for_scoring(clean_inputs, gold_answer_ids)
+    target_answer_text = clean_pred
+    target_answer_ids = core.token_ids_of_answer(target_answer_text)
+    target_scoring_inputs = core.append_answer_tokens_for_scoring(clean_inputs, target_answer_ids)
+    clean_target_score = float(clean_metrics["best_score"])
     num_layers = int(len(layers))
 
     print(
         f"[{sample_index}/{total_samples}] sample_id={sample_id} "
         f"clean_answer_score={clean_answer_score:.4f} "
+        f"clean_top1_target={target_answer_text!r} "
+        f"clean_top1_score={clean_target_score:.4f} "
         f"clean_correct_prob={clean_correct_prob:.4f} "
         f"starting_layer={int(starting_layer)} "
         f"carrier_index={layout.carrier_index} "
@@ -707,14 +717,14 @@ def compute_sample_payload(
         metrics = compute_metrics_for_transfer_length(
             starting_layer=int(starting_layer),
             num_layers=num_layers,
-            clean_answer_score=clean_answer_score,
-            gold_scoring_inputs=gold_scoring_inputs,
+            clean_answer_score=clean_target_score,
+            target_scoring_inputs=target_scoring_inputs,
             layers=layers,
             layout=layout,
             frame_group_by_token=frame_group_by_token,
             non_frame_prompt_self_only=non_frame_prompt_self_only,
             prompt_len=prompt_len,
-            gold_answer_ids=gold_answer_ids,
+            target_answer_ids=target_answer_ids,
             transfer_layers=int(transfer_length),
             debug_masks=debug_masks,
         )
@@ -726,14 +736,15 @@ def compute_sample_payload(
             f"peak_score_drop={_format_float_or_na(metrics['peak_score_drop'])}"
         )
 
-    print(format_per_sample_score_drop_table({
-        "sample_id": sample_id,
-        "clean_answer_score": clean_answer_score,
-        "clean_correct_prob": clean_correct_prob,
-        "starting_layer": int(starting_layer),
-        "transfer_lengths": [int(value) for value in transfer_lengths],
-        _RESULTS_KEY: results_by_transfer_length,
-    }))
+    if retained_for_main_plot:
+        print(format_per_sample_score_drop_table({
+            "sample_id": sample_id,
+            "clean_answer_score": clean_answer_score,
+            "clean_correct_prob": clean_correct_prob,
+            "starting_layer": int(starting_layer),
+            "transfer_lengths": [int(value) for value in transfer_lengths],
+            _RESULTS_KEY: results_by_transfer_length,
+        }))
 
     return {
         "sample_id": sample_id,
@@ -742,6 +753,7 @@ def compute_sample_payload(
         "gold_answer": gold_answer_text,
         "clean_pred": clean_pred,
         "clean_correct": int(clean_correct),
+        "retained_for_main_plot": int(bool(retained_for_main_plot)),
         "clean_correct_prob": float(clean_correct_prob),
         "clean_answer_score": float(clean_answer_score),
         "non_frame_prompt_self_only": bool(non_frame_prompt_self_only),
@@ -750,7 +762,8 @@ def compute_sample_payload(
         "blocked_token_count": int(len(blocked_key_positions)),
         "starting_layer": int(starting_layer),
         "transfer_lengths": [int(value) for value in transfer_lengths],
-        _RESULTS_KEY: results_by_transfer_length,
+        _ALL_SAMPLES_RESULTS_KEY: results_by_transfer_length,
+        **({_RESULTS_KEY: results_by_transfer_length} if retained_for_main_plot else {}),
     }
 
 
@@ -890,12 +903,13 @@ def format_per_sample_score_drop_table(sample_payload: Dict[str, Any]) -> str:
 def build_transfer_length_summary_rows(
     sample_payloads: Sequence[Dict[str, Any]],
     transfer_lengths: Sequence[int],
+    results_key: str = _RESULTS_KEY,
 ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for transfer_length in transfer_lengths:
         values: List[float] = []
         for sample in sample_payloads:
-            for layer_row in sample.get(_RESULTS_KEY, {}).get(str(int(transfer_length)), {}).get("layers", []):
+            for layer_row in sample.get(results_key, {}).get(str(int(transfer_length)), {}).get("layers", []):
                 if layer_row.get("score_drop") is None:
                     continue
                 values.append(float(layer_row["score_drop"]))
@@ -1300,6 +1314,7 @@ def estimate_transition_window(
 
 def write_outputs(
     sample_payloads: List[Dict[str, Any]],
+    all_sample_payloads: List[Dict[str, Any]],
     aggregate_rows: List[Dict[str, Any]],
     output_dir: Path,
     seq_len_label: Optional[str],
@@ -1321,11 +1336,29 @@ def write_outputs(
 
     summary_rows = build_transfer_length_summary_rows(sample_payloads, transfer_lengths)
     aggregate_plot_path: Optional[Path] = None
+    all_samples_summary_rows = build_transfer_length_summary_rows(
+        all_sample_payloads,
+        transfer_lengths,
+        results_key=_ALL_SAMPLES_RESULTS_KEY,
+    )
+    all_samples_clean_top1_plot_path: Optional[Path] = None
     if not args.disable_plots:
         aggregate_plot_path = plot_transfer_length_summary(
             summary_rows,
             output_dir / f"full_af1_mean_score_drop_by_transfer_layers{f'_{seq_len_label}' if seq_len_label else ''}.png",
             title=f"Mean full-AF1 score drop by transfer layers (start_layer={int(starting_layer)})",
+            seq_len_label=seq_len_label,
+        )
+        all_samples_clean_top1_plot_path = plot_transfer_length_summary(
+            all_samples_summary_rows,
+            output_dir / (
+                f"full_af1_mean_score_drop_by_transfer_layers"
+                f"{f'_{seq_len_label}' if seq_len_label else ''}_all_samples_clean_top1.png"
+            ),
+            title=(
+                f"Mean full-AF1 score drop by transfer layers on frozen clean top-1 targets "
+                f"(all samples; start_layer={int(starting_layer)})"
+            ),
             seq_len_label=seq_len_label,
         )
 
@@ -1355,8 +1388,12 @@ def write_outputs(
         "num_total_sample_dirs": int(total_sample_dirs),
         "num_scanned_samples": int(scanned_samples),
         "num_retained_samples": int(len(sample_payloads)),
+        "num_all_samples_clean_top1": int(len(all_sample_payloads)),
         "per_sample_plot_dir": None if args.disable_plots else str(per_sample_plot_dir),
         "aggregate_plot": None if aggregate_plot_path is None else str(aggregate_plot_path),
+        "aggregate_plot_all_samples_clean_top1": (
+            None if all_samples_clean_top1_plot_path is None else str(all_samples_clean_top1_plot_path)
+        ),
         "per_sample_csv": str(per_sample_csv_path),
         "aggregate_csv": str(aggregate_csv_path),
         "runtime": eval_utils.format_runtime(elapsed_seconds),
@@ -1367,6 +1404,10 @@ def write_outputs(
         print(f"Wrote aggregate plot to: {aggregate_plot_path}")
     else:
         print("Aggregate plot was not written.")
+    if all_samples_clean_top1_plot_path is not None:
+        print(f"Wrote all-samples clean-top1 aggregate plot to: {all_samples_clean_top1_plot_path}")
+    else:
+        print("All-samples clean-top1 aggregate plot was not written.")
     print(f"Wrote per-sample CSV to: {per_sample_csv_path}")
     print(f"Wrote aggregate-by-transfer-length CSV to: {aggregate_csv_path}")
     print(f"Wrote summary JSON to: {summary_json_path}")
@@ -1397,6 +1438,7 @@ def main() -> None:
     transfer_lengths = parse_transfer_layer_selection(args.transfer_layers)
 
     sample_payloads: List[Dict[str, Any]] = []
+    all_sample_payloads: List[Dict[str, Any]] = []
     scanned_samples = 0
     for sample_index, sample_dir in enumerate(sample_dirs, start=1):
         if len(sample_payloads) >= int(args.limit):
@@ -1415,6 +1457,9 @@ def main() -> None:
         )
         if sample_payload is None:
             continue
+        all_sample_payloads.append(sample_payload)
+        if not bool(sample_payload.get("retained_for_main_plot")):
+            continue
         if not args.disable_plots:
             per_sample_plot_path = plot_per_sample_summary_by_transfer_length(
                 sample_payload,
@@ -1431,6 +1476,7 @@ def main() -> None:
     )
     write_outputs(
         sample_payloads=sample_payloads,
+        all_sample_payloads=all_sample_payloads,
         aggregate_rows=aggregate_rows,
         output_dir=output_dir,
         seq_len_label=seq_len_label,
@@ -1444,7 +1490,8 @@ def main() -> None:
 
     print(
         f"Retained {len(sample_payloads)} samples "
-        f"(target limit={int(args.limit)}, scanned={scanned_samples}/{len(sample_dirs)}, "
+        f"(all-samples clean-top1 set={len(all_sample_payloads)}, "
+        f"target limit={int(args.limit)}, scanned={scanned_samples}/{len(sample_dirs)}, "
         f"starting_layer={int(starting_layer)}, "
         f"transfer_layers={json.dumps([int(value) for value in transfer_lengths])}, "
         f"non_frame_prompt_self_only={bool(args.non_frame_prompt_self_only)}, "
