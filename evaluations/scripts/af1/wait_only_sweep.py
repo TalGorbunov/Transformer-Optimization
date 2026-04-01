@@ -17,7 +17,7 @@ Important method notes:
 - Donor hybrids keep the target prompt/question fixed while donor frames vary,
   and wait-boundary patching is applied to frame groups plus one all-non-frame
   prompt token set.
-- `score_drop` is defined from the gold-answer sequence score:
+- `score_drop` is defined from the clean top-1 answer's sequence score:
   `clean_score - intervention_score`.
 
 Example:
@@ -1220,8 +1220,8 @@ def run_intervention_sample(
     )
 
 
-def _gold_answer_score(metrics: Dict[str, Any], gold_answer: str) -> float:
-    return float(metrics["scores_by_answer"].get(gold_answer, float("-inf")))
+def _score_of_answer_text(metrics: Dict[str, Any], answer_text: str) -> float:
+    return float(metrics["scores_by_answer"].get(answer_text, float("-inf")))
 
 
 def _evaluated_row(
@@ -1236,8 +1236,8 @@ def _evaluated_row(
     af1_pred = str(af1_metrics["best_answer_text"]).strip()
     clean_correct = int(clean_pred == sample.gold_answer)
     af1_correct = int(af1_pred == sample.gold_answer)
-    clean_score = _gold_answer_score(clean_metrics, sample.gold_answer)
-    intervention_score = _gold_answer_score(af1_metrics, sample.gold_answer)
+    clean_score = float(clean_metrics["best_score"])
+    intervention_score = _score_of_answer_text(af1_metrics, clean_pred)
     row = _empty_row(MODEL_ID, sample_id=sample.sample_id, seq_len=sample.layout.seq_len)
     row.update(
         {
@@ -1500,7 +1500,7 @@ def write_markdown_summary(
         "- `wait_layer` uses the same AF1 `L_wait` semantics as the source script.",
         "- Conditional-mean patching is applied to frame token groups plus one all-non-frame prompt token set.",
         "- No ABP masking is applied anywhere in this sweep.",
-        "- `score_drop = clean_score - intervention_score`, where both scores are gold-answer sequence scores.",
+        "- `score_drop = clean_score - intervention_score`, where both scores are taken for the frozen clean top-1 answer.",
         "- `n_total` counts selected samples and `n_used` counts samples that passed compatibility and donor checks.",
         "",
         "## Validation",
@@ -1911,7 +1911,7 @@ def main() -> None:
                 "wait_layer is AF1 L_wait measured in number of waiting layers; "
                 "if wait_layer > 0 then x^(L_wait) is patched at layer output wait_layer - 1"
             ),
-            "score_drop_semantics": "score_drop = clean_score - intervention_score on the gold answer",
+            "score_drop_semantics": "score_drop = clean_score - intervention_score on the frozen clean top-1 answer",
         },
         summary_rows=summary_rows,
         validation_notes=validation_notes,
