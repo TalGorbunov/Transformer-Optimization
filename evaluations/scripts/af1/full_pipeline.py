@@ -41,10 +41,10 @@ Important method notes:
 Example:
 python evaluations/scripts/af1/full_pipeline.py \
   --split train \
-  --seq_lens 8 \
+  --seq_len 8 \
   --max_samples 8 \
-  --wait_layer 40 \
-  --transfer_layers 2 \
+  --wait_layers 40 \
+  --transfer_layers_grid 2 \
   --k_donors 4 \
   --output_dir outputs/af1_qwen_vl_frame_cama
 """
@@ -52,6 +52,7 @@ python evaluations/scripts/af1/full_pipeline.py \
 import argparse
 import csv
 import hashlib
+import io
 import json
 import random
 import sys
@@ -62,7 +63,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
+import numpy as np
 import torch
+
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    plt = None
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
@@ -86,13 +93,18 @@ _VALID_MODES = ("full_af1", "wait_only", "mask_only")
 _INSTRUCTION_TRANSFER_PROMPT_SPAN = "Output only the integer.\n"
 _SUMMARY_FIELDS = [
     "model",
+    "mode",
     "seq_len",
+    "wait_layer",
+    "transfer_layers",
     "n_total",
     "n_used",
     "n_clean_correct",
     "clean_acc",
     "af1_acc",
     "af1_faith",
+    "mean_clean_top1_score_drop",
+    "mean_gold_answer_score_drop",
 ]
 _PER_SAMPLE_FIELDS = [
     "model",
@@ -106,6 +118,9 @@ _PER_SAMPLE_FIELDS = [
     "clean_gold_prob",
     "clean_best_score",
     "clean_margin_over_second",
+    "af1_clean_top1_score",
+    "clean_top1_score_drop",
+    "gold_answer_score_drop",
     "af1_pred",
     "af1_correct",
     "af1_gold_prob",
@@ -201,23 +216,29 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--model_name", type=str, default=MODEL_ID)
     ap.add_argument("--data_root_base", type=str, default="data/mmred_images")
     ap.add_argument("--split", type=str, default="all")
-    ap.add_argument("--seq_lens", type=int, nargs="+", default=[2, 4, 8, 16])
+    ap.add_argument("--seq_len", type=int, required=True)
     ap.add_argument("--max_samples", type=int, default=8)
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument(
-        "--wait_layer",
-        type=int,
-        default=40,
+        "--wait_layers",
+        type=str,
+        nargs="+",
+        required=True,
         help=(
-            "AF1 wait boundary L_wait measured in number of layers. "
+            "AF1 wait boundaries L_wait measured in number of layers. "
+            "Accepts integers and inclusive start:end:step ranges like 20:40:2. "
             "If wait_layer > 0, x^(L_wait) is patched at the output of layer wait_layer - 1."
         ),
     )
     ap.add_argument(
-        "--transfer_layers",
-        type=int,
-        default=2,
-        help="Number of ABP transfer layers after the wait boundary.",
+        "--transfer_layers_grid",
+        type=str,
+        nargs="+",
+        required=True,
+        help=(
+            "Transfer-layer counts to sweep after the wait boundary. "
+            "Accepts integers and inclusive start:end:step ranges like 1:8:1."
+        ),
     )
     ap.add_argument(
         "--k_donors",
@@ -261,6 +282,45 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument("--debug_tokenization", action="store_true")
     return ap.parse_args()
+
+
+def parse_layer_grid(raw_values: Sequence[str], arg_name: str) -> Tuple[List[int], int]:
+    parsed_layers: List[int] = []
+    tick_steps: List[int] = []
+    for raw_value in raw_values:
+        token = str(raw_value).strip()
+        if not token:
+            continue
+        if ":" not in token:
+            parsed_layers.append(int(token))
+            continue
+
+        parts = token.split(":")
+        if len(parts) != 3:
+            raise ValueError(
+                f"Invalid layer range {token!r} for {arg_name}; expected start:end:step."
+            )
+        start, end, step = (int(part) for part in parts)
+        if step == 0:
+            raise ValueError(f"Invalid layer range {token!r} for {arg_name}; step must be non-zero.")
+        if step > 0 and start > end:
+            raise ValueError(
+                f"Invalid layer range {token!r} for {arg_name}; positive step requires start <= end."
+            )
+        if step < 0 and start < end:
+            raise ValueError(
+                f"Invalid layer range {token!r} for {arg_name}; negative step requires start >= end."
+            )
+
+        tick_steps.append(abs(int(step)))
+        stop = end + (1 if step > 0 else -1)
+        parsed_layers.extend(list(range(start, stop, step)))
+
+    if not parsed_layers:
+        raise ValueError(f"{arg_name} must resolve to at least one layer value.")
+    deduped_sorted_layers = sorted(set(int(layer) for layer in parsed_layers))
+    tick_step = min(tick_steps) if tick_steps else 1
+    return deduped_sorted_layers, int(tick_step)
 
 
 def parse_dtype(dtype_name: str) -> torch.dtype:
@@ -558,6 +618,47 @@ def _empty_row(model_name: str, sample_id: str, seq_len: int) -> Dict[str, Any]:
     row["sample_id"] = sample_id
     row["seq_len"] = int(seq_len)
     return row
+
+
+def _required_score_of_answer_text(metrics: Dict[str, Any], answer_text: str, label: str) -> float:
+    if answer_text not in metrics["scores_by_answer"]:
+        raise KeyError(f"{label} scores are missing answer {answer_text!r}")
+    return float(metrics["scores_by_answer"][answer_text])
+
+
+def compute_clean_top1_score_drop(clean_metrics: Dict[str, Any], af1_metrics: Dict[str, Any]) -> Dict[str, float]:
+    clean_top1 = str(clean_metrics["best_answer_text"]).strip()
+    clean_top1_score = float(clean_metrics["best_score"])
+    af1_clean_top1_score = _required_score_of_answer_text(
+        af1_metrics,
+        clean_top1,
+        label="Intervention",
+    )
+    return {
+        "af1_clean_top1_score": af1_clean_top1_score,
+        "clean_top1_score_drop": float(clean_top1_score - af1_clean_top1_score),
+    }
+
+
+def compute_gold_answer_score_drop(
+    sample: PreparedSample,
+    clean_metrics: Dict[str, Any],
+    af1_metrics: Dict[str, Any],
+) -> Dict[str, float]:
+    gold_answer = str(sample.gold_answer).strip()
+    clean_gold_answer_score = _required_score_of_answer_text(
+        clean_metrics,
+        gold_answer,
+        label="Clean",
+    )
+    af1_gold_answer_score = _required_score_of_answer_text(
+        af1_metrics,
+        gold_answer,
+        label="Intervention",
+    )
+    return {
+        "gold_answer_score_drop": float(clean_gold_answer_score - af1_gold_answer_score),
+    }
 
 
 def inspect_and_validate_layout(
@@ -1669,6 +1770,8 @@ def _evaluated_row(
     af1_pred = str(af1_metrics["best_answer_text"]).strip()
     clean_correct = int(clean_pred == sample.gold_answer)
     af1_correct = int(af1_pred == sample.gold_answer)
+    clean_top1_score_drop_metrics = compute_clean_top1_score_drop(clean_metrics, af1_metrics)
+    gold_answer_score_drop_metrics = compute_gold_answer_score_drop(sample, clean_metrics, af1_metrics)
     row = _empty_row(MODEL_ID, sample_id=sample.sample_id, seq_len=sample.layout.seq_len)
     row.update(
         {
@@ -1680,6 +1783,9 @@ def _evaluated_row(
             "clean_gold_prob": float(clean_metrics["probs_by_answer"].get(sample.gold_answer, 0.0)),
             "clean_best_score": float(clean_metrics["best_score"]),
             "clean_margin_over_second": float(clean_metrics["margin_over_second"]),
+            "af1_clean_top1_score": float(clean_top1_score_drop_metrics["af1_clean_top1_score"]),
+            "clean_top1_score_drop": float(clean_top1_score_drop_metrics["clean_top1_score_drop"]),
+            "gold_answer_score_drop": float(gold_answer_score_drop_metrics["gold_answer_score_drop"]),
             "af1_pred": af1_pred,
             "af1_correct": af1_correct,
             "af1_gold_prob": float(af1_metrics["probs_by_answer"].get(sample.gold_answer, 0.0)),
@@ -1733,6 +1839,11 @@ def _skipped_row(
             "donor_ids": json.dumps(list(donor_ids)) if donor_ids is not None else "",
             "wait_layer": "" if wait_layer is None else int(wait_layer),
             "transfer_layers": "" if transfer_layers is None else int(transfer_layers),
+            "transfer_layer_indices": (
+                ""
+                if wait_layer is None or transfer_layers is None
+                else json.dumps(list(range(int(wait_layer), int(wait_layer) + int(transfer_layers))))
+            ),
             "k_donors": "" if k_donors is None else int(k_donors),
         }
     )
@@ -1750,7 +1861,36 @@ def _skipped_row(
     return row
 
 
-def summarize_seq_results(model_name: str, seq_len: int, sample_rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+def _materialize_skipped_row(
+    row_template: Dict[str, Any],
+    mode: str,
+    wait_layer: int,
+    transfer_layers: int,
+    k_donors: int,
+) -> Dict[str, Any]:
+    row = dict(row_template)
+    row.update(
+        {
+            "mode": mode,
+            "wait_layer": int(wait_layer),
+            "transfer_layers": int(transfer_layers),
+            "transfer_layer_indices": json.dumps(
+                list(range(int(wait_layer), int(wait_layer) + int(transfer_layers)))
+            ),
+            "k_donors": int(k_donors),
+        }
+    )
+    return row
+
+
+def summarize_grid_point_results(
+    model_name: str,
+    mode: str,
+    seq_len: int,
+    wait_layer: int,
+    transfer_layers: int,
+    sample_rows: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
     used_rows = [row for row in sample_rows if int(row.get("used") or 0)]
     n_total = len(sample_rows)
     n_used = len(used_rows)
@@ -1763,15 +1903,40 @@ def summarize_seq_results(model_name: str, seq_len: int, sample_rows: Sequence[D
     clean_acc = (n_clean_correct / float(n_used)) if n_used else 0.0
     af1_acc = (n_af1_correct / float(n_used)) if n_used else 0.0
     af1_faith = (n_both_correct / float(n_clean_correct)) if n_clean_correct else 0.0
+    clean_top1_score_drops = [
+        float(row["clean_top1_score_drop"])
+        for row in used_rows
+        if row.get("clean_top1_score_drop") not in {"", None}
+    ]
+    mean_clean_top1_score_drop = (
+        sum(clean_top1_score_drops) / float(len(clean_top1_score_drops))
+        if clean_top1_score_drops
+        else 0.0
+    )
+    gold_answer_score_drops = [
+        float(row["gold_answer_score_drop"])
+        for row in used_rows
+        if row.get("gold_answer_score_drop") not in {"", None}
+    ]
+    mean_gold_answer_score_drop = (
+        sum(gold_answer_score_drops) / float(len(gold_answer_score_drops))
+        if gold_answer_score_drops
+        else 0.0
+    )
     return {
         "model": model_name,
+        "mode": mode,
         "seq_len": int(seq_len),
+        "wait_layer": int(wait_layer),
+        "transfer_layers": int(transfer_layers),
         "n_total": int(n_total),
         "n_used": int(n_used),
         "n_clean_correct": int(n_clean_correct),
         "clean_acc": float(clean_acc),
         "af1_acc": float(af1_acc),
         "af1_faith": float(af1_faith),
+        "mean_clean_top1_score_drop": float(mean_clean_top1_score_drop),
+        "mean_gold_answer_score_drop": float(mean_gold_answer_score_drop),
     }
 
 
@@ -1779,13 +1944,18 @@ def format_summary_table(rows: Sequence[Dict[str, Any]]) -> str:
     values = [
         [
             str(row["model"]),
+            str(row["mode"]),
             str(row["seq_len"]),
+            str(row["wait_layer"]),
+            str(row["transfer_layers"]),
             str(row["n_total"]),
             str(row["n_used"]),
             str(row["n_clean_correct"]),
             f"{float(row['clean_acc']):.4f}",
             f"{float(row['af1_acc']):.4f}",
             f"{float(row['af1_faith']):.4f}",
+            f"{float(row['mean_clean_top1_score_drop']):.4f}",
+            f"{float(row['mean_gold_answer_score_drop']):.4f}",
         ]
         for row in rows
     ]
@@ -1802,13 +1972,106 @@ def format_summary_table(rows: Sequence[Dict[str, Any]]) -> str:
     return "\n".join([header_row, sep_row] + data_rows)
 
 
+def _row_for_fieldnames(row: Dict[str, Any], fieldnames: Sequence[str]) -> Dict[str, Any]:
+    return {field: row.get(field) for field in fieldnames}
+
+
 def write_csv(path: Path, rows: Sequence[Dict[str, Any]], fieldnames: Sequence[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(fieldnames))
+        writer = csv.DictWriter(handle, fieldnames=list(fieldnames), lineterminator="\n")
         writer.writeheader()
         for row in rows:
-            writer.writerow({field: row.get(field) for field in fieldnames})
+            writer.writerow(_row_for_fieldnames(row, fieldnames))
+
+
+def _csv_header_line(fieldnames: Sequence[str]) -> str:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=list(fieldnames), lineterminator="\n")
+    writer.writeheader()
+    return buffer.getvalue().rstrip("\n")
+
+
+def plot_metric_heatmap(
+    summary_rows: Sequence[Dict[str, Any]],
+    wait_layers: Sequence[int],
+    transfer_layers_grid: Sequence[int],
+    value_key: str,
+    output_path: Path,
+    title: str,
+    seq_len: int,
+) -> Optional[Path]:
+    if not wait_layers or not transfer_layers_grid:
+        return None
+    if plt is None:
+        raise ModuleNotFoundError(
+            "matplotlib is required to write AF1 grid heatmaps; install matplotlib in the active environment."
+        )
+
+    matrix = np.full((len(wait_layers), len(transfer_layers_grid)), np.nan, dtype=float)
+    wait_layer_to_index = {int(wait_layer): idx for idx, wait_layer in enumerate(wait_layers)}
+    transfer_layers_to_index = {
+        int(transfer_layers): idx for idx, transfer_layers in enumerate(transfer_layers_grid)
+    }
+    for row in summary_rows:
+        wait_layer = int(row["wait_layer"])
+        transfer_layers = int(row["transfer_layers"])
+        if wait_layer in wait_layer_to_index and transfer_layers in transfer_layers_to_index:
+            matrix[wait_layer_to_index[wait_layer], transfer_layers_to_index[transfer_layers]] = float(
+                row[value_key]
+            )
+
+    fig_width = max(6.0, 1.4 * len(transfer_layers_grid))
+    fig_height = max(5.0, 1.0 * len(wait_layers))
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=140)
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad(color="white")
+    masked_matrix = np.ma.masked_invalid(matrix)
+    image = ax.imshow(
+        masked_matrix,
+        origin="lower",
+        aspect="auto",
+        interpolation="nearest",
+        cmap=cmap,
+    )
+
+    finite_values = np.isfinite(matrix)
+    if bool(finite_values.any()):
+        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+
+    ax.set_title(f"{title} (seq_len={seq_len})")
+    ax.set_xlabel("transfer_layers")
+    ax.set_ylabel("wait_layer")
+    ax.set_xticks(range(len(transfer_layers_grid)))
+    ax.set_xticklabels([str(value) for value in transfer_layers_grid])
+    ax.set_yticks(range(len(wait_layers)))
+    ax.set_yticklabels([str(value) for value in wait_layers])
+    ax.set_xticks(np.arange(-0.5, len(transfer_layers_grid), 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, len(wait_layers), 1), minor=True)
+    ax.grid(which="minor", color="lightgray", linestyle="-", linewidth=0.5)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    if bool(finite_values.any()):
+        for wait_idx in range(len(wait_layers)):
+            for transfer_idx in range(len(transfer_layers_grid)):
+                value = matrix[wait_idx, transfer_idx]
+                if np.isfinite(value):
+                    text_color = "black" if float(image.norm(value)) > 0.5 else "white"
+                    ax.text(
+                        transfer_idx,
+                        wait_idx,
+                        f"{value:.3f}",
+                        ha="center",
+                        va="center",
+                        fontsize=8,
+                        color=text_color,
+                    )
+
+    fig.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+    return output_path if output_path.exists() else None
 
 
 def write_markdown_summary(
@@ -1818,6 +2081,7 @@ def write_markdown_summary(
     validation_notes: Sequence[str],
     donor_notes: Sequence[str],
     cache_notes: Sequence[str],
+    output_notes: Sequence[str],
     elapsed_seconds: float,
 ) -> None:
     lines = [
@@ -1835,7 +2099,7 @@ def write_markdown_summary(
         "",
         "## Method",
         "",
-        f"- Mode run: `{config['mode']}`.",
+        f"- Mode run: `{config['mode']}` across a `(wait_layer, transfer_layers)` grid for one `seq_len={config['seq_len']}` dataset.",
         "- `full_af1` = wait-boundary frame-group plus non-frame prompt patching, then ABP masking afterward.",
         "- `wait_only` = wait-boundary frame-group plus non-frame prompt patching only, with later attention left clean.",
         "- `mask_only` = ABP masking only, with no wait-boundary patching.",
@@ -1845,6 +2109,8 @@ def write_markdown_summary(
         "- Transfer uses an ABP-style policy where the prompt carrier token can read earlier prompt tokens only during the configured transfer layers, then becomes self-only.",
         "- Faithfulness is defined as intervention accuracy on the subset of used samples that the clean model got correct.",
         "- `n_total` counts selected samples, `n_used` counts samples that passed compatibility and donor checks, and `clean_acc`/`af1_acc` are computed on the used subset.",
+        "- `mean_clean_top1_score_drop` averages `clean_best_score - intervention_score(clean top-1)` over used samples, freezing the clean top-1 answer separately for each sample.",
+        "- `mean_gold_answer_score_drop` averages `clean_score(gold answer) - intervention_score(gold answer)` over used samples.",
         "",
         "## Validation",
         "",
@@ -1854,6 +2120,8 @@ def write_markdown_summary(
     lines.extend(f"- {note}" for note in donor_notes)
     lines.extend(["", "## Cache Notes", ""])
     lines.extend(f"- {note}" for note in cache_notes)
+    lines.extend(["", "## Outputs", ""])
+    lines.extend(f"- {note}" for note in output_notes)
     lines.extend(
         [
             "",
@@ -1877,6 +2145,11 @@ def write_markdown_summary(
 
 def main() -> None:
     args = parse_args()
+    args.wait_layers, args.wait_layer_tick_step = parse_layer_grid(args.wait_layers, arg_name="--wait_layers")
+    args.transfer_layers_grid, args.transfer_layers_tick_step = parse_layer_grid(
+        args.transfer_layers_grid,
+        arg_name="--transfer_layers_grid",
+    )
     mode_flags = intervention_mode_flags(args.mode)
     enable_wait_patch = mode_flags["enable_wait_patch"]
     enable_abp_mask = mode_flags["enable_abp_mask"]
@@ -1895,9 +2168,11 @@ def main() -> None:
     set_seed(args.seed)
     start_time = time.time()
     runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
+    num_model_layers = len(get_layers(base_model))
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     print(
-        f"[config] mode={args.mode} skip_hallway={bool(args.skip_hallway)}"
+        f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
+        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)}"
     )
 
     output_dir = Path(args.output_dir)
@@ -1905,12 +2180,26 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     cache_dir.mkdir(parents=True, exist_ok=True)
 
+    summary_csv_path = output_dir / "summary_grid.csv"
+    per_sample_csv_path = output_dir / "per_sample_grid.csv"
+    markdown_summary_path = output_dir / "summary.md"
+
     all_sample_rows: List[Dict[str, Any]] = []
     summary_rows: List[Dict[str, Any]] = []
     validation_notes: List[str] = []
     donor_notes: List[str] = []
     cache_notes: List[str] = []
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
+
     validation_notes.append(f"mode={args.mode}: {intervention_mode_summary(args.mode)}")
+    validation_notes.append(
+        f"grid seq_len={args.seq_len}: wait_layers={list(args.wait_layers)} "
+        f"transfer_layers_grid={list(args.transfer_layers_grid)}"
+    )
+    validation_notes.append(
+        "wait_layer semantics: if wait_layer > 0, patch x^(L_wait) at layer output wait_layer - 1; "
+        "if wait_layer == 0, patch x^(0) before layer 0."
+    )
     if args.mode == "full_af1":
         validation_notes.append("mode=full_af1: wait-boundary patching and ABP masking are both enabled.")
     elif args.mode == "wait_only":
@@ -1922,59 +2211,98 @@ def main() -> None:
             "mode=mask_only: wait-boundary patching is disabled entirely; this isolates the transfer/self-only attention bottleneck."
         )
 
-    for seq_len in args.seq_lens:
-        data_root = seq_len_data_root(Path(args.data_root_base), seq_len=seq_len, split=args.split)
-        if not data_root.is_dir():
-            raise FileNotFoundError(f"seq_len={seq_len}: data root not found: {data_root}")
-
-        sample_dirs = load_and_filter_sample_dirs(
-            data_root=data_root,
-            max_samples=args.max_samples,
-            seed=args.seed + seq_len,
+    valid_grid_combinations: List[Tuple[int, int]] = []
+    invalid_combo_notes: List[str] = []
+    transfer_layers_candidates = list(args.transfer_layers_grid)
+    if args.mode == "wait_only" and transfer_layers_candidates:
+        effective_transfer_layers = int(transfer_layers_candidates[0])
+        validation_notes.append(
+            f"mode=wait_only: collapsing transfer_layers_grid={list(args.transfer_layers_grid)} "
+            f"to effective transfer_layers={effective_transfer_layers} because ABP masking is disabled."
         )
-        if not sample_dirs:
-            raise RuntimeError(f"seq_len={seq_len}: no samples found under {data_root}")
-
         print(
-            f"[seq_len={seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
-            f"wait_layer={args.wait_layer} transfer_layers={args.transfer_layers} k_donors={args.k_donors} "
-            f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)}"
+            f"[config] mode=wait_only collapsing transfer_layers_grid={list(args.transfer_layers_grid)} "
+            f"to effective transfer_layers={effective_transfer_layers}"
         )
+        transfer_layers_candidates = [effective_transfer_layers]
+    effective_transfer_layers_grid = [int(value) for value in transfer_layers_candidates]
 
-        loaded_items: List[Any] = []
-        prepared_samples: List[PreparedSample] = []
-        for sample_dir in sample_dirs:
-            prepared_sample, skipped_row = _prepare_sample(sample_dir, skip_hallway=bool(args.skip_hallway))
-            if skipped_row is not None:
-                skipped_row.update(
-                    {
-                        "mode": args.mode,
-                        "wait_layer": int(args.wait_layer),
-                        "transfer_layers": int(args.transfer_layers),
-                        "k_donors": int(args.k_donors),
-                    }
+    for wait_layer in args.wait_layers:
+        for transfer_layers in effective_transfer_layers_grid:
+            reason: Optional[str] = None
+            if int(wait_layer) < 0:
+                reason = f"wait_layer={wait_layer} must be >= 0"
+            elif int(transfer_layers) < 0:
+                reason = f"transfer_layers={transfer_layers} must be >= 0"
+            elif int(wait_layer) + int(transfer_layers) > int(num_model_layers):
+                reason = (
+                    f"wait_layer + transfer_layers must be <= {num_model_layers}; "
+                    f"received {wait_layer} + {transfer_layers}"
                 )
-                loaded_items.append(skipped_row)
-                validation_notes.append(
-                    f"seq_len={seq_len} sample_id={skipped_row['sample_id']} skipped: {skipped_row['skipped_reason']}"
+
+            if reason is not None:
+                note = (
+                    f"skipping invalid combo wait_layer={int(wait_layer)} "
+                    f"transfer_layers={int(transfer_layers)}: {reason}"
                 )
+                invalid_combo_notes.append(note)
+                print(f"[grid] {note}")
                 continue
-            loaded_items.append(prepared_sample)
-            prepared_samples.append(prepared_sample)
+            valid_grid_combinations.append((int(wait_layer), int(transfer_layers)))
 
-        reference_layout = _choose_reference_layout(prepared_samples)
-        if reference_layout is None:
-            seq_rows = [item for item in loaded_items if isinstance(item, dict)]
-            summary_rows.append(summarize_seq_results(MODEL_ID, seq_len=seq_len, sample_rows=seq_rows))
-            all_sample_rows.extend(seq_rows)
-            validation_notes.append(f"seq_len={seq_len}: no compatible non-hallway samples remained after filtering")
+    validation_notes.extend(invalid_combo_notes)
+    validation_notes.append(
+        f"num_model_layers={num_model_layers}: valid_grid_combinations={len(valid_grid_combinations)}"
+    )
+
+    data_root = seq_len_data_root(Path(args.data_root_base), seq_len=args.seq_len, split=args.split)
+    if not data_root.is_dir():
+        raise FileNotFoundError(f"seq_len={args.seq_len}: data root not found: {data_root}")
+
+    sample_dirs = load_and_filter_sample_dirs(
+        data_root=data_root,
+        max_samples=args.max_samples,
+        seed=args.seed + args.seq_len,
+    )
+    if not sample_dirs:
+        raise RuntimeError(f"seq_len={args.seq_len}: no samples found under {data_root}")
+
+    print(
+        f"[seq_len={args.seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
+        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
+        f"k_donors={args.k_donors} allow_intruction_in_transition={bool(args.allow_intruction_in_transition)}"
+    )
+
+    loaded_items: List[Any] = []
+    prepared_samples: List[PreparedSample] = []
+    for sample_dir in sample_dirs:
+        prepared_sample, skipped_row = _prepare_sample(sample_dir, skip_hallway=bool(args.skip_hallway))
+        if skipped_row is not None:
+            loaded_items.append(skipped_row)
+            validation_notes.append(
+                f"seq_len={args.seq_len} sample_id={skipped_row['sample_id']} skipped: {skipped_row['skipped_reason']}"
+            )
             continue
+        loaded_items.append(prepared_sample)
+        prepared_samples.append(prepared_sample)
 
-        compatible_samples: List[PreparedSample] = []
+    reference_layout = _choose_reference_layout(prepared_samples)
+    compatible_samples: List[PreparedSample] = []
+    ordered_items: List[Any] = []
+    compatible_layout_hash = ""
+    if reference_layout is None:
+        validation_notes.append(
+            f"seq_len={args.seq_len}: no compatible non-hallway samples remained after filtering"
+        )
+        donor_notes.append(
+            f"seq_len={args.seq_len}: no donor selection was used because no compatible reference layout remained."
+        )
+        print(
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} no compatible reference layout remained"
+        )
+    else:
         compatible_layout_hash = layout_hash(reference_layout)
         exact_match_count = 0
-        seq_rows: List[Dict[str, Any]] = []
-        ordered_items: List[Any] = []
         for item in loaded_items:
             if isinstance(item, dict):
                 ordered_items.append(item)
@@ -1985,7 +2313,7 @@ def main() -> None:
                 skip_hallway=bool(args.skip_hallway),
             )
             if report["status"] != "exact_match":
-                skipped_row = _skipped_row(
+                incompatible_row = _skipped_row(
                     mode=args.mode,
                     sample_id=item.sample_id,
                     seq_len=item.layout.seq_len,
@@ -1993,15 +2321,15 @@ def main() -> None:
                     skipped_reason="layout_incompatible",
                     room_text=item.layout.room_text,
                     layout=item.layout,
-                    wait_layer=args.wait_layer,
-                    transfer_layers=args.transfer_layers,
-                    k_donors=args.k_donors,
+                    wait_layer=None,
+                    transfer_layers=None,
+                    k_donors=None,
                     layout_status=report["status"],
                     layout_details=report["details"],
                 )
-                ordered_items.append(skipped_row)
+                ordered_items.append(incompatible_row)
                 validation_notes.append(
-                    f"seq_len={seq_len} sample_id={item.sample_id} incompatible: {report['details']}"
+                    f"seq_len={args.seq_len} sample_id={item.sample_id} incompatible: {report['details']}"
                 )
                 continue
             ordered_items.append(item)
@@ -2009,195 +2337,346 @@ def main() -> None:
             exact_match_count += 1
 
         validation_notes.append(
-            f"seq_len={seq_len}: reference_layout sample_id={reference_layout.sample_id} "
+            f"seq_len={args.seq_len}: reference_layout sample_id={reference_layout.sample_id} "
             f"prompt_len={reference_layout.prompt_len} carrier_index={reference_layout.carrier_index} "
             f"carrier_token={reference_layout.carrier_token_text!r} "
             f"image_tokens_per_frame={list(reference_layout.image_tokens_per_frame)} "
             f"layout_hash={compatible_layout_hash}"
         )
         validation_notes.append(
-            f"seq_len={seq_len}: exact_match_samples={exact_match_count} total_selected={len(sample_dirs)}"
+            f"seq_len={args.seq_len}: exact_match_samples={exact_match_count} total_selected={len(sample_dirs)}"
         )
         print(
-            f"[validation][mode={args.mode}] seq_len={seq_len} reference_sample={reference_layout.sample_id} "
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} reference_sample={reference_layout.sample_id} "
             f"prompt_len={reference_layout.prompt_len} carrier_index={reference_layout.carrier_index} "
             f"layout_hash={compatible_layout_hash}"
         )
         print(
-            f"[validation][mode={args.mode}] seq_len={seq_len} exact_match_samples={exact_match_count} "
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} exact_match_samples={exact_match_count} "
             f"total_selected={len(sample_dirs)}"
         )
 
         if args.debug_tokenization and compatible_samples:
             debug_layout = compatible_samples[0].layout
-            print(f"[debug][mode={args.mode}] seq_len={seq_len} sample_id={compatible_samples[0].sample_id}")
+            print(f"[debug][mode={args.mode}] seq_len={args.seq_len} sample_id={compatible_samples[0].sample_id}")
             print(format_token_debug_rows(debug_layout))
 
-        policy = build_abp_attention_policy(
-            layout=reference_layout,
-            wait_layer=args.wait_layer,
-            transfer_layers=args.transfer_layers,
-            allow_instruction_in_transition=bool(args.allow_intruction_in_transition),
-        )
-        if enable_abp_mask:
-            if args.debug_tokenization:
-                print(f"[debug][mode={args.mode}] seq_len={seq_len} {format_transition_frame_debug(reference_layout, policy)}")
-            validation_notes.append(
-                f"seq_len={seq_len}: allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
-                f"instruction_positions={list(reference_layout.instruction_positions)}"
-            )
-            print(
-                f"[validation][mode={args.mode}] seq_len={seq_len} "
-                f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
-                f"instruction_positions={list(reference_layout.instruction_positions)}"
-            )
-            for note in _validate_attention_policy(reference_layout, policy=policy):
-                validation_notes.append(f"seq_len={seq_len}: {note}")
-                print(f"[validation][mode={args.mode}] seq_len={seq_len} {note}")
-        else:
-            validation_notes.append(
-                f"seq_len={seq_len}: ABP masking disabled for mode={args.mode}, so later attention remains clean."
-            )
-            print(
-                f"[validation][mode={args.mode}] seq_len={seq_len} ABP masking disabled; "
-                "later attention remains clean."
-            )
-
         print(
-            f"[validation][mode={args.mode}] seq_len={seq_len} compatible_samples={len(compatible_samples)} "
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} compatible_samples={len(compatible_samples)} "
             f"reference_sample={reference_layout.sample_id}"
         )
 
         if enable_wait_patch:
             donor_notes.append(
-                f"seq_len={seq_len}: donors come from the same seq_len pool, must pass exact layout validation, "
+                f"seq_len={args.seq_len}: donors come from the same seq_len pool, must pass exact layout validation, "
                 f"must not equal the target sample, and are chosen with deterministic seeded shuffle "
                 f"under policy={_DONOR_POLICY}"
             )
         else:
             donor_notes.append(
-                f"seq_len={seq_len}: donor selection is not used in mode={args.mode} because no wait-boundary frame patch is applied."
+                f"seq_len={args.seq_len}: donor selection is not used in mode={args.mode} because no wait-boundary frame patch is applied."
             )
 
-        seq_cache_hits = 0
-        seq_cache_misses = 0
-        for item in ordered_items:
-            if isinstance(item, dict):
-                seq_rows.append(item)
-                print(
-                    f"[seq_len={seq_len}][mode={args.mode}] sample_id={item['sample_id']} "
-                    f"skipped={item['skipped_reason']}"
-                )
-                continue
+    per_sample_rows_emitted = 0
+    expected_per_sample_rows = 0
+    with per_sample_csv_path.open("w", encoding="utf-8", newline="") as per_sample_handle:
+        per_sample_writer = csv.DictWriter(
+            per_sample_handle,
+            fieldnames=list(_PER_SAMPLE_FIELDS),
+            lineterminator="\n",
+        )
+        stdout_per_sample_writer = csv.DictWriter(
+            sys.stdout,
+            fieldnames=list(_PER_SAMPLE_FIELDS),
+            lineterminator="\n",
+        )
+        per_sample_writer.writeheader()
+        per_sample_handle.flush()
+        print(_csv_header_line(_PER_SAMPLE_FIELDS))
+        sys.stdout.flush()
 
-            donor_ids: List[str] = []
-            frame_group_means: Optional[Dict[int, torch.Tensor]] = None
-            non_frame_prompt_mean: Optional[torch.Tensor] = None
-            if enable_wait_patch:
-                donor_pool = select_donor_pool(
-                    target_sample=item,
-                    compatible_samples=compatible_samples,
-                    k_donors=args.k_donors,
-                    seed=args.seed,
-                )
-                donor_ids = [sample.sample_id for sample in donor_pool]
-                if len(donor_pool) < 2:
-                    skipped_row = _skipped_row(
+        if reference_layout is None:
+            for wait_layer, transfer_layers in valid_grid_combinations:
+                seq_rows: List[Dict[str, Any]] = []
+                for item in loaded_items:
+                    if not isinstance(item, dict):
+                        continue
+                    row = _materialize_skipped_row(
+                        item,
                         mode=args.mode,
-                        sample_id=item.sample_id,
-                        seq_len=item.layout.seq_len,
-                        gold_answer=item.gold_answer,
-                        skipped_reason="insufficient_compatible_donors",
-                        room_text=item.layout.room_text,
-                        layout=item.layout,
-                        donor_ids=donor_ids,
-                        wait_layer=args.wait_layer,
-                        transfer_layers=args.transfer_layers,
+                        wait_layer=wait_layer,
+                        transfer_layers=transfer_layers,
                         k_donors=args.k_donors,
-                        layout_status="exact_match",
-                        layout_details="exact_match",
                     )
-                    seq_rows.append(skipped_row)
+                    seq_rows.append(row)
+                    all_sample_rows.append(row)
+                    per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                    per_sample_handle.flush()
+                    stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                    sys.stdout.flush()
+                    per_sample_rows_emitted += 1
+
+                expected_per_sample_rows += len(seq_rows)
+                summary_rows.append(
+                    summarize_grid_point_results(
+                        MODEL_ID,
+                        mode=args.mode,
+                        seq_len=args.seq_len,
+                        wait_layer=wait_layer,
+                        transfer_layers=transfer_layers,
+                        sample_rows=seq_rows,
+                    )
+                )
+                cache_notes.append(
+                    f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                    "no conditional-mean cache activity because no compatible reference layout remained."
+                )
+        else:
+            for wait_layer, transfer_layers in valid_grid_combinations:
+                policy = build_abp_attention_policy(
+                    layout=reference_layout,
+                    wait_layer=wait_layer,
+                    transfer_layers=transfer_layers,
+                    allow_instruction_in_transition=bool(args.allow_intruction_in_transition),
+                )
+                if enable_abp_mask:
                     validation_notes.append(
-                        f"seq_len={seq_len} sample_id={item.sample_id} skipped: insufficient compatible donors "
-                        f"(found={len(donor_pool)}, need>=2)"
+                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                        f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
+                        f"instruction_positions={list(reference_layout.instruction_positions)}"
                     )
                     print(
-                        f"[seq_len={seq_len}][mode={args.mode}] sample_id={item.sample_id} "
-                        f"skipped=insufficient_compatible_donors donors={donor_ids}"
+                        f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                        f"transfer_layers={transfer_layers} "
+                        f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
+                        f"instruction_positions={list(reference_layout.instruction_positions)}"
                     )
-                    continue
+                    if args.debug_tokenization:
+                        print(
+                            f"[debug][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                            f"transfer_layers={transfer_layers} {format_transition_frame_debug(reference_layout, policy)}"
+                        )
+                    for note in _validate_attention_policy(reference_layout, policy=policy):
+                        validation_notes.append(
+                            f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: {note}"
+                        )
+                        print(
+                            f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                            f"transfer_layers={transfer_layers} {note}"
+                        )
+                else:
+                    validation_notes.append(
+                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                        f"ABP masking disabled for mode={args.mode}, so later attention remains clean."
+                    )
+                    print(
+                        f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                        f"transfer_layers={transfer_layers} ABP masking disabled; later attention remains clean."
+                    )
 
-                frame_group_means, cache_stats = compute_all_frame_group_means_for_sample(
-                    target_sample=item,
-                    donor_samples=donor_pool,
-                    wait_layer=args.wait_layer,
-                    batch_size=args.batch_size,
-                    cache_dir=cache_dir,
-                    recompute_cache=bool(args.recompute_cache),
-                    donor_policy=_DONOR_POLICY,
+                print(
+                    f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                    f"transfer_layers={transfer_layers} compatible_samples={len(compatible_samples)} "
+                    f"reference_sample={reference_layout.sample_id}"
                 )
-                seq_cache_hits += int(cache_stats["cache_hits"])
-                seq_cache_misses += int(cache_stats["cache_misses"])
-                non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
-                    target_sample=item,
-                    donor_samples=donor_pool,
-                    wait_layer=args.wait_layer,
-                    batch_size=args.batch_size,
-                    cache_dir=cache_dir,
-                    recompute_cache=bool(args.recompute_cache),
-                    donor_policy=_DONOR_POLICY,
+
+                seq_cache_hits = 0
+                seq_cache_misses = 0
+                seq_rows = []
+                for item in ordered_items:
+                    if isinstance(item, dict):
+                        row = _materialize_skipped_row(
+                            item,
+                            mode=args.mode,
+                            wait_layer=wait_layer,
+                            transfer_layers=transfer_layers,
+                            k_donors=args.k_donors,
+                        )
+                        seq_rows.append(row)
+                        all_sample_rows.append(row)
+                        per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                        per_sample_handle.flush()
+                        stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                        sys.stdout.flush()
+                        per_sample_rows_emitted += 1
+                        print(
+                            f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                            f"[mode={args.mode}] sample_id={row['sample_id']} skipped={row['skipped_reason']}"
+                        )
+                        continue
+
+                    donor_ids: List[str] = []
+                    frame_group_means: Optional[Dict[int, torch.Tensor]] = None
+                    non_frame_prompt_mean: Optional[torch.Tensor] = None
+                    if enable_wait_patch:
+                        donor_pool = select_donor_pool(
+                            target_sample=item,
+                            compatible_samples=compatible_samples,
+                            k_donors=args.k_donors,
+                            seed=args.seed,
+                        )
+                        donor_ids = [sample.sample_id for sample in donor_pool]
+                        if len(donor_pool) < 2:
+                            skipped_row = _skipped_row(
+                                mode=args.mode,
+                                sample_id=item.sample_id,
+                                seq_len=item.layout.seq_len,
+                                gold_answer=item.gold_answer,
+                                skipped_reason="insufficient_compatible_donors",
+                                room_text=item.layout.room_text,
+                                layout=item.layout,
+                                donor_ids=donor_ids,
+                                wait_layer=wait_layer,
+                                transfer_layers=transfer_layers,
+                                k_donors=args.k_donors,
+                                layout_status="exact_match",
+                                layout_details="exact_match",
+                            )
+                            seq_rows.append(skipped_row)
+                            all_sample_rows.append(skipped_row)
+                            per_sample_writer.writerow(_row_for_fieldnames(skipped_row, _PER_SAMPLE_FIELDS))
+                            per_sample_handle.flush()
+                            stdout_per_sample_writer.writerow(_row_for_fieldnames(skipped_row, _PER_SAMPLE_FIELDS))
+                            sys.stdout.flush()
+                            per_sample_rows_emitted += 1
+                            validation_notes.append(
+                                f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers} "
+                                f"sample_id={item.sample_id} skipped: insufficient compatible donors "
+                                f"(found={len(donor_pool)}, need>=2)"
+                            )
+                            print(
+                                f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                                f"[mode={args.mode}] sample_id={item.sample_id} "
+                                f"skipped=insufficient_compatible_donors donors={donor_ids}"
+                            )
+                            continue
+
+                        frame_group_means, cache_stats = compute_all_frame_group_means_for_sample(
+                            target_sample=item,
+                            donor_samples=donor_pool,
+                            wait_layer=wait_layer,
+                            batch_size=args.batch_size,
+                            cache_dir=cache_dir,
+                            recompute_cache=bool(args.recompute_cache),
+                            donor_policy=_DONOR_POLICY,
+                        )
+                        seq_cache_hits += int(cache_stats["cache_hits"])
+                        seq_cache_misses += int(cache_stats["cache_misses"])
+                        non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
+                            target_sample=item,
+                            donor_samples=donor_pool,
+                            wait_layer=wait_layer,
+                            batch_size=args.batch_size,
+                            cache_dir=cache_dir,
+                            recompute_cache=bool(args.recompute_cache),
+                            donor_policy=_DONOR_POLICY,
+                        )
+                        seq_cache_hits += int(non_frame_cache_hit)
+                        seq_cache_misses += int(not non_frame_cache_hit)
+
+                    clean_cache_key = (args.seq_len, item.sample_id)
+                    clean_metrics = clean_metrics_cache.get(clean_cache_key)
+                    if clean_metrics is None:
+                        clean_metrics = run_clean_sample(item)
+                        clean_metrics_cache[clean_cache_key] = clean_metrics
+                    af1_metrics = run_intervention_sample(
+                        item,
+                        frame_group_means=frame_group_means,
+                        non_frame_prompt_mean=non_frame_prompt_mean,
+                        policy=policy,
+                        mode=args.mode,
+                    )
+                    row = _evaluated_row(
+                        sample=item,
+                        clean_metrics=clean_metrics,
+                        af1_metrics=af1_metrics,
+                        donor_ids=donor_ids,
+                        policy=policy,
+                        k_donors_requested=args.k_donors,
+                        mode=args.mode,
+                    )
+                    seq_rows.append(row)
+                    all_sample_rows.append(row)
+                    per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                    per_sample_handle.flush()
+                    stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
+                    sys.stdout.flush()
+                    per_sample_rows_emitted += 1
+                    print(
+                        f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                        f"[mode={args.mode}] sample_id={item.sample_id} gold={item.gold_answer} "
+                        f"clean={row['clean_pred']} af1={row['af1_pred']} "
+                        f"clean_top1_score_drop={float(row['clean_top1_score_drop']):.4f} "
+                        f"gold_answer_score_drop={float(row['gold_answer_score_drop']):.4f} "
+                        f"donors={json.dumps(donor_ids)}"
+                    )
+
+                expected_per_sample_rows += len(seq_rows)
+                if enable_wait_patch:
+                    cache_notes.append(
+                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                        f"frame-group+non-frame conditional-mean cache_hits={seq_cache_hits} "
+                        f"cache_misses={seq_cache_misses} layout_hash={compatible_layout_hash}"
+                    )
+                else:
+                    cache_notes.append(
+                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                        f"no conditional-mean cache activity in mode={args.mode} because wait-boundary patching is disabled."
+                    )
+                summary_rows.append(
+                    summarize_grid_point_results(
+                        MODEL_ID,
+                        mode=args.mode,
+                        seq_len=args.seq_len,
+                        wait_layer=wait_layer,
+                        transfer_layers=transfer_layers,
+                        sample_rows=seq_rows,
+                    )
                 )
-                seq_cache_hits += int(non_frame_cache_hit)
-                seq_cache_misses += int(not non_frame_cache_hit)
 
-            clean_metrics = run_clean_sample(item)
-            af1_metrics = run_intervention_sample(
-                item,
-                frame_group_means=frame_group_means,
-                non_frame_prompt_mean=non_frame_prompt_mean,
-                policy=policy,
-                mode=args.mode,
-            )
-            row = _evaluated_row(
-                sample=item,
-                clean_metrics=clean_metrics,
-                af1_metrics=af1_metrics,
-                donor_ids=donor_ids,
-                policy=policy,
-                k_donors_requested=args.k_donors,
-                mode=args.mode,
-            )
-            seq_rows.append(row)
-            print(
-                f"[seq_len={seq_len}][mode={args.mode}] sample_id={item.sample_id} gold={item.gold_answer} "
-                f"clean={row['clean_pred']} af1={row['af1_pred']} donors={json.dumps(donor_ids)}"
-            )
-
-        if enable_wait_patch:
-            cache_notes.append(
-                f"seq_len={seq_len}: frame-group+non-frame conditional-mean cache_hits={seq_cache_hits} "
-                f"cache_misses={seq_cache_misses} "
-                f"layout_hash={compatible_layout_hash}"
-            )
-        else:
-            cache_notes.append(
-                f"seq_len={seq_len}: no conditional-mean cache activity in mode={args.mode} because wait-boundary patching is disabled."
-            )
-
-        summary_rows.append(summarize_seq_results(MODEL_ID, seq_len=seq_len, sample_rows=seq_rows))
-        all_sample_rows.extend(seq_rows)
-
+    summary_rows = sorted(
+        summary_rows,
+        key=lambda row: (int(row["wait_layer"]), int(row["transfer_layers"])),
+    )
     summary_table = format_summary_table(summary_rows)
-    print(f"\nFinal AF1 Frame-CAMA Table (mode={args.mode})")
+    print(f"\nFinal AF1 Frame-CAMA Table (mode={args.mode}, seq_len={args.seq_len})")
     print(summary_table)
-
-    summary_csv_path = output_dir / "summary.csv"
-    per_sample_csv_path = output_dir / "per_sample_results.csv"
-    markdown_summary_path = output_dir / "summary.md"
-
     write_csv(summary_csv_path, summary_rows, fieldnames=_SUMMARY_FIELDS)
-    write_csv(per_sample_csv_path, all_sample_rows, fieldnames=_PER_SAMPLE_FIELDS)
+
+    heatmap_specs = [
+        ("clean_acc", "heatmap_clean_acc.png", "clean_acc"),
+        ("af1_acc", "heatmap_af1_acc.png", "af1_acc"),
+        ("af1_faith", "heatmap_af1_faith.png", "af1_faith"),
+        (
+            "mean_clean_top1_score_drop",
+            "heatmap_mean_clean_top1_score_drop.png",
+            "mean_clean_top1_score_drop",
+        ),
+        (
+            "mean_gold_answer_score_drop",
+            "heatmap_mean_gold_answer_score_drop.png",
+            "mean_gold_answer_score_drop",
+        ),
+    ]
+    output_notes: List[str] = [
+        f"summary_grid.csv: {summary_csv_path}",
+        f"per_sample_grid.csv: {per_sample_csv_path}",
+    ]
+    heatmap_paths: Dict[str, str] = {}
+    for value_key, filename, title in heatmap_specs:
+        heatmap_path = output_dir / filename
+        written_path = plot_metric_heatmap(
+            summary_rows=summary_rows,
+            wait_layers=args.wait_layers,
+            transfer_layers_grid=effective_transfer_layers_grid,
+            value_key=value_key,
+            output_path=heatmap_path,
+            title=title,
+            seq_len=args.seq_len,
+        )
+        heatmap_paths[value_key] = str(written_path or heatmap_path)
+        output_notes.append(f"{filename}: {written_path if written_path is not None else 'not_written'}")
+
     write_markdown_summary(
         markdown_summary_path,
         config={
@@ -2205,11 +2684,14 @@ def main() -> None:
             "mode": args.mode,
             "data_root_base": args.data_root_base,
             "split": args.split,
-            "seq_lens": args.seq_lens,
+            "seq_len": args.seq_len,
             "max_samples": args.max_samples,
             "batch_size": args.batch_size,
-            "wait_layer": args.wait_layer,
-            "transfer_layers": args.transfer_layers,
+            "wait_layers": list(args.wait_layers),
+            "wait_layer_tick_step": int(args.wait_layer_tick_step),
+            "transfer_layers_grid": list(effective_transfer_layers_grid),
+            "transfer_layers_tick_step": int(args.transfer_layers_tick_step),
+            "requested_transfer_layers_grid": list(args.transfer_layers_grid),
             "k_donors": args.k_donors,
             "cache_dir": str(cache_dir),
             "recompute_cache": bool(args.recompute_cache),
@@ -2224,6 +2706,12 @@ def main() -> None:
                 "wait_layer is AF1 L_wait measured in number of waiting layers; "
                 "if wait_layer > 0 then x^(L_wait) is patched at layer output wait_layer - 1"
             ),
+            "clean_top1_score_drop_semantics": (
+                "clean_top1_score_drop = clean_best_score - intervention_score(clean top-1 answer)"
+            ),
+            "gold_answer_score_drop_semantics": (
+                "gold_answer_score_drop = clean_score(gold answer) - intervention_score(gold answer)"
+            ),
             "mode_semantics": {
                 "full_af1": intervention_mode_summary("full_af1"),
                 "wait_only": intervention_mode_summary("wait_only"),
@@ -2234,8 +2722,32 @@ def main() -> None:
         validation_notes=validation_notes,
         donor_notes=donor_notes,
         cache_notes=cache_notes,
+        output_notes=output_notes,
         elapsed_seconds=time.time() - start_time,
     )
+
+    if len(summary_rows) != len(valid_grid_combinations):
+        raise RuntimeError(
+            f"Summary row count mismatch: expected {len(valid_grid_combinations)} valid combos, "
+            f"found {len(summary_rows)} summary rows"
+        )
+    if per_sample_rows_emitted != expected_per_sample_rows:
+        raise RuntimeError(
+            f"Per-sample row count mismatch: emitted {per_sample_rows_emitted}, "
+            f"expected {expected_per_sample_rows}"
+        )
+    if len(all_sample_rows) != expected_per_sample_rows:
+        raise RuntimeError(
+            f"Accumulated per-sample row count mismatch: stored {len(all_sample_rows)}, "
+            f"expected {expected_per_sample_rows}"
+        )
+    missing_heatmaps = [
+        str(output_dir / filename)
+        for _, filename, _ in heatmap_specs
+        if not (output_dir / filename).exists()
+    ]
+    if missing_heatmaps:
+        raise RuntimeError(f"Missing expected heatmaps: {missing_heatmaps}")
 
     print(
         json.dumps(
@@ -2243,6 +2755,7 @@ def main() -> None:
                 "summary_csv": str(summary_csv_path),
                 "per_sample_csv": str(per_sample_csv_path),
                 "markdown_summary": str(markdown_summary_path),
+                "heatmaps": heatmap_paths,
             },
             indent=2,
             sort_keys=True,
