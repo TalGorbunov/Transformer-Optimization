@@ -18,10 +18,10 @@ What this script does:
 5. Applies an ABP-style attention policy after the wait boundary when the
    selected mode includes masking:
    - transfer stage: only the prompt carrier token may attend to earlier
-     prompt tokens; every other prompt token is self-only unless the
-     instruction-token exception is enabled
-   - post-transfer stage: the carrier token and any temporarily spared
-     instruction tokens also become self-only
+     prompt tokens; frame tokens stay dense within their own frame block;
+     instruction tokens use the selected `instruction_mask_mode`
+   - post-transfer stage: the carrier token and all instruction tokens also
+     become self-only
 
 Important method notes:
 - This is not literal token-level CAMA from the paper. It is a multimodal
@@ -45,6 +45,7 @@ python evaluations/scripts/af1/full_pipeline.py \
   --max_samples 8 \
   --wait_layers 40 \
   --transfer_layers_grid 2 \
+  --instruction_mask_mode base \
   --k_donors 4 \
   --output_dir outputs/af1_qwen_vl_frame_cama
 """
@@ -90,6 +91,7 @@ from models.model import (
 _NEG_INF = -1.0e9
 _DONOR_POLICY = "same_seq_len_validated_layout_seeded_shuffle_exclude_target"
 _VALID_MODES = ("full_af1", "wait_only", "mask_only")
+_VALID_INSTRUCTION_MASK_MODES = ("base", "no_frame_access", "frame_only")
 _INSTRUCTION_TRANSFER_PROMPT_SPAN = "Output only the integer.\n"
 _SUMMARY_FIELDS = [
     "model",
@@ -184,7 +186,7 @@ class AttentionPolicy:
     num_model_layers: int
     frame_group_by_token: Dict[int, Tuple[int, ...]]
     instruction_positions: Tuple[int, ...]
-    allow_instruction_in_transition: bool
+    instruction_mask_mode: str
 
     @property
     def transfer_layer_indices(self) -> Tuple[int, ...]:
@@ -267,17 +269,17 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument("--skip_hallway", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument(
-        "--allow_intruction_in_transition",
-        "--allow_instruction_in_transition",
-        dest="allow_intruction_in_transition",
-        action=argparse.BooleanOptionalAction,
-        default=True,
+        "--instruction_mask_mode",
+        type=str,
+        default="base",
+        choices=list(_VALID_INSTRUCTION_MASK_MODES),
         help=(
-            "During transfer layers, keep the prompt span for "
-            f"{_INSTRUCTION_TRANSFER_PROMPT_SPAN!r} on the base mask instead of "
-            "forcing those prompt tokens to self-only attention. After the "
-            "transfer stage, those tokens become self-only like the rest of "
-            "the prompt."
+            "Instruction-token masking during transfer layers for the prompt "
+            f"span {_INSTRUCTION_TRANSFER_PROMPT_SPAN!r}: `base` keeps the "
+            "base causal/padding mask, `no_frame_access` keeps the base row "
+            "but removes frame-token keys, and `frame_only` keeps only self "
+            "plus frame-token keys. After transfer, instruction tokens become "
+            "self-only in all modes."
         ),
     )
     ap.add_argument("--debug_tokenization", action="store_true")
@@ -365,6 +367,20 @@ def intervention_mode_summary(mode: str) -> str:
         "wait_only": "patch frame groups and all non-frame prompt tokens at x^(L_wait) but keep all later attention clean",
         "mask_only": "skip all wait-boundary patching and apply only the ABP transfer/self-only mask",
     }
+    return summaries[mode]
+
+
+def instruction_mask_mode_summary(mode: str) -> str:
+    summaries = {
+        "base": "transfer=base post_transfer=self_only",
+        "no_frame_access": "transfer=base_minus_frames post_transfer=self_only",
+        "frame_only": "transfer=self_plus_frames post_transfer=self_only",
+    }
+    if mode not in summaries:
+        raise ValueError(
+            f"Unsupported instruction_mask_mode={mode!r}. "
+            f"Expected one of {_VALID_INSTRUCTION_MASK_MODES}."
+        )
     return summaries[mode]
 
 
@@ -936,13 +952,11 @@ def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) ->
 
     Transfer stage:
     - frame tokens may attend densely within their own frame block
-    - non-frame, non-carrier prompt tokens are self-only unless the instruction
-      token exception keeps them on the base mask
+    - non-frame, non-carrier prompt tokens are self-only by default
     - the carrier token may attend to all earlier prompt tokens and itself
 
     Post-transfer stage:
-    - everyone, including the carrier token and spared instruction tokens, is
-      self-only
+    - everyone, including the carrier token and instruction tokens, is self-only
     """
     allowed: set[int] = {int(query_idx)}
     if stage == "transfer":
@@ -958,8 +972,39 @@ def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) ->
 def _query_keeps_base_mask(query_idx: int, policy: AttentionPolicy, stage: str) -> bool:
     return (
         stage == "transfer"
-        and bool(policy.allow_instruction_in_transition)
+        and str(policy.instruction_mask_mode) == "base"
         and int(query_idx) in policy.instruction_positions
+    )
+
+
+def _instruction_allowed_prompt_keys(
+    query_idx: int,
+    policy: AttentionPolicy,
+    stage: str,
+) -> Optional[List[int]]:
+    if stage != "transfer" or int(query_idx) not in policy.instruction_positions:
+        return None
+
+    mode = str(policy.instruction_mask_mode)
+    if mode == "base":
+        return None
+    if mode == "no_frame_access":
+        return [
+            int(key_idx)
+            for key_idx in range(0, int(query_idx) + 1)
+            if int(key_idx) not in policy.frame_group_by_token
+        ]
+    if mode == "frame_only":
+        allowed = {int(query_idx)}
+        allowed.update(
+            int(key_idx)
+            for key_idx in policy.frame_group_by_token
+            if int(key_idx) <= int(query_idx)
+        )
+        return sorted(allowed)
+    raise ValueError(
+        f"Unsupported instruction_mask_mode={mode!r}. "
+        f"Expected one of {_VALID_INSTRUCTION_MASK_MODES}."
     )
 
 
@@ -967,7 +1012,7 @@ def build_abp_attention_policy(
     layout: SampleLayout,
     wait_layer: int,
     transfer_layers: int,
-    allow_instruction_in_transition: bool,
+    instruction_mask_mode: str,
 ) -> AttentionPolicy:
     """Create the multimodal AF1 ABP schedule.
 
@@ -986,6 +1031,11 @@ def build_abp_attention_policy(
             f"wait_layer + transfer_layers must be <= {num_layers}; "
             f"received {wait_layer} + {transfer_layers}"
         )
+    if str(instruction_mask_mode) not in _VALID_INSTRUCTION_MASK_MODES:
+        raise ValueError(
+            f"instruction_mask_mode={instruction_mask_mode!r} must be one of "
+            f"{_VALID_INSTRUCTION_MASK_MODES}"
+        )
     return AttentionPolicy(
         prompt_len=int(layout.prompt_len),
         carrier_index=int(layout.carrier_index),
@@ -994,7 +1044,7 @@ def build_abp_attention_policy(
         num_model_layers=int(num_layers),
         frame_group_by_token=_build_frame_group_by_token(layout),
         instruction_positions=tuple(int(position) for position in layout.instruction_positions),
-        allow_instruction_in_transition=bool(allow_instruction_in_transition),
+        instruction_mask_mode=str(instruction_mask_mode),
     )
 
 
@@ -1022,8 +1072,18 @@ def build_abp_attention_mask(
     for query_idx in range(prompt_rows):
         if _query_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
             continue
+        instruction_allowed_keys = _instruction_allowed_prompt_keys(
+            query_idx=query_idx,
+            policy=policy,
+            stage=stage,
+        )
         allowed_row = torch.zeros(key_len, dtype=torch.bool, device=base_mask.device)
-        for key_idx in _allowed_prompt_keys(query_idx=query_idx, policy=policy, stage=stage):
+        allowed_keys = (
+            instruction_allowed_keys
+            if instruction_allowed_keys is not None
+            else _allowed_prompt_keys(query_idx=query_idx, policy=policy, stage=stage)
+        )
+        for key_idx in allowed_keys:
             if 0 <= int(key_idx) < key_len:
                 allowed_row[int(key_idx)] = True
         custom_allowed[query_idx, :] = allowed_row
@@ -1051,10 +1111,7 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
             for position in range(layout.prompt_len)
             if position not in policy.frame_group_by_token
             and position != layout.carrier_index
-            and (
-                not policy.allow_instruction_in_transition
-                or position not in policy.instruction_positions
-            )
+            and position not in policy.instruction_positions
         ),
         None,
     )
@@ -1097,49 +1154,68 @@ def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) ->
             sanitize_token_text(layout.prompt_decoded_tokens[int(position)])
             for position in policy.instruction_positions
         ]
-        expected_instruction_post = [int(instruction_prompt_token)]
-        actual_instruction_post = _allowed_prompt_keys(
-            int(instruction_prompt_token),
+        prompt_len = int(layout.prompt_len)
+        synthetic_base_mask = torch.full(
+            (1, 1, prompt_len, prompt_len),
+            fill_value=_NEG_INF,
+            dtype=torch.float32,
+        )
+        causal_allowed = torch.tril(torch.ones(prompt_len, prompt_len, dtype=torch.bool))
+        synthetic_base_mask[0, 0][causal_allowed] = 0
+        transfer_instruction_mask = build_abp_attention_mask(
+            synthetic_base_mask,
+            policy=policy,
+            stage="transfer",
+        )
+        post_instruction_mask = build_abp_attention_mask(
+            synthetic_base_mask,
             policy=policy,
             stage="post_transfer",
         )
+        actual_instruction_transfer = [
+            int(key_idx)
+            for key_idx in torch.nonzero(
+                transfer_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
+                as_tuple=False,
+            ).flatten()
+        ]
+        expected_instruction_post = [int(instruction_prompt_token)]
+        actual_instruction_post = [
+            int(key_idx)
+            for key_idx in torch.nonzero(
+                post_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
+                as_tuple=False,
+            ).flatten()
+        ]
         if actual_instruction_post != expected_instruction_post:
             raise RuntimeError(
                 f"ABP validation failed for instruction token {instruction_prompt_token} after transfer: "
                 f"expected {expected_instruction_post}, got {actual_instruction_post}"
             )
-        if policy.allow_instruction_in_transition:
-            if not _query_keeps_base_mask(
+        if str(policy.instruction_mask_mode) == "base":
+            expected_instruction_transfer = list(range(0, int(instruction_prompt_token) + 1))
+        else:
+            expected_instruction_transfer = _instruction_allowed_prompt_keys(
                 int(instruction_prompt_token),
                 policy=policy,
                 stage="transfer",
-            ):
+            )
+            if expected_instruction_transfer is None:
                 raise RuntimeError(
                     f"ABP validation failed for instruction token {instruction_prompt_token}: "
-                    "expected transfer-stage base-mask preservation"
+                    "expected an explicit transfer-stage key set"
                 )
-            instruction_transfer_note = (
-                "ABP instruction-token transfer handling: "
-                f"positions={list(policy.instruction_positions)} tokens={instruction_tokens} "
-                "transfer=base_mask post_transfer=self_only"
+        if actual_instruction_transfer != expected_instruction_transfer:
+            raise RuntimeError(
+                f"ABP validation failed for instruction token {instruction_prompt_token} during transfer: "
+                f"expected {expected_instruction_transfer}, got {actual_instruction_transfer}"
             )
-        else:
-            expected_instruction_transfer = [int(instruction_prompt_token)]
-            actual_instruction_transfer = _allowed_prompt_keys(
-                int(instruction_prompt_token),
-                policy=policy,
-                stage="transfer",
-            )
-            if actual_instruction_transfer != expected_instruction_transfer:
-                raise RuntimeError(
-                    f"ABP validation failed for instruction token {instruction_prompt_token} during transfer: "
-                    f"expected {expected_instruction_transfer}, got {actual_instruction_transfer}"
-                )
-            instruction_transfer_note = (
-                "ABP instruction-token transfer handling: "
-                f"positions={list(policy.instruction_positions)} tokens={instruction_tokens} "
-                "transfer=self_only post_transfer=self_only"
-            )
+        instruction_transfer_note = (
+            "ABP instruction-token transfer handling: "
+            f"positions={list(policy.instruction_positions)} tokens={instruction_tokens} "
+            f"{instruction_mask_mode_summary(str(policy.instruction_mask_mode))} "
+            f"transfer_keys={actual_instruction_transfer}"
+        )
 
     expected_transfer_last = list(range(0, layout.carrier_index + 1))
     if transfer_last != expected_transfer_last:
@@ -1186,6 +1262,7 @@ def format_transition_frame_debug(layout: SampleLayout, policy: AttentionPolicy)
         f"empty_frame_groups={empty_frame_groups} "
         f"dense_intra_frame={dense_intra_frame} "
         f"cross_frame_leak={cross_frame_leak} "
+        f"instruction_mask_mode={policy.instruction_mask_mode} "
         "base_causal_preserved=True"
     )
 
@@ -2107,6 +2184,7 @@ def write_markdown_summary(
         "- Donor hybrids keep the target prompt text fixed while changing only the frame inputs.",
         "- Hallway samples are skipped by default because their room tokenization differs.",
         "- Transfer uses an ABP-style policy where the prompt carrier token can read earlier prompt tokens only during the configured transfer layers, then becomes self-only.",
+        f"- `instruction_mask_mode={config['instruction_mask_mode']}` controls instruction-token rows during transfer: {instruction_mask_mode_summary(config['instruction_mask_mode'])}.",
         "- Faithfulness is defined as intervention accuracy on the subset of used samples that the clean model got correct.",
         "- `n_total` counts selected samples, `n_used` counts samples that passed compatibility and donor checks, and `clean_acc`/`af1_acc` are computed on the used subset.",
         "- `mean_clean_top1_score_drop` averages `clean_best_score - intervention_score(clean top-1)` over used samples, freezing the clean top-1 answer separately for each sample.",
@@ -2172,7 +2250,8 @@ def main() -> None:
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     print(
         f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
-        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)}"
+        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
+        f"instruction_mask_mode={args.instruction_mask_mode}"
     )
 
     output_dir = Path(args.output_dir)
@@ -2192,6 +2271,10 @@ def main() -> None:
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
 
     validation_notes.append(f"mode={args.mode}: {intervention_mode_summary(args.mode)}")
+    validation_notes.append(
+        f"instruction_mask_mode={args.instruction_mask_mode}: "
+        f"{instruction_mask_mode_summary(args.instruction_mask_mode)}"
+    )
     validation_notes.append(
         f"grid seq_len={args.seq_len}: wait_layers={list(args.wait_layers)} "
         f"transfer_layers_grid={list(args.transfer_layers_grid)}"
@@ -2270,7 +2353,7 @@ def main() -> None:
     print(
         f"[seq_len={args.seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
         f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
-        f"k_donors={args.k_donors} allow_intruction_in_transition={bool(args.allow_intruction_in_transition)}"
+        f"k_donors={args.k_donors} instruction_mask_mode={args.instruction_mask_mode}"
     )
 
     loaded_items: List[Any] = []
@@ -2437,18 +2520,18 @@ def main() -> None:
                     layout=reference_layout,
                     wait_layer=wait_layer,
                     transfer_layers=transfer_layers,
-                    allow_instruction_in_transition=bool(args.allow_intruction_in_transition),
+                    instruction_mask_mode=str(args.instruction_mask_mode),
                 )
                 if enable_abp_mask:
                     validation_notes.append(
                         f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                        f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
+                        f"instruction_mask_mode={args.instruction_mask_mode} "
                         f"instruction_positions={list(reference_layout.instruction_positions)}"
                     )
                     print(
                         f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
                         f"transfer_layers={transfer_layers} "
-                        f"allow_intruction_in_transition={bool(args.allow_intruction_in_transition)} "
+                        f"instruction_mask_mode={args.instruction_mask_mode} "
                         f"instruction_positions={list(reference_layout.instruction_positions)}"
                     )
                     if args.debug_tokenization:
@@ -2700,7 +2783,7 @@ def main() -> None:
             "dtype": args.dtype,
             "seed": args.seed,
             "skip_hallway": bool(args.skip_hallway),
-            "allow_intruction_in_transition": bool(args.allow_intruction_in_transition),
+            "instruction_mask_mode": str(args.instruction_mask_mode),
             "donor_policy": _DONOR_POLICY,
             "wait_layer_semantics": (
                 "wait_layer is AF1 L_wait measured in number of waiting layers; "
