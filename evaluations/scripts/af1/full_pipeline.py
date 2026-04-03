@@ -52,160 +52,95 @@ python evaluations/scripts/af1/full_pipeline.py \
 
 import argparse
 import csv
-import hashlib
-import io
 import json
 import random
 import sys
 import time
-from collections import Counter
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-import numpy as np
 import torch
-
-try:
-    import matplotlib.pyplot as plt
-except ModuleNotFoundError:
-    plt = None
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from evaluations.helpers import patching_core as core
-from evaluations.helpers import utils as eval_utils
-from models.model import (
-    MODEL_ID,
-    find_subsequence,
-    force_eager_attention_backend,
-    get_layers,
-    image_token_groups,
-    model as base_model,
-    processor,
+from evaluations.scripts.af1.common import (
+    DONOR_POLICY,
+    PER_SAMPLE_FIELDS,
+    SUMMARY_FIELDS,
+    VALID_INSTRUCTION_MASK_MODES,
+    VALID_MODES,
+    PreparedSample,
+    SampleLayout,
 )
-
-_NEG_INF = -1.0e9
-_DONOR_POLICY = "same_seq_len_validated_layout_seeded_shuffle_exclude_target"
-_VALID_MODES = ("full_af1", "wait_only", "mask_only")
-_VALID_INSTRUCTION_MASK_MODES = ("base", "no_frame_access", "frame_only")
-_INSTRUCTION_TRANSFER_PROMPT_SPAN = "Output only the integer.\n"
-_SUMMARY_FIELDS = [
-    "model",
-    "mode",
-    "seq_len",
-    "wait_layer",
-    "transfer_layers",
-    "n_total",
-    "n_used",
-    "n_clean_correct",
-    "clean_acc",
-    "af1_acc",
-    "af1_faith",
-    "mean_clean_top1_score_drop",
-    "mean_gold_answer_score_drop",
-]
-_PER_SAMPLE_FIELDS = [
-    "model",
-    "mode",
-    "sample_id",
-    "seq_len",
-    "used",
-    "gold_answer",
-    "clean_pred",
-    "clean_correct",
-    "clean_gold_prob",
-    "clean_best_score",
-    "clean_margin_over_second",
-    "af1_clean_top1_score",
-    "clean_top1_score_drop",
-    "gold_answer_score_drop",
-    "af1_pred",
-    "af1_correct",
-    "af1_gold_prob",
-    "af1_best_score",
-    "af1_margin_over_second",
-    "carrier_index",
-    "carrier_token",
-    "wait_layer",
-    "transfer_layers",
-    "transfer_layer_indices",
-    "k_donors",
-    "num_frames",
-    "num_frame_groups",
-    "prompt_len",
-    "image_tokens_per_frame",
-    "room_text",
-    "skipped_reason",
-    "donor_ids",
-    "layout_match_status",
-    "layout_match_details",
-]
-
-
-@dataclass(frozen=True)
-class SampleLayout:
-    sample_id: str
-    seq_len: int
-    prompt_len: int
-    carrier_index: int
-    carrier_token_id: int
-    carrier_token_text: str
-    prompt_family_key: str
-    frame_groups: Tuple[Tuple[int, ...], ...]
-    image_tokens_per_frame: Tuple[int, ...]
-    room_text: str
-    room_positions: Tuple[int, ...]
-    character_positions: Tuple[int, ...]
-    instruction_positions: Tuple[int, ...]
-    room_span_len: int
-    prompt_input_ids: Tuple[int, ...]
-    prompt_decoded_tokens: Tuple[str, ...]
+from evaluations.scripts.af1.kernel import (
+    validate_attention_policy,
+    build_abp_attention_policy,
+    compute_all_frame_group_means_for_sample,
+    compute_non_frame_conditional_mean,
+    instruction_mask_mode_summary,
+    intervention_mode_flags,
+    intervention_mode_summary,
+)
+from evaluations.scripts.af1.layout import (
+    choose_reference_layout,
+    format_token_debug_rows,
+    format_transition_frame_debug,
+    inspect_and_validate_layout,
+    layout_hash,
+    load_and_filter_sample_dirs,
+    prepare_sample,
+    select_donor_pool,
+)
+from evaluations.scripts.af1.metrics import (
+    evaluated_row,
+    materialize_skipped_row,
+    run_clean_sample,
+    run_intervention_sample,
+    skipped_row,
+    summarize_grid_point_results,
+)
+from evaluations.scripts.af1.reporting import (
+    csv_header_line,
+    format_summary_table,
+    plot_metric_heatmap,
+    row_for_fieldnames,
+    write_csv,
+    write_markdown_summary,
+)
+from models.model import MODEL_ID, get_layers, model as base_model
 
 
 @dataclass
-class PreparedSample:
-    sample_dir: Path
-    sample_id: str
-    frames: List[Any]
-    question: str
-    gold_answer: str
-    layout: SampleLayout
-    inputs_cpu: Dict[str, torch.Tensor]
+class GridPointEvaluation:
+    sample_rows: List[Dict[str, Any]]
+    summary_row: Dict[str, Any]
+    cache_note: str
+    validation_notes_for_grid_point: List[str]
+    per_sample_rows_emitted: int
+    expected_per_sample_rows: int
 
 
-@dataclass(frozen=True)
-class AttentionPolicy:
-    prompt_len: int
-    carrier_index: int
-    wait_layer: int
-    transfer_layers: int
-    num_model_layers: int
-    frame_group_by_token: Dict[int, Tuple[int, ...]]
-    instruction_positions: Tuple[int, ...]
-    instruction_mask_mode: str
-
-    @property
-    def transfer_layer_indices(self) -> Tuple[int, ...]:
-        return tuple(range(self.wait_layer, self.wait_layer + self.transfer_layers))
-
-    @property
-    def post_transfer_start(self) -> int:
-        return self.wait_layer + self.transfer_layers
-
-    def stage_for_layer(self, layer_idx: int) -> str:
-        if layer_idx < self.wait_layer:
-            return "wait"
-        if layer_idx < self.wait_layer + self.transfer_layers:
-            return "transfer"
-        return "post_transfer"
+@dataclass
+class PreparedEvaluationInputs:
+    grid_items: List[Any]
+    reference_layout: Optional[SampleLayout]
+    compatible_samples: List[PreparedSample]
+    compatible_layout_hash: str
+    validation_notes: List[str]
+    donor_notes: List[str]
 
 
-class _WaitBoundaryCaptured(RuntimeError):
-    pass
+@dataclass
+class GridRunOutputs:
+    all_sample_rows: List[Dict[str, Any]]
+    summary_rows: List[Dict[str, Any]]
+    validation_notes: List[str]
+    cache_notes: List[str]
+    per_sample_rows_emitted: int
+    expected_per_sample_rows: int
 
 
 def parse_args() -> argparse.Namespace:
@@ -261,7 +196,7 @@ def parse_args() -> argparse.Namespace:
         "--mode",
         type=str,
         default="full_af1",
-        choices=list(_VALID_MODES),
+        choices=list(VALID_MODES),
         help=(
             "Intervention mode: full_af1 = patch + mask, wait_only = patch only, "
             "mask_only = mask only."
@@ -272,10 +207,10 @@ def parse_args() -> argparse.Namespace:
         "--instruction_mask_mode",
         type=str,
         default="base",
-        choices=list(_VALID_INSTRUCTION_MASK_MODES),
+        choices=list(VALID_INSTRUCTION_MASK_MODES),
         help=(
             "Instruction-token masking during transfer layers for the prompt "
-            f"span {_INSTRUCTION_TRANSFER_PROMPT_SPAN!r}: `base` keeps the "
+            "span 'Output only the integer.\\n': `base` keeps the "
             "base causal/padding mask, `no_frame_access` keeps the base row "
             "but removes frame-token keys, and `frame_only` keeps only self "
             "plus frame-token keys. After transfer, instruction tokens become "
@@ -347,54 +282,6 @@ def set_seed(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def canonical_model_slug(model_name: str) -> str:
-    return model_name.lower().replace("/", "_").replace("-", "")
-
-
-def intervention_mode_flags(mode: str) -> Dict[str, bool]:
-    """Translate the user-facing mode enum into the two intervention switches."""
-    if mode not in _VALID_MODES:
-        raise ValueError(f"Unsupported mode={mode!r}. Expected one of {_VALID_MODES}.")
-    return {
-        "enable_wait_patch": mode in {"full_af1", "wait_only"},
-        "enable_abp_mask": mode in {"full_af1", "mask_only"},
-    }
-
-
-def intervention_mode_summary(mode: str) -> str:
-    summaries = {
-        "full_af1": "patch frame groups and all non-frame prompt tokens at x^(L_wait) and apply ABP masking afterward",
-        "wait_only": "patch frame groups and all non-frame prompt tokens at x^(L_wait) but keep all later attention clean",
-        "mask_only": "skip all wait-boundary patching and apply only the ABP transfer/self-only mask",
-    }
-    return summaries[mode]
-
-
-def instruction_mask_mode_summary(mode: str) -> str:
-    summaries = {
-        "base": "transfer=base post_transfer=self_only",
-        "no_frame_access": "transfer=base_minus_frames post_transfer=self_only",
-        "frame_only": "transfer=self_plus_frames post_transfer=self_only",
-    }
-    if mode not in summaries:
-        raise ValueError(
-            f"Unsupported instruction_mask_mode={mode!r}. "
-            f"Expected one of {_VALID_INSTRUCTION_MASK_MODES}."
-        )
-    return summaries[mode]
-
-
-def sanitize_token_text(text: str) -> str:
-    return text.replace("\n", "\\n").replace("\t", "\\t") if text else "<empty>"
-
-
-def decode_token_ids(token_ids: Sequence[int]) -> List[str]:
-    return [
-        processor.tokenizer.decode([int(token_id)], clean_up_tokenization_spaces=False)
-        for token_id in token_ids
-    ]
-
-
 def seq_len_data_root(data_root_base: Path, seq_len: int, split: str) -> Path:
     return data_root_base / f"seq_len_{seq_len}" / split
 
@@ -418,1871 +305,34 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
     }
 
 
-def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    device = next(base_model.parameters()).device
-    return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
-
-
-def batched(items: Sequence[Any], batch_size: int) -> Iterator[Sequence[Any]]:
-    if batch_size <= 0:
-        raise ValueError("batch_size must be positive")
-    for start in range(0, len(items), batch_size):
-        yield items[start : start + batch_size]
-
-
-def _token_span_from_char_span(text: str, char_span: Tuple[int, int]) -> Tuple[int, int]:
-    start_char, end_char = int(char_span[0]), int(char_span[1])
-    if start_char > 0 and text[start_char - 1].isspace():
-        start_char -= 1
-    start_token = len(processor.tokenizer(text[:start_char], add_special_tokens=False)["input_ids"])
-    end_token = len(processor.tokenizer(text[:end_char], add_special_tokens=False)["input_ids"])
-    return start_token, end_token
-
-
-def _positions_from_token_span(base_start: int, token_span: Tuple[int, int]) -> List[int]:
-    return list(range(base_start + int(token_span[0]), base_start + int(token_span[1])))
-
-
-def _replace_spans(text: str, replacements: Sequence[Tuple[Tuple[int, int], str]]) -> str:
-    pieces: List[str] = []
-    cursor = 0
-    for (start, end), replacement in sorted(replacements, key=lambda item: item[0][0]):
-        pieces.append(text[cursor:start])
-        pieces.append(replacement)
-        cursor = end
-    pieces.append(text[cursor:])
-    return "".join(pieces)
-
-
-def _prompt_family_key(question: str, seq_len: int) -> str:
-    parsed = eval_utils.parse_target_character_room_with_spans(question)
-    if parsed is None:
-        raise RuntimeError(f"Could not parse character/room slots from question: {question!r}")
-    _, _, character_span, room_span = parsed
-    masked_question = _replace_spans(
-        question,
-        [
-            (character_span, "{CHARACTER}"),
-            (room_span, "{ROOM}"),
-        ],
-    )
-    return core.build_prompt(masked_question, num_frames=seq_len)
-
-
-def _instruction_positions_from_prompt(prompt_text: str, prompt_text_start: int) -> Tuple[int, ...]:
-    instruction_start = prompt_text.find(_INSTRUCTION_TRANSFER_PROMPT_SPAN)
-    if instruction_start < 0:
-        raise RuntimeError(
-            "Failed to locate the instruction span "
-            f"{_INSTRUCTION_TRANSFER_PROMPT_SPAN!r} in the constructed prompt"
-        )
-    instruction_span = (instruction_start, instruction_start + len(_INSTRUCTION_TRANSFER_PROMPT_SPAN))
-    instruction_token_span = _token_span_from_char_span(prompt_text, instruction_span)
-    instruction_positions = _positions_from_token_span(prompt_text_start, instruction_token_span)
-    if not instruction_positions:
-        raise RuntimeError(
-            "Instruction span tokenized to an empty position set for "
-            f"{_INSTRUCTION_TRANSFER_PROMPT_SPAN!r}"
-        )
-    return tuple(int(position) for position in instruction_positions)
-
-
-def build_sample_layout(
-    sample_id: str,
-    frames: Sequence[Any],
-    question: str,
-    inputs: Dict[str, torch.Tensor],
-) -> SampleLayout:
-    """Extract the prompt/token layout assumptions that AF1 depends on.
-
-    The important pieces are:
-    - where each frame's image token block lives in the prompt
-    - which token is the prompt carrier / "last token" for next-token prediction
-    - prompt length and prompt-family identity, so we can reject incompatible
-      samples before donor mixing or activation patching
-    """
-    input_ids = [int(token_id) for token_id in inputs["input_ids"][0].detach().cpu().tolist()]
-    prompt_len = len(input_ids)
-    if prompt_len <= 0:
-        raise RuntimeError(f"sample_id={sample_id}: empty prompt tokenization")
-
-    prompt_text = core.build_prompt(question, num_frames=len(frames))
-    prompt_text_ids = processor.tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
-    prompt_text_start = find_subsequence(input_ids, [int(token_id) for token_id in prompt_text_ids])
-    if prompt_text_start is None:
-        raise RuntimeError(f"sample_id={sample_id}: failed to locate prompt text in multimodal prompt")
-
-    question_fragment = f"Question: {question}\n"
-    question_ids = processor.tokenizer(question_fragment, add_special_tokens=False)["input_ids"]
-    question_start = find_subsequence(input_ids, [int(token_id) for token_id in question_ids])
-    if question_start is None:
-        raise RuntimeError(f"sample_id={sample_id}: failed to locate question span")
-
-    parsed = eval_utils.parse_target_character_room_with_spans(question)
-    if parsed is None:
-        raise RuntimeError(f"sample_id={sample_id}: failed to parse character/room slots from question")
-    _, room_text, character_span_in_question, room_span_in_question = parsed
-
-    question_fragment_start_in_prompt = prompt_text.index(question_fragment)
-    question_text_start_in_prompt = question_fragment_start_in_prompt + len("Question: ")
-
-    character_span_in_prompt = (
-        question_text_start_in_prompt + int(character_span_in_question[0]),
-        question_text_start_in_prompt + int(character_span_in_question[1]),
-    )
-    room_span_in_prompt = (
-        question_text_start_in_prompt + int(room_span_in_question[0]),
-        question_text_start_in_prompt + int(room_span_in_question[1]),
-    )
-
-    character_token_span = _token_span_from_char_span(prompt_text, character_span_in_prompt)
-    character_positions = _positions_from_token_span(prompt_text_start, character_token_span)
-    room_token_span = _token_span_from_char_span(prompt_text, room_span_in_prompt)
-    room_positions = _positions_from_token_span(prompt_text_start, room_token_span)
-    if not room_positions:
-        raise RuntimeError(f"sample_id={sample_id}: empty room token span")
-    instruction_positions = _instruction_positions_from_prompt(prompt_text, prompt_text_start=prompt_text_start)
-
-    carrier_index = prompt_len - 1
-    prompt_decoded_tokens = decode_token_ids(input_ids)
-
-    frame_groups = image_token_groups(inputs["input_ids"][0].detach().cpu(), expected_num_frames=len(frames))
-    if len(frame_groups) != len(frames):
-        raise RuntimeError(
-            f"sample_id={sample_id}: expected {len(frames)} frame groups but found {len(frame_groups)}"
-        )
-
-    return SampleLayout(
-        sample_id=sample_id,
-        seq_len=len(frames),
-        prompt_len=prompt_len,
-        carrier_index=carrier_index,
-        carrier_token_id=int(input_ids[carrier_index]),
-        carrier_token_text=sanitize_token_text(prompt_decoded_tokens[carrier_index]),
-        prompt_family_key=_prompt_family_key(question, seq_len=len(frames)),
-        frame_groups=tuple(tuple(int(position) for position in group) for group in frame_groups),
-        image_tokens_per_frame=tuple(len(group) for group in frame_groups),
-        room_text=str(room_text),
-        room_positions=tuple(int(position) for position in room_positions),
-        character_positions=tuple(int(position) for position in character_positions),
-        instruction_positions=instruction_positions,
-        room_span_len=len(room_positions),
-        prompt_input_ids=tuple(int(token_id) for token_id in input_ids),
-        prompt_decoded_tokens=tuple(str(token) for token in prompt_decoded_tokens),
-    )
-
-
-def _layout_signature_payload(layout: SampleLayout) -> Dict[str, Any]:
-    return {
-        "seq_len": int(layout.seq_len),
-        "prompt_family_key": layout.prompt_family_key,
-        "prompt_len": int(layout.prompt_len),
-        "carrier_index": int(layout.carrier_index),
-        "carrier_token_id": int(layout.carrier_token_id),
-        "carrier_token_text": layout.carrier_token_text,
-        "image_tokens_per_frame": list(layout.image_tokens_per_frame),
-        "frame_groups": [list(group) for group in layout.frame_groups],
-        "instruction_positions": list(layout.instruction_positions),
-        "room_span_len": int(layout.room_span_len),
-    }
-
-
-def layout_hash(layout: SampleLayout) -> str:
-    payload = json.dumps(_layout_signature_payload(layout), sort_keys=True)
-    return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
-
-
-def format_token_debug_rows(layout: SampleLayout) -> str:
-    frame_lookup: Dict[int, int] = {}
-    for frame_idx, group in enumerate(layout.frame_groups):
-        for position in group:
-            frame_lookup[int(position)] = frame_idx
-    instruction_lookup = {int(position) for position in layout.instruction_positions}
-
-    lines = ["idx\tid\ttoken\ttags"]
-    for idx, token_id in enumerate(layout.prompt_input_ids):
-        tags: List[str] = []
-        if idx == layout.carrier_index:
-            tags.append("CARRIER")
-        if idx in frame_lookup:
-            tags.append(f"frame_{frame_lookup[idx]}")
-        if idx in instruction_lookup:
-            tags.append("INSTRUCTION")
-        lines.append(
-            f"{idx}\t{token_id}\t{sanitize_token_text(layout.prompt_decoded_tokens[idx])}\t{','.join(tags) or '-'}"
-        )
-    return "\n".join(lines)
-
-
-def load_and_filter_sample_dirs(data_root: Path, max_samples: int, seed: int) -> List[Path]:
-    sample_dirs = list(eval_utils.iter_sample_dirs(data_root))
-    rng = random.Random(seed)
-    rng.shuffle(sample_dirs)
-    if max_samples > 0:
-        sample_dirs = sample_dirs[:max_samples]
-    return sample_dirs
-
-
-def _sample_seed(seed: int, *parts: str) -> int:
-    raw = "::".join([str(seed)] + [str(part) for part in parts])
-    return int(hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16], 16)
-
-
-def _empty_row(model_name: str, sample_id: str, seq_len: int) -> Dict[str, Any]:
-    row = {field: "" for field in _PER_SAMPLE_FIELDS}
-    row["model"] = model_name
-    row["sample_id"] = sample_id
-    row["seq_len"] = int(seq_len)
-    return row
-
-
-def _required_score_of_answer_text(metrics: Dict[str, Any], answer_text: str, label: str) -> float:
-    if answer_text not in metrics["scores_by_answer"]:
-        raise KeyError(f"{label} scores are missing answer {answer_text!r}")
-    return float(metrics["scores_by_answer"][answer_text])
-
-
-def compute_clean_top1_score_drop(clean_metrics: Dict[str, Any], af1_metrics: Dict[str, Any]) -> Dict[str, float]:
-    clean_top1 = str(clean_metrics["best_answer_text"]).strip()
-    clean_top1_score = float(clean_metrics["best_score"])
-    af1_clean_top1_score = _required_score_of_answer_text(
-        af1_metrics,
-        clean_top1,
-        label="Intervention",
-    )
-    return {
-        "af1_clean_top1_score": af1_clean_top1_score,
-        "clean_top1_score_drop": float(clean_top1_score - af1_clean_top1_score),
-    }
-
-
-def compute_gold_answer_score_drop(
-    sample: PreparedSample,
-    clean_metrics: Dict[str, Any],
-    af1_metrics: Dict[str, Any],
-) -> Dict[str, float]:
-    gold_answer = str(sample.gold_answer).strip()
-    clean_gold_answer_score = _required_score_of_answer_text(
-        clean_metrics,
-        gold_answer,
-        label="Clean",
-    )
-    af1_gold_answer_score = _required_score_of_answer_text(
-        af1_metrics,
-        gold_answer,
-        label="Intervention",
-    )
-    return {
-        "gold_answer_score_drop": float(clean_gold_answer_score - af1_gold_answer_score),
-    }
-
-
-def inspect_and_validate_layout(
-    reference_layout: SampleLayout,
-    candidate_layout: SampleLayout,
-    skip_hallway: bool,
-) -> Dict[str, Any]:
-    """Check whether a sample can safely share donors with the reference layout.
-
-    This script intentionally uses a strict notion of compatibility because the
-    AF1 conditional mean is defined over aligned frame-token groups. If prompt
-    length, frame-group spans, carrier semantics, or image-token counts differ,
-    we skip the sample instead of risking a silent mis-patch.
-    """
-    reasons: List[str] = []
-
-    if skip_hallway and candidate_layout.room_text.lower() == "hallway":
-        reasons.append("room_is_hallway")
-    if int(candidate_layout.seq_len) != int(reference_layout.seq_len):
-        reasons.append(
-            f"seq_len_mismatch(ref={reference_layout.seq_len},cand={candidate_layout.seq_len})"
-        )
-    if candidate_layout.prompt_family_key != reference_layout.prompt_family_key:
-        reasons.append("prompt_family_mismatch")
-    if int(candidate_layout.prompt_len) != int(reference_layout.prompt_len):
-        reasons.append(
-            f"prompt_len_mismatch(ref={reference_layout.prompt_len},cand={candidate_layout.prompt_len})"
-        )
-    if int(candidate_layout.carrier_index) != int(reference_layout.carrier_index):
-        reasons.append(
-            f"carrier_index_mismatch(ref={reference_layout.carrier_index},cand={candidate_layout.carrier_index})"
-        )
-    if int(candidate_layout.carrier_token_id) != int(reference_layout.carrier_token_id):
-        reasons.append(
-            f"carrier_token_id_mismatch(ref={reference_layout.carrier_token_id},cand={candidate_layout.carrier_token_id})"
-        )
-    if tuple(candidate_layout.image_tokens_per_frame) != tuple(reference_layout.image_tokens_per_frame):
-        reasons.append(
-            "image_tokens_per_frame_mismatch"
-            f"(ref={list(reference_layout.image_tokens_per_frame)},"
-            f"cand={list(candidate_layout.image_tokens_per_frame)})"
-        )
-    if tuple(candidate_layout.frame_groups) != tuple(reference_layout.frame_groups):
-        reasons.append("frame_group_boundaries_mismatch")
-    if tuple(candidate_layout.instruction_positions) != tuple(reference_layout.instruction_positions):
-        reasons.append("instruction_positions_mismatch")
-    if int(candidate_layout.room_span_len) != int(reference_layout.room_span_len):
-        reasons.append(
-            f"room_span_len_mismatch(ref={reference_layout.room_span_len},cand={candidate_layout.room_span_len})"
-        )
-
-    if reasons:
-        return {
-            "status": "incompatible",
-            "details": "; ".join(reasons),
-            "reasons": reasons,
-        }
-    return {
-        "status": "exact_match",
-        "details": "exact_match",
-        "reasons": [],
-    }
-
-
-def _prepare_sample(sample_dir: Path, skip_hallway: bool) -> Tuple[Optional[PreparedSample], Optional[Dict[str, Any]]]:
-    sample_id, frames, question, _, answer_text = eval_utils.load_mmred_sample(sample_dir)
-    parsed = eval_utils.parse_target_character_room(question)
-    room_text = parsed[1] if parsed is not None else ""
-
-    if skip_hallway and room_text.lower() == "hallway":
-        row = _empty_row(MODEL_ID, sample_id=sample_id, seq_len=len(frames))
-        row.update(
-            {
-                "used": 0,
-                "gold_answer": str(answer_text).strip(),
-                "room_text": room_text,
-                "num_frames": int(len(frames)),
-                "skipped_reason": "room_is_hallway",
-                "layout_match_status": "skipped",
-                "layout_match_details": "room_is_hallway",
-            }
-        )
-        return None, row
-
-    try:
-        inputs_cpu = core.build_inputs(frames, question)
-        layout = build_sample_layout(sample_id=sample_id, frames=frames, question=question, inputs=inputs_cpu)
-    except Exception as exc:
-        row = _empty_row(MODEL_ID, sample_id=sample_id, seq_len=len(frames))
-        row.update(
-            {
-                "used": 0,
-                "gold_answer": str(answer_text).strip(),
-                "room_text": room_text,
-                "num_frames": int(len(frames)),
-                "skipped_reason": f"layout_build_failed({exc})",
-                "layout_match_status": "skipped",
-                "layout_match_details": f"layout_build_failed({exc})",
-            }
-        )
-        return None, row
-
-    prepared = PreparedSample(
-        sample_dir=sample_dir,
-        sample_id=sample_id,
-        frames=frames,
-        question=question,
-        gold_answer=str(answer_text).strip(),
-        layout=layout,
-        inputs_cpu=inputs_cpu,
-    )
-    return prepared, None
-
-
-def _choose_reference_layout(samples: Sequence[PreparedSample]) -> Optional[SampleLayout]:
-    if not samples:
-        return None
-    signature_order: List[str] = []
-    signature_to_layout: Dict[str, SampleLayout] = {}
-    counts: Counter[str] = Counter()
-    for sample in samples:
-        signature = json.dumps(_layout_signature_payload(sample.layout), sort_keys=True)
-        if signature not in signature_to_layout:
-            signature_order.append(signature)
-            signature_to_layout[signature] = sample.layout
-        counts[signature] += 1
-
-    best_signature = max(signature_order, key=lambda signature: (counts[signature], -signature_order.index(signature)))
-    return signature_to_layout[best_signature]
-
-
-def select_donor_pool(
-    target_sample: PreparedSample,
-    compatible_samples: Sequence[PreparedSample],
-    k_donors: int,
-    seed: int,
-) -> List[PreparedSample]:
-    """Choose up to `k_donors` compatible donors with deterministic shuffling.
-
-    Donors:
-    - come from the same validated seq_len pool
-    - must not be the target sample itself
-    - are shuffled with a target-specific seeded RNG so repeated runs are stable
-    """
-    candidates = [
-        sample
-        for sample in compatible_samples
-        if sample.sample_id != target_sample.sample_id and sample.layout.seq_len == target_sample.layout.seq_len
-    ]
-    candidates = sorted(candidates, key=lambda sample: sample.sample_id)
-    rng = random.Random(_sample_seed(seed, str(target_sample.layout.seq_len), target_sample.sample_id))
-    rng.shuffle(candidates)
-    return candidates[: max(0, k_donors)]
-
-
-def build_hybrid_sample(
-    target_sample: PreparedSample,
-    donor_sample: PreparedSample,
-    frame_idx: int,
-) -> Dict[str, Any]:
-    """Build one hybrid context for conditional-mean estimation.
-
-    Paper-inspired semantics for the multimodal adaptation:
-    - keep the target sample's text prompt fixed
-    - keep frame `frame_idx` fixed from the target sample
-    - replace every other frame with the corresponding frame from one donor
-
-    The resulting prompt layout matches the target layout because only image
-    pixels change, not prompt text or multimodal placeholder positions.
-    """
-    if target_sample.layout.seq_len != donor_sample.layout.seq_len:
-        raise ValueError(
-            f"Incompatible seq_len for hybrid sample: target={target_sample.layout.seq_len}, "
-            f"donor={donor_sample.layout.seq_len}"
-        )
-    if frame_idx < 0 or frame_idx >= target_sample.layout.seq_len:
-        raise IndexError(f"frame_idx={frame_idx} out of bounds for seq_len={target_sample.layout.seq_len}")
-
-    mixed_frames = list(donor_sample.frames)
-    mixed_frames[frame_idx] = target_sample.frames[frame_idx]
-    return {
-        "sample_id": f"{target_sample.sample_id}__frame_{frame_idx}__donor_{donor_sample.sample_id}",
-        "frames": mixed_frames,
-        "question": target_sample.question,
-        # The text prompt is fixed to the target sample, so the prompt token
-        # layout is the same as the target layout. Only the image pixels change.
-        "layout": target_sample.layout,
-    }
-
-
-def all_non_frame_prompt_positions(layout: SampleLayout) -> Tuple[int, ...]:
-    frame_positions = {int(position) for group in layout.frame_groups for position in group}
-    return tuple(position for position in range(int(layout.prompt_len)) if position not in frame_positions)
-
-
-def build_non_frame_hybrid_sample(
-    target_sample: PreparedSample,
-    donor_sample: PreparedSample,
-) -> Dict[str, Any]:
-    """Build one hybrid context for the all-non-frame prompt conditional mean."""
-    if target_sample.layout.seq_len != donor_sample.layout.seq_len:
-        raise ValueError(
-            f"Incompatible seq_len for non-frame hybrid sample: target={target_sample.layout.seq_len}, "
-            f"donor={donor_sample.layout.seq_len}"
-        )
-    return {
-        "sample_id": f"{target_sample.sample_id}__non_frame__donor_{donor_sample.sample_id}",
-        "frames": list(donor_sample.frames),
-        "question": target_sample.question,
-        # The prompt text stays fixed to the target sample; all frames come from
-        # the donor so the non-frame mean is estimated from donor frame sets.
-        "layout": target_sample.layout,
-    }
-
-
-@contextmanager
-def temporary_layer_wrappers(layers: Sequence[Any], wrapper_factory: Any) -> Iterator[None]:
-    original_forwards: Dict[int, Any] = {}
-    try:
-        for layer_idx, layer in enumerate(layers):
-            original_forwards[layer_idx] = layer.forward
-            layer.forward = wrapper_factory(layer_idx, layer.forward)
-        yield
-    finally:
-        for layer_idx, layer in enumerate(layers):
-            if layer_idx in original_forwards:
-                layer.forward = original_forwards[layer_idx]
-
-
-def _to_hidden_tensor(x: Any) -> torch.Tensor:
-    if isinstance(x, torch.Tensor):
-        return x
-    if isinstance(x, (tuple, list)) and x:
-        return _to_hidden_tensor(x[0])
-    raise TypeError(f"Unsupported layer output type: {type(x)}")
-
-
-def _ensure_mask_tensor(mask: torch.Tensor, batch_size: int) -> torch.Tensor:
-    if mask.dim() != 4:
-        raise ValueError(f"Expected rank-4 attention mask, got shape={tuple(mask.shape)}")
-    if int(mask.shape[0]) == batch_size:
-        return mask
-    if int(mask.shape[0]) == 1:
-        return mask.expand(batch_size, -1, -1, -1)
-    raise ValueError(f"Cannot expand attention mask {tuple(mask.shape)} to batch_size={batch_size}")
-
-
-def _build_frame_group_by_token(layout: SampleLayout) -> Dict[int, Tuple[int, ...]]:
-    frame_group_by_token: Dict[int, Tuple[int, ...]] = {}
-    for frame_idx, group in enumerate(layout.frame_groups):
-        normalized_group = tuple(int(position) for position in group)
-        if not normalized_group:
-            continue
-        if int(layout.carrier_index) in normalized_group:
-            raise RuntimeError(
-                f"sample_id={layout.sample_id}: carrier_index={layout.carrier_index} unexpectedly appears "
-                f"inside frame group {frame_idx}"
-            )
-        for position in normalized_group:
-            if position < 0 or position >= int(layout.prompt_len):
-                raise RuntimeError(
-                    f"sample_id={layout.sample_id}: frame group {frame_idx} position={position} is outside "
-                    f"prompt_len={layout.prompt_len}"
-                )
-            if position in frame_group_by_token:
-                raise RuntimeError(
-                    f"sample_id={layout.sample_id}: overlapping frame groups at token position={position}"
-                )
-            frame_group_by_token[int(position)] = normalized_group
-    return frame_group_by_token
-
-
-def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) -> List[int]:
-    """Return the ABP key set for one prompt query position.
-
-    Transfer stage:
-    - frame tokens may attend densely within their own frame block
-    - non-frame, non-carrier prompt tokens are self-only by default
-    - the carrier token may attend to all earlier prompt tokens and itself
-
-    Post-transfer stage:
-    - everyone, including the carrier token and instruction tokens, is self-only
-    """
-    allowed: set[int] = {int(query_idx)}
-    if stage == "transfer":
-        if int(query_idx) == int(policy.carrier_index):
-            allowed.update(range(0, int(policy.carrier_index) + 1))
-        else:
-            same_frame_group = policy.frame_group_by_token.get(int(query_idx))
-            if same_frame_group is not None:
-                allowed.update(int(position) for position in same_frame_group)
-    return sorted(allowed)
-
-
-def _query_keeps_base_mask(query_idx: int, policy: AttentionPolicy, stage: str) -> bool:
-    return (
-        stage == "transfer"
-        and str(policy.instruction_mask_mode) == "base"
-        and int(query_idx) in policy.instruction_positions
-    )
-
-
-def _instruction_allowed_prompt_keys(
-    query_idx: int,
-    policy: AttentionPolicy,
-    stage: str,
-) -> Optional[List[int]]:
-    if stage != "transfer" or int(query_idx) not in policy.instruction_positions:
-        return None
-
-    mode = str(policy.instruction_mask_mode)
-    if mode == "base":
-        return None
-    if mode == "no_frame_access":
-        return [
-            int(key_idx)
-            for key_idx in range(0, int(query_idx) + 1)
-            if int(key_idx) not in policy.frame_group_by_token
-        ]
-    if mode == "frame_only":
-        allowed = {int(query_idx)}
-        allowed.update(
-            int(key_idx)
-            for key_idx in policy.frame_group_by_token
-            if int(key_idx) <= int(query_idx)
-        )
-        return sorted(allowed)
-    raise ValueError(
-        f"Unsupported instruction_mask_mode={mode!r}. "
-        f"Expected one of {_VALID_INSTRUCTION_MASK_MODES}."
-    )
-
-
-def build_abp_attention_policy(
-    layout: SampleLayout,
-    wait_layer: int,
-    transfer_layers: int,
-    instruction_mask_mode: str,
-) -> AttentionPolicy:
-    """Create the multimodal AF1 ABP schedule.
-
-    `wait_layer` is interpreted as AF1's `L_wait`, i.e. the number of waiting
-    layers before the transfer stage begins. The transfer stage then occupies
-    the next `transfer_layers` layers, and all later layers use post-transfer
-    self-only attention for the carrier as well.
-    """
-    num_layers = len(get_layers(base_model))
-    if wait_layer < 0 or wait_layer > num_layers:
-        raise ValueError(f"wait_layer={wait_layer} must be in [0, {num_layers}]")
-    if transfer_layers < 0:
-        raise ValueError("transfer_layers must be non-negative")
-    if wait_layer + transfer_layers > num_layers:
-        raise ValueError(
-            f"wait_layer + transfer_layers must be <= {num_layers}; "
-            f"received {wait_layer} + {transfer_layers}"
-        )
-    if str(instruction_mask_mode) not in _VALID_INSTRUCTION_MASK_MODES:
-        raise ValueError(
-            f"instruction_mask_mode={instruction_mask_mode!r} must be one of "
-            f"{_VALID_INSTRUCTION_MASK_MODES}"
-        )
-    return AttentionPolicy(
-        prompt_len=int(layout.prompt_len),
-        carrier_index=int(layout.carrier_index),
-        wait_layer=int(wait_layer),
-        transfer_layers=int(transfer_layers),
-        num_model_layers=int(num_layers),
-        frame_group_by_token=_build_frame_group_by_token(layout),
-        instruction_positions=tuple(int(position) for position in layout.instruction_positions),
-        instruction_mask_mode=str(instruction_mask_mode),
-    )
-
-
-def build_abp_attention_mask(
-    base_mask: torch.Tensor,
-    policy: AttentionPolicy,
-    stage: str,
-) -> torch.Tensor:
-    """Rewrite the prompt rows of the causal mask to follow AF1 ABP rules.
-
-    We preserve the base causal/padding constraints and only narrow the allowed
-    key set. Prompt rows are modified because AF1 is defined over the original
-    prompt tokens; appended answer tokens used for scoring keep the base causal
-    mask so sequence log-probability scoring still works normally.
-    """
-    batch_size, _, query_len, key_len = base_mask.shape
-    template = base_mask[0, 0]
-    base_allowed = template == 0
-    custom_allowed = base_allowed.clone()
-
-    # We only alter the original prompt rows. If answer tokens are appended for
-    # scoring, their rows keep the base causal mask so sequence log-probability
-    # scoring remains well-defined.
-    prompt_rows = min(int(policy.prompt_len), int(query_len))
-    for query_idx in range(prompt_rows):
-        if _query_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
-            continue
-        instruction_allowed_keys = _instruction_allowed_prompt_keys(
-            query_idx=query_idx,
-            policy=policy,
-            stage=stage,
-        )
-        allowed_row = torch.zeros(key_len, dtype=torch.bool, device=base_mask.device)
-        allowed_keys = (
-            instruction_allowed_keys
-            if instruction_allowed_keys is not None
-            else _allowed_prompt_keys(query_idx=query_idx, policy=policy, stage=stage)
-        )
-        for key_idx in allowed_keys:
-            if 0 <= int(key_idx) < key_len:
-                allowed_row[int(key_idx)] = True
-        custom_allowed[query_idx, :] = allowed_row
-
-    final_allowed = base_allowed & custom_allowed
-    fill_value = torch.finfo(template.dtype).min if torch.is_floating_point(template) else _NEG_INF
-    mask_2d = torch.full_like(template, fill_value=fill_value)
-    mask_2d[final_allowed] = 0
-    return mask_2d.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, query_len, key_len)
-
-
-def _validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> List[str]:
-    frame_prompt_token = next(
-        (
-            position
-            for group in layout.frame_groups
-            for position in group
-            if position != layout.carrier_index
-        ),
-        None,
-    )
-    non_frame_prompt_token = next(
-        (
-            position
-            for position in range(layout.prompt_len)
-            if position not in policy.frame_group_by_token
-            and position != layout.carrier_index
-            and position not in policy.instruction_positions
-        ),
-        None,
-    )
-    instruction_prompt_token = next((position for position in policy.instruction_positions), None)
-    transfer_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="transfer")
-    post_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="post_transfer")
-
-    frame_transfer_note = "ABP frame token transfer connectivity: no frame tokens present"
-    if frame_prompt_token is not None:
-        transfer_frame = _allowed_prompt_keys(frame_prompt_token, policy=policy, stage="transfer")
-        same_frame_group = sorted(policy.frame_group_by_token[int(frame_prompt_token)])
-        expected_frame = list(same_frame_group)
-        if transfer_frame != expected_frame:
-            raise RuntimeError(
-                f"ABP validation failed for frame token {frame_prompt_token}: "
-                f"expected {expected_frame}, got {transfer_frame}"
-            )
-        frame_transfer_note = (
-            f"ABP frame token transfer connectivity: query={frame_prompt_token} "
-            f"frame_size={len(same_frame_group)} dense_intra_frame=yes"
-        )
-
-    non_frame_transfer_note = "ABP non-frame token allowed keys at transfer: none"
-    if non_frame_prompt_token is not None:
-        transfer_non_frame = _allowed_prompt_keys(non_frame_prompt_token, policy=policy, stage="transfer")
-        expected_non_frame = [non_frame_prompt_token]
-        if transfer_non_frame != expected_non_frame:
-            raise RuntimeError(
-                f"ABP validation failed for non-frame token {non_frame_prompt_token}: "
-                f"expected {expected_non_frame}, got {transfer_non_frame}"
-            )
-        non_frame_transfer_note = (
-            f"ABP non-frame token allowed keys at transfer: "
-            f"query={non_frame_prompt_token} keys={transfer_non_frame}"
-        )
-
-    instruction_transfer_note = "ABP instruction-token transfer handling: none"
-    if instruction_prompt_token is not None:
-        instruction_tokens = [
-            sanitize_token_text(layout.prompt_decoded_tokens[int(position)])
-            for position in policy.instruction_positions
-        ]
-        prompt_len = int(layout.prompt_len)
-        synthetic_base_mask = torch.full(
-            (1, 1, prompt_len, prompt_len),
-            fill_value=_NEG_INF,
-            dtype=torch.float32,
-        )
-        causal_allowed = torch.tril(torch.ones(prompt_len, prompt_len, dtype=torch.bool))
-        synthetic_base_mask[0, 0][causal_allowed] = 0
-        transfer_instruction_mask = build_abp_attention_mask(
-            synthetic_base_mask,
-            policy=policy,
-            stage="transfer",
-        )
-        post_instruction_mask = build_abp_attention_mask(
-            synthetic_base_mask,
-            policy=policy,
-            stage="post_transfer",
-        )
-        actual_instruction_transfer = [
-            int(key_idx)
-            for key_idx in torch.nonzero(
-                transfer_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                as_tuple=False,
-            ).flatten()
-        ]
-        expected_instruction_post = [int(instruction_prompt_token)]
-        actual_instruction_post = [
-            int(key_idx)
-            for key_idx in torch.nonzero(
-                post_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                as_tuple=False,
-            ).flatten()
-        ]
-        if actual_instruction_post != expected_instruction_post:
-            raise RuntimeError(
-                f"ABP validation failed for instruction token {instruction_prompt_token} after transfer: "
-                f"expected {expected_instruction_post}, got {actual_instruction_post}"
-            )
-        if str(policy.instruction_mask_mode) == "base":
-            expected_instruction_transfer = list(range(0, int(instruction_prompt_token) + 1))
-        else:
-            expected_instruction_transfer = _instruction_allowed_prompt_keys(
-                int(instruction_prompt_token),
-                policy=policy,
-                stage="transfer",
-            )
-            if expected_instruction_transfer is None:
-                raise RuntimeError(
-                    f"ABP validation failed for instruction token {instruction_prompt_token}: "
-                    "expected an explicit transfer-stage key set"
-                )
-        if actual_instruction_transfer != expected_instruction_transfer:
-            raise RuntimeError(
-                f"ABP validation failed for instruction token {instruction_prompt_token} during transfer: "
-                f"expected {expected_instruction_transfer}, got {actual_instruction_transfer}"
-            )
-        instruction_transfer_note = (
-            "ABP instruction-token transfer handling: "
-            f"positions={list(policy.instruction_positions)} tokens={instruction_tokens} "
-            f"{instruction_mask_mode_summary(str(policy.instruction_mask_mode))} "
-            f"transfer_keys={actual_instruction_transfer}"
-        )
-
-    expected_transfer_last = list(range(0, layout.carrier_index + 1))
-    if transfer_last != expected_transfer_last:
-        raise RuntimeError(
-            f"ABP validation failed for carrier transfer stage: "
-            f"expected {expected_transfer_last}, got {transfer_last}"
-        )
-
-    expected_post_last = [layout.carrier_index]
-    if post_last != expected_post_last:
-        raise RuntimeError(
-            f"ABP validation failed for carrier post-transfer stage: "
-            f"expected {expected_post_last}, got {post_last}"
-        )
-
-    return [
-        frame_transfer_note,
-        non_frame_transfer_note,
-        instruction_transfer_note,
-        f"ABP carrier allowed keys at transfer: query={layout.carrier_index} keys={transfer_last}",
-        f"ABP carrier allowed keys after transfer: query={layout.carrier_index} keys={post_last}",
-        "ABP scoring suffix rows keep the base causal mask when answer tokens are appended for scoring.",
-    ]
-
-
-def format_transition_frame_debug(layout: SampleLayout, policy: AttentionPolicy) -> str:
-    frame_sizes = [len(group) for group in layout.frame_groups]
-    empty_frame_groups = sum(1 for group in layout.frame_groups if not group)
-    dense_intra_frame = True
-    cross_frame_leak = False
-    for group in layout.frame_groups:
-        if not group:
-            continue
-        group_set = {int(position) for position in group}
-        transfer_keys = set(_allowed_prompt_keys(int(group[0]), policy=policy, stage="transfer"))
-        if not group_set.issubset(transfer_keys):
-            dense_intra_frame = False
-        other_frame_positions = set(policy.frame_group_by_token) - group_set
-        if transfer_keys & other_frame_positions:
-            cross_frame_leak = True
-    return (
-        f"transition_frame_blocks frames={len(layout.frame_groups)} "
-        f"tokens_per_frame={frame_sizes} "
-        f"empty_frame_groups={empty_frame_groups} "
-        f"dense_intra_frame={dense_intra_frame} "
-        f"cross_frame_leak={cross_frame_leak} "
-        f"instruction_mask_mode={policy.instruction_mask_mode} "
-        "base_causal_preserved=True"
-    )
-
-
-def _patch_frame_groups(
-    hidden_states: torch.Tensor,
-    layout: SampleLayout,
-    frame_group_means: Dict[int, torch.Tensor],
-) -> torch.Tensor:
-    patched = hidden_states.clone()
-    for frame_idx, positions in enumerate(layout.frame_groups):
-        replacement = frame_group_means[frame_idx].to(device=patched.device, dtype=patched.dtype)
-        patched[:, list(positions), :] = replacement.unsqueeze(0)
-    return patched
-
-
-def _patch_non_frame_prompt_tokens(
-    patched_hidden_states: torch.Tensor,
-    layout: SampleLayout,
-    non_frame_mean_block: torch.Tensor,
-) -> torch.Tensor:
-    non_frame_positions = all_non_frame_prompt_positions(layout)
-    if not non_frame_positions:
-        return patched_hidden_states
-    replacement = non_frame_mean_block.to(
-        device=patched_hidden_states.device,
-        dtype=patched_hidden_states.dtype,
-    )
-    patched_hidden_states[:, list(non_frame_positions), :] = replacement.unsqueeze(0)
-    return patched_hidden_states
-
-
-def _run_model_forward(
-    inputs: Dict[str, torch.Tensor],
-    output_hidden_states: bool = False,
-    output_attentions: bool = False,
-) -> Any:
-    force_eager_attention_backend()
-    with torch.inference_mode():
-        return base_model(
-            **inputs,
-            use_cache=False,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            return_dict=True,
-        )
-
-
-def _capture_wait_boundary_blocks(
-    inputs: Dict[str, torch.Tensor],
-    wait_layer: int,
-    positions: Sequence[int],
-) -> torch.Tensor:
-    """Capture hidden states exactly at the AF1 wait boundary `x^(L_wait)`.
-
-    Layer indexing detail:
-    - if `wait_layer == 0`, we need `x^(0)`, so we capture the incoming hidden
-      states before layer 0 runs
-    - if `wait_layer > 0`, we need the output of layer `wait_layer - 1`
-
-    We stop the forward pass immediately after capture because the conditional
-    mean only needs the wait-boundary activations for the selected positions.
-    """
-    layers = get_layers(base_model)
-    if wait_layer < 0 or wait_layer > len(layers):
-        raise ValueError(f"wait_layer={wait_layer} must be in [0, {len(layers)}]")
-
-    capture_positions = [int(position) for position in positions]
-    captured: Dict[str, torch.Tensor] = {}
-    boundary_output_layer_idx = wait_layer - 1
-
-    def wrapper_factory(layer_idx: int, original_forward: Any) -> Any:
-        def wrapped_forward(*args: Any, **kwargs: Any) -> Any:
-            hidden_states = args[0] if args else kwargs.get("hidden_states")
-            if hidden_states is None:
-                raise RuntimeError("Layer forward received no hidden_states")
-
-            if wait_layer == 0 and layer_idx == 0:
-                captured["block"] = hidden_states[:, capture_positions, :].detach().to(dtype=torch.float32).cpu()
-                raise _WaitBoundaryCaptured
-
-            outputs = original_forward(*args, **kwargs)
-            if layer_idx == boundary_output_layer_idx:
-                hidden_out = _to_hidden_tensor(outputs)
-                captured["block"] = hidden_out[:, capture_positions, :].detach().to(dtype=torch.float32).cpu()
-                raise _WaitBoundaryCaptured
-            return outputs
-
-        return wrapped_forward
-
-    force_eager_attention_backend()
-    with temporary_layer_wrappers(layers, wrapper_factory):
-        with torch.inference_mode():
-            try:
-                base_model(
-                    **inputs,
-                    use_cache=False,
-                    output_attentions=False,
-                    output_hidden_states=False,
-                    return_dict=True,
-                )
-            except _WaitBoundaryCaptured:
-                pass
-
-    if "block" not in captured:
-        raise RuntimeError(
-            f"Failed to capture wait-boundary block for wait_layer={wait_layer} positions={capture_positions}"
-        )
-    return captured["block"]
-
-
-def _conditional_mean_cache_path(
-    cache_dir: Path,
-    model_name: str,
-    seq_len: int,
-    target_sample_id: str,
-    frame_idx: int,
-    wait_layer: int,
-    k_donors_used: int,
-    donor_policy: str,
-    donor_ids: Sequence[str],
-    layout_hash_value: str,
-) -> Path:
-    donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
-    donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
-    return (
-        cache_dir
-        / canonical_model_slug(model_name)
-        / f"seq_len_{seq_len}"
-        / f"wait_{wait_layer}"
-        / f"target_{target_sample_id}"
-        / (
-            f"frame_{frame_idx}_k_{k_donors_used}_policy_{donor_policy_hash}_"
-            f"donors_{donor_ids_hash}_layout_{layout_hash_value}.pt"
-        )
-    )
-
-
-def _non_frame_conditional_mean_cache_path(
-    cache_dir: Path,
-    model_name: str,
-    seq_len: int,
-    target_sample_id: str,
-    wait_layer: int,
-    k_donors_used: int,
-    donor_policy: str,
-    donor_ids: Sequence[str],
-    layout_hash_value: str,
-) -> Path:
-    donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
-    donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
-    return (
-        cache_dir
-        / canonical_model_slug(model_name)
-        / f"seq_len_{seq_len}"
-        / f"wait_{wait_layer}"
-        / f"target_{target_sample_id}"
-        / (
-            f"non_frame_k_{k_donors_used}_policy_{donor_policy_hash}_"
-            f"donors_{donor_ids_hash}_layout_{layout_hash_value}.pt"
-        )
-    )
-
-
-def compute_frame_group_conditional_mean(
-    target_sample: PreparedSample,
-    frame_idx: int,
-    donor_samples: Sequence[PreparedSample],
-    wait_layer: int,
-    batch_size: int,
-    cache_dir: Path,
-    recompute_cache: bool,
-    donor_policy: str,
-) -> Tuple[torch.Tensor, bool]:
-    """Estimate one frame-group conditional mean for one target sample.
-
-    This is the core CAMA-style adaptation in this script. For frame `j`:
-    1. build one hybrid per donor where target frame `j` stays fixed
-    2. replace all other frames with donor frames
-    3. keep the target text prompt fixed
-    4. run each hybrid to the wait boundary `x^(L_wait)`
-    5. extract the full activation block for frame group `j`
-    6. average those blocks across donors
-
-    A single donor is not treated as a conditional mean, so we require at
-    least two donors.
-    """
-    if len(donor_samples) < 2:
-        raise ValueError(
-            f"Need at least two donors to estimate a conditional mean, got {len(donor_samples)} "
-            f"for target={target_sample.sample_id} frame={frame_idx}"
-        )
-
-    donor_ids = [sample.sample_id for sample in donor_samples]
-    cache_path = _conditional_mean_cache_path(
-        cache_dir=cache_dir,
-        model_name=MODEL_ID,
-        seq_len=target_sample.layout.seq_len,
-        target_sample_id=target_sample.sample_id,
-        frame_idx=frame_idx,
-        wait_layer=wait_layer,
-        k_donors_used=len(donor_samples),
-        donor_policy=donor_policy,
-        donor_ids=donor_ids,
-        layout_hash_value=layout_hash(target_sample.layout),
-    )
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if cache_path.exists() and not recompute_cache:
-        payload = torch.load(cache_path, map_location="cpu")
-        return payload["mean_block"].to(dtype=torch.float32), True
-
-    frame_positions = target_sample.layout.frame_groups[frame_idx]
-    blocks: List[torch.Tensor] = []
-    for donor_batch in batched(list(donor_samples), batch_size=batch_size):
-        hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
-        for donor_sample in donor_batch:
-            hybrid = build_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample, frame_idx=frame_idx)
-            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
-            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
-
-        # Batched hybrid evaluation is safe only because layout validation
-        # guarantees exact prompt/token alignment across compatible donors.
-        batched_inputs = core.concatenate_inputs_for_batch(hybrid_inputs_list)
-        blocks.append(_capture_wait_boundary_blocks(batched_inputs, wait_layer=wait_layer, positions=frame_positions))
-
-    mean_block = torch.cat(blocks, dim=0).mean(dim=0).to(dtype=torch.float32).cpu()
-    torch.save(
-        {
-            "mean_block": mean_block,
-            "metadata": {
-                "model_name": MODEL_ID,
-                "seq_len": int(target_sample.layout.seq_len),
-                "target_sample_id": target_sample.sample_id,
-                "frame_idx": int(frame_idx),
-                "wait_layer": int(wait_layer),
-                "k_donors_requested": int(len(donor_samples)),
-                "k_donors_used": int(len(donor_samples)),
-                "donor_policy": donor_policy,
-                "donor_ids": list(donor_ids),
-                "layout_hash": layout_hash(target_sample.layout),
-                "cache_semantics": (
-                    "frame-group conditional mean at x^(L_wait) estimated from hybrid contexts "
-                    "that keep the target frame fixed, replace the other frames with donor frames, "
-                    "and keep the target text prompt fixed"
-                ),
-            },
-        },
-        cache_path,
-    )
-    return mean_block, False
-
-
-def compute_non_frame_conditional_mean(
-    target_sample: PreparedSample,
-    donor_samples: Sequence[PreparedSample],
-    wait_layer: int,
-    batch_size: int,
-    cache_dir: Path,
-    recompute_cache: bool,
-    donor_policy: str,
-) -> Tuple[torch.Tensor, bool]:
-    """Estimate one conditional mean for all non-frame prompt tokens."""
-    if len(donor_samples) < 2:
-        raise ValueError(
-            f"Need at least two donors to estimate a non-frame conditional mean, got {len(donor_samples)} "
-            f"for target={target_sample.sample_id}"
-        )
-
-    non_frame_positions = all_non_frame_prompt_positions(target_sample.layout)
-    if not non_frame_positions:
-        raise RuntimeError(f"target={target_sample.sample_id}: no non-frame prompt positions found")
-
-    donor_ids = [sample.sample_id for sample in donor_samples]
-    cache_path = _non_frame_conditional_mean_cache_path(
-        cache_dir=cache_dir,
-        model_name=MODEL_ID,
-        seq_len=target_sample.layout.seq_len,
-        target_sample_id=target_sample.sample_id,
-        wait_layer=wait_layer,
-        k_donors_used=len(donor_samples),
-        donor_policy=donor_policy,
-        donor_ids=donor_ids,
-        layout_hash_value=layout_hash(target_sample.layout),
-    )
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if cache_path.exists() and not recompute_cache:
-        payload = torch.load(cache_path, map_location="cpu")
-        return payload["mean_block"].to(dtype=torch.float32), True
-
-    blocks: List[torch.Tensor] = []
-    for donor_batch in batched(list(donor_samples), batch_size=batch_size):
-        hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
-        for donor_sample in donor_batch:
-            hybrid = build_non_frame_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample)
-            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
-            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
-
-        # Batched hybrid evaluation is safe only because layout validation
-        # guarantees exact prompt/token alignment across compatible donors.
-        batched_inputs = core.concatenate_inputs_for_batch(hybrid_inputs_list)
-        blocks.append(
-            _capture_wait_boundary_blocks(
-                batched_inputs,
-                wait_layer=wait_layer,
-                positions=non_frame_positions,
-            )
-        )
-
-    mean_block = torch.cat(blocks, dim=0).mean(dim=0).to(dtype=torch.float32).cpu()
-    torch.save(
-        {
-            "mean_block": mean_block,
-            "metadata": {
-                "model_name": MODEL_ID,
-                "seq_len": int(target_sample.layout.seq_len),
-                "target_sample_id": target_sample.sample_id,
-                "wait_layer": int(wait_layer),
-                "k_donors_requested": int(len(donor_samples)),
-                "k_donors_used": int(len(donor_samples)),
-                "donor_policy": donor_policy,
-                "donor_ids": list(donor_ids),
-                "layout_hash": layout_hash(target_sample.layout),
-                "num_positions": int(len(non_frame_positions)),
-                "cache_semantics": (
-                    "all-non-frame prompt conditional mean at x^(L_wait) estimated from hybrid contexts "
-                    "that keep the target text prompt fixed and replace the entire frame set with donor frames"
-                ),
-            },
-        },
-        cache_path,
-    )
-    return mean_block, False
-
-
-def compute_all_frame_group_means_for_sample(
-    target_sample: PreparedSample,
-    donor_samples: Sequence[PreparedSample],
-    wait_layer: int,
-    batch_size: int,
-    cache_dir: Path,
-    recompute_cache: bool,
-    donor_policy: str,
-) -> Tuple[Dict[int, torch.Tensor], Dict[str, int]]:
-    """Compute conditional-mean replacements for every frame group in a sample."""
-    if len(donor_samples) < 2:
-        raise ValueError(
-            f"Need at least two donors to estimate conditional means for target={target_sample.sample_id}"
-        )
-
-    frame_means: Dict[int, torch.Tensor] = {}
-    cache_hits = 0
-    cache_misses = 0
-    for frame_idx in range(target_sample.layout.seq_len):
-        mean_block, cache_hit = compute_frame_group_conditional_mean(
-            target_sample=target_sample,
-            frame_idx=frame_idx,
-            donor_samples=donor_samples,
-            wait_layer=wait_layer,
-            batch_size=batch_size,
-            cache_dir=cache_dir,
-            recompute_cache=recompute_cache,
-            donor_policy=donor_policy,
-        )
-        frame_means[frame_idx] = mean_block
-        cache_hits += int(cache_hit)
-        cache_misses += int(not cache_hit)
-    return frame_means, {"cache_hits": cache_hits, "cache_misses": cache_misses}
-
-
-def run_clean_model(
-    inputs: Dict[str, torch.Tensor],
-    output_attentions: bool = False,
-) -> Any:
-    return _run_model_forward(
-        inputs,
-        output_hidden_states=False,
-        output_attentions=output_attentions,
-    )
-
-
-def run_model_with_intervention(
-    inputs: Dict[str, torch.Tensor],
-    layout: SampleLayout,
-    frame_group_means: Optional[Dict[int, torch.Tensor]],
-    non_frame_prompt_mean: Optional[torch.Tensor],
-    policy: AttentionPolicy,
-    mode: str,
-    output_attentions: bool = False,
-) -> Any:
-    """Run the model with the selected intervention mode.
-
-    Modes:
-    - `full_af1`: wait-stage patch + ABP mask
-    - `wait_only`: wait-stage patch only
-    - `mask_only`: ABP mask only
-
-    Why these modes matter:
-    - `wait_only` helps estimate when information in the patched wait-boundary
-      token sets has already been transferred away: if replacing those token
-      sets at a layer no longer hurts, the transfer may already be complete.
-    - `mask_only` isolates the effect of the ABP transfer/self-only bottleneck
-      without also removing information from the wait-boundary token sets at the
-      boundary.
-    """
-    mode_flags = intervention_mode_flags(mode)
-    enable_wait_patch = mode_flags["enable_wait_patch"]
-    enable_abp_mask = mode_flags["enable_abp_mask"]
-    if enable_wait_patch and (frame_group_means is None or non_frame_prompt_mean is None):
-        raise ValueError(
-            f"mode={mode!r} requires both frame_group_means and non_frame_prompt_mean, "
-            "but one or both were not provided."
-        )
-
-    layers = get_layers(base_model)
-    if int(policy.num_model_layers) != len(layers):
-        raise RuntimeError(
-            f"Attention policy expected {policy.num_model_layers} layers but model exposes {len(layers)} layers"
-        )
-
-    boundary_output_layer_idx = policy.wait_layer - 1
-
-    def wrapper_factory(layer_idx: int, original_forward: Any) -> Any:
-        def wrapped_forward(*args: Any, **kwargs: Any) -> Any:
-            hidden_states = args[0] if args else kwargs.get("hidden_states")
-            if hidden_states is None:
-                raise RuntimeError("Layer forward received no hidden_states")
-
-            batch_size = int(hidden_states.shape[0])
-            stage = policy.stage_for_layer(layer_idx)
-            base_attention_mask = kwargs.get("attention_mask")
-            if enable_abp_mask and stage in {"transfer", "post_transfer"} and base_attention_mask is not None:
-                kwargs["attention_mask"] = build_abp_attention_mask(
-                    _ensure_mask_tensor(base_attention_mask, batch_size=batch_size),
-                    policy=policy,
-                    stage=stage,
-                )
-
-            if enable_wait_patch and policy.wait_layer == 0 and layer_idx == 0:
-                # `wait_layer == 0` means replace x^(0) before any decoder layer.
-                patched_hidden_states = _patch_frame_groups(
-                    hidden_states,
-                    layout=layout,
-                    frame_group_means=frame_group_means or {},
-                )
-                patched_hidden_states = _patch_non_frame_prompt_tokens(
-                    patched_hidden_states,
-                    layout=layout,
-                    non_frame_mean_block=non_frame_prompt_mean,
-                )
-                if args:
-                    args = (patched_hidden_states,) + tuple(args[1:])
-                else:
-                    kwargs["hidden_states"] = patched_hidden_states
-
-            outputs = original_forward(*args, **kwargs)
-            if enable_wait_patch and policy.wait_layer > 0 and layer_idx == boundary_output_layer_idx:
-                # For `wait_layer > 0`, replace x^(L_wait) at the output of
-                # layer index `wait_layer - 1`, then let subsequent layers run
-                # under the selected mode. In `wait_only`, later attention stays
-                # completely clean. In `full_af1`, the later layers use ABP.
-                hidden_out = _to_hidden_tensor(outputs)
-                patched_hidden_out = _patch_frame_groups(
-                    hidden_out,
-                    layout=layout,
-                    frame_group_means=frame_group_means or {},
-                )
-                patched_hidden_out = _patch_non_frame_prompt_tokens(
-                    patched_hidden_out,
-                    layout=layout,
-                    non_frame_mean_block=non_frame_prompt_mean,
-                )
-                return (patched_hidden_out,) + tuple(outputs[1:])
-            return outputs
-
-        return wrapped_forward
-
-    force_eager_attention_backend()
-    with temporary_layer_wrappers(layers, wrapper_factory):
-        with torch.inference_mode():
-            return base_model(
-                **inputs,
-                use_cache=False,
-                output_attentions=output_attentions,
-                output_hidden_states=False,
-                return_dict=True,
-            )
-
-
-def sequence_logprob_from_outputs(outputs: Any, prompt_len: int, answer_token_ids: List[int]) -> float:
-    return float(
-        core.sequence_logprob_from_logits(
-            outputs.logits,
-            prompt_len=prompt_len,
-            answer_token_ids=answer_token_ids,
-        )[0].item()
-    )
-
-
-def score_valid_numeric_answers_with_runner(
-    inputs: Dict[str, torch.Tensor],
-    prompt_len: int,
-    num_frames: int,
-    runner: Any,
-) -> Dict[str, Any]:
-    scores_by_answer: Dict[str, float] = {}
-    for value in range(num_frames + 1):
-        answer_text = str(value)
-        answer_ids = core.token_ids_of_answer(answer_text)
-        scoring_inputs = core.append_answer_tokens_for_scoring(inputs, answer_ids)
-        outputs = runner(scoring_inputs, answer_ids)
-        scores_by_answer[answer_text] = sequence_logprob_from_outputs(
-            outputs,
-            prompt_len=prompt_len,
-            answer_token_ids=answer_ids,
-        )
-
-    ranked_scores = sorted(scores_by_answer.items(), key=lambda item: item[1], reverse=True)
-    best_answer_text, best_answer_score = ranked_scores[0]
-    second_best_score = ranked_scores[1][1] if len(ranked_scores) > 1 else float("-inf")
-    score_values = torch.tensor(list(scores_by_answer.values()), dtype=torch.float64)
-    log_denom = torch.logsumexp(score_values, dim=0)
-    probs_by_answer = {
-        answer_text: float(torch.exp(torch.tensor(score, dtype=torch.float64) - log_denom).item())
-        for answer_text, score in scores_by_answer.items()
-    }
-    return {
-        "scores_by_answer": scores_by_answer,
-        "probs_by_answer": probs_by_answer,
-        "best_answer_text": str(best_answer_text),
-        "best_score": float(best_answer_score),
-        "margin_over_second": float(best_answer_score - second_best_score),
-    }
-
-
-def run_clean_sample(sample: PreparedSample) -> Dict[str, Any]:
-    """Score all valid numeric answers on the untouched base model."""
-    clean_inputs = move_inputs_to_model_device(sample.inputs_cpu)
-    return score_valid_numeric_answers_with_runner(
-        clean_inputs,
-        prompt_len=sample.layout.prompt_len,
-        num_frames=sample.layout.seq_len,
-        runner=lambda scoring_inputs, answer_ids: run_clean_model(scoring_inputs),
-    )
-
-
-def run_intervention_sample(
-    sample: PreparedSample,
-    frame_group_means: Optional[Dict[int, torch.Tensor]],
-    non_frame_prompt_mean: Optional[torch.Tensor],
-    policy: AttentionPolicy,
-    mode: str,
-) -> Dict[str, Any]:
-    """Score all valid numeric answers after applying the selected intervention."""
-    intervention_inputs = move_inputs_to_model_device(sample.inputs_cpu)
-    return score_valid_numeric_answers_with_runner(
-        intervention_inputs,
-        prompt_len=sample.layout.prompt_len,
-        num_frames=sample.layout.seq_len,
-        runner=lambda scoring_inputs, answer_ids: run_model_with_intervention(
-            scoring_inputs,
-            layout=sample.layout,
-            frame_group_means=frame_group_means,
-            non_frame_prompt_mean=non_frame_prompt_mean,
-            policy=policy,
-            mode=mode,
-        ),
-    )
-
-
-def _evaluated_row(
-    sample: PreparedSample,
-    clean_metrics: Dict[str, Any],
-    af1_metrics: Dict[str, Any],
-    donor_ids: Sequence[str],
-    policy: AttentionPolicy,
-    k_donors_requested: int,
-    mode: str,
-) -> Dict[str, Any]:
-    clean_pred = str(clean_metrics["best_answer_text"]).strip()
-    af1_pred = str(af1_metrics["best_answer_text"]).strip()
-    clean_correct = int(clean_pred == sample.gold_answer)
-    af1_correct = int(af1_pred == sample.gold_answer)
-    clean_top1_score_drop_metrics = compute_clean_top1_score_drop(clean_metrics, af1_metrics)
-    gold_answer_score_drop_metrics = compute_gold_answer_score_drop(sample, clean_metrics, af1_metrics)
-    row = _empty_row(MODEL_ID, sample_id=sample.sample_id, seq_len=sample.layout.seq_len)
-    row.update(
-        {
-            "mode": mode,
-            "used": 1,
-            "gold_answer": sample.gold_answer,
-            "clean_pred": clean_pred,
-            "clean_correct": clean_correct,
-            "clean_gold_prob": float(clean_metrics["probs_by_answer"].get(sample.gold_answer, 0.0)),
-            "clean_best_score": float(clean_metrics["best_score"]),
-            "clean_margin_over_second": float(clean_metrics["margin_over_second"]),
-            "af1_clean_top1_score": float(clean_top1_score_drop_metrics["af1_clean_top1_score"]),
-            "clean_top1_score_drop": float(clean_top1_score_drop_metrics["clean_top1_score_drop"]),
-            "gold_answer_score_drop": float(gold_answer_score_drop_metrics["gold_answer_score_drop"]),
-            "af1_pred": af1_pred,
-            "af1_correct": af1_correct,
-            "af1_gold_prob": float(af1_metrics["probs_by_answer"].get(sample.gold_answer, 0.0)),
-            "af1_best_score": float(af1_metrics["best_score"]),
-            "af1_margin_over_second": float(af1_metrics["margin_over_second"]),
-            "carrier_index": int(sample.layout.carrier_index),
-            "carrier_token": sample.layout.carrier_token_text,
-            "wait_layer": int(policy.wait_layer),
-            "transfer_layers": int(policy.transfer_layers),
-            "transfer_layer_indices": json.dumps(list(policy.transfer_layer_indices)),
-            "k_donors": int(k_donors_requested),
-            "num_frames": int(sample.layout.seq_len),
-            "num_frame_groups": int(len(sample.layout.frame_groups)),
-            "prompt_len": int(sample.layout.prompt_len),
-            "image_tokens_per_frame": json.dumps(list(sample.layout.image_tokens_per_frame)),
-            "room_text": sample.layout.room_text,
-            "skipped_reason": "",
-            "donor_ids": json.dumps(list(donor_ids)),
-            "layout_match_status": "exact_match",
-            "layout_match_details": "exact_match",
-        }
-    )
-    return row
-
-
-def _skipped_row(
-    mode: str,
-    sample_id: str,
-    seq_len: int,
-    gold_answer: str,
-    skipped_reason: str,
-    room_text: str = "",
-    layout: Optional[SampleLayout] = None,
-    donor_ids: Optional[Sequence[str]] = None,
-    wait_layer: Optional[int] = None,
-    transfer_layers: Optional[int] = None,
-    k_donors: Optional[int] = None,
-    layout_status: str = "skipped",
-    layout_details: Optional[str] = None,
-) -> Dict[str, Any]:
-    row = _empty_row(MODEL_ID, sample_id=sample_id, seq_len=seq_len)
-    row.update(
-        {
-            "mode": mode,
-            "used": 0,
-            "gold_answer": gold_answer,
-            "room_text": room_text,
-            "skipped_reason": skipped_reason,
-            "layout_match_status": layout_status,
-            "layout_match_details": layout_details or skipped_reason,
-            "donor_ids": json.dumps(list(donor_ids)) if donor_ids is not None else "",
-            "wait_layer": "" if wait_layer is None else int(wait_layer),
-            "transfer_layers": "" if transfer_layers is None else int(transfer_layers),
-            "transfer_layer_indices": (
-                ""
-                if wait_layer is None or transfer_layers is None
-                else json.dumps(list(range(int(wait_layer), int(wait_layer) + int(transfer_layers))))
-            ),
-            "k_donors": "" if k_donors is None else int(k_donors),
-        }
-    )
-    if layout is not None:
-        row.update(
-            {
-                "carrier_index": int(layout.carrier_index),
-                "carrier_token": layout.carrier_token_text,
-                "num_frames": int(layout.seq_len),
-                "num_frame_groups": int(len(layout.frame_groups)),
-                "prompt_len": int(layout.prompt_len),
-                "image_tokens_per_frame": json.dumps(list(layout.image_tokens_per_frame)),
-            }
-        )
-    return row
-
-
-def _materialize_skipped_row(
-    row_template: Dict[str, Any],
-    mode: str,
-    wait_layer: int,
-    transfer_layers: int,
-    k_donors: int,
-) -> Dict[str, Any]:
-    row = dict(row_template)
-    row.update(
-        {
-            "mode": mode,
-            "wait_layer": int(wait_layer),
-            "transfer_layers": int(transfer_layers),
-            "transfer_layer_indices": json.dumps(
-                list(range(int(wait_layer), int(wait_layer) + int(transfer_layers)))
-            ),
-            "k_donors": int(k_donors),
-        }
-    )
-    return row
-
-
-def summarize_grid_point_results(
-    model_name: str,
-    mode: str,
-    seq_len: int,
-    wait_layer: int,
-    transfer_layers: int,
-    sample_rows: Sequence[Dict[str, Any]],
-) -> Dict[str, Any]:
-    used_rows = [row for row in sample_rows if int(row.get("used") or 0)]
-    n_total = len(sample_rows)
-    n_used = len(used_rows)
-    n_clean_correct = sum(int(row.get("clean_correct") or 0) for row in used_rows)
-    n_af1_correct = sum(int(row.get("af1_correct") or 0) for row in used_rows)
-    n_both_correct = sum(
-        int(bool(int(row.get("clean_correct") or 0)) and bool(int(row.get("af1_correct") or 0)))
-        for row in used_rows
-    )
-    clean_acc = (n_clean_correct / float(n_used)) if n_used else 0.0
-    af1_acc = (n_af1_correct / float(n_used)) if n_used else 0.0
-    af1_faith = (n_both_correct / float(n_clean_correct)) if n_clean_correct else 0.0
-    clean_top1_score_drops = [
-        float(row["clean_top1_score_drop"])
-        for row in used_rows
-        if row.get("clean_top1_score_drop") not in {"", None}
-    ]
-    mean_clean_top1_score_drop = (
-        sum(clean_top1_score_drops) / float(len(clean_top1_score_drops))
-        if clean_top1_score_drops
-        else 0.0
-    )
-    gold_answer_score_drops = [
-        float(row["gold_answer_score_drop"])
-        for row in used_rows
-        if row.get("gold_answer_score_drop") not in {"", None}
-    ]
-    mean_gold_answer_score_drop = (
-        sum(gold_answer_score_drops) / float(len(gold_answer_score_drops))
-        if gold_answer_score_drops
-        else 0.0
-    )
-    return {
-        "model": model_name,
-        "mode": mode,
-        "seq_len": int(seq_len),
-        "wait_layer": int(wait_layer),
-        "transfer_layers": int(transfer_layers),
-        "n_total": int(n_total),
-        "n_used": int(n_used),
-        "n_clean_correct": int(n_clean_correct),
-        "clean_acc": float(clean_acc),
-        "af1_acc": float(af1_acc),
-        "af1_faith": float(af1_faith),
-        "mean_clean_top1_score_drop": float(mean_clean_top1_score_drop),
-        "mean_gold_answer_score_drop": float(mean_gold_answer_score_drop),
-    }
-
-
-def format_summary_table(rows: Sequence[Dict[str, Any]]) -> str:
-    values = [
-        [
-            str(row["model"]),
-            str(row["mode"]),
-            str(row["seq_len"]),
-            str(row["wait_layer"]),
-            str(row["transfer_layers"]),
-            str(row["n_total"]),
-            str(row["n_used"]),
-            str(row["n_clean_correct"]),
-            f"{float(row['clean_acc']):.4f}",
-            f"{float(row['af1_acc']):.4f}",
-            f"{float(row['af1_faith']):.4f}",
-            f"{float(row['mean_clean_top1_score_drop']):.4f}",
-            f"{float(row['mean_gold_answer_score_drop']):.4f}",
-        ]
-        for row in rows
-    ]
-    widths = [
-        max(len(header), *(len(value[col_idx]) for value in values)) if values else len(header)
-        for col_idx, header in enumerate(_SUMMARY_FIELDS)
-    ]
-    header_row = "| " + " | ".join(header.ljust(widths[idx]) for idx, header in enumerate(_SUMMARY_FIELDS)) + " |"
-    sep_row = "|-" + "-|-".join("-" * widths[idx] for idx in range(len(_SUMMARY_FIELDS))) + "-|"
-    data_rows = [
-        "| " + " | ".join(value[idx].ljust(widths[idx]) for idx in range(len(_SUMMARY_FIELDS))) + " |"
-        for value in values
-    ]
-    return "\n".join([header_row, sep_row] + data_rows)
-
-
-def _row_for_fieldnames(row: Dict[str, Any], fieldnames: Sequence[str]) -> Dict[str, Any]:
-    return {field: row.get(field) for field in fieldnames}
-
-
-def write_csv(path: Path, rows: Sequence[Dict[str, Any]], fieldnames: Sequence[str]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(fieldnames), lineterminator="\n")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow(_row_for_fieldnames(row, fieldnames))
-
-
-def _csv_header_line(fieldnames: Sequence[str]) -> str:
-    buffer = io.StringIO()
-    writer = csv.DictWriter(buffer, fieldnames=list(fieldnames), lineterminator="\n")
-    writer.writeheader()
-    return buffer.getvalue().rstrip("\n")
-
-
-def plot_metric_heatmap(
-    summary_rows: Sequence[Dict[str, Any]],
-    wait_layers: Sequence[int],
-    transfer_layers_grid: Sequence[int],
-    value_key: str,
-    output_path: Path,
-    title: str,
-    seq_len: int,
-) -> Optional[Path]:
-    if not wait_layers or not transfer_layers_grid:
-        return None
-    if plt is None:
-        raise ModuleNotFoundError(
-            "matplotlib is required to write AF1 grid heatmaps; install matplotlib in the active environment."
-        )
-
-    matrix = np.full((len(wait_layers), len(transfer_layers_grid)), np.nan, dtype=float)
-    wait_layer_to_index = {int(wait_layer): idx for idx, wait_layer in enumerate(wait_layers)}
-    transfer_layers_to_index = {
-        int(transfer_layers): idx for idx, transfer_layers in enumerate(transfer_layers_grid)
-    }
-    for row in summary_rows:
-        wait_layer = int(row["wait_layer"])
-        transfer_layers = int(row["transfer_layers"])
-        if wait_layer in wait_layer_to_index and transfer_layers in transfer_layers_to_index:
-            matrix[wait_layer_to_index[wait_layer], transfer_layers_to_index[transfer_layers]] = float(
-                row[value_key]
-            )
-
-    fig_width = max(6.0, 1.4 * len(transfer_layers_grid))
-    fig_height = max(5.0, 1.0 * len(wait_layers))
-    fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=140)
-    cmap = plt.get_cmap("viridis").copy()
-    cmap.set_bad(color="white")
-    masked_matrix = np.ma.masked_invalid(matrix)
-    image = ax.imshow(
-        masked_matrix,
-        origin="lower",
-        aspect="auto",
-        interpolation="nearest",
-        cmap=cmap,
-    )
-
-    finite_values = np.isfinite(matrix)
-    if bool(finite_values.any()):
-        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
-
-    ax.set_title(f"{title} (seq_len={seq_len})")
-    ax.set_xlabel("transfer_layers")
-    ax.set_ylabel("wait_layer")
-    ax.set_xticks(range(len(transfer_layers_grid)))
-    ax.set_xticklabels([str(value) for value in transfer_layers_grid])
-    ax.set_yticks(range(len(wait_layers)))
-    ax.set_yticklabels([str(value) for value in wait_layers])
-    ax.set_xticks(np.arange(-0.5, len(transfer_layers_grid), 1), minor=True)
-    ax.set_yticks(np.arange(-0.5, len(wait_layers), 1), minor=True)
-    ax.grid(which="minor", color="lightgray", linestyle="-", linewidth=0.5)
-    ax.tick_params(which="minor", bottom=False, left=False)
-
-    if bool(finite_values.any()):
-        for wait_idx in range(len(wait_layers)):
-            for transfer_idx in range(len(transfer_layers_grid)):
-                value = matrix[wait_idx, transfer_idx]
-                if np.isfinite(value):
-                    text_color = "black" if float(image.norm(value)) > 0.5 else "white"
-                    ax.text(
-                        transfer_idx,
-                        wait_idx,
-                        f"{value:.3f}",
-                        ha="center",
-                        va="center",
-                        fontsize=8,
-                        color=text_color,
-                    )
-
-    fig.tight_layout()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, bbox_inches="tight")
-    plt.close(fig)
-    return output_path if output_path.exists() else None
-
-
-def write_markdown_summary(
-    path: Path,
-    config: Dict[str, Any],
-    summary_rows: Sequence[Dict[str, Any]],
-    validation_notes: Sequence[str],
-    donor_notes: Sequence[str],
-    cache_notes: Sequence[str],
-    output_notes: Sequence[str],
-    elapsed_seconds: float,
+def _emit_per_sample_row(
+    row: Dict[str, Any],
+    per_sample_writer: csv.DictWriter,
+    stdout_per_sample_writer: csv.DictWriter,
+    per_sample_handle: Any,
 ) -> None:
-    lines = [
-        "# AF1 Qwen-VL Frame CAMA",
-        "",
-        "## Config",
-        "",
-        "```json",
-        json.dumps(config, indent=2, sort_keys=True),
-        "```",
-        "",
-        "## Results",
-        "",
-        format_summary_table(summary_rows),
-        "",
-        "## Method",
-        "",
-        f"- Mode run: `{config['mode']}` across a `(wait_layer, transfer_layers)` grid for one `seq_len={config['seq_len']}` dataset.",
-        "- `full_af1` = wait-boundary frame-group plus non-frame prompt patching, then ABP masking afterward.",
-        "- `wait_only` = wait-boundary frame-group plus non-frame prompt patching only, with later attention left clean.",
-        "- `mask_only` = ABP masking only, with no wait-boundary patching.",
-        "- This script implements AF1 with frame-group conditional means plus one all-non-frame prompt conditional mean at the wait boundary.",
-        "- Donor hybrids keep the target prompt text fixed while changing only the frame inputs.",
-        "- Hallway samples are skipped by default because their room tokenization differs.",
-        "- Transfer uses an ABP-style policy where the prompt carrier token can read earlier prompt tokens only during the configured transfer layers, then becomes self-only.",
-        f"- `instruction_mask_mode={config['instruction_mask_mode']}` controls instruction-token rows during transfer: {instruction_mask_mode_summary(config['instruction_mask_mode'])}.",
-        "- Faithfulness is defined as intervention accuracy on the subset of used samples that the clean model got correct.",
-        "- `n_total` counts selected samples, `n_used` counts samples that passed compatibility and donor checks, and `clean_acc`/`af1_acc` are computed on the used subset.",
-        "- `mean_clean_top1_score_drop` averages `clean_best_score - intervention_score(clean top-1)` over used samples, freezing the clean top-1 answer separately for each sample.",
-        "- `mean_gold_answer_score_drop` averages `clean_score(gold answer) - intervention_score(gold answer)` over used samples.",
-        "",
-        "## Validation",
-        "",
+    per_sample_writer.writerow(row_for_fieldnames(row, PER_SAMPLE_FIELDS))
+    per_sample_handle.flush()
+    stdout_per_sample_writer.writerow(row_for_fieldnames(row, PER_SAMPLE_FIELDS))
+    sys.stdout.flush()
+
+
+def initial_validation_notes(args: argparse.Namespace) -> List[str]:
+    validation_notes = [
+        f"mode={args.mode}: {intervention_mode_summary(args.mode)}",
+        (
+            f"instruction_mask_mode={args.instruction_mask_mode}: "
+            f"{instruction_mask_mode_summary(args.instruction_mask_mode)}"
+        ),
+        (
+            f"grid seq_len={args.seq_len}: wait_layers={list(args.wait_layers)} "
+            f"transfer_layers_grid={list(args.transfer_layers_grid)}"
+        ),
+        (
+            "wait_layer semantics: if wait_layer > 0, patch x^(L_wait) at layer output wait_layer - 1; "
+            "if wait_layer == 0, patch x^(0) before layer 0."
+        ),
     ]
-    lines.extend(f"- {note}" for note in validation_notes)
-    lines.extend(["", "## Donor Policy", ""])
-    lines.extend(f"- {note}" for note in donor_notes)
-    lines.extend(["", "## Cache Notes", ""])
-    lines.extend(f"- {note}" for note in cache_notes)
-    lines.extend(["", "## Outputs", ""])
-    lines.extend(f"- {note}" for note in output_notes)
-    lines.extend(
-        [
-            "",
-            "## Method Notes / Limitations",
-            "",
-            "- This is a multimodal adaptation of CAMA, not the paper's exact token-level text-token formulation.",
-            "- Conditional-mean replacement is applied to frame token groups plus one all-non-frame prompt token set.",
-            "- The conditional mean is estimated from compatible hybrid contexts, so donor/layout compatibility is required before a sample is used.",
-            "- Cached conditional means are target-sample-specific and donor-set-specific; frame-group and non-frame caches are not reusable global means.",
-            "- In `mask_only`, the `af1_*` output columns still mean 'intervention result' even though no wait-boundary patch is applied.",
-            "",
-            "## Runtime",
-            "",
-            f"- {eval_utils.format_runtime(elapsed_seconds)}",
-            "",
-        ]
-    )
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
-
-
-def main() -> None:
-    args = parse_args()
-    args.wait_layers, args.wait_layer_tick_step = parse_layer_grid(args.wait_layers, arg_name="--wait_layers")
-    args.transfer_layers_grid, args.transfer_layers_tick_step = parse_layer_grid(
-        args.transfer_layers_grid,
-        arg_name="--transfer_layers_grid",
-    )
-    mode_flags = intervention_mode_flags(args.mode)
-    enable_wait_patch = mode_flags["enable_wait_patch"]
-    enable_abp_mask = mode_flags["enable_abp_mask"]
-    if args.model_name != MODEL_ID:
-        raise ValueError(
-            f"This script is pinned to {MODEL_ID!r}; received --model_name={args.model_name!r}"
-        )
-    if enable_wait_patch and args.k_donors < 2:
-        raise ValueError(
-            "--k_donors must be at least 2 because one donor is not a conditional mean."
-        )
-    if args.batch_size <= 0:
-        raise ValueError("--batch_size must be positive")
-
-    parse_dtype(args.dtype)
-    set_seed(args.seed)
-    start_time = time.time()
-    runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
-    num_model_layers = len(get_layers(base_model))
-    print(json.dumps(runtime_info, indent=2, sort_keys=True))
-    print(
-        f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
-        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
-        f"instruction_mask_mode={args.instruction_mask_mode}"
-    )
-
-    output_dir = Path(args.output_dir)
-    cache_dir = Path(args.cache_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
-    summary_csv_path = output_dir / "summary_grid.csv"
-    per_sample_csv_path = output_dir / "per_sample_grid.csv"
-    markdown_summary_path = output_dir / "summary.md"
-
-    all_sample_rows: List[Dict[str, Any]] = []
-    summary_rows: List[Dict[str, Any]] = []
-    validation_notes: List[str] = []
-    donor_notes: List[str] = []
-    cache_notes: List[str] = []
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
-
-    validation_notes.append(f"mode={args.mode}: {intervention_mode_summary(args.mode)}")
-    validation_notes.append(
-        f"instruction_mask_mode={args.instruction_mask_mode}: "
-        f"{instruction_mask_mode_summary(args.instruction_mask_mode)}"
-    )
-    validation_notes.append(
-        f"grid seq_len={args.seq_len}: wait_layers={list(args.wait_layers)} "
-        f"transfer_layers_grid={list(args.transfer_layers_grid)}"
-    )
-    validation_notes.append(
-        "wait_layer semantics: if wait_layer > 0, patch x^(L_wait) at layer output wait_layer - 1; "
-        "if wait_layer == 0, patch x^(0) before layer 0."
-    )
     if args.mode == "full_af1":
         validation_notes.append("mode=full_af1: wait-boundary patching and ABP masking are both enabled.")
     elif args.mode == "wait_only":
@@ -2293,7 +343,14 @@ def main() -> None:
         validation_notes.append(
             "mode=mask_only: wait-boundary patching is disabled entirely; this isolates the transfer/self-only attention bottleneck."
         )
+    return validation_notes
 
+
+def resolve_grid_combinations(
+    args: argparse.Namespace,
+    num_model_layers: int,
+) -> Tuple[List[Tuple[int, int]], List[int], List[str]]:
+    validation_notes: List[str] = []
     valid_grid_combinations: List[Tuple[int, int]] = []
     invalid_combo_notes: List[str] = []
     transfer_layers_candidates = list(args.transfer_layers_grid)
@@ -2337,39 +394,34 @@ def main() -> None:
     validation_notes.append(
         f"num_model_layers={num_model_layers}: valid_grid_combinations={len(valid_grid_combinations)}"
     )
+    return valid_grid_combinations, effective_transfer_layers_grid, validation_notes
 
-    data_root = seq_len_data_root(Path(args.data_root_base), seq_len=args.seq_len, split=args.split)
-    if not data_root.is_dir():
-        raise FileNotFoundError(f"seq_len={args.seq_len}: data root not found: {data_root}")
 
-    sample_dirs = load_and_filter_sample_dirs(
-        data_root=data_root,
-        max_samples=args.max_samples,
-        seed=args.seed + args.seq_len,
-    )
-    if not sample_dirs:
-        raise RuntimeError(f"seq_len={args.seq_len}: no samples found under {data_root}")
-
-    print(
-        f"[seq_len={args.seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
-        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
-        f"k_donors={args.k_donors} instruction_mask_mode={args.instruction_mask_mode}"
-    )
-
+def prepare_evaluation_inputs(
+    *,
+    args: argparse.Namespace,
+    sample_dirs: Sequence[Path],
+    enable_wait_patch: bool,
+) -> PreparedEvaluationInputs:
+    validation_notes: List[str] = []
+    donor_notes: List[str] = []
     loaded_items: List[Any] = []
     prepared_samples: List[PreparedSample] = []
     for sample_dir in sample_dirs:
-        prepared_sample, skipped_row = _prepare_sample(sample_dir, skip_hallway=bool(args.skip_hallway))
-        if skipped_row is not None:
-            loaded_items.append(skipped_row)
+        prepared_sample, skipped_sample_row = prepare_sample(
+            sample_dir,
+            skip_hallway=bool(args.skip_hallway),
+        )
+        if skipped_sample_row is not None:
+            loaded_items.append(skipped_sample_row)
             validation_notes.append(
-                f"seq_len={args.seq_len} sample_id={skipped_row['sample_id']} skipped: {skipped_row['skipped_reason']}"
+                f"seq_len={args.seq_len} sample_id={skipped_sample_row['sample_id']} skipped: {skipped_sample_row['skipped_reason']}"
             )
             continue
         loaded_items.append(prepared_sample)
         prepared_samples.append(prepared_sample)
 
-    reference_layout = _choose_reference_layout(prepared_samples)
+    reference_layout = choose_reference_layout(prepared_samples)
     compatible_samples: List[PreparedSample] = []
     ordered_items: List[Any] = []
     compatible_layout_hash = ""
@@ -2383,6 +435,7 @@ def main() -> None:
         print(
             f"[validation][mode={args.mode}] seq_len={args.seq_len} no compatible reference layout remained"
         )
+        grid_items = loaded_items
     else:
         compatible_layout_hash = layout_hash(reference_layout)
         exact_match_count = 0
@@ -2396,7 +449,7 @@ def main() -> None:
                 skip_hallway=bool(args.skip_hallway),
             )
             if report["status"] != "exact_match":
-                incompatible_row = _skipped_row(
+                incompatible_row = skipped_row(
                     mode=args.mode,
                     sample_id=item.sample_id,
                     seq_len=item.layout.seq_len,
@@ -2453,278 +506,363 @@ def main() -> None:
             donor_notes.append(
                 f"seq_len={args.seq_len}: donors come from the same seq_len pool, must pass exact layout validation, "
                 f"must not equal the target sample, and are chosen with deterministic seeded shuffle "
-                f"under policy={_DONOR_POLICY}"
+                f"under policy={DONOR_POLICY}"
             )
         else:
             donor_notes.append(
                 f"seq_len={args.seq_len}: donor selection is not used in mode={args.mode} because no wait-boundary frame patch is applied."
             )
+        grid_items = ordered_items
 
+    return PreparedEvaluationInputs(
+        grid_items=grid_items,
+        reference_layout=reference_layout,
+        compatible_samples=compatible_samples,
+        compatible_layout_hash=compatible_layout_hash,
+        validation_notes=validation_notes,
+        donor_notes=donor_notes,
+    )
+
+
+def evaluate_grid_point(
+    *,
+    args: argparse.Namespace,
+    wait_layer: int,
+    transfer_layers: int,
+    grid_items: Sequence[Any],
+    reference_layout: Optional[SampleLayout],
+    compatible_samples: Sequence[PreparedSample],
+    cache_dir: Path,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    compatible_layout_hash: str,
+    per_sample_writer: csv.DictWriter,
+    stdout_per_sample_writer: csv.DictWriter,
+    per_sample_handle: Any,
+) -> GridPointEvaluation:
+    mode_flags = intervention_mode_flags(args.mode)
+    enable_wait_patch = mode_flags["enable_wait_patch"]
+    enable_abp_mask = mode_flags["enable_abp_mask"]
+    validation_notes_for_grid_point: List[str] = []
+    sample_rows: List[Dict[str, Any]] = []
+    per_sample_rows_emitted = 0
+
+    if reference_layout is None:
+        for item in grid_items:
+            if not isinstance(item, dict):
+                continue
+            row = materialize_skipped_row(
+                item,
+                mode=args.mode,
+                wait_layer=wait_layer,
+                transfer_layers=transfer_layers,
+                k_donors=args.k_donors,
+            )
+            sample_rows.append(row)
+            _emit_per_sample_row(row, per_sample_writer, stdout_per_sample_writer, per_sample_handle)
+            per_sample_rows_emitted += 1
+
+        return GridPointEvaluation(
+            sample_rows=sample_rows,
+            summary_row=summarize_grid_point_results(
+                MODEL_ID,
+                mode=args.mode,
+                seq_len=args.seq_len,
+                wait_layer=wait_layer,
+                transfer_layers=transfer_layers,
+                sample_rows=sample_rows,
+            ),
+            cache_note=(
+                f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+                "no conditional-mean cache activity because no compatible reference layout remained."
+            ),
+            validation_notes_for_grid_point=validation_notes_for_grid_point,
+            per_sample_rows_emitted=per_sample_rows_emitted,
+            expected_per_sample_rows=len(sample_rows),
+        )
+
+    policy = build_abp_attention_policy(
+        layout=reference_layout,
+        wait_layer=wait_layer,
+        transfer_layers=transfer_layers,
+        instruction_mask_mode=str(args.instruction_mask_mode),
+    )
+    if enable_abp_mask:
+        note = (
+            f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+            f"instruction_mask_mode={args.instruction_mask_mode} "
+            f"instruction_positions={list(reference_layout.instruction_positions)}"
+        )
+        validation_notes_for_grid_point.append(note)
+        print(
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+            f"transfer_layers={transfer_layers} "
+            f"instruction_mask_mode={args.instruction_mask_mode} "
+            f"instruction_positions={list(reference_layout.instruction_positions)}"
+        )
+        if args.debug_tokenization:
+            print(
+                f"[debug][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                f"transfer_layers={transfer_layers} {format_transition_frame_debug(reference_layout, policy)}"
+            )
+        for note in validate_attention_policy(reference_layout, policy=policy):
+            validation_notes_for_grid_point.append(
+                f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: {note}"
+            )
+            print(
+                f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+                f"transfer_layers={transfer_layers} {note}"
+            )
+    else:
+        note = (
+            f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+            f"ABP masking disabled for mode={args.mode}, so later attention remains clean."
+        )
+        validation_notes_for_grid_point.append(note)
+        print(
+            f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+            f"transfer_layers={transfer_layers} ABP masking disabled; later attention remains clean."
+        )
+
+    print(
+        f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
+        f"transfer_layers={transfer_layers} compatible_samples={len(compatible_samples)} "
+        f"reference_sample={reference_layout.sample_id}"
+    )
+
+    seq_cache_hits = 0
+    seq_cache_misses = 0
+    for item in grid_items:
+        if isinstance(item, dict):
+            row = materialize_skipped_row(
+                item,
+                mode=args.mode,
+                wait_layer=wait_layer,
+                transfer_layers=transfer_layers,
+                k_donors=args.k_donors,
+            )
+            sample_rows.append(row)
+            _emit_per_sample_row(row, per_sample_writer, stdout_per_sample_writer, per_sample_handle)
+            per_sample_rows_emitted += 1
+            print(
+                f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                f"[mode={args.mode}] sample_id={row['sample_id']} skipped={row['skipped_reason']}"
+            )
+            continue
+
+        donor_ids: List[str] = []
+        frame_group_means = None
+        non_frame_prompt_mean = None
+        if enable_wait_patch:
+            donor_pool = select_donor_pool(
+                target_sample=item,
+                compatible_samples=compatible_samples,
+                k_donors=args.k_donors,
+                seed=args.seed,
+            )
+            donor_ids = [sample.sample_id for sample in donor_pool]
+            if len(donor_pool) < 2:
+                skipped_sample_row = skipped_row(
+                    mode=args.mode,
+                    sample_id=item.sample_id,
+                    seq_len=item.layout.seq_len,
+                    gold_answer=item.gold_answer,
+                    skipped_reason="insufficient_compatible_donors",
+                    room_text=item.layout.room_text,
+                    layout=item.layout,
+                    donor_ids=donor_ids,
+                    wait_layer=wait_layer,
+                    transfer_layers=transfer_layers,
+                    k_donors=args.k_donors,
+                    layout_status="exact_match",
+                    layout_details="exact_match",
+                )
+                sample_rows.append(skipped_sample_row)
+                _emit_per_sample_row(
+                    skipped_sample_row,
+                    per_sample_writer,
+                    stdout_per_sample_writer,
+                    per_sample_handle,
+                )
+                per_sample_rows_emitted += 1
+                validation_notes_for_grid_point.append(
+                    f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers} "
+                    f"sample_id={item.sample_id} skipped: insufficient compatible donors "
+                    f"(found={len(donor_pool)}, need>=2)"
+                )
+                print(
+                    f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                    f"[mode={args.mode}] sample_id={item.sample_id} "
+                    f"skipped=insufficient_compatible_donors donors={donor_ids}"
+                )
+                continue
+
+            frame_group_means, cache_stats = compute_all_frame_group_means_for_sample(
+                target_sample=item,
+                donor_samples=donor_pool,
+                wait_layer=wait_layer,
+                batch_size=args.batch_size,
+                cache_dir=cache_dir,
+                recompute_cache=bool(args.recompute_cache),
+                donor_policy=DONOR_POLICY,
+            )
+            seq_cache_hits += int(cache_stats["cache_hits"])
+            seq_cache_misses += int(cache_stats["cache_misses"])
+            non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
+                target_sample=item,
+                donor_samples=donor_pool,
+                wait_layer=wait_layer,
+                batch_size=args.batch_size,
+                cache_dir=cache_dir,
+                recompute_cache=bool(args.recompute_cache),
+                donor_policy=DONOR_POLICY,
+            )
+            seq_cache_hits += int(non_frame_cache_hit)
+            seq_cache_misses += int(not non_frame_cache_hit)
+
+        clean_cache_key = (args.seq_len, item.sample_id)
+        clean_metrics = clean_metrics_cache.get(clean_cache_key)
+        if clean_metrics is None:
+            clean_metrics = run_clean_sample(item)
+            clean_metrics_cache[clean_cache_key] = clean_metrics
+        af1_metrics = run_intervention_sample(
+            item,
+            frame_group_means=frame_group_means,
+            non_frame_prompt_mean=non_frame_prompt_mean,
+            policy=policy,
+            mode=args.mode,
+        )
+        row = evaluated_row(
+            sample=item,
+            clean_metrics=clean_metrics,
+            af1_metrics=af1_metrics,
+            donor_ids=donor_ids,
+            policy=policy,
+            k_donors_requested=args.k_donors,
+            mode=args.mode,
+        )
+        sample_rows.append(row)
+        _emit_per_sample_row(row, per_sample_writer, stdout_per_sample_writer, per_sample_handle)
+        per_sample_rows_emitted += 1
+        print(
+            f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+            f"[mode={args.mode}] sample_id={item.sample_id} gold={item.gold_answer} "
+            f"clean={row['clean_pred']} af1={row['af1_pred']} "
+            f"clean_top1_score_drop={float(row['clean_top1_score_drop']):.4f} "
+            f"gold_answer_score_drop={float(row['gold_answer_score_drop']):.4f} "
+            f"donors={json.dumps(donor_ids)}"
+        )
+
+    cache_note = (
+        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+        f"frame-group+non-frame conditional-mean cache_hits={seq_cache_hits} "
+        f"cache_misses={seq_cache_misses} layout_hash={compatible_layout_hash}"
+    )
+    if not enable_wait_patch:
+        cache_note = (
+            f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
+            f"no conditional-mean cache activity in mode={args.mode} because wait-boundary patching is disabled."
+        )
+
+    return GridPointEvaluation(
+        sample_rows=sample_rows,
+        summary_row=summarize_grid_point_results(
+            MODEL_ID,
+            mode=args.mode,
+            seq_len=args.seq_len,
+            wait_layer=wait_layer,
+            transfer_layers=transfer_layers,
+            sample_rows=sample_rows,
+        ),
+        cache_note=cache_note,
+        validation_notes_for_grid_point=validation_notes_for_grid_point,
+        per_sample_rows_emitted=per_sample_rows_emitted,
+        expected_per_sample_rows=len(sample_rows),
+    )
+
+
+def run_grid_evaluation(
+    *,
+    args: argparse.Namespace,
+    per_sample_csv_path: Path,
+    valid_grid_combinations: Sequence[Tuple[int, int]],
+    prepared_inputs: PreparedEvaluationInputs,
+    cache_dir: Path,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> GridRunOutputs:
+    all_sample_rows: List[Dict[str, Any]] = []
+    summary_rows: List[Dict[str, Any]] = []
+    validation_notes: List[str] = []
+    cache_notes: List[str] = []
     per_sample_rows_emitted = 0
     expected_per_sample_rows = 0
+
     with per_sample_csv_path.open("w", encoding="utf-8", newline="") as per_sample_handle:
         per_sample_writer = csv.DictWriter(
             per_sample_handle,
-            fieldnames=list(_PER_SAMPLE_FIELDS),
+            fieldnames=list(PER_SAMPLE_FIELDS),
             lineterminator="\n",
         )
         stdout_per_sample_writer = csv.DictWriter(
             sys.stdout,
-            fieldnames=list(_PER_SAMPLE_FIELDS),
+            fieldnames=list(PER_SAMPLE_FIELDS),
             lineterminator="\n",
         )
         per_sample_writer.writeheader()
         per_sample_handle.flush()
-        print(_csv_header_line(_PER_SAMPLE_FIELDS))
+        print(csv_header_line(PER_SAMPLE_FIELDS))
         sys.stdout.flush()
 
-        if reference_layout is None:
-            for wait_layer, transfer_layers in valid_grid_combinations:
-                seq_rows: List[Dict[str, Any]] = []
-                for item in loaded_items:
-                    if not isinstance(item, dict):
-                        continue
-                    row = _materialize_skipped_row(
-                        item,
-                        mode=args.mode,
-                        wait_layer=wait_layer,
-                        transfer_layers=transfer_layers,
-                        k_donors=args.k_donors,
-                    )
-                    seq_rows.append(row)
-                    all_sample_rows.append(row)
-                    per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                    per_sample_handle.flush()
-                    stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                    sys.stdout.flush()
-                    per_sample_rows_emitted += 1
+        for wait_layer, transfer_layers in valid_grid_combinations:
+            result = evaluate_grid_point(
+                args=args,
+                wait_layer=wait_layer,
+                transfer_layers=transfer_layers,
+                grid_items=prepared_inputs.grid_items,
+                reference_layout=prepared_inputs.reference_layout,
+                compatible_samples=prepared_inputs.compatible_samples,
+                cache_dir=cache_dir,
+                clean_metrics_cache=clean_metrics_cache,
+                compatible_layout_hash=prepared_inputs.compatible_layout_hash,
+                per_sample_writer=per_sample_writer,
+                stdout_per_sample_writer=stdout_per_sample_writer,
+                per_sample_handle=per_sample_handle,
+            )
+            all_sample_rows.extend(result.sample_rows)
+            summary_rows.append(result.summary_row)
+            validation_notes.extend(result.validation_notes_for_grid_point)
+            cache_notes.append(result.cache_note)
+            per_sample_rows_emitted += result.per_sample_rows_emitted
+            expected_per_sample_rows += result.expected_per_sample_rows
 
-                expected_per_sample_rows += len(seq_rows)
-                summary_rows.append(
-                    summarize_grid_point_results(
-                        MODEL_ID,
-                        mode=args.mode,
-                        seq_len=args.seq_len,
-                        wait_layer=wait_layer,
-                        transfer_layers=transfer_layers,
-                        sample_rows=seq_rows,
-                    )
-                )
-                cache_notes.append(
-                    f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                    "no conditional-mean cache activity because no compatible reference layout remained."
-                )
-        else:
-            for wait_layer, transfer_layers in valid_grid_combinations:
-                policy = build_abp_attention_policy(
-                    layout=reference_layout,
-                    wait_layer=wait_layer,
-                    transfer_layers=transfer_layers,
-                    instruction_mask_mode=str(args.instruction_mask_mode),
-                )
-                if enable_abp_mask:
-                    validation_notes.append(
-                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                        f"instruction_mask_mode={args.instruction_mask_mode} "
-                        f"instruction_positions={list(reference_layout.instruction_positions)}"
-                    )
-                    print(
-                        f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
-                        f"transfer_layers={transfer_layers} "
-                        f"instruction_mask_mode={args.instruction_mask_mode} "
-                        f"instruction_positions={list(reference_layout.instruction_positions)}"
-                    )
-                    if args.debug_tokenization:
-                        print(
-                            f"[debug][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
-                            f"transfer_layers={transfer_layers} {format_transition_frame_debug(reference_layout, policy)}"
-                        )
-                    for note in _validate_attention_policy(reference_layout, policy=policy):
-                        validation_notes.append(
-                            f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: {note}"
-                        )
-                        print(
-                            f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
-                            f"transfer_layers={transfer_layers} {note}"
-                        )
-                else:
-                    validation_notes.append(
-                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                        f"ABP masking disabled for mode={args.mode}, so later attention remains clean."
-                    )
-                    print(
-                        f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
-                        f"transfer_layers={transfer_layers} ABP masking disabled; later attention remains clean."
-                    )
-
-                print(
-                    f"[validation][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
-                    f"transfer_layers={transfer_layers} compatible_samples={len(compatible_samples)} "
-                    f"reference_sample={reference_layout.sample_id}"
-                )
-
-                seq_cache_hits = 0
-                seq_cache_misses = 0
-                seq_rows = []
-                for item in ordered_items:
-                    if isinstance(item, dict):
-                        row = _materialize_skipped_row(
-                            item,
-                            mode=args.mode,
-                            wait_layer=wait_layer,
-                            transfer_layers=transfer_layers,
-                            k_donors=args.k_donors,
-                        )
-                        seq_rows.append(row)
-                        all_sample_rows.append(row)
-                        per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                        per_sample_handle.flush()
-                        stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                        sys.stdout.flush()
-                        per_sample_rows_emitted += 1
-                        print(
-                            f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
-                            f"[mode={args.mode}] sample_id={row['sample_id']} skipped={row['skipped_reason']}"
-                        )
-                        continue
-
-                    donor_ids: List[str] = []
-                    frame_group_means: Optional[Dict[int, torch.Tensor]] = None
-                    non_frame_prompt_mean: Optional[torch.Tensor] = None
-                    if enable_wait_patch:
-                        donor_pool = select_donor_pool(
-                            target_sample=item,
-                            compatible_samples=compatible_samples,
-                            k_donors=args.k_donors,
-                            seed=args.seed,
-                        )
-                        donor_ids = [sample.sample_id for sample in donor_pool]
-                        if len(donor_pool) < 2:
-                            skipped_row = _skipped_row(
-                                mode=args.mode,
-                                sample_id=item.sample_id,
-                                seq_len=item.layout.seq_len,
-                                gold_answer=item.gold_answer,
-                                skipped_reason="insufficient_compatible_donors",
-                                room_text=item.layout.room_text,
-                                layout=item.layout,
-                                donor_ids=donor_ids,
-                                wait_layer=wait_layer,
-                                transfer_layers=transfer_layers,
-                                k_donors=args.k_donors,
-                                layout_status="exact_match",
-                                layout_details="exact_match",
-                            )
-                            seq_rows.append(skipped_row)
-                            all_sample_rows.append(skipped_row)
-                            per_sample_writer.writerow(_row_for_fieldnames(skipped_row, _PER_SAMPLE_FIELDS))
-                            per_sample_handle.flush()
-                            stdout_per_sample_writer.writerow(_row_for_fieldnames(skipped_row, _PER_SAMPLE_FIELDS))
-                            sys.stdout.flush()
-                            per_sample_rows_emitted += 1
-                            validation_notes.append(
-                                f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers} "
-                                f"sample_id={item.sample_id} skipped: insufficient compatible donors "
-                                f"(found={len(donor_pool)}, need>=2)"
-                            )
-                            print(
-                                f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
-                                f"[mode={args.mode}] sample_id={item.sample_id} "
-                                f"skipped=insufficient_compatible_donors donors={donor_ids}"
-                            )
-                            continue
-
-                        frame_group_means, cache_stats = compute_all_frame_group_means_for_sample(
-                            target_sample=item,
-                            donor_samples=donor_pool,
-                            wait_layer=wait_layer,
-                            batch_size=args.batch_size,
-                            cache_dir=cache_dir,
-                            recompute_cache=bool(args.recompute_cache),
-                            donor_policy=_DONOR_POLICY,
-                        )
-                        seq_cache_hits += int(cache_stats["cache_hits"])
-                        seq_cache_misses += int(cache_stats["cache_misses"])
-                        non_frame_prompt_mean, non_frame_cache_hit = compute_non_frame_conditional_mean(
-                            target_sample=item,
-                            donor_samples=donor_pool,
-                            wait_layer=wait_layer,
-                            batch_size=args.batch_size,
-                            cache_dir=cache_dir,
-                            recompute_cache=bool(args.recompute_cache),
-                            donor_policy=_DONOR_POLICY,
-                        )
-                        seq_cache_hits += int(non_frame_cache_hit)
-                        seq_cache_misses += int(not non_frame_cache_hit)
-
-                    clean_cache_key = (args.seq_len, item.sample_id)
-                    clean_metrics = clean_metrics_cache.get(clean_cache_key)
-                    if clean_metrics is None:
-                        clean_metrics = run_clean_sample(item)
-                        clean_metrics_cache[clean_cache_key] = clean_metrics
-                    af1_metrics = run_intervention_sample(
-                        item,
-                        frame_group_means=frame_group_means,
-                        non_frame_prompt_mean=non_frame_prompt_mean,
-                        policy=policy,
-                        mode=args.mode,
-                    )
-                    row = _evaluated_row(
-                        sample=item,
-                        clean_metrics=clean_metrics,
-                        af1_metrics=af1_metrics,
-                        donor_ids=donor_ids,
-                        policy=policy,
-                        k_donors_requested=args.k_donors,
-                        mode=args.mode,
-                    )
-                    seq_rows.append(row)
-                    all_sample_rows.append(row)
-                    per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                    per_sample_handle.flush()
-                    stdout_per_sample_writer.writerow(_row_for_fieldnames(row, _PER_SAMPLE_FIELDS))
-                    sys.stdout.flush()
-                    per_sample_rows_emitted += 1
-                    print(
-                        f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
-                        f"[mode={args.mode}] sample_id={item.sample_id} gold={item.gold_answer} "
-                        f"clean={row['clean_pred']} af1={row['af1_pred']} "
-                        f"clean_top1_score_drop={float(row['clean_top1_score_drop']):.4f} "
-                        f"gold_answer_score_drop={float(row['gold_answer_score_drop']):.4f} "
-                        f"donors={json.dumps(donor_ids)}"
-                    )
-
-                expected_per_sample_rows += len(seq_rows)
-                if enable_wait_patch:
-                    cache_notes.append(
-                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                        f"frame-group+non-frame conditional-mean cache_hits={seq_cache_hits} "
-                        f"cache_misses={seq_cache_misses} layout_hash={compatible_layout_hash}"
-                    )
-                else:
-                    cache_notes.append(
-                        f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: "
-                        f"no conditional-mean cache activity in mode={args.mode} because wait-boundary patching is disabled."
-                    )
-                summary_rows.append(
-                    summarize_grid_point_results(
-                        MODEL_ID,
-                        mode=args.mode,
-                        seq_len=args.seq_len,
-                        wait_layer=wait_layer,
-                        transfer_layers=transfer_layers,
-                        sample_rows=seq_rows,
-                    )
-                )
-
-    summary_rows = sorted(
-        summary_rows,
-        key=lambda row: (int(row["wait_layer"]), int(row["transfer_layers"])),
+    return GridRunOutputs(
+        all_sample_rows=all_sample_rows,
+        summary_rows=summary_rows,
+        validation_notes=validation_notes,
+        cache_notes=cache_notes,
+        per_sample_rows_emitted=per_sample_rows_emitted,
+        expected_per_sample_rows=expected_per_sample_rows,
     )
+
+
+def write_final_reports(
+    *,
+    args: argparse.Namespace,
+    summary_rows: Sequence[Dict[str, Any]],
+    summary_csv_path: Path,
+    per_sample_csv_path: Path,
+    markdown_summary_path: Path,
+    output_dir: Path,
+    cache_dir: Path,
+    effective_transfer_layers_grid: Sequence[int],
+    validation_notes: Sequence[str],
+    donor_notes: Sequence[str],
+    cache_notes: Sequence[str],
+    start_time: float,
+) -> Tuple[Dict[str, str], List[Tuple[str, str, str]]]:
     summary_table = format_summary_table(summary_rows)
     print(f"\nFinal AF1 Frame-CAMA Table (mode={args.mode}, seq_len={args.seq_len})")
     print(summary_table)
-    write_csv(summary_csv_path, summary_rows, fieldnames=_SUMMARY_FIELDS)
+    write_csv(summary_csv_path, summary_rows, fieldnames=SUMMARY_FIELDS)
 
     heatmap_specs = [
         ("clean_acc", "heatmap_clean_acc.png", "clean_acc"),
@@ -2784,7 +922,7 @@ def main() -> None:
             "seed": args.seed,
             "skip_hallway": bool(args.skip_hallway),
             "instruction_mask_mode": str(args.instruction_mask_mode),
-            "donor_policy": _DONOR_POLICY,
+            "donor_policy": DONOR_POLICY,
             "wait_layer_semantics": (
                 "wait_layer is AF1 L_wait measured in number of waiting layers; "
                 "if wait_layer > 0 then x^(L_wait) is patched at layer output wait_layer - 1"
@@ -2808,21 +946,128 @@ def main() -> None:
         output_notes=output_notes,
         elapsed_seconds=time.time() - start_time,
     )
+    return heatmap_paths, heatmap_specs
+
+
+def main() -> None:
+    args = parse_args()
+    args.wait_layers, args.wait_layer_tick_step = parse_layer_grid(args.wait_layers, arg_name="--wait_layers")
+    args.transfer_layers_grid, args.transfer_layers_tick_step = parse_layer_grid(
+        args.transfer_layers_grid,
+        arg_name="--transfer_layers_grid",
+    )
+    mode_flags = intervention_mode_flags(args.mode)
+    enable_wait_patch = mode_flags["enable_wait_patch"]
+    if args.model_name != MODEL_ID:
+        raise ValueError(
+            f"This script is pinned to {MODEL_ID!r}; received --model_name={args.model_name!r}"
+        )
+    if enable_wait_patch and args.k_donors < 2:
+        raise ValueError(
+            "--k_donors must be at least 2 because one donor is not a conditional mean."
+        )
+    if args.batch_size <= 0:
+        raise ValueError("--batch_size must be positive")
+
+    parse_dtype(args.dtype)
+    set_seed(args.seed)
+    start_time = time.time()
+    runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
+    num_model_layers = len(get_layers(base_model))
+    print(json.dumps(runtime_info, indent=2, sort_keys=True))
+    print(
+        f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
+        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
+        f"instruction_mask_mode={args.instruction_mask_mode}"
+    )
+
+    output_dir = Path(args.output_dir)
+    cache_dir = Path(args.cache_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_csv_path = output_dir / "summary_grid.csv"
+    per_sample_csv_path = output_dir / "per_sample_grid.csv"
+    markdown_summary_path = output_dir / "summary.md"
+
+    validation_notes = initial_validation_notes(args)
+    donor_notes: List[str] = []
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
+
+    valid_grid_combinations, effective_transfer_layers_grid, grid_validation_notes = resolve_grid_combinations(
+        args,
+        num_model_layers=num_model_layers,
+    )
+    validation_notes.extend(grid_validation_notes)
+
+    data_root = seq_len_data_root(Path(args.data_root_base), seq_len=args.seq_len, split=args.split)
+    if not data_root.is_dir():
+        raise FileNotFoundError(f"seq_len={args.seq_len}: data root not found: {data_root}")
+
+    sample_dirs = load_and_filter_sample_dirs(
+        data_root=data_root,
+        max_samples=args.max_samples,
+        seed=args.seed + args.seq_len,
+    )
+    if not sample_dirs:
+        raise RuntimeError(f"seq_len={args.seq_len}: no samples found under {data_root}")
+
+    print(
+        f"[seq_len={args.seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
+        f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
+        f"k_donors={args.k_donors} instruction_mask_mode={args.instruction_mask_mode}"
+    )
+
+    prepared_inputs = prepare_evaluation_inputs(
+        args=args,
+        sample_dirs=sample_dirs,
+        enable_wait_patch=enable_wait_patch,
+    )
+    validation_notes.extend(prepared_inputs.validation_notes)
+    donor_notes.extend(prepared_inputs.donor_notes)
+
+    grid_outputs = run_grid_evaluation(
+        args=args,
+        per_sample_csv_path=per_sample_csv_path,
+        valid_grid_combinations=valid_grid_combinations,
+        prepared_inputs=prepared_inputs,
+        cache_dir=cache_dir,
+        clean_metrics_cache=clean_metrics_cache,
+    )
+    validation_notes.extend(grid_outputs.validation_notes)
+    summary_rows = sorted(
+        grid_outputs.summary_rows,
+        key=lambda row: (int(row["wait_layer"]), int(row["transfer_layers"])),
+    )
+    heatmap_paths, heatmap_specs = write_final_reports(
+        args=args,
+        summary_rows=summary_rows,
+        summary_csv_path=summary_csv_path,
+        per_sample_csv_path=per_sample_csv_path,
+        markdown_summary_path=markdown_summary_path,
+        output_dir=output_dir,
+        cache_dir=cache_dir,
+        effective_transfer_layers_grid=effective_transfer_layers_grid,
+        validation_notes=validation_notes,
+        donor_notes=donor_notes,
+        cache_notes=grid_outputs.cache_notes,
+        start_time=start_time,
+    )
 
     if len(summary_rows) != len(valid_grid_combinations):
         raise RuntimeError(
             f"Summary row count mismatch: expected {len(valid_grid_combinations)} valid combos, "
             f"found {len(summary_rows)} summary rows"
         )
-    if per_sample_rows_emitted != expected_per_sample_rows:
+    if grid_outputs.per_sample_rows_emitted != grid_outputs.expected_per_sample_rows:
         raise RuntimeError(
-            f"Per-sample row count mismatch: emitted {per_sample_rows_emitted}, "
-            f"expected {expected_per_sample_rows}"
+            f"Per-sample row count mismatch: emitted {grid_outputs.per_sample_rows_emitted}, "
+            f"expected {grid_outputs.expected_per_sample_rows}"
         )
-    if len(all_sample_rows) != expected_per_sample_rows:
+    if len(grid_outputs.all_sample_rows) != grid_outputs.expected_per_sample_rows:
         raise RuntimeError(
-            f"Accumulated per-sample row count mismatch: stored {len(all_sample_rows)}, "
-            f"expected {expected_per_sample_rows}"
+            f"Accumulated per-sample row count mismatch: stored {len(grid_outputs.all_sample_rows)}, "
+            f"expected {grid_outputs.expected_per_sample_rows}"
         )
     missing_heatmaps = [
         str(output_dir / filename)
