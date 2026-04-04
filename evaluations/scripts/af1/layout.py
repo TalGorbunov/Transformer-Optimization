@@ -87,6 +87,30 @@ def _instruction_positions_from_prompt(prompt_text: str, prompt_text_start: int)
     return tuple(int(position) for position in instruction_positions)
 
 
+def _special_token_positions(
+    input_ids: Sequence[int],
+    decoded_tokens: Sequence[str],
+    token_text: str,
+) -> Tuple[int, ...]:
+    token_id = processor.tokenizer.convert_tokens_to_ids(token_text)
+    positions_by_id = (
+        tuple(idx for idx, input_id in enumerate(input_ids) if int(input_id) == int(token_id))
+        if token_id is not None
+        else tuple()
+    )
+    positions_by_text = tuple(
+        idx
+        for idx, decoded_token in enumerate(decoded_tokens)
+        if str(decoded_token) == str(token_text)
+    )
+    if positions_by_id and positions_by_text and positions_by_id != positions_by_text:
+        raise RuntimeError(
+            f"Special-token position mismatch for {token_text!r}: "
+            f"by_id={list(positions_by_id)} by_text={list(positions_by_text)}"
+        )
+    return positions_by_id or positions_by_text
+
+
 def build_sample_layout(
     sample_id: str,
     frames: Sequence[Any],
@@ -152,6 +176,16 @@ def build_sample_layout(
             f"sample_id={sample_id}: expected {len(frames)} frame groups but found {len(frame_groups)}"
         )
 
+    image_pad_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|image_pad|>")
+    flattened_frame_positions = tuple(int(position) for group in frame_groups for position in group)
+    if tuple(image_pad_positions) != flattened_frame_positions:
+        raise RuntimeError(
+            f"sample_id={sample_id}: image_pad positions {list(image_pad_positions)} do not match "
+            f"frame groups {list(flattened_frame_positions)}"
+        )
+    vision_start_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|vision_start|>")
+    vision_end_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|vision_end|>")
+
     return SampleLayout(
         sample_id=sample_id,
         seq_len=len(frames),
@@ -166,6 +200,9 @@ def build_sample_layout(
         room_positions=tuple(int(position) for position in room_positions),
         character_positions=tuple(int(position) for position in character_positions),
         instruction_positions=instruction_positions,
+        image_pad_positions=tuple(int(position) for position in image_pad_positions),
+        vision_start_positions=tuple(int(position) for position in vision_start_positions),
+        vision_end_positions=tuple(int(position) for position in vision_end_positions),
         room_span_len=len(room_positions),
         prompt_input_ids=tuple(int(token_id) for token_id in input_ids),
         prompt_decoded_tokens=tuple(str(token) for token in prompt_decoded_tokens),
@@ -183,6 +220,9 @@ def _layout_signature_payload(layout: SampleLayout) -> Dict[str, Any]:
         "image_tokens_per_frame": list(layout.image_tokens_per_frame),
         "frame_groups": [list(group) for group in layout.frame_groups],
         "instruction_positions": list(layout.instruction_positions),
+        "image_pad_positions": list(layout.image_pad_positions),
+        "vision_start_positions": list(layout.vision_start_positions),
+        "vision_end_positions": list(layout.vision_end_positions),
         "room_span_len": int(layout.room_span_len),
     }
 
@@ -245,6 +285,12 @@ def inspect_and_validate_layout(
         reasons.append("frame_group_boundaries_mismatch")
     if tuple(candidate_layout.instruction_positions) != tuple(reference_layout.instruction_positions):
         reasons.append("instruction_positions_mismatch")
+    if tuple(candidate_layout.image_pad_positions) != tuple(reference_layout.image_pad_positions):
+        reasons.append("image_pad_positions_mismatch")
+    if tuple(candidate_layout.vision_start_positions) != tuple(reference_layout.vision_start_positions):
+        reasons.append("vision_start_positions_mismatch")
+    if tuple(candidate_layout.vision_end_positions) != tuple(reference_layout.vision_end_positions):
+        reasons.append("vision_end_positions_mismatch")
     if int(candidate_layout.room_span_len) != int(reference_layout.room_span_len):
         reasons.append(
             f"room_span_len_mismatch(ref={reference_layout.room_span_len},cand={candidate_layout.room_span_len})"
@@ -431,6 +477,9 @@ def format_token_debug_rows(layout: SampleLayout) -> str:
         for position in group:
             frame_lookup[int(position)] = frame_idx
     instruction_lookup = {int(position) for position in layout.instruction_positions}
+    image_pad_lookup = {int(position) for position in layout.image_pad_positions}
+    vision_start_lookup = {int(position) for position in layout.vision_start_positions}
+    vision_end_lookup = {int(position) for position in layout.vision_end_positions}
 
     lines = ["idx\tid\ttoken\ttags"]
     for idx, token_id in enumerate(layout.prompt_input_ids):
@@ -439,6 +488,12 @@ def format_token_debug_rows(layout: SampleLayout) -> str:
             tags.append("CARRIER")
         if idx in frame_lookup:
             tags.append(f"frame_{frame_lookup[idx]}")
+        if idx in image_pad_lookup:
+            tags.append("IMAGE_PAD")
+        if idx in vision_start_lookup:
+            tags.append("VISION_START")
+        if idx in vision_end_lookup:
+            tags.append("VISION_END")
         if idx in instruction_lookup:
             tags.append("INSTRUCTION")
         lines.append(
@@ -465,6 +520,9 @@ def format_transition_frame_debug(layout: SampleLayout, policy: AttentionPolicy)
     return (
         f"transition_frame_blocks frames={len(layout.frame_groups)} "
         f"tokens_per_frame={frame_sizes} "
+        f"image_pad_tokens={len(layout.image_pad_positions)} "
+        f"vision_start_tokens={len(layout.vision_start_positions)} "
+        f"vision_end_tokens={len(layout.vision_end_positions)} "
         f"empty_frame_groups={empty_frame_groups} "
         f"dense_intra_frame={dense_intra_frame} "
         f"cross_frame_leak={cross_frame_leak} "

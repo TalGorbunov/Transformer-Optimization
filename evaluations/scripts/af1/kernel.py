@@ -61,9 +61,11 @@ def intervention_mode_summary(mode: str) -> str:
 
 def instruction_mask_mode_summary(mode: str) -> str:
     summaries = {
-        "base": "transfer=base post_transfer=self_only",
-        "no_frame_access": "transfer=base_minus_frames post_transfer=self_only",
-        "frame_only": "transfer=self_plus_frames post_transfer=self_only",
+        "base": "transfer=base_causal_padding_mask post_transfer=self_only",
+        "vision_end_only": "transfer=self_plus_earlier_vision_end post_transfer=self_only",
+        "vision_boundary_only": "transfer=self_plus_earlier_vision_start_end post_transfer=self_only",
+        "prompt_only": "transfer=self_plus_earlier_non_frame_non_boundary_prompt post_transfer=self_only",
+        "image_pad_only": "transfer=self_plus_earlier_image_pad post_transfer=self_only",
     }
     if mode not in summaries:
         raise ValueError(
@@ -164,14 +166,6 @@ def _allowed_prompt_keys(query_idx: int, policy: AttentionPolicy, stage: str) ->
     return sorted(allowed)
 
 
-def _query_keeps_base_mask(query_idx: int, policy: AttentionPolicy, stage: str) -> bool:
-    return (
-        stage == "transfer"
-        and str(policy.instruction_mask_mode) == "base"
-        and int(query_idx) in policy.instruction_positions
-    )
-
-
 def _instruction_allowed_prompt_keys(
     query_idx: int,
     policy: AttentionPolicy,
@@ -183,23 +177,49 @@ def _instruction_allowed_prompt_keys(
     mode = str(policy.instruction_mask_mode)
     if mode == "base":
         return None
-    if mode == "no_frame_access":
+
+    earlier_image_pad = {
+        int(position) for position in policy.image_pad_positions if int(position) < int(query_idx)
+    }
+    earlier_vision_start = {
+        int(position) for position in policy.vision_start_positions if int(position) < int(query_idx)
+    }
+    earlier_vision_end = {
+        int(position) for position in policy.vision_end_positions if int(position) < int(query_idx)
+    }
+
+    if mode == "vision_end_only":
+        return sorted({int(query_idx)} | earlier_vision_end)
+    if mode == "vision_boundary_only":
+        return sorted({int(query_idx)} | earlier_vision_start | earlier_vision_end)
+    if mode == "prompt_only":
+        boundary_positions = set(policy.vision_start_positions) | set(policy.vision_end_positions)
         return [
             int(key_idx)
             for key_idx in range(0, int(query_idx) + 1)
-            if int(key_idx) not in policy.frame_group_by_token
+            if int(key_idx) == int(query_idx)
+            or (
+                int(key_idx) not in earlier_image_pad
+                and int(key_idx) not in boundary_positions
+            )
         ]
-    if mode == "frame_only":
-        allowed = {int(query_idx)}
-        allowed.update(
-            int(key_idx)
-            for key_idx in policy.frame_group_by_token
-            if int(key_idx) <= int(query_idx)
-        )
-        return sorted(allowed)
+    if mode == "image_pad_only":
+        return sorted({int(query_idx)} | earlier_image_pad)
     raise ValueError(
         f"Unsupported instruction_mask_mode={mode!r}. "
         f"Expected one of {VALID_INSTRUCTION_MASK_MODES}."
+    )
+
+
+def _instruction_keeps_base_mask(
+    query_idx: int,
+    policy: AttentionPolicy,
+    stage: str,
+) -> bool:
+    return (
+        stage == "transfer"
+        and str(policy.instruction_mask_mode) == "base"
+        and int(query_idx) in policy.instruction_positions
     )
 
 
@@ -239,6 +259,9 @@ def build_abp_attention_policy(
         num_model_layers=int(num_layers),
         frame_group_by_token=_build_frame_group_by_token(layout),
         instruction_positions=tuple(int(position) for position in layout.instruction_positions),
+        image_pad_positions=tuple(int(position) for position in layout.image_pad_positions),
+        vision_start_positions=tuple(int(position) for position in layout.vision_start_positions),
+        vision_end_positions=tuple(int(position) for position in layout.vision_end_positions),
         instruction_mask_mode=str(instruction_mask_mode),
     )
 
@@ -265,7 +288,7 @@ def build_abp_attention_mask(
     # scoring remains well-defined.
     prompt_rows = min(int(policy.prompt_len), int(query_len))
     for query_idx in range(prompt_rows):
-        if _query_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
+        if _instruction_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
             continue
         instruction_allowed_keys = _instruction_allowed_prompt_keys(
             query_idx=query_idx,
@@ -310,7 +333,6 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
         ),
         None,
     )
-    instruction_prompt_token = next((position for position in policy.instruction_positions), None)
     transfer_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="transfer")
     post_last = _allowed_prompt_keys(layout.carrier_index, policy=policy, stage="post_transfer")
 
@@ -344,11 +366,11 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
         )
 
     instruction_transfer_note = "ABP instruction-token transfer handling: none"
-    if instruction_prompt_token is not None:
-        instruction_tokens = [
-            sanitize_token_text(layout.prompt_decoded_tokens[int(position)])
+    if policy.instruction_positions:
+        instruction_tokens = {
+            int(position): sanitize_token_text(layout.prompt_decoded_tokens[int(position)])
             for position in policy.instruction_positions
-        ]
+        }
         prompt_len = int(layout.prompt_len)
         synthetic_base_mask = torch.full(
             (1, 1, prompt_len, prompt_len),
@@ -367,49 +389,46 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
             policy=policy,
             stage="post_transfer",
         )
-        actual_instruction_transfer = [
-            int(key_idx)
-            for key_idx in torch.nonzero(
-                transfer_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                as_tuple=False,
-            ).flatten()
-        ]
-        expected_instruction_post = [int(instruction_prompt_token)]
-        actual_instruction_post = [
-            int(key_idx)
-            for key_idx in torch.nonzero(
-                post_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                as_tuple=False,
-            ).flatten()
-        ]
-        if actual_instruction_post != expected_instruction_post:
-            raise RuntimeError(
-                f"ABP validation failed for instruction token {instruction_prompt_token} after transfer: "
-                f"expected {expected_instruction_post}, got {actual_instruction_post}"
-            )
-        if str(policy.instruction_mask_mode) == "base":
-            expected_instruction_transfer = list(range(0, int(instruction_prompt_token) + 1))
-        else:
+        instruction_transfer_keys_by_position: Dict[int, List[int]] = {}
+        for instruction_prompt_token in policy.instruction_positions:
+            actual_instruction_transfer = [
+                int(key_idx)
+                for key_idx in torch.nonzero(
+                    transfer_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
+                    as_tuple=False,
+                ).flatten()
+            ]
+            expected_instruction_post = [int(instruction_prompt_token)]
+            actual_instruction_post = [
+                int(key_idx)
+                for key_idx in torch.nonzero(
+                    post_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
+                    as_tuple=False,
+                ).flatten()
+            ]
+            if actual_instruction_post != expected_instruction_post:
+                raise RuntimeError(
+                    f"ABP validation failed for instruction token {instruction_prompt_token} after transfer: "
+                    f"expected {expected_instruction_post}, got {actual_instruction_post}"
+                )
             expected_instruction_transfer = _instruction_allowed_prompt_keys(
                 int(instruction_prompt_token),
                 policy=policy,
                 stage="transfer",
             )
             if expected_instruction_transfer is None:
+                expected_instruction_transfer = list(range(0, int(instruction_prompt_token) + 1))
+            if actual_instruction_transfer != expected_instruction_transfer:
                 raise RuntimeError(
-                    f"ABP validation failed for instruction token {instruction_prompt_token}: "
-                    "expected an explicit transfer-stage key set"
+                    f"ABP validation failed for instruction token {instruction_prompt_token} during transfer: "
+                    f"expected {expected_instruction_transfer}, got {actual_instruction_transfer}"
                 )
-        if actual_instruction_transfer != expected_instruction_transfer:
-            raise RuntimeError(
-                f"ABP validation failed for instruction token {instruction_prompt_token} during transfer: "
-                f"expected {expected_instruction_transfer}, got {actual_instruction_transfer}"
-            )
+            instruction_transfer_keys_by_position[int(instruction_prompt_token)] = actual_instruction_transfer
         instruction_transfer_note = (
             "ABP instruction-token transfer handling: "
-            f"positions={list(policy.instruction_positions)} tokens={instruction_tokens} "
+            f"positions={list(policy.instruction_positions)} tokens={json.dumps(instruction_tokens, sort_keys=True)} "
             f"{instruction_mask_mode_summary(str(policy.instruction_mask_mode))} "
-            f"transfer_keys={actual_instruction_transfer}"
+            f"transfer_keys_by_position={json.dumps(instruction_transfer_keys_by_position, sort_keys=True)}"
         )
 
     expected_transfer_last = list(range(0, layout.carrier_index + 1))
@@ -596,6 +615,32 @@ def _non_frame_conditional_mean_cache_path(
     )
 
 
+def _load_local_cache_payload(cache_path: Path) -> Optional[Dict[str, Any]]:
+    """Load one trusted local AF1 cache payload or fall back to recomputation.
+
+    These cache files are written by this script itself and contain a small
+    metadata dict plus tensors, so we opt into `weights_only=False` to stay
+    compatible with older PyTorch serialization formats. If a cache file is
+    unreadable or malformed, we treat it as a cache miss and overwrite it on
+    recomputation instead of crashing the full grid run.
+    """
+    try:
+        payload = torch.load(cache_path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        print(
+            f"[cache] Failed to load local cache {cache_path}: {exc}. "
+            "Recomputing and overwriting this cache entry."
+        )
+        return None
+    if not isinstance(payload, dict) or "mean_block" not in payload:
+        print(
+            f"[cache] Invalid cache payload at {cache_path}: expected a dict with "
+            "'mean_block'. Recomputing and overwriting this cache entry."
+        )
+        return None
+    return payload
+
+
 def compute_frame_group_conditional_mean(
     target_sample: PreparedSample,
     frame_idx: int,
@@ -641,8 +686,9 @@ def compute_frame_group_conditional_mean(
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
     if cache_path.exists() and not recompute_cache:
-        payload = torch.load(cache_path, map_location="cpu")
-        return payload["mean_block"].to(dtype=torch.float32), True
+        payload = _load_local_cache_payload(cache_path)
+        if payload is not None:
+            return payload["mean_block"].to(dtype=torch.float32), True
 
     frame_positions = target_sample.layout.frame_groups[frame_idx]
     blocks: List[torch.Tensor] = []
@@ -720,8 +766,9 @@ def compute_non_frame_conditional_mean(
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
     if cache_path.exists() and not recompute_cache:
-        payload = torch.load(cache_path, map_location="cpu")
-        return payload["mean_block"].to(dtype=torch.float32), True
+        payload = _load_local_cache_payload(cache_path)
+        if payload is not None:
+            return payload["mean_block"].to(dtype=torch.float32), True
 
     blocks: List[torch.Tensor] = []
     for donor_batch in batched(list(donor_samples), batch_size=batch_size):

@@ -9,7 +9,13 @@ import torch
 NEG_INF = -1.0e9
 DONOR_POLICY = "same_seq_len_validated_layout_seeded_shuffle_exclude_target"
 VALID_MODES = ("full_af1", "wait_only", "mask_only")
-VALID_INSTRUCTION_MASK_MODES = ("base", "no_frame_access", "frame_only")
+VALID_INSTRUCTION_MASK_MODES = (
+    "base",
+    "vision_end_only",
+    "vision_boundary_only",
+    "prompt_only",
+    "image_pad_only",
+)
 INSTRUCTION_TRANSFER_PROMPT_SPAN = "Output only the integer.\n"
 SUMMARY_FIELDS = [
     "model",
@@ -79,6 +85,9 @@ class SampleLayout:
     room_positions: Tuple[int, ...]
     character_positions: Tuple[int, ...]
     instruction_positions: Tuple[int, ...]
+    image_pad_positions: Tuple[int, ...]
+    vision_start_positions: Tuple[int, ...]
+    vision_end_positions: Tuple[int, ...]
     room_span_len: int
     prompt_input_ids: Tuple[int, ...]
     prompt_decoded_tokens: Tuple[str, ...]
@@ -104,6 +113,9 @@ class AttentionPolicy:
     num_model_layers: int
     frame_group_by_token: Dict[int, Tuple[int, ...]]
     instruction_positions: Tuple[int, ...]
+    image_pad_positions: Tuple[int, ...]
+    vision_start_positions: Tuple[int, ...]
+    vision_end_positions: Tuple[int, ...]
     instruction_mask_mode: str
 
     @property

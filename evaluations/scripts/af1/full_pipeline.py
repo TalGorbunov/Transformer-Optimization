@@ -45,7 +45,7 @@ python evaluations/scripts/af1/full_pipeline.py \
   --max_samples 8 \
   --wait_layers 40 \
   --transfer_layers_grid 2 \
-  --instruction_mask_mode base \
+  --instruction_mask_mode vision_end_only \
   --k_donors 4 \
   --output_dir outputs/af1_qwen_vl_frame_cama
 """
@@ -154,7 +154,16 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument("--data_root_base", type=str, default="data/mmred_images")
     ap.add_argument("--split", type=str, default="all")
     ap.add_argument("--seq_len", type=int, required=True)
-    ap.add_argument("--max_samples", type=int, default=8)
+    ap.add_argument(
+        "--max_samples",
+        type=int,
+        default=8,
+        help=(
+            "Maximum number of eligible evaluation targets. Skipped samples do "
+            "not count toward this cap; additional shuffled samples are scanned "
+            "until the cap is reached or the dataset is exhausted."
+        ),
+    )
     ap.add_argument("--batch_size", type=int, default=4)
     ap.add_argument(
         "--wait_layers",
@@ -204,17 +213,27 @@ def parse_args() -> argparse.Namespace:
     )
     ap.add_argument("--skip_hallway", action=argparse.BooleanOptionalAction, default=True)
     ap.add_argument(
+        "--clean_top1_must_match_gold",
+        action="store_true",
+        help=(
+            "Filter evaluation to samples where the clean model's top-1 answer "
+            "matches the gold answer before running intervention evaluation."
+        ),
+    )
+    ap.add_argument(
         "--instruction_mask_mode",
         type=str,
-        default="base",
+        default="vision_end_only",
         choices=list(VALID_INSTRUCTION_MASK_MODES),
         help=(
             "Instruction-token masking during transfer layers for the prompt "
-            "span 'Output only the integer.\\n': `base` keeps the "
-            "base causal/padding mask, `no_frame_access` keeps the base row "
-            "but removes frame-token keys, and `frame_only` keeps only self "
-            "plus frame-token keys. After transfer, instruction tokens become "
-            "self-only in all modes."
+            "span 'Output only the integer.\\n': `base` keeps the base "
+            "causal/padding mask, `vision_end_only` keeps self plus earlier "
+            "`<|vision_end|>` keys, `vision_boundary_only` keeps self plus "
+            "earlier `<|vision_start|>`/`<|vision_end|>` keys, `prompt_only` "
+            "keeps self plus earlier non-frame non-boundary prompt keys, and "
+            "`image_pad_only` keeps self plus earlier `<|image_pad|>` keys. "
+            "After transfer, instruction tokens become self-only in all modes."
         ),
     )
     ap.add_argument("--debug_tokenization", action="store_true")
@@ -317,6 +336,178 @@ def _emit_per_sample_row(
     sys.stdout.flush()
 
 
+def sample_passes_clean_top1_filter(
+    *,
+    args: argparse.Namespace,
+    sample: PreparedSample,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> bool:
+    if not bool(args.clean_top1_must_match_gold):
+        return True
+    clean_cache_key = (args.seq_len, sample.sample_id)
+    clean_metrics = clean_metrics_cache.get(clean_cache_key)
+    if clean_metrics is None:
+        clean_metrics = run_clean_sample(sample)
+        clean_metrics_cache[clean_cache_key] = clean_metrics
+    clean_pred = str(clean_metrics["best_answer_text"]).strip()
+    return clean_pred == sample.gold_answer
+
+
+def eligible_target_sample_ids(
+    *,
+    args: argparse.Namespace,
+    grid_items: Sequence[Any],
+    compatible_samples: Sequence[PreparedSample],
+    enable_wait_patch: bool,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> List[str]:
+    eligible_ids: List[str] = []
+    for item in grid_items:
+        if isinstance(item, dict):
+            continue
+        if not sample_passes_clean_top1_filter(
+            args=args,
+            sample=item,
+            clean_metrics_cache=clean_metrics_cache,
+        ):
+            continue
+        if enable_wait_patch and len(
+            select_donor_pool(
+                target_sample=item,
+                compatible_samples=compatible_samples,
+                k_donors=args.k_donors,
+                seed=args.seed,
+            )
+        ) < 2:
+            continue
+        eligible_ids.append(item.sample_id)
+    return eligible_ids
+
+
+def trim_grid_items_to_max_used(
+    *,
+    args: argparse.Namespace,
+    prepared_inputs: PreparedEvaluationInputs,
+    enable_wait_patch: bool,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> PreparedEvaluationInputs:
+    if int(args.max_samples) <= 0:
+        return prepared_inputs
+
+    eligible_ids = eligible_target_sample_ids(
+        args=args,
+        grid_items=prepared_inputs.grid_items,
+        compatible_samples=prepared_inputs.compatible_samples,
+        enable_wait_patch=enable_wait_patch,
+        clean_metrics_cache=clean_metrics_cache,
+    )
+    if len(eligible_ids) <= int(args.max_samples):
+        return prepared_inputs
+
+    eligible_id_set = set(eligible_ids)
+    kept_used_ids = set(eligible_ids[: int(args.max_samples)])
+    trimmed_grid_items: List[Any] = []
+    for item in prepared_inputs.grid_items:
+        if isinstance(item, dict):
+            trimmed_grid_items.append(item)
+            continue
+        if item.sample_id in kept_used_ids:
+            trimmed_grid_items.append(item)
+            continue
+        if item.sample_id not in eligible_id_set:
+            trimmed_grid_items.append(item)
+            continue
+
+    return PreparedEvaluationInputs(
+        grid_items=trimmed_grid_items,
+        reference_layout=prepared_inputs.reference_layout,
+        compatible_samples=list(prepared_inputs.compatible_samples),
+        compatible_layout_hash=prepared_inputs.compatible_layout_hash,
+        validation_notes=list(prepared_inputs.validation_notes),
+        donor_notes=list(prepared_inputs.donor_notes),
+    )
+
+
+def count_eligible_targets_for_selected_dirs(
+    *,
+    args: argparse.Namespace,
+    sample_dirs: Sequence[Path],
+    enable_wait_patch: bool,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> int:
+    prepared_samples: List[PreparedSample] = []
+    for sample_dir in sample_dirs:
+        prepared_sample, _ = prepare_sample(
+            sample_dir,
+            skip_hallway=bool(args.skip_hallway),
+        )
+        if prepared_sample is not None:
+            prepared_samples.append(prepared_sample)
+
+    reference_layout = choose_reference_layout(prepared_samples)
+    if reference_layout is None:
+        return 0
+
+    compatible_samples: List[PreparedSample] = []
+    for sample in prepared_samples:
+        report = inspect_and_validate_layout(
+            reference_layout=reference_layout,
+            candidate_layout=sample.layout,
+            skip_hallway=bool(args.skip_hallway),
+        )
+        if report["status"] == "exact_match":
+            compatible_samples.append(sample)
+
+    return len(
+        eligible_target_sample_ids(
+            args=args,
+            grid_items=compatible_samples,
+            compatible_samples=compatible_samples,
+            enable_wait_patch=enable_wait_patch,
+            clean_metrics_cache=clean_metrics_cache,
+        )
+    )
+
+
+def select_sample_dirs_for_evaluation(
+    *,
+    args: argparse.Namespace,
+    all_sample_dirs: Sequence[Path],
+    enable_wait_patch: bool,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> Tuple[List[Path], List[str]]:
+    if int(args.max_samples) <= 0:
+        return list(all_sample_dirs), []
+
+    selected_sample_dirs: List[Path] = []
+    eligible_target_count = 0
+    for sample_dir in all_sample_dirs:
+        selected_sample_dirs.append(sample_dir)
+        eligible_target_count = count_eligible_targets_for_selected_dirs(
+            args=args,
+            sample_dirs=selected_sample_dirs,
+            enable_wait_patch=enable_wait_patch,
+            clean_metrics_cache=clean_metrics_cache,
+        )
+        if eligible_target_count >= int(args.max_samples):
+            return (
+                selected_sample_dirs,
+                [
+                    f"seq_len={args.seq_len}: scanned {len(selected_sample_dirs)} shuffled sample dirs to reach "
+                    f"max_samples={int(args.max_samples)} eligible targets after skip filters "
+                    f"(eligible_targets={eligible_target_count})"
+                ],
+            )
+
+    return (
+        selected_sample_dirs,
+        [
+            f"seq_len={args.seq_len}: dataset exhausted after scanning {len(selected_sample_dirs)} shuffled sample dirs; "
+            f"eligible_targets={eligible_target_count} < max_samples={int(args.max_samples)}"
+        ],
+    )
+
+
 def initial_validation_notes(args: argparse.Namespace) -> List[str]:
     validation_notes = [
         f"mode={args.mode}: {intervention_mode_summary(args.mode)}",
@@ -328,6 +519,11 @@ def initial_validation_notes(args: argparse.Namespace) -> List[str]:
             f"grid seq_len={args.seq_len}: wait_layers={list(args.wait_layers)} "
             f"transfer_layers_grid={list(args.transfer_layers_grid)}"
         ),
+        (
+            f"max_samples={int(args.max_samples)} caps eligible evaluation targets; skipped samples "
+            "do not count toward this cap."
+        ),
+        f"clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)}",
         (
             "wait_layer semantics: if wait_layer > 0, patch x^(L_wait) at layer output wait_layer - 1; "
             "if wait_layer == 0, patch x^(0) before layer 0."
@@ -652,6 +848,49 @@ def evaluate_grid_point(
         donor_ids: List[str] = []
         frame_group_means = None
         non_frame_prompt_mean = None
+        clean_cache_key = (args.seq_len, item.sample_id)
+        clean_metrics: Optional[Dict[str, Any]] = None
+        if args.clean_top1_must_match_gold:
+            clean_metrics = clean_metrics_cache.get(clean_cache_key)
+            if clean_metrics is None:
+                clean_metrics = run_clean_sample(item)
+                clean_metrics_cache[clean_cache_key] = clean_metrics
+            clean_pred = str(clean_metrics["best_answer_text"]).strip()
+            if clean_pred != item.gold_answer:
+                skipped_sample_row = skipped_row(
+                    mode=args.mode,
+                    sample_id=item.sample_id,
+                    seq_len=item.layout.seq_len,
+                    gold_answer=item.gold_answer,
+                    skipped_reason="clean_top1_not_gold",
+                    room_text=item.layout.room_text,
+                    layout=item.layout,
+                    wait_layer=wait_layer,
+                    transfer_layers=transfer_layers,
+                    k_donors=args.k_donors,
+                    layout_status="exact_match",
+                    layout_details="exact_match",
+                )
+                sample_rows.append(skipped_sample_row)
+                _emit_per_sample_row(
+                    skipped_sample_row,
+                    per_sample_writer,
+                    stdout_per_sample_writer,
+                    per_sample_handle,
+                )
+                per_sample_rows_emitted += 1
+                validation_notes_for_grid_point.append(
+                    f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers} "
+                    f"sample_id={item.sample_id} skipped: clean_top1_not_gold "
+                    f"(clean_pred={clean_pred!r}, gold_answer={item.gold_answer!r})"
+                )
+                print(
+                    f"[seq_len={args.seq_len}][wait_layer={wait_layer}][transfer_layers={transfer_layers}]"
+                    f"[mode={args.mode}] sample_id={item.sample_id} "
+                    f"skipped=clean_top1_not_gold clean_pred={clean_pred!r} gold={item.gold_answer!r}"
+                )
+                continue
+
         if enable_wait_patch:
             donor_pool = select_donor_pool(
                 target_sample=item,
@@ -719,8 +958,8 @@ def evaluate_grid_point(
             seq_cache_hits += int(non_frame_cache_hit)
             seq_cache_misses += int(not non_frame_cache_hit)
 
-        clean_cache_key = (args.seq_len, item.sample_id)
-        clean_metrics = clean_metrics_cache.get(clean_cache_key)
+        if clean_metrics is None:
+            clean_metrics = clean_metrics_cache.get(clean_cache_key)
         if clean_metrics is None:
             clean_metrics = run_clean_sample(item)
             clean_metrics_cache[clean_cache_key] = clean_metrics
@@ -921,6 +1160,7 @@ def write_final_reports(
             "dtype": args.dtype,
             "seed": args.seed,
             "skip_hallway": bool(args.skip_hallway),
+            "clean_top1_must_match_gold": bool(args.clean_top1_must_match_gold),
             "instruction_mask_mode": str(args.instruction_mask_mode),
             "donor_policy": DONOR_POLICY,
             "wait_layer_semantics": (
@@ -977,6 +1217,7 @@ def main() -> None:
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     print(
         f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
+        f"clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)} "
         f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
         f"instruction_mask_mode={args.instruction_mask_mode}"
     )
@@ -1004,24 +1245,41 @@ def main() -> None:
     if not data_root.is_dir():
         raise FileNotFoundError(f"seq_len={args.seq_len}: data root not found: {data_root}")
 
-    sample_dirs = load_and_filter_sample_dirs(
+    all_sample_dirs = load_and_filter_sample_dirs(
         data_root=data_root,
-        max_samples=args.max_samples,
+        max_samples=0,
         seed=args.seed + args.seq_len,
     )
-    if not sample_dirs:
+    if not all_sample_dirs:
         raise RuntimeError(f"seq_len={args.seq_len}: no samples found under {data_root}")
 
+    sample_dirs, sample_selection_notes = select_sample_dirs_for_evaluation(
+        args=args,
+        all_sample_dirs=all_sample_dirs,
+        enable_wait_patch=enable_wait_patch,
+        clean_metrics_cache=clean_metrics_cache,
+    )
+    validation_notes.extend(sample_selection_notes)
+    if not sample_dirs:
+        raise RuntimeError(f"seq_len={args.seq_len}: no samples selected under {data_root}")
+
     print(
-        f"[seq_len={args.seq_len}][mode={args.mode}] samples={len(sample_dirs)} data_root={data_root} "
+        f"[seq_len={args.seq_len}][mode={args.mode}] sample_dirs_scanned={len(sample_dirs)} data_root={data_root} "
         f"wait_layers={list(args.wait_layers)} transfer_layers_grid={list(args.transfer_layers_grid)} "
-        f"k_donors={args.k_donors} instruction_mask_mode={args.instruction_mask_mode}"
+        f"k_donors={args.k_donors} instruction_mask_mode={args.instruction_mask_mode} "
+        f"clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)}"
     )
 
     prepared_inputs = prepare_evaluation_inputs(
         args=args,
         sample_dirs=sample_dirs,
         enable_wait_patch=enable_wait_patch,
+    )
+    prepared_inputs = trim_grid_items_to_max_used(
+        args=args,
+        prepared_inputs=prepared_inputs,
+        enable_wait_patch=enable_wait_patch,
+        clean_metrics_cache=clean_metrics_cache,
     )
     validation_notes.extend(prepared_inputs.validation_notes)
     donor_notes.extend(prepared_inputs.donor_notes)
