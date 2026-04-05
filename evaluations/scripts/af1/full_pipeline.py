@@ -52,6 +52,7 @@ python evaluations/scripts/af1/full_pipeline.py \
 
 import argparse
 import csv
+import hashlib
 import json
 import random
 import sys
@@ -76,6 +77,7 @@ from evaluations.scripts.af1.common import (
     SampleLayout,
 )
 from evaluations.scripts.af1.kernel import (
+    canonical_model_slug,
     validate_attention_policy,
     build_abp_attention_policy,
     compute_all_frame_group_means_for_sample,
@@ -338,19 +340,114 @@ def _emit_per_sample_row(
     sys.stdout.flush()
 
 
+def _clean_metrics_cache_path(
+    *,
+    cache_dir: Path,
+    sample: PreparedSample,
+) -> Path:
+    signature_payload = {
+        "sample_id": sample.sample_id,
+        "sample_dir": str(sample.sample_dir),
+        "question": str(sample.question),
+        "gold_answer": str(sample.gold_answer),
+        "prompt_input_ids": list(sample.layout.prompt_input_ids),
+    }
+    signature_hash = hashlib.sha1(
+        json.dumps(signature_payload, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+    return (
+        cache_dir
+        / canonical_model_slug(MODEL_ID)
+        / "clean_metrics"
+        / f"seq_len_{sample.layout.seq_len}"
+        / f"sample_{sample.sample_id}_{signature_hash}.pt"
+    )
+
+
+def _load_clean_metrics_cache_payload(cache_path: Path) -> Optional[Dict[str, Any]]:
+    try:
+        payload = torch.load(cache_path, map_location="cpu", weights_only=False)
+    except Exception as exc:
+        print(
+            f"[cache] Failed to load clean-metrics cache {cache_path}: {exc}. "
+            "Recomputing and overwriting this cache entry."
+        )
+        return None
+    if not isinstance(payload, dict) or "metrics" not in payload:
+        print(
+            f"[cache] Invalid clean-metrics cache at {cache_path}: expected a dict with "
+            "'metrics'. Recomputing and overwriting this cache entry."
+        )
+        return None
+    metrics = payload["metrics"]
+    if not isinstance(metrics, dict):
+        print(
+            f"[cache] Invalid clean-metrics payload at {cache_path}: 'metrics' must be a dict. "
+            "Recomputing and overwriting this cache entry."
+        )
+        return None
+    return payload
+
+
+def load_or_compute_clean_metrics(
+    *,
+    args: argparse.Namespace,
+    sample: PreparedSample,
+    cache_dir: Path,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> Dict[str, Any]:
+    clean_cache_key = (args.seq_len, sample.sample_id)
+    clean_metrics = clean_metrics_cache.get(clean_cache_key)
+    if clean_metrics is not None:
+        return clean_metrics
+
+    cache_path = _clean_metrics_cache_path(cache_dir=cache_dir, sample=sample)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    if cache_path.exists() and not bool(args.recompute_cache):
+        payload = _load_clean_metrics_cache_payload(cache_path)
+        if payload is not None:
+            clean_metrics = payload["metrics"]
+            clean_metrics_cache[clean_cache_key] = clean_metrics
+            return clean_metrics
+
+    clean_metrics = run_clean_sample(sample)
+    clean_metrics_cache[clean_cache_key] = clean_metrics
+    torch.save(
+        {
+            "metrics": clean_metrics,
+            "metadata": {
+                "model_name": MODEL_ID,
+                "seq_len": int(sample.layout.seq_len),
+                "sample_id": sample.sample_id,
+                "sample_dir": str(sample.sample_dir),
+                "question": str(sample.question),
+                "gold_answer": str(sample.gold_answer),
+                "prompt_len": int(sample.layout.prompt_len),
+                "cache_semantics": (
+                    "clean-model scores/probabilities over all valid numeric answers for one MMRed sample"
+                ),
+            },
+        },
+        cache_path,
+    )
+    return clean_metrics
+
+
 def sample_passes_clean_top1_filter(
     *,
     args: argparse.Namespace,
     sample: PreparedSample,
+    cache_dir: Path,
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
 ) -> bool:
     if not bool(args.clean_top1_must_match_gold):
         return True
-    clean_cache_key = (args.seq_len, sample.sample_id)
-    clean_metrics = clean_metrics_cache.get(clean_cache_key)
-    if clean_metrics is None:
-        clean_metrics = run_clean_sample(sample)
-        clean_metrics_cache[clean_cache_key] = clean_metrics
+    clean_metrics = load_or_compute_clean_metrics(
+        args=args,
+        sample=sample,
+        cache_dir=cache_dir,
+        clean_metrics_cache=clean_metrics_cache,
+    )
     clean_pred = str(clean_metrics["best_answer_text"]).strip()
     return clean_pred == sample.gold_answer
 
@@ -361,6 +458,7 @@ def eligible_target_sample_ids(
     grid_items: Sequence[Any],
     compatible_samples: Sequence[PreparedSample],
     enable_wait_patch: bool,
+    cache_dir: Path,
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
 ) -> List[str]:
     eligible_ids: List[str] = []
@@ -370,6 +468,7 @@ def eligible_target_sample_ids(
         if not sample_passes_clean_top1_filter(
             args=args,
             sample=item,
+            cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
         ):
             continue
@@ -391,6 +490,7 @@ def trim_grid_items_to_max_used(
     args: argparse.Namespace,
     prepared_inputs: PreparedEvaluationInputs,
     enable_wait_patch: bool,
+    cache_dir: Path,
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
 ) -> PreparedEvaluationInputs:
     if int(args.max_samples) <= 0:
@@ -401,6 +501,7 @@ def trim_grid_items_to_max_used(
         grid_items=prepared_inputs.grid_items,
         compatible_samples=prepared_inputs.compatible_samples,
         enable_wait_patch=enable_wait_patch,
+        cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
     )
     if len(eligible_ids) <= int(args.max_samples):
@@ -435,6 +536,7 @@ def count_eligible_targets_for_selected_dirs(
     args: argparse.Namespace,
     sample_dirs: Sequence[Path],
     enable_wait_patch: bool,
+    cache_dir: Path,
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
 ) -> int:
     prepared_samples: List[PreparedSample] = []
@@ -446,6 +548,23 @@ def count_eligible_targets_for_selected_dirs(
         if prepared_sample is not None:
             prepared_samples.append(prepared_sample)
 
+    return count_eligible_targets_for_prepared_samples(
+        args=args,
+        prepared_samples=prepared_samples,
+        enable_wait_patch=enable_wait_patch,
+        cache_dir=cache_dir,
+        clean_metrics_cache=clean_metrics_cache,
+    )
+
+
+def count_eligible_targets_for_prepared_samples(
+    *,
+    args: argparse.Namespace,
+    prepared_samples: Sequence[PreparedSample],
+    enable_wait_patch: bool,
+    cache_dir: Path,
+    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+) -> int:
     reference_layout = choose_reference_layout(prepared_samples)
     if reference_layout is None:
         return 0
@@ -466,6 +585,7 @@ def count_eligible_targets_for_selected_dirs(
             grid_items=compatible_samples,
             compatible_samples=compatible_samples,
             enable_wait_patch=enable_wait_patch,
+            cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
         )
     )
@@ -476,19 +596,28 @@ def select_sample_dirs_for_evaluation(
     args: argparse.Namespace,
     all_sample_dirs: Sequence[Path],
     enable_wait_patch: bool,
+    cache_dir: Path,
     clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
 ) -> Tuple[List[Path], List[str]]:
     if int(args.max_samples) <= 0:
         return list(all_sample_dirs), []
 
     selected_sample_dirs: List[Path] = []
+    prepared_selected_samples: List[PreparedSample] = []
     eligible_target_count = 0
     for sample_dir in all_sample_dirs:
         selected_sample_dirs.append(sample_dir)
-        eligible_target_count = count_eligible_targets_for_selected_dirs(
+        prepared_sample, _ = prepare_sample(
+            sample_dir,
+            skip_hallway=bool(args.skip_hallway),
+        )
+        if prepared_sample is not None:
+            prepared_selected_samples.append(prepared_sample)
+        eligible_target_count = count_eligible_targets_for_prepared_samples(
             args=args,
-            sample_dirs=selected_sample_dirs,
+            prepared_samples=prepared_selected_samples,
             enable_wait_patch=enable_wait_patch,
+            cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
         )
         if eligible_target_count >= int(args.max_samples):
@@ -850,13 +979,14 @@ def evaluate_grid_point(
         donor_ids: List[str] = []
         frame_group_means = None
         non_frame_prompt_mean = None
-        clean_cache_key = (args.seq_len, item.sample_id)
         clean_metrics: Optional[Dict[str, Any]] = None
         if args.clean_top1_must_match_gold:
-            clean_metrics = clean_metrics_cache.get(clean_cache_key)
-            if clean_metrics is None:
-                clean_metrics = run_clean_sample(item)
-                clean_metrics_cache[clean_cache_key] = clean_metrics
+            clean_metrics = load_or_compute_clean_metrics(
+                args=args,
+                sample=item,
+                cache_dir=cache_dir,
+                clean_metrics_cache=clean_metrics_cache,
+            )
             clean_pred = str(clean_metrics["best_answer_text"]).strip()
             if clean_pred != item.gold_answer:
                 skipped_sample_row = skipped_row(
@@ -961,10 +1091,12 @@ def evaluate_grid_point(
             seq_cache_misses += int(not non_frame_cache_hit)
 
         if clean_metrics is None:
-            clean_metrics = clean_metrics_cache.get(clean_cache_key)
-        if clean_metrics is None:
-            clean_metrics = run_clean_sample(item)
-            clean_metrics_cache[clean_cache_key] = clean_metrics
+            clean_metrics = load_or_compute_clean_metrics(
+                args=args,
+                sample=item,
+                cache_dir=cache_dir,
+                clean_metrics_cache=clean_metrics_cache,
+            )
         af1_metrics = run_intervention_sample(
             item,
             frame_group_means=frame_group_means,
@@ -1259,6 +1391,7 @@ def main() -> None:
         args=args,
         all_sample_dirs=all_sample_dirs,
         enable_wait_patch=enable_wait_patch,
+        cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
     )
     validation_notes.extend(sample_selection_notes)
@@ -1281,6 +1414,7 @@ def main() -> None:
         args=args,
         prepared_inputs=prepared_inputs,
         enable_wait_patch=enable_wait_patch,
+        cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
     )
     validation_notes.extend(prepared_inputs.validation_notes)
