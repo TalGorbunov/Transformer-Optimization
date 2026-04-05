@@ -112,7 +112,16 @@ from evaluations.scripts.af1.reporting import (
     write_csv,
     write_markdown_summary,
 )
-from models.model import MODEL_ID, get_layers, model as base_model
+from models.model import (
+    MODEL_ID,
+    attention_implementation_details,
+    attention_backend_policy_summary,
+    assert_non_eager_attention_backend,
+    get_active_attention_implementation,
+    get_layers,
+    model as base_model,
+    prepare_attention_backend_for_forward,
+)
 
 
 @dataclass
@@ -143,6 +152,9 @@ class GridRunOutputs:
     cache_notes: List[str]
     per_sample_rows_emitted: int
     expected_per_sample_rows: int
+
+
+CleanMetricsCacheKey = Tuple[int, str, str]
 
 
 def parse_args() -> argparse.Namespace:
@@ -309,7 +321,7 @@ def seq_len_data_root(data_root_base: Path, seq_len: int, split: str) -> Path:
     return data_root_base / f"seq_len_{seq_len}" / split
 
 
-def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str, str]:
+def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str, Any]:
     first_param = next(base_model.parameters())
     actual_device = str(first_param.device)
     actual_dtype = str(first_param.dtype)
@@ -325,6 +337,9 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
         "actual_model_device": actual_device,
         "requested_dtype": str(requested_dtype),
         "actual_model_dtype": actual_dtype,
+        "active_attention_implementation": get_active_attention_implementation(base_model),
+        "attention_implementation_details": attention_implementation_details(base_model),
+        "attention_backend_policy": attention_backend_policy_summary(base_model),
     }
 
 
@@ -344,6 +359,7 @@ def _clean_metrics_cache_path(
     *,
     cache_dir: Path,
     sample: PreparedSample,
+    attention_backend: str,
 ) -> Path:
     signature_payload = {
         "sample_id": sample.sample_id,
@@ -359,6 +375,7 @@ def _clean_metrics_cache_path(
         cache_dir
         / canonical_model_slug(MODEL_ID)
         / "clean_metrics"
+        / f"backend_{attention_backend}"
         / f"seq_len_{sample.layout.seq_len}"
         / f"sample_{sample.sample_id}_{signature_hash}.pt"
     )
@@ -394,14 +411,25 @@ def load_or_compute_clean_metrics(
     args: argparse.Namespace,
     sample: PreparedSample,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> Dict[str, Any]:
-    clean_cache_key = (args.seq_len, sample.sample_id)
+    clean_backend = prepare_attention_backend_for_forward(
+        path_name="af1_clean_forward",
+        requires_abp_mask=False,
+        output_attentions=False,
+        allow_sdpa_fallback=True,
+        model_obj=base_model,
+    )
+    clean_cache_key = (args.seq_len, sample.sample_id, clean_backend)
     clean_metrics = clean_metrics_cache.get(clean_cache_key)
     if clean_metrics is not None:
         return clean_metrics
 
-    cache_path = _clean_metrics_cache_path(cache_dir=cache_dir, sample=sample)
+    cache_path = _clean_metrics_cache_path(
+        cache_dir=cache_dir,
+        sample=sample,
+        attention_backend=clean_backend,
+    )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists() and not bool(args.recompute_cache):
         payload = _load_clean_metrics_cache_payload(cache_path)
@@ -423,8 +451,10 @@ def load_or_compute_clean_metrics(
                 "question": str(sample.question),
                 "gold_answer": str(sample.gold_answer),
                 "prompt_len": int(sample.layout.prompt_len),
+                "attention_backend": clean_backend,
                 "cache_semantics": (
-                    "clean-model scores/probabilities over all valid numeric answers for one MMRed sample"
+                    "clean-model scores/probabilities over all valid numeric answers for one MMRed sample; "
+                    "backend-specific because clean runs may use flash_attention_2 or sdpa"
                 ),
             },
         },
@@ -438,7 +468,7 @@ def sample_passes_clean_top1_filter(
     args: argparse.Namespace,
     sample: PreparedSample,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> bool:
     if not bool(args.clean_top1_must_match_gold):
         return True
@@ -459,7 +489,7 @@ def eligible_target_sample_ids(
     compatible_samples: Sequence[PreparedSample],
     enable_wait_patch: bool,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> List[str]:
     eligible_ids: List[str] = []
     for item in grid_items:
@@ -491,7 +521,7 @@ def trim_grid_items_to_max_used(
     prepared_inputs: PreparedEvaluationInputs,
     enable_wait_patch: bool,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> PreparedEvaluationInputs:
     if int(args.max_samples) <= 0:
         return prepared_inputs
@@ -537,7 +567,7 @@ def count_eligible_targets_for_selected_dirs(
     sample_dirs: Sequence[Path],
     enable_wait_patch: bool,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> int:
     prepared_samples: List[PreparedSample] = []
     for sample_dir in sample_dirs:
@@ -563,7 +593,7 @@ def count_eligible_targets_for_prepared_samples(
     prepared_samples: Sequence[PreparedSample],
     enable_wait_patch: bool,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> int:
     reference_layout = choose_reference_layout(prepared_samples)
     if reference_layout is None:
@@ -597,7 +627,7 @@ def select_sample_dirs_for_evaluation(
     all_sample_dirs: Sequence[Path],
     enable_wait_patch: bool,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> Tuple[List[Path], List[str]]:
     if int(args.max_samples) <= 0:
         return list(all_sample_dirs), []
@@ -642,6 +672,10 @@ def select_sample_dirs_for_evaluation(
 def initial_validation_notes(args: argparse.Namespace) -> List[str]:
     validation_notes = [
         f"mode={args.mode}: {intervention_mode_summary(args.mode)}",
+        (
+            "mode_support_matrix="
+            f"{json.dumps({mode: intervention_mode_flags(mode) for mode in VALID_MODES}, sort_keys=True)}"
+        ),
         (
             f"instruction_mask_mode={args.instruction_mask_mode}: "
             f"{instruction_mask_mode_summary(args.instruction_mask_mode)}"
@@ -860,7 +894,7 @@ def evaluate_grid_point(
     reference_layout: Optional[SampleLayout],
     compatible_samples: Sequence[PreparedSample],
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
     compatible_layout_hash: str,
     per_sample_writer: csv.DictWriter,
     stdout_per_sample_writer: csv.DictWriter,
@@ -1160,7 +1194,7 @@ def run_grid_evaluation(
     valid_grid_combinations: Sequence[Tuple[int, int]],
     prepared_inputs: PreparedEvaluationInputs,
     cache_dir: Path,
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]],
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
 ) -> GridRunOutputs:
     all_sample_rows: List[Dict[str, Any]] = []
     summary_rows: List[Dict[str, Any]] = []
@@ -1312,6 +1346,7 @@ def write_final_reports(
                 "wait_only": intervention_mode_summary("wait_only"),
                 "mask_only": intervention_mode_summary("mask_only"),
             },
+            "attention_backend_policy": attention_backend_policy_summary(base_model),
         },
         summary_rows=summary_rows,
         validation_notes=validation_notes,
@@ -1346,9 +1381,27 @@ def main() -> None:
     parse_dtype(args.dtype)
     set_seed(args.seed)
     start_time = time.time()
+    active_attention_implementation = assert_non_eager_attention_backend(base_model)
+    backend_policy = attention_backend_policy_summary(base_model)
+    unmasked_backend = str(backend_policy["unmasked_paths"]["actual_backend"])
+    masked_backend = str(backend_policy["abp_masked_paths"]["actual_backend"])
+    unmasked_fallback_reason = backend_policy["unmasked_paths"]["fallback_reason"]
     runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
     num_model_layers = len(get_layers(base_model))
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
+    startup_attention_note = (
+        "startup attention backend policy: "
+        f"startup_active_backend={active_attention_implementation} "
+        f"clean_runs={unmasked_backend} donor_hybrid_cama_runs={unmasked_backend} "
+        f"wait_boundary_capture_runs={unmasked_backend} wait_only={unmasked_backend} "
+        f"full_af1_masked_forward={masked_backend} mask_only={masked_backend} "
+        "eager_forbidden=True"
+    )
+    if unmasked_fallback_reason:
+        startup_attention_note = (
+            f"{startup_attention_note} unmasked_fallback_reason={unmasked_fallback_reason}"
+        )
+    print(f"[startup] {startup_attention_note}")
     print(
         f"[config] mode={args.mode} seq_len={args.seq_len} skip_hallway={bool(args.skip_hallway)} "
         f"clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)} "
@@ -1366,8 +1419,9 @@ def main() -> None:
     markdown_summary_path = output_dir / "summary.md"
 
     validation_notes = initial_validation_notes(args)
+    validation_notes.append(startup_attention_note)
     donor_notes: List[str] = []
-    clean_metrics_cache: Dict[Tuple[int, str], Dict[str, Any]] = {}
+    clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]] = {}
 
     valid_grid_combinations, effective_transfer_layers_grid, grid_validation_notes = resolve_grid_combinations(
         args,

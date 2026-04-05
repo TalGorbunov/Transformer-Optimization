@@ -9,8 +9,12 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 import torch
 
 from evaluations.helpers import patching_core as core
+from evaluations.helpers.sdpa_attention import (
+    allowed_key_positions_from_mask,
+    build_prompt_allow_matrix,
+    build_sdpa_layer_mask,
+)
 from evaluations.scripts.af1.common import (
-    NEG_INF,
     VALID_INSTRUCTION_MASK_MODES,
     VALID_MODES,
     AttentionPolicy,
@@ -26,14 +30,23 @@ from evaluations.scripts.af1.layout import (
 )
 from models.model import (
     MODEL_ID,
-    force_eager_attention_backend,
     get_layers,
     model as base_model,
+    prepare_attention_backend_for_forward,
 )
 
 
 class _WaitBoundaryCaptured(RuntimeError):
     pass
+
+
+_CLEAN_FORWARD_PATH = "af1_clean_forward"
+_WAIT_BOUNDARY_CAPTURE_PATH = "af1_donor_hybrid_wait_boundary_capture"
+_MODE_TO_INTERVENTION_BACKEND_PATH = {
+    "full_af1": "af1_intervention_full_af1",
+    "wait_only": "af1_intervention_wait_only",
+    "mask_only": "af1_intervention_mask_only",
+}
 
 
 def canonical_model_slug(model_name: str) -> str:
@@ -80,6 +93,29 @@ def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, to
     return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
 
 
+def _prepare_forward_backend(
+    *,
+    path_name: str,
+    requires_abp_mask: bool,
+    output_attentions: bool = False,
+) -> str:
+    return prepare_attention_backend_for_forward(
+        path_name=path_name,
+        requires_abp_mask=requires_abp_mask,
+        output_attentions=output_attentions,
+        allow_sdpa_fallback=not requires_abp_mask,
+        model_obj=base_model,
+    )
+
+
+def _backend_cache_component(attention_backend: str) -> str:
+    if attention_backend == "eager":
+        raise RuntimeError("Eager attention is forbidden in AF1 cache keys.")
+    if attention_backend not in {"sdpa", "flash_attention_2"}:
+        raise RuntimeError(f"Unsupported attention backend for AF1 cache keys: {attention_backend!r}")
+    return f"backend_{attention_backend}"
+
+
 def batched(items: Sequence[Any], batch_size: int) -> Iterator[Sequence[Any]]:
     if batch_size <= 0:
         raise ValueError("batch_size must be positive")
@@ -107,16 +143,6 @@ def _to_hidden_tensor(x: Any) -> torch.Tensor:
     if isinstance(x, (tuple, list)) and x:
         return _to_hidden_tensor(x[0])
     raise TypeError(f"Unsupported layer output type: {type(x)}")
-
-
-def _ensure_mask_tensor(mask: torch.Tensor, batch_size: int) -> torch.Tensor:
-    if mask.dim() != 4:
-        raise ValueError(f"Expected rank-4 attention mask, got shape={tuple(mask.shape)}")
-    if int(mask.shape[0]) == batch_size:
-        return mask
-    if int(mask.shape[0]) == 1:
-        return mask.expand(batch_size, -1, -1, -1)
-    raise ValueError(f"Cannot expand attention mask {tuple(mask.shape)} to batch_size={batch_size}")
 
 
 def _build_frame_group_by_token(layout: SampleLayout) -> Dict[int, Tuple[int, ...]]:
@@ -223,6 +249,23 @@ def _instruction_keeps_base_mask(
     )
 
 
+def _allowed_keys_for_abp_query(
+    query_idx: int,
+    policy: AttentionPolicy,
+    stage: str,
+) -> Optional[List[int]]:
+    if _instruction_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
+        return None
+    instruction_allowed_keys = _instruction_allowed_prompt_keys(
+        query_idx=query_idx,
+        policy=policy,
+        stage=stage,
+    )
+    if instruction_allowed_keys is not None:
+        return instruction_allowed_keys
+    return _allowed_prompt_keys(query_idx=query_idx, policy=policy, stage=stage)
+
+
 def build_abp_attention_policy(
     layout: SampleLayout,
     wait_layer: int,
@@ -266,51 +309,64 @@ def build_abp_attention_policy(
     )
 
 
-def build_abp_attention_mask(
-    base_mask: torch.Tensor,
+def build_abp_attention_allow_matrix(
+    *,
+    query_len: int,
+    key_len: int,
     policy: AttentionPolicy,
     stage: str,
+    device: torch.device,
 ) -> torch.Tensor:
-    """Rewrite the prompt rows of the causal mask to follow AF1 ABP rules.
+    """Build the ABP prompt allow-set to intersect with the model's SDPA mask.
 
-    We preserve the base causal/padding constraints and only narrow the allowed
-    key set. Prompt rows are modified because AF1 is defined over the original
-    prompt tokens; appended answer tokens used for scoring keep the base causal
-    mask so sequence log-probability scoring still works normally.
+    Prompt rows are modified because AF1 is defined over the original prompt
+    tokens. Appended answer tokens used for scoring keep the base causal mask
+    so sequence log-probability scoring still works normally.
     """
-    batch_size, _, query_len, key_len = base_mask.shape
-    template = base_mask[0, 0]
-    base_allowed = template == 0
-    custom_allowed = base_allowed.clone()
-
-    # We only alter the original prompt rows. If answer tokens are appended for
-    # scoring, their rows keep the base causal mask so sequence log-probability
-    # scoring remains well-defined.
-    prompt_rows = min(int(policy.prompt_len), int(query_len))
-    for query_idx in range(prompt_rows):
-        if _instruction_keeps_base_mask(query_idx=query_idx, policy=policy, stage=stage):
-            continue
-        instruction_allowed_keys = _instruction_allowed_prompt_keys(
+    return build_prompt_allow_matrix(
+        query_len=query_len,
+        key_len=key_len,
+        prompt_len=policy.prompt_len,
+        device=device,
+        allowed_keys_by_query_fn=lambda query_idx: _allowed_keys_for_abp_query(
             query_idx=query_idx,
             policy=policy,
             stage=stage,
-        )
-        allowed_row = torch.zeros(key_len, dtype=torch.bool, device=base_mask.device)
-        allowed_keys = (
-            instruction_allowed_keys
-            if instruction_allowed_keys is not None
-            else _allowed_prompt_keys(query_idx=query_idx, policy=policy, stage=stage)
-        )
-        for key_idx in allowed_keys:
-            if 0 <= int(key_idx) < key_len:
-                allowed_row[int(key_idx)] = True
-        custom_allowed[query_idx, :] = allowed_row
+        ),
+    )
 
-    final_allowed = base_allowed & custom_allowed
-    fill_value = torch.finfo(template.dtype).min if torch.is_floating_point(template) else NEG_INF
-    mask_2d = torch.full_like(template, fill_value=fill_value)
-    mask_2d[final_allowed] = 0
-    return mask_2d.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, query_len, key_len)
+
+def build_abp_sdpa_attention_mask(
+    *,
+    hidden_states: torch.Tensor,
+    raw_attention_mask: Optional[torch.Tensor],
+    model_config: Any,
+    attention_type: str,
+    policy: AttentionPolicy,
+    stage: str,
+    cache_position: Optional[torch.Tensor] = None,
+    past_key_values: Optional[Any] = None,
+) -> torch.Tensor:
+    key_len = int(hidden_states.shape[1]) if raw_attention_mask is None else int(raw_attention_mask.shape[-1])
+    allow_matrix = build_abp_attention_allow_matrix(
+        query_len=int(hidden_states.shape[1]),
+        key_len=key_len,
+        policy=policy,
+        stage=stage,
+        device=hidden_states.device,
+    )
+    mask = build_sdpa_layer_mask(
+        model_config=model_config,
+        attention_type=attention_type,
+        hidden_states=hidden_states,
+        raw_attention_mask=raw_attention_mask,
+        cache_position=cache_position,
+        past_key_values=past_key_values,
+        allow_matrix=allow_matrix,
+    )
+    if mask is None:
+        raise RuntimeError("ABP SDPA masking unexpectedly produced no materialized mask.")
+    return mask
 
 
 def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> List[str]:
@@ -366,46 +422,54 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
         )
 
     instruction_transfer_note = "ABP instruction-token transfer handling: none"
+    layers = get_layers(base_model)
+    if not layers:
+        raise RuntimeError("AF1 validation could not find any decoder layers.")
+    validation_config = getattr(getattr(layers[0], "self_attn", None), "config", None)
+    if validation_config is None:
+        raise RuntimeError("AF1 validation could not resolve the decoder attention config.")
+    prompt_len = int(layout.prompt_len)
+    synthetic_hidden_states = torch.zeros((1, prompt_len, 1), dtype=torch.float32)
+    synthetic_attention_mask = torch.ones((1, prompt_len), dtype=torch.bool)
+    transfer_sdpa_mask = build_abp_sdpa_attention_mask(
+        hidden_states=synthetic_hidden_states,
+        raw_attention_mask=synthetic_attention_mask,
+        model_config=validation_config,
+        attention_type="full_attention",
+        policy=policy,
+        stage="transfer",
+    )
+    post_transfer_sdpa_mask = build_abp_sdpa_attention_mask(
+        hidden_states=synthetic_hidden_states,
+        raw_attention_mask=synthetic_attention_mask,
+        model_config=validation_config,
+        attention_type="full_attention",
+        policy=policy,
+        stage="post_transfer",
+    )
+    sdpa_materialization_note = (
+        "ABP SDPA mask materialization: "
+        f"attention_type=full_attention transfer_mask_dtype={transfer_sdpa_mask.dtype} "
+        f"post_transfer_mask_dtype={post_transfer_sdpa_mask.dtype}"
+    )
     if policy.instruction_positions:
         instruction_tokens = {
             int(position): sanitize_token_text(layout.prompt_decoded_tokens[int(position)])
             for position in policy.instruction_positions
         }
-        prompt_len = int(layout.prompt_len)
-        synthetic_base_mask = torch.full(
-            (1, 1, prompt_len, prompt_len),
-            fill_value=NEG_INF,
-            dtype=torch.float32,
-        )
-        causal_allowed = torch.tril(torch.ones(prompt_len, prompt_len, dtype=torch.bool))
-        synthetic_base_mask[0, 0][causal_allowed] = 0
-        transfer_instruction_mask = build_abp_attention_mask(
-            synthetic_base_mask,
-            policy=policy,
-            stage="transfer",
-        )
-        post_instruction_mask = build_abp_attention_mask(
-            synthetic_base_mask,
-            policy=policy,
-            stage="post_transfer",
-        )
         instruction_transfer_keys_by_position: Dict[int, List[int]] = {}
         for instruction_prompt_token in policy.instruction_positions:
-            actual_instruction_transfer = [
-                int(key_idx)
-                for key_idx in torch.nonzero(
-                    transfer_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                    as_tuple=False,
-                ).flatten()
-            ]
+            actual_instruction_transfer = allowed_key_positions_from_mask(
+                transfer_sdpa_mask,
+                query_idx=int(instruction_prompt_token),
+                key_len=prompt_len,
+            )
             expected_instruction_post = [int(instruction_prompt_token)]
-            actual_instruction_post = [
-                int(key_idx)
-                for key_idx in torch.nonzero(
-                    post_instruction_mask[0, 0, int(instruction_prompt_token)] == 0,
-                    as_tuple=False,
-                ).flatten()
-            ]
+            actual_instruction_post = allowed_key_positions_from_mask(
+                post_transfer_sdpa_mask,
+                query_idx=int(instruction_prompt_token),
+                key_len=prompt_len,
+            )
             if actual_instruction_post != expected_instruction_post:
                 raise RuntimeError(
                     f"ABP validation failed for instruction token {instruction_prompt_token} after transfer: "
@@ -432,25 +496,36 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
         )
 
     expected_transfer_last = list(range(0, layout.carrier_index + 1))
-    if transfer_last != expected_transfer_last:
+    actual_transfer_last = allowed_key_positions_from_mask(
+        transfer_sdpa_mask,
+        query_idx=int(layout.carrier_index),
+        key_len=prompt_len,
+    )
+    if transfer_last != expected_transfer_last or actual_transfer_last != expected_transfer_last:
         raise RuntimeError(
             f"ABP validation failed for carrier transfer stage: "
-            f"expected {expected_transfer_last}, got {transfer_last}"
+            f"expected {expected_transfer_last}, theoretical={transfer_last}, sdpa_materialized={actual_transfer_last}"
         )
 
     expected_post_last = [layout.carrier_index]
-    if post_last != expected_post_last:
+    actual_post_last = allowed_key_positions_from_mask(
+        post_transfer_sdpa_mask,
+        query_idx=int(layout.carrier_index),
+        key_len=prompt_len,
+    )
+    if post_last != expected_post_last or actual_post_last != expected_post_last:
         raise RuntimeError(
             f"ABP validation failed for carrier post-transfer stage: "
-            f"expected {expected_post_last}, got {post_last}"
+            f"expected {expected_post_last}, theoretical={post_last}, sdpa_materialized={actual_post_last}"
         )
 
     return [
+        sdpa_materialization_note,
         frame_transfer_note,
         non_frame_transfer_note,
         instruction_transfer_note,
-        f"ABP carrier allowed keys at transfer: query={layout.carrier_index} keys={transfer_last}",
-        f"ABP carrier allowed keys after transfer: query={layout.carrier_index} keys={post_last}",
+        f"ABP carrier allowed keys at transfer: query={layout.carrier_index} keys={actual_transfer_last}",
+        f"ABP carrier allowed keys after transfer: query={layout.carrier_index} keys={actual_post_last}",
         "ABP scoring suffix rows keep the base causal mask when answer tokens are appended for scoring.",
     ]
 
@@ -487,8 +562,15 @@ def _run_model_forward(
     inputs: Dict[str, torch.Tensor],
     output_hidden_states: bool = False,
     output_attentions: bool = False,
+    *,
+    path_name: str,
+    requires_abp_mask: bool,
 ) -> Any:
-    force_eager_attention_backend()
+    _prepare_forward_backend(
+        path_name=path_name,
+        requires_abp_mask=requires_abp_mask,
+        output_attentions=output_attentions,
+    )
     with torch.inference_mode():
         return base_model(
             **inputs,
@@ -517,6 +599,11 @@ def _capture_wait_boundary_blocks(
     layers = get_layers(base_model)
     if wait_layer < 0 or wait_layer > len(layers):
         raise ValueError(f"wait_layer={wait_layer} must be in [0, {len(layers)}]")
+    _prepare_forward_backend(
+        path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
+        requires_abp_mask=False,
+        output_attentions=False,
+    )
 
     capture_positions = [int(position) for position in positions]
     captured: Dict[str, torch.Tensor] = {}
@@ -541,7 +628,6 @@ def _capture_wait_boundary_blocks(
 
         return wrapped_forward
 
-    force_eager_attention_backend()
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
             try:
@@ -573,12 +659,14 @@ def _conditional_mean_cache_path(
     donor_policy: str,
     donor_ids: Sequence[str],
     layout_hash_value: str,
+    attention_backend: str,
 ) -> Path:
     donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
     donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
     return (
         cache_dir
         / canonical_model_slug(model_name)
+        / _backend_cache_component(attention_backend)
         / f"seq_len_{seq_len}"
         / f"wait_{wait_layer}"
         / f"target_{target_sample_id}"
@@ -599,12 +687,14 @@ def _non_frame_conditional_mean_cache_path(
     donor_policy: str,
     donor_ids: Sequence[str],
     layout_hash_value: str,
+    attention_backend: str,
 ) -> Path:
     donor_ids_hash = hashlib.sha1(json.dumps(list(donor_ids), sort_keys=True).encode("utf-8")).hexdigest()[:16]
     donor_policy_hash = hashlib.sha1(str(donor_policy).encode("utf-8")).hexdigest()[:10]
     return (
         cache_dir
         / canonical_model_slug(model_name)
+        / _backend_cache_component(attention_backend)
         / f"seq_len_{seq_len}"
         / f"wait_{wait_layer}"
         / f"target_{target_sample_id}"
@@ -671,6 +761,11 @@ def compute_frame_group_conditional_mean(
         )
 
     donor_ids = [sample.sample_id for sample in donor_samples]
+    attention_backend = _prepare_forward_backend(
+        path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
+        requires_abp_mask=False,
+        output_attentions=False,
+    )
     cache_path = _conditional_mean_cache_path(
         cache_dir=cache_dir,
         model_name=MODEL_ID,
@@ -682,6 +777,7 @@ def compute_frame_group_conditional_mean(
         donor_policy=donor_policy,
         donor_ids=donor_ids,
         layout_hash_value=layout_hash(target_sample.layout),
+        attention_backend=attention_backend,
     )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -719,10 +815,12 @@ def compute_frame_group_conditional_mean(
                 "donor_policy": donor_policy,
                 "donor_ids": list(donor_ids),
                 "layout_hash": layout_hash(target_sample.layout),
+                "attention_backend": attention_backend,
                 "cache_semantics": (
                     "frame-group conditional mean at x^(L_wait) estimated from hybrid contexts "
                     "that keep the target frame fixed, replace the other frames with donor frames, "
-                    "and keep the target text prompt fixed"
+                    "and keep the target text prompt fixed; backend-specific because "
+                    "the clean donor-hybrid capture path may run on flash_attention_2 or sdpa"
                 ),
             },
         },
@@ -752,6 +850,11 @@ def compute_non_frame_conditional_mean(
         raise RuntimeError(f"target={target_sample.sample_id}: no non-frame prompt positions found")
 
     donor_ids = [sample.sample_id for sample in donor_samples]
+    attention_backend = _prepare_forward_backend(
+        path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
+        requires_abp_mask=False,
+        output_attentions=False,
+    )
     cache_path = _non_frame_conditional_mean_cache_path(
         cache_dir=cache_dir,
         model_name=MODEL_ID,
@@ -762,6 +865,7 @@ def compute_non_frame_conditional_mean(
         donor_policy=donor_policy,
         donor_ids=donor_ids,
         layout_hash_value=layout_hash(target_sample.layout),
+        attention_backend=attention_backend,
     )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -804,9 +908,12 @@ def compute_non_frame_conditional_mean(
                 "donor_ids": list(donor_ids),
                 "layout_hash": layout_hash(target_sample.layout),
                 "num_positions": int(len(non_frame_positions)),
+                "attention_backend": attention_backend,
                 "cache_semantics": (
                     "all-non-frame prompt conditional mean at x^(L_wait) estimated from hybrid contexts "
-                    "that keep the target text prompt fixed and replace the entire frame set with donor frames"
+                    "that keep the target text prompt fixed and replace the entire frame set with donor frames; "
+                    "backend-specific because the clean donor-hybrid capture path may run on "
+                    "flash_attention_2 or sdpa"
                 ),
             },
         },
@@ -858,6 +965,8 @@ def run_clean_model(
         inputs,
         output_hidden_states=False,
         output_attentions=output_attentions,
+        path_name=_CLEAN_FORWARD_PATH,
+        requires_abp_mask=False,
     )
 
 
@@ -899,23 +1008,38 @@ def run_model_with_intervention(
         raise RuntimeError(
             f"Attention policy expected {policy.num_model_layers} layers but model exposes {len(layers)} layers"
         )
+    _prepare_forward_backend(
+        path_name=_MODE_TO_INTERVENTION_BACKEND_PATH[mode],
+        requires_abp_mask=enable_abp_mask,
+        output_attentions=output_attentions,
+    )
 
     boundary_output_layer_idx = policy.wait_layer - 1
+    raw_attention_mask = inputs.get("attention_mask")
 
     def wrapper_factory(layer_idx: int, original_forward: Any) -> Any:
+        layer_module = layers[layer_idx]
+        attention_type = str(getattr(layer_module, "attention_type", "full_attention"))
+        attention_config = getattr(getattr(layer_module, "self_attn", None), "config", None)
+        if attention_config is None:
+            raise RuntimeError(f"Layer {layer_idx} does not expose a self-attention config.")
+
         def wrapped_forward(*args: Any, **kwargs: Any) -> Any:
             hidden_states = args[0] if args else kwargs.get("hidden_states")
             if hidden_states is None:
                 raise RuntimeError("Layer forward received no hidden_states")
 
-            batch_size = int(hidden_states.shape[0])
             stage = policy.stage_for_layer(layer_idx)
-            base_attention_mask = kwargs.get("attention_mask")
-            if enable_abp_mask and stage in {"transfer", "post_transfer"} and base_attention_mask is not None:
-                kwargs["attention_mask"] = build_abp_attention_mask(
-                    _ensure_mask_tensor(base_attention_mask, batch_size=batch_size),
+            if enable_abp_mask and stage in {"transfer", "post_transfer"}:
+                kwargs["attention_mask"] = build_abp_sdpa_attention_mask(
+                    hidden_states=hidden_states,
+                    raw_attention_mask=raw_attention_mask,
+                    model_config=attention_config,
+                    attention_type=attention_type,
                     policy=policy,
                     stage=stage,
+                    cache_position=kwargs.get("cache_position"),
+                    past_key_values=kwargs.get("past_key_values"),
                 )
 
             if enable_wait_patch and policy.wait_layer == 0 and layer_idx == 0:
@@ -957,7 +1081,6 @@ def run_model_with_intervention(
 
         return wrapped_forward
 
-    force_eager_attention_backend()
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
             return base_model(

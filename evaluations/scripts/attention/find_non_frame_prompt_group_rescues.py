@@ -34,9 +34,10 @@ if str(_REPO_ROOT) not in sys.path:
 
 from evaluations.helpers import af1_utils
 from evaluations.helpers import patching_core as core
+from evaluations.helpers.sdpa_attention import build_prompt_allow_matrix, build_sdpa_layer_mask
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
-from models.model import force_eager_attention_backend, get_layers, model as base_model
+from models.model import get_layers, model as base_model, prepare_attention_backend_for_forward
 
 _RUNS_KEY = "group_rescue_runs"
 _GROUPS_KEY = "non_frame_prompt_groups"
@@ -281,8 +282,10 @@ def allowed_post_transfer_prompt_keys(
     return sorted(int(position) for position in same_frame_group)
 
 
-def build_frame_aware_prompt_attention_mask(
-    base_mask: torch.Tensor,
+def build_frame_aware_prompt_allow_matrix(
+    *,
+    query_len: int,
+    key_len: int,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
     non_frame_prompt_self_only: bool,
@@ -291,44 +294,30 @@ def build_frame_aware_prompt_attention_mask(
         Optional[List[int]],
     ],
 ) -> torch.Tensor:
-    if base_mask.dim() != 4:
-        raise ValueError(f"Expected rank-4 attention mask, got shape={tuple(base_mask.shape)}")
-
-    batch_size, _, query_len, key_len = base_mask.shape
     if int(layout.carrier_index) < 0 or int(layout.carrier_index) >= int(query_len):
         raise ValueError(
             f"carrier_index={layout.carrier_index} is outside query_len={query_len} for transition masking"
         )
-
-    template = base_mask[0, 0]
-    base_allowed = template == 0
-    custom_allowed = base_allowed.clone()
-
-    prompt_rows = min(int(layout.prompt_len), int(query_len))
-    for query_idx in range(prompt_rows):
-        allowed_keys = allowed_prompt_keys_fn(
+    return build_prompt_allow_matrix(
+        query_len=query_len,
+        key_len=key_len,
+        prompt_len=layout.prompt_len,
+        device=torch.device("cpu"),
+        allowed_keys_by_query_fn=lambda query_idx: allowed_prompt_keys_fn(
             query_idx=query_idx,
             layout=layout,
             frame_group_by_token=frame_group_by_token,
             non_frame_prompt_self_only=non_frame_prompt_self_only,
-        )
-        if allowed_keys is None:
-            continue
-        allowed_row = torch.zeros(key_len, dtype=torch.bool, device=base_mask.device)
-        for key_idx in allowed_keys:
-            if 0 <= int(key_idx) < int(key_len):
-                allowed_row[int(key_idx)] = True
-        custom_allowed[int(query_idx), :] = allowed_row
-
-    final_allowed = base_allowed & custom_allowed
-    fill_value = torch.finfo(template.dtype).min if torch.is_floating_point(template) else -1.0e9
-    mask_2d = torch.full_like(template, fill_value=fill_value)
-    mask_2d[final_allowed] = 0
-    return mask_2d.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, query_len, key_len)
+        ),
+    )
 
 
 def build_transition_attention_mask(
-    base_mask: torch.Tensor,
+    *,
+    hidden_states: torch.Tensor,
+    raw_attention_mask: Optional[torch.Tensor],
+    model_config: Any,
+    attention_type: str,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
     blocked_non_frame_positions: Sequence[int],
@@ -352,28 +341,60 @@ def build_transition_attention_mask(
             reopened_non_frame_positions=reopened_set,
         )
 
-    return build_frame_aware_prompt_attention_mask(
-        base_mask=base_mask,
+    key_len = int(hidden_states.shape[1]) if raw_attention_mask is None else int(raw_attention_mask.shape[-1])
+    allow_matrix = build_frame_aware_prompt_allow_matrix(
+        query_len=int(hidden_states.shape[1]),
+        key_len=key_len,
         layout=layout,
         frame_group_by_token=frame_group_by_token,
         non_frame_prompt_self_only=False,
         allowed_prompt_keys_fn=allowed_prompt_keys_fn,
+    ).to(hidden_states.device)
+    mask = build_sdpa_layer_mask(
+        model_config=model_config,
+        attention_type=attention_type,
+        hidden_states=hidden_states,
+        raw_attention_mask=raw_attention_mask,
+        cache_position=None,
+        past_key_values=None,
+        allow_matrix=allow_matrix,
     )
+    if mask is None:
+        raise RuntimeError("Transition SDPA masking unexpectedly produced no materialized mask.")
+    return mask
 
 
 def build_post_transfer_attention_mask(
-    base_mask: torch.Tensor,
+    *,
+    hidden_states: torch.Tensor,
+    raw_attention_mask: Optional[torch.Tensor],
+    model_config: Any,
+    attention_type: str,
     layout: af1_utils.TokenLayout,
     frame_group_by_token: Dict[int, Tuple[int, ...]],
     non_frame_prompt_self_only: bool,
 ) -> torch.Tensor:
-    return build_frame_aware_prompt_attention_mask(
-        base_mask=base_mask,
+    key_len = int(hidden_states.shape[1]) if raw_attention_mask is None else int(raw_attention_mask.shape[-1])
+    allow_matrix = build_frame_aware_prompt_allow_matrix(
+        query_len=int(hidden_states.shape[1]),
+        key_len=key_len,
         layout=layout,
         frame_group_by_token=frame_group_by_token,
         non_frame_prompt_self_only=non_frame_prompt_self_only,
         allowed_prompt_keys_fn=allowed_post_transfer_prompt_keys,
+    ).to(hidden_states.device)
+    mask = build_sdpa_layer_mask(
+        model_config=model_config,
+        attention_type=attention_type,
+        hidden_states=hidden_states,
+        raw_attention_mask=raw_attention_mask,
+        cache_position=None,
+        past_key_values=None,
+        allow_matrix=allow_matrix,
     )
+    if mask is None:
+        raise RuntimeError("Post-transfer SDPA masking unexpectedly produced no materialized mask.")
+    return mask
 
 
 def stage_for_layer(
@@ -399,6 +420,15 @@ def run_model_with_last_token_mask(
     start_layer: int,
     transition_layers: int,
 ) -> Any:
+    prepare_attention_backend_for_forward(
+        path_name="find_non_frame_prompt_group_rescues_masked_window",
+        requires_abp_mask=True,
+        output_attentions=False,
+        allow_sdpa_fallback=False,
+        model_obj=base_model,
+    )
+    raw_attention_mask = inputs.get("attention_mask")
+
     def wrapper_factory(layer_idx: int, original_forward: Any) -> Any:
         layer_stage = stage_for_layer(
             layer_idx=int(layer_idx),
@@ -407,21 +437,22 @@ def run_model_with_last_token_mask(
         )
         if layer_stage is None:
             return original_forward
+        layer_module = layers[layer_idx]
+        attention_type = str(getattr(layer_module, "attention_type", "full_attention"))
+        attention_config = getattr(getattr(layer_module, "self_attn", None), "config", None)
+        if attention_config is None:
+            raise RuntimeError(f"Layer {layer_idx} does not expose a self-attention config.")
 
         def wrapped_forward(*args: Any, **kwargs: Any) -> Any:
             hidden_states = args[0] if args else kwargs.get("hidden_states")
             if hidden_states is None:
                 raise RuntimeError(f"Layer {layer_idx} forward received no hidden_states")
-            base_attention_mask = kwargs.get("attention_mask")
-            if base_attention_mask is None:
-                raise RuntimeError(
-                    f"Layer {layer_idx} did not receive an attention_mask, so transition masking is impossible."
-                )
-            batch_size = int(hidden_states.shape[0])
-            expanded_mask = af1_utils._ensure_mask_tensor(base_attention_mask, batch_size=batch_size)
             if layer_stage == "transition":
                 kwargs["attention_mask"] = build_transition_attention_mask(
-                    expanded_mask,
+                    hidden_states=hidden_states,
+                    raw_attention_mask=raw_attention_mask,
+                    model_config=attention_config,
+                    attention_type=attention_type,
                     layout=layout,
                     frame_group_by_token=frame_group_by_token,
                     blocked_non_frame_positions=blocked_non_frame_positions,
@@ -429,7 +460,10 @@ def run_model_with_last_token_mask(
                 )
             elif layer_stage == "post_transfer":
                 kwargs["attention_mask"] = build_post_transfer_attention_mask(
-                    expanded_mask,
+                    hidden_states=hidden_states,
+                    raw_attention_mask=raw_attention_mask,
+                    model_config=attention_config,
+                    attention_type=attention_type,
                     layout=layout,
                     frame_group_by_token=frame_group_by_token,
                     non_frame_prompt_self_only=non_frame_prompt_self_only,
@@ -440,7 +474,6 @@ def run_model_with_last_token_mask(
 
         return wrapped_forward
 
-    force_eager_attention_backend()
     with af1_utils.temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
             return base_model(

@@ -1,3 +1,4 @@
+import importlib.util
 import gc
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -5,6 +6,9 @@ import torch
 from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 
 MODEL_ID = "Qwen/Qwen2.5-VL-32B-Instruct"
+VALID_ATTENTION_IMPLEMENTATIONS = ("sdpa", "flash_attention_2")
+_FLASH_ATTENTION_2_MODULE_NAMES = ("flash_attn", "flash_attn_2_cuda")
+_LOGGED_ATTENTION_BACKEND_EVENTS: set[Tuple[str, str, str, str]] = set()
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
@@ -18,6 +22,7 @@ model = AutoModelForImageTextToText.from_pretrained(
     MODEL_ID,
     quantization_config=bnb_config,
     device_map="cuda",
+    attn_implementation="sdpa",
     trust_remote_code=True,
 )
 model.eval()
@@ -199,16 +204,242 @@ def set_attr_if_exists(obj: Any, attr: str, value: Any) -> None:
         return
 
 
-def force_eager_attention_backend() -> None:
-    configs = [
-        getattr(model, "config", None),
-        getattr(getattr(model, "model", None), "config", None),
-        getattr(getattr(getattr(model, "model", None), "language_model", None), "config", None),
+def _attention_configs(model_obj: Optional[Any] = None) -> List[Tuple[str, Any]]:
+    model_obj = model if model_obj is None else model_obj
+    candidates = [
+        ("model.config", getattr(model_obj, "config", None)),
+        ("model.config.text_config", getattr(getattr(model_obj, "config", None), "text_config", None)),
+        ("model.config.vision_config", getattr(getattr(model_obj, "config", None), "vision_config", None)),
+        ("model.model.config", getattr(getattr(model_obj, "model", None), "config", None)),
+        (
+            "model.model.language_model.config",
+            getattr(getattr(getattr(model_obj, "model", None), "language_model", None), "config", None),
+        ),
+        (
+            "model.model.visual.config",
+            getattr(getattr(getattr(model_obj, "model", None), "visual", None), "config", None),
+        ),
+        ("model.language_model.config", getattr(getattr(model_obj, "language_model", None), "config", None)),
+        ("model.visual.config", getattr(getattr(model_obj, "visual", None), "config", None)),
     ]
-    for config in configs:
-        set_attr_if_exists(config, "_attn_implementation", "eager")
-        set_attr_if_exists(config, "attn_implementation", "eager")
-        set_attr_if_exists(config, "output_attentions", True)
+    unique: List[Tuple[str, Any]] = []
+    seen_ids: set[int] = set()
+    for name, config in candidates:
+        if config is None or id(config) in seen_ids:
+            continue
+        seen_ids.add(id(config))
+        unique.append((name, config))
+    return unique
+
+
+def attention_implementation_details(model_obj: Optional[Any] = None) -> Dict[str, str]:
+    details: Dict[str, str] = {}
+    for name, config in _attention_configs(model_obj):
+        implementation = getattr(config, "_attn_implementation", None)
+        if implementation is None:
+            implementation = getattr(config, "attn_implementation", None)
+        details[name] = "<unset>" if implementation is None else str(implementation)
+    return details
+
+
+def get_active_attention_implementation(model_obj: Optional[Any] = None) -> str:
+    details = attention_implementation_details(model_obj)
+    configured = {
+        name: implementation
+        for name, implementation in details.items()
+        if implementation not in {"", "<unset>"}
+    }
+    if not configured:
+        raise RuntimeError("Unable to determine an active attention implementation from the loaded model configs.")
+    unique_values = sorted(set(configured.values()))
+    if len(unique_values) != 1:
+        raise RuntimeError(
+            "Inconsistent attention implementations detected across model configs: "
+            f"{configured}"
+        )
+    return unique_values[0]
+
+
+def assert_non_eager_attention_backend(model_obj: Optional[Any] = None) -> str:
+    active_implementation = get_active_attention_implementation(model_obj)
+    if active_implementation == "eager":
+        raise RuntimeError("Eager attention is forbidden in this codebase.")
+    if active_implementation not in VALID_ATTENTION_IMPLEMENTATIONS:
+        raise RuntimeError(
+            "Unsupported attention implementation detected. "
+            f"Expected one of {VALID_ATTENTION_IMPLEMENTATIONS}, found {active_implementation!r}."
+        )
+    return active_implementation
+
+
+def assert_sdpa_attention_backend(model_obj: Optional[Any] = None) -> str:
+    active_implementation = assert_non_eager_attention_backend(model_obj)
+    if active_implementation != "sdpa":
+        raise RuntimeError(
+            "This path requires SDPA attention. "
+            f"Found active attention implementation {active_implementation!r}."
+        )
+    return active_implementation
+
+
+def flash_attention_2_available() -> bool:
+    return any(importlib.util.find_spec(module_name) is not None for module_name in _FLASH_ATTENTION_2_MODULE_NAMES)
+
+
+def preferred_attention_backend(requires_abp_mask: bool) -> str:
+    return "sdpa" if requires_abp_mask else "flash_attention_2"
+
+
+def resolve_attention_backend_choice(
+    *,
+    requires_abp_mask: bool,
+    allow_sdpa_fallback: bool = True,
+) -> Tuple[str, str, Optional[str]]:
+    preferred_backend = preferred_attention_backend(requires_abp_mask=requires_abp_mask)
+    if preferred_backend == "flash_attention_2" and not flash_attention_2_available():
+        if not allow_sdpa_fallback:
+            raise RuntimeError(
+                "flash_attention_2 was requested for a non-ABP path, but it is unavailable in this environment."
+            )
+        return preferred_backend, "sdpa", "flash_attention_2 is unavailable in this environment"
+    return preferred_backend, preferred_backend, None
+
+
+def attention_backend_policy_summary(model_obj: Optional[Any] = None) -> Dict[str, Any]:
+    preferred_unmasked, actual_unmasked, unmasked_reason = resolve_attention_backend_choice(
+        requires_abp_mask=False,
+        allow_sdpa_fallback=True,
+    )
+    preferred_masked, actual_masked, masked_reason = resolve_attention_backend_choice(
+        requires_abp_mask=True,
+        allow_sdpa_fallback=True,
+    )
+    return {
+        "startup_active_backend": assert_non_eager_attention_backend(model_obj),
+        "flash_attention_2_available": bool(flash_attention_2_available()),
+        "unmasked_paths": {
+            "preferred_backend": preferred_unmasked,
+            "actual_backend": actual_unmasked,
+            "fallback_reason": unmasked_reason,
+        },
+        "abp_masked_paths": {
+            "preferred_backend": preferred_masked,
+            "actual_backend": actual_masked,
+            "fallback_reason": masked_reason,
+        },
+        "eager_forbidden": True,
+    }
+
+
+def configure_attention_backend(target_backend: str, model_obj: Optional[Any] = None) -> str:
+    if target_backend == "eager":
+        raise RuntimeError("Eager attention is forbidden in this codebase.")
+    if target_backend not in VALID_ATTENTION_IMPLEMENTATIONS:
+        raise ValueError(
+            f"Unsupported attention backend {target_backend!r}. "
+            f"Expected one of {VALID_ATTENTION_IMPLEMENTATIONS}."
+        )
+    model_obj = model if model_obj is None else model_obj
+    active_implementation = assert_non_eager_attention_backend(model_obj)
+    if active_implementation == target_backend:
+        for _, config in _attention_configs(model_obj):
+            set_attr_if_exists(config, "output_attentions", False)
+        return active_implementation
+
+    if hasattr(model_obj, "set_attn_implementation"):
+        model_obj.set_attn_implementation(target_backend)
+
+    for _, config in _attention_configs(model_obj):
+        set_attr_if_exists(config, "_attn_implementation", target_backend)
+        set_attr_if_exists(config, "attn_implementation", target_backend)
+        set_attr_if_exists(config, "output_attentions", False)
+
+    active_implementation = assert_non_eager_attention_backend(model_obj)
+    if active_implementation != target_backend:
+        raise RuntimeError(
+            f"Failed to activate attention backend {target_backend!r}; active backend is {active_implementation!r}."
+        )
+    return active_implementation
+
+
+def configure_sdpa_attention_backend(model_obj: Optional[Any] = None) -> str:
+    return configure_attention_backend("sdpa", model_obj=model_obj)
+
+
+def _log_attention_backend_selection(
+    *,
+    path_name: str,
+    preferred_backend: str,
+    active_backend: str,
+    requires_abp_mask: bool,
+    fallback_reason: Optional[str],
+) -> None:
+    event_key = (
+        str(path_name),
+        str(preferred_backend),
+        str(active_backend),
+        str(fallback_reason or ""),
+    )
+    if event_key in _LOGGED_ATTENTION_BACKEND_EVENTS:
+        return
+    _LOGGED_ATTENTION_BACKEND_EVENTS.add(event_key)
+    suffix = "" if not fallback_reason else f" fallback_reason={fallback_reason}"
+    print(
+        f"[backend] path={path_name} requires_abp_mask={bool(requires_abp_mask)} "
+        f"preferred={preferred_backend} active={active_backend} eager_forbidden=True{suffix}"
+    )
+
+
+def prepare_attention_backend_for_forward(
+    *,
+    path_name: str,
+    requires_abp_mask: bool,
+    output_attentions: bool = False,
+    allow_sdpa_fallback: bool = True,
+    model_obj: Optional[Any] = None,
+) -> str:
+    if output_attentions:
+        raise RuntimeError(
+            "output_attentions=True is not supported in the non-eager configuration. "
+            "This codebase never falls back to eager attention."
+        )
+    preferred_backend, target_backend, fallback_reason = resolve_attention_backend_choice(
+        requires_abp_mask=requires_abp_mask,
+        allow_sdpa_fallback=allow_sdpa_fallback,
+    )
+    try:
+        active_backend = configure_attention_backend(target_backend, model_obj=model_obj)
+    except Exception as exc:
+        if target_backend != "flash_attention_2" or not allow_sdpa_fallback:
+            raise
+        fallback_reason = (
+            f"{fallback_reason}; flash_attention_2 activation failed: {exc}"
+            if fallback_reason
+            else f"flash_attention_2 activation failed: {exc}"
+        )
+        active_backend = configure_attention_backend("sdpa", model_obj=model_obj)
+    if active_backend == "eager":
+        raise RuntimeError("Eager attention is forbidden in this codebase.")
+    _log_attention_backend_selection(
+        path_name=path_name,
+        preferred_backend=preferred_backend,
+        active_backend=active_backend,
+        requires_abp_mask=requires_abp_mask,
+        fallback_reason=fallback_reason,
+    )
+    return active_backend
+
+
+def ensure_sdpa_runtime_ready(output_attentions: bool = False) -> None:
+    prepare_attention_backend_for_forward(
+        path_name="sdpa_required_path",
+        requires_abp_mask=True,
+        output_attentions=output_attentions,
+        allow_sdpa_fallback=False,
+    )
+
+
+configure_sdpa_attention_backend()
 
 
 def release_torch_memory() -> None:
@@ -224,49 +455,9 @@ def compute_per_layer_frame_scores(
     answer_token_index: int,
     chunk_layers: int,
 ) -> Dict[int, Dict[int, float]]:
-    if chunk_layers <= 0:
-        raise ValueError("chunk_layers must be positive.")
-
-    layers = get_layers()
-    per_layer_scores: Dict[int, Dict[int, float]] = {}
-
-    for chunk_start in range(0, len(layers), chunk_layers):
-        chunk_end = min(len(layers), chunk_start + chunk_layers)
-        original_forwards: Dict[int, Any] = {}
-        outputs = None
-
-        for layer_idx in range(chunk_start, chunk_end):
-            layer = layers[layer_idx]
-            original_forwards[layer_idx] = layer.forward
-
-            def make_wrapped_forward(current_layer_idx: int, original_forward: Any):
-                def wrapped_forward(*args, **kwargs):
-                    kwargs["output_attentions"] = True
-                    out = original_forward(*args, **kwargs)
-                    if not isinstance(out, tuple) or len(out) < 2 or out[1] is None:
-                        raise RuntimeError(f"Layer {current_layer_idx} did not return attention.")
-
-                    per_layer_scores[current_layer_idx] = compute_frame_scores_from_single_layer_attn(
-                        out[1],
-                        frame_to_tokens,
-                        answer_token_index,
-                    )
-                    return (out[0],) + tuple(out[2:])
-
-                return wrapped_forward
-
-            layer.forward = make_wrapped_forward(layer_idx, original_forwards[layer_idx])
-
-        try:
-            outputs = model(**model_inputs, output_attentions=False, use_cache=False, return_dict=True)
-            for layer_idx in range(chunk_start, chunk_end):
-                if layer_idx not in per_layer_scores:
-                    raise RuntimeError(f"Missing attention capture for layer {layer_idx}.")
-        finally:
-            for layer_idx, original_forward in original_forwards.items():
-                layers[layer_idx].forward = original_forward
-            if outputs is not None:
-                del outputs
-            release_torch_memory()
-
-    return {layer_idx: per_layer_scores[layer_idx] for layer_idx in sorted(per_layer_scores)}
+    del model_inputs, frame_to_tokens, answer_token_index, chunk_layers
+    ensure_sdpa_runtime_ready(output_attentions=True)
+    raise RuntimeError(
+        "Per-layer attention capture is not available in the SDPA-only configuration. "
+        "This codebase no longer switches back to eager attention in order to read `output_attentions`."
+    )

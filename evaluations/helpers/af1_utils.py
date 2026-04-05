@@ -10,19 +10,22 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tupl
 import torch
 
 from evaluations.helpers import patching_core as core
+from evaluations.helpers.sdpa_attention import (
+    allowed_key_positions_from_mask,
+    build_prompt_allow_matrix,
+    build_sdpa_layer_mask,
+)
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import format_runtime, iter_sample_dirs, load_mmred_sample
 from models.model import (
     MODEL_ID,
     find_subsequence,
-    force_eager_attention_backend,
     get_layers,
     image_token_groups,
     model as base_model,
+    prepare_attention_backend_for_forward,
     processor,
 )
-
-_NEG_INF = -1.0e9
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,29 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
 def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
     device = next(base_model.parameters()).device
     return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
+
+
+def _prepare_forward_backend(
+    *,
+    path_name: str,
+    requires_abp_mask: bool,
+    output_attentions: bool = False,
+) -> str:
+    return prepare_attention_backend_for_forward(
+        path_name=path_name,
+        requires_abp_mask=requires_abp_mask,
+        output_attentions=output_attentions,
+        allow_sdpa_fallback=not requires_abp_mask,
+        model_obj=base_model,
+    )
+
+
+def _backend_cache_component(attention_backend: str) -> str:
+    if attention_backend == "eager":
+        raise RuntimeError("Eager attention is forbidden in AF1 utility cache keys.")
+    if attention_backend not in {"sdpa", "flash_attention_2"}:
+        raise RuntimeError(f"Unsupported attention backend for AF1 utility cache keys: {attention_backend!r}")
+    return f"backend_{attention_backend}"
 
 
 def decode_token_ids(token_ids: Sequence[int]) -> List[str]:
@@ -631,16 +657,6 @@ def temporary_layer_wrappers(layers: Sequence[Any], wrapper_factory: Any) -> Ite
                 layer.forward = original_forwards[layer_idx]
 
 
-def _ensure_mask_tensor(mask: torch.Tensor, batch_size: int) -> torch.Tensor:
-    if mask.dim() != 4:
-        raise ValueError(f"Expected rank-4 attention mask, got shape={tuple(mask.shape)}")
-    if int(mask.shape[0]) == batch_size:
-        return mask
-    if int(mask.shape[0]) == 1:
-        return mask.expand(batch_size, -1, -1, -1)
-    raise ValueError(f"Cannot expand mask with shape={tuple(mask.shape)} to batch_size={batch_size}")
-
-
 def allowed_key_positions(
     query_idx: int,
     carrier_index: int,
@@ -657,34 +673,57 @@ def allowed_key_positions(
     return sorted(key for key in allowed if 0 <= key < key_len)
 
 
-def build_af1_attention_mask(
-    base_mask: torch.Tensor,
+def build_af1_attention_allow_matrix(
+    *,
+    query_len: int,
+    key_len: int,
     carrier_index: int,
     stage: str,
 ) -> torch.Tensor:
-    batch_size, _, query_len, key_len = base_mask.shape
-    template = base_mask[0, 0]
-    base_allowed = template == 0
-    custom_allowed = torch.zeros((query_len, key_len), dtype=torch.bool, device=base_mask.device)
-
-    for query_idx in range(query_len):
-        allowed = allowed_key_positions(
+    return build_prompt_allow_matrix(
+        query_len=query_len,
+        key_len=key_len,
+        prompt_len=query_len,
+        device=torch.device("cpu"),
+        allowed_keys_by_query_fn=lambda query_idx: allowed_key_positions(
             query_idx=query_idx,
             carrier_index=carrier_index,
             key_len=key_len,
             stage=stage,
-        )
-        for key_idx in allowed:
-            custom_allowed[query_idx, key_idx] = True
+        ),
+    )
 
-    final_allowed = base_allowed & custom_allowed
-    if torch.is_floating_point(template):
-        fill_value = torch.finfo(template.dtype).min
-    else:
-        fill_value = _NEG_INF
-    custom_mask_2d = torch.full_like(template, fill_value=fill_value)
-    custom_mask_2d[final_allowed] = 0
-    return custom_mask_2d.unsqueeze(0).unsqueeze(0).expand(batch_size, 1, query_len, key_len)
+
+def build_af1_sdpa_attention_mask(
+    *,
+    hidden_states: torch.Tensor,
+    raw_attention_mask: Optional[torch.Tensor],
+    model_config: Any,
+    attention_type: str,
+    carrier_index: int,
+    stage: str,
+    cache_position: Optional[torch.Tensor] = None,
+    past_key_values: Optional[Any] = None,
+) -> torch.Tensor:
+    key_len = int(hidden_states.shape[1]) if raw_attention_mask is None else int(raw_attention_mask.shape[-1])
+    allow_matrix = build_af1_attention_allow_matrix(
+        query_len=int(hidden_states.shape[1]),
+        key_len=key_len,
+        carrier_index=carrier_index,
+        stage=stage,
+    ).to(hidden_states.device)
+    mask = build_sdpa_layer_mask(
+        model_config=model_config,
+        attention_type=attention_type,
+        hidden_states=hidden_states,
+        raw_attention_mask=raw_attention_mask,
+        cache_position=cache_position,
+        past_key_values=past_key_values,
+        allow_matrix=allow_matrix,
+    )
+    if mask is None:
+        raise RuntimeError("AF1 SDPA masking unexpectedly produced no materialized mask.")
+    return mask
 
 
 def validate_attention_mask_behavior(
@@ -736,10 +775,61 @@ def validate_attention_mask_behavior(
             f"AF1 mask validation failed for carrier compute stage: expected {expected_compute}, got {compute_keys}"
         )
 
+    layers = get_layers(base_model)
+    if not layers:
+        raise RuntimeError("AF1 validation could not find any decoder layers.")
+    validation_config = getattr(getattr(layers[0], "self_attn", None), "config", None)
+    if validation_config is None:
+        raise RuntimeError("AF1 validation could not resolve the decoder attention config.")
+    prompt_len = int(layout.prompt_len)
+    synthetic_hidden_states = torch.zeros((1, prompt_len, 1), dtype=torch.float32)
+    synthetic_attention_mask = torch.ones((1, prompt_len), dtype=torch.bool)
+    transfer_sdpa_mask = build_af1_sdpa_attention_mask(
+        hidden_states=synthetic_hidden_states,
+        raw_attention_mask=synthetic_attention_mask,
+        model_config=validation_config,
+        attention_type="full_attention",
+        carrier_index=layout.carrier_index,
+        stage="transfer",
+    )
+    compute_sdpa_mask = build_af1_sdpa_attention_mask(
+        hidden_states=synthetic_hidden_states,
+        raw_attention_mask=synthetic_attention_mask,
+        model_config=validation_config,
+        attention_type="full_attention",
+        carrier_index=layout.carrier_index,
+        stage="compute",
+    )
+    actual_transfer_keys = allowed_key_positions_from_mask(
+        transfer_sdpa_mask,
+        query_idx=int(layout.carrier_index),
+        key_len=prompt_len,
+    )
+    actual_compute_keys = allowed_key_positions_from_mask(
+        compute_sdpa_mask,
+        query_idx=int(layout.carrier_index),
+        key_len=prompt_len,
+    )
+    if actual_transfer_keys != expected_transfer:
+        raise RuntimeError(
+            f"AF1 SDPA validation failed for carrier transfer stage: "
+            f"expected {expected_transfer}, got {actual_transfer_keys}"
+        )
+    if actual_compute_keys != expected_compute:
+        raise RuntimeError(
+            f"AF1 SDPA validation failed for carrier compute stage: "
+            f"expected {expected_compute}, got {actual_compute_keys}"
+        )
+
     return [
         f"non_carrier_query={non_carrier_query} allowed_keys={non_carrier_keys}",
-        f"carrier_transfer allowed_keys={transfer_keys}",
-        f"carrier_compute allowed_keys={compute_keys}",
+        (
+            "af1_sdpa_mask_materialization: "
+            f"attention_type=full_attention transfer_mask_dtype={transfer_sdpa_mask.dtype} "
+            f"compute_mask_dtype={compute_sdpa_mask.dtype}"
+        ),
+        f"carrier_transfer allowed_keys={actual_transfer_keys}",
+        f"carrier_compute allowed_keys={actual_compute_keys}",
     ]
 
 
@@ -756,7 +846,11 @@ def run_clean_model(
     output_attentions: bool = False,
     output_hidden_states: bool = False,
 ) -> Any:
-    force_eager_attention_backend()
+    _prepare_forward_backend(
+        path_name="af1_utils_clean_forward",
+        requires_abp_mask=False,
+        output_attentions=output_attentions,
+    )
     with torch.inference_mode():
         return base_model(
             **inputs,
@@ -797,20 +891,41 @@ def run_model_with_af1(
         raise RuntimeError(
             f"Missing AF1 cache keys for sample_id={layout.sample_id}: {sorted(set(missing_cache_keys))[:10]}"
         )
+    path_name = "af1_utils_clean_forward"
+    if apply_patch and apply_mask:
+        path_name = "af1_utils_patch_and_mask_forward"
+    elif apply_patch:
+        path_name = "af1_utils_patch_only_forward"
+    elif apply_mask:
+        path_name = "af1_utils_mask_only_forward"
+    _prepare_forward_backend(
+        path_name=path_name,
+        requires_abp_mask=bool(apply_mask),
+        output_attentions=output_attentions,
+    )
+    raw_attention_mask = inputs.get("attention_mask")
 
     def wrapper_factory(layer_idx: int, original_forward: Any) -> Any:
+        layer_module = layers[layer_idx]
+        attention_type = str(getattr(layer_module, "attention_type", "full_attention"))
+        attention_config = getattr(getattr(layer_module, "self_attn", None), "config", None)
+        if attention_config is None:
+            raise RuntimeError(f"Layer {layer_idx} does not expose a self-attention config.")
+
         def wrapped_forward(*args: Any, **kwargs: Any) -> Any:
             hidden_states = args[0] if args else kwargs.get("hidden_states")
-            batch_size = int(hidden_states.shape[0])
-            base_attention_mask = kwargs.get("attention_mask")
             stage = stage_for_layer(layer_idx, wait_until_layer=wait_until_layer, transfer_layers=transfer_layers)
 
-            if apply_mask and stage != "normal" and base_attention_mask is not None:
-                expanded_mask = _ensure_mask_tensor(base_attention_mask, batch_size=batch_size)
-                kwargs["attention_mask"] = build_af1_attention_mask(
-                    expanded_mask,
+            if apply_mask and stage != "normal":
+                kwargs["attention_mask"] = build_af1_sdpa_attention_mask(
+                    hidden_states=hidden_states,
+                    raw_attention_mask=raw_attention_mask,
+                    model_config=attention_config,
+                    attention_type=attention_type,
                     carrier_index=layout.carrier_index,
                     stage=stage,
+                    cache_position=kwargs.get("cache_position"),
+                    past_key_values=kwargs.get("past_key_values"),
                 )
 
             outputs = original_forward(*args, **kwargs)
@@ -834,7 +949,6 @@ def run_model_with_af1(
 
         return wrapped_forward
 
-    force_eager_attention_backend()
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
             return base_model(
@@ -896,9 +1010,20 @@ def score_valid_numeric_answers_with_runner(
     }
 
 
-def _cache_path_for_mode(seq_len: int, wait_patch_mode: str, cache_dir: Path) -> Path:
+def _cache_path_for_mode(
+    seq_len: int,
+    wait_patch_mode: str,
+    cache_dir: Path,
+    attention_backend: str,
+) -> Path:
     model_slug = canonical_model_slug(MODEL_ID)
-    return cache_dir / model_slug / f"seq_len_{seq_len}" / f"{wait_patch_mode}.pt"
+    return (
+        cache_dir
+        / model_slug
+        / _backend_cache_component(attention_backend)
+        / f"seq_len_{seq_len}"
+        / f"{wait_patch_mode}.pt"
+    )
 
 
 def load_or_compute_mean_cache(
@@ -910,7 +1035,17 @@ def load_or_compute_mean_cache(
     dtype: torch.dtype,
     debug_tokenization: bool,
 ) -> Tuple[Dict[str, Any], TokenLayout]:
-    cache_path = _cache_path_for_mode(seq_len=seq_len, wait_patch_mode=wait_patch_mode, cache_dir=cache_dir)
+    attention_backend = _prepare_forward_backend(
+        path_name="af1_utils_clean_forward",
+        requires_abp_mask=False,
+        output_attentions=False,
+    )
+    cache_path = _cache_path_for_mode(
+        seq_len=seq_len,
+        wait_patch_mode=wait_patch_mode,
+        cache_dir=cache_dir,
+        attention_backend=attention_backend,
+    )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
     if cache_path.exists() and not recompute_cache:
@@ -996,6 +1131,7 @@ def load_or_compute_mean_cache(
             "num_layers": len(layers),
             "num_keys": len(key_to_mean),
             "num_samples": sample_count,
+            "attention_backend": attention_backend,
             "cache_policy": (
                 "position-aware means; fixed template text keyed by template order; "
                 "variable text keyed by token identity; room slot additionally bucketed by room span length"
