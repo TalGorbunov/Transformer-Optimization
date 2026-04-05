@@ -69,20 +69,25 @@ def _prompt_family_key(question: str, seq_len: int) -> str:
     return core.build_prompt(masked_question, num_frames=seq_len)
 
 
-def _instruction_positions_from_prompt(prompt_text: str, prompt_text_start: int) -> Tuple[int, ...]:
-    instruction_start = prompt_text.find(INSTRUCTION_TRANSFER_PROMPT_SPAN)
+def _instruction_positions_from_prompt(
+    prompt_text: str,
+    prompt_text_start: int,
+    num_frames: int,
+) -> Tuple[int, ...]:
+    instruction_text = INSTRUCTION_TRANSFER_PROMPT_SPAN.format(num_frames=int(num_frames))
+    instruction_start = prompt_text.find(instruction_text)
     if instruction_start < 0:
         raise RuntimeError(
             "Failed to locate the instruction span "
-            f"{INSTRUCTION_TRANSFER_PROMPT_SPAN!r} in the constructed prompt"
+            f"{instruction_text!r} in the constructed prompt"
         )
-    instruction_span = (instruction_start, instruction_start + len(INSTRUCTION_TRANSFER_PROMPT_SPAN))
+    instruction_span = (instruction_start, instruction_start + len(instruction_text))
     instruction_token_span = _token_span_from_char_span(prompt_text, instruction_span)
     instruction_positions = _positions_from_token_span(prompt_text_start, instruction_token_span)
     if not instruction_positions:
         raise RuntimeError(
             "Instruction span tokenized to an empty position set for "
-            f"{INSTRUCTION_TRANSFER_PROMPT_SPAN!r}"
+            f"{instruction_text!r}"
         )
     return tuple(int(position) for position in instruction_positions)
 
@@ -165,7 +170,11 @@ def build_sample_layout(
     room_positions = _positions_from_token_span(prompt_text_start, room_token_span)
     if not room_positions:
         raise RuntimeError(f"sample_id={sample_id}: empty room token span")
-    instruction_positions = _instruction_positions_from_prompt(prompt_text, prompt_text_start=prompt_text_start)
+    instruction_positions = _instruction_positions_from_prompt(
+        prompt_text,
+        prompt_text_start=prompt_text_start,
+        num_frames=len(frames),
+    )
 
     carrier_index = prompt_len - 1
     prompt_decoded_tokens = decode_token_ids(input_ids)

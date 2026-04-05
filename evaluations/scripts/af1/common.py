@@ -16,7 +16,10 @@ VALID_INSTRUCTION_MASK_MODES = (
     "prompt_only",
     "image_pad_only",
 )
-INSTRUCTION_TRANSFER_PROMPT_SPAN = "Output only the integer.\n"
+INSTRUCTION_TRANSFER_PROMPT_SPAN = (
+    "Respond with a single integer from 0 to {num_frames} "
+    "(0 is allowed). Output only the integer.\n"
+)
 SUMMARY_FIELDS = [
     "model",
     "mode",
