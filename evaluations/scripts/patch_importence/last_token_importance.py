@@ -24,7 +24,15 @@ from evaluations.helpers import patching_core as tgi
 from evaluations.helpers import plots as plot_utils
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
-from models.model import get_layers, model as base_model, processor
+from models.model import get_default_runtime, get_layers
+
+
+def _model() -> Any:
+    return get_default_runtime().model
+
+
+def _processor() -> Any:
+    return get_default_runtime().processor
 
 
 def format_last_token_importance_table(layer_rows: List[tuple[int, float]]) -> str:
@@ -462,7 +470,7 @@ def main() -> None:
 
     seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
-    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
+    lm = LanguageModel(_model(), tokenizer=_processor().tokenizer)
     layers = get_layers(lm.model)
     num_layers = len(layers)
     selected_layers = tgi.parse_layer_selection(args.layers, num_layers=num_layers)

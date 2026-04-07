@@ -18,14 +18,25 @@ from evaluations.helpers.sdpa_attention import (
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import format_runtime, iter_sample_dirs, load_mmred_sample
 from models.model import (
-    MODEL_ID,
+    DEFAULT_MODEL_ID,
     find_subsequence,
+    get_default_runtime,
     get_layers,
     image_token_groups,
-    model as base_model,
     prepare_attention_backend_for_forward,
-    processor,
 )
+
+
+def _runtime() -> Any:
+    return get_default_runtime()
+
+
+def _model() -> Any:
+    return _runtime().model
+
+
+def _processor() -> Any:
+    return _runtime().processor
 
 
 @dataclass(frozen=True)
@@ -176,7 +187,7 @@ def parse_dtype(dtype_name: str) -> torch.dtype:
 
 
 def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str, str]:
-    first_param = next(base_model.parameters())
+    first_param = next(_model().parameters())
     actual_device = str(first_param.device)
     actual_dtype = str(first_param.dtype)
     requested_device = str(requested_device).strip()
@@ -189,7 +200,7 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
                 "The current wrapper preloads the model globally, so the requested device must match."
             )
     return {
-        "model_name": MODEL_ID,
+        "model_name": DEFAULT_MODEL_ID,
         "requested_device": requested_device,
         "actual_model_device": actual_device,
         "requested_dtype": str(requested_dtype),
@@ -198,7 +209,7 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
 
 
 def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    device = next(base_model.parameters()).device
+    device = next(_model().parameters()).device
     return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
 
 
@@ -213,7 +224,7 @@ def _prepare_forward_backend(
         requires_abp_mask=requires_abp_mask,
         output_attentions=output_attentions,
         allow_sdpa_fallback=not requires_abp_mask,
-        model_obj=base_model,
+        model_obj=_model(),
     )
 
 
@@ -227,7 +238,7 @@ def _backend_cache_component(attention_backend: str) -> str:
 
 def decode_token_ids(token_ids: Sequence[int]) -> List[str]:
     return [
-        processor.tokenizer.decode([int(token_id)], clean_up_tokenization_spaces=False)
+        _processor().tokenizer.decode([int(token_id)], clean_up_tokenization_spaces=False)
         for token_id in token_ids
     ]
 
@@ -239,8 +250,8 @@ def _token_span_from_char_span(text: str, char_span: Tuple[int, int]) -> Tuple[i
     # span-to-token logic already used elsewhere in this repo.
     if start_char > 0 and text[start_char - 1].isspace():
         start_char -= 1
-    start_token = len(processor.tokenizer(text[:start_char], add_special_tokens=False)["input_ids"])
-    end_token = len(processor.tokenizer(text[:end_char], add_special_tokens=False)["input_ids"])
+    start_token = len(_processor().tokenizer(text[:start_char], add_special_tokens=False)["input_ids"])
+    end_token = len(_processor().tokenizer(text[:end_char], add_special_tokens=False)["input_ids"])
     return start_token, end_token
 
 
@@ -260,19 +271,19 @@ def build_token_layout(
         raise RuntimeError(f"sample_id={sample_id}: prompt tokenization is empty")
 
     prompt_text = core.build_prompt(question, num_frames=len(frames))
-    prompt_text_ids = processor.tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+    prompt_text_ids = _processor().tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
     prompt_text_start = find_subsequence(input_ids, [int(token_id) for token_id in prompt_text_ids])
     if prompt_text_start is None:
         raise RuntimeError(f"sample_id={sample_id}: failed to locate prompt text in multimodal prompt")
     prompt_text_span = (prompt_text_start, prompt_text_start + len(prompt_text_ids))
 
     question_fragment = f"Question: {question}\n"
-    question_ids = processor.tokenizer(question_fragment, add_special_tokens=False)["input_ids"]
+    question_ids = _processor().tokenizer(question_fragment, add_special_tokens=False)["input_ids"]
     question_start = find_subsequence(input_ids, [int(token_id) for token_id in question_ids])
     if question_start is None:
         raise RuntimeError(f"sample_id={sample_id}: failed to locate question span")
 
-    answer_prefix_ids = processor.tokenizer("Answer: ", add_special_tokens=False)["input_ids"]
+    answer_prefix_ids = _processor().tokenizer("Answer: ", add_special_tokens=False)["input_ids"]
     answer_prefix_start = find_subsequence(input_ids, [int(token_id) for token_id in answer_prefix_ids])
     if answer_prefix_start is None:
         raise RuntimeError(f"sample_id={sample_id}: failed to locate answer prefix")
@@ -775,7 +786,7 @@ def validate_attention_mask_behavior(
             f"AF1 mask validation failed for carrier compute stage: expected {expected_compute}, got {compute_keys}"
         )
 
-    layers = get_layers(base_model)
+    layers = get_layers(_model())
     if not layers:
         raise RuntimeError("AF1 validation could not find any decoder layers.")
     validation_config = getattr(getattr(layers[0], "self_attn", None), "config", None)
@@ -852,7 +863,7 @@ def run_clean_model(
         output_attentions=output_attentions,
     )
     with torch.inference_mode():
-        return base_model(
+        return _model()(
             **inputs,
             use_cache=False,
             output_attentions=output_attentions,
@@ -882,7 +893,7 @@ def run_model_with_af1(
     apply_mask: bool,
     output_attentions: bool = False,
 ) -> Any:
-    layers = get_layers(base_model)
+    layers = get_layers(_model())
     if wait_until_layer < 0 or wait_until_layer >= len(layers):
         raise ValueError(f"wait_until_layer={wait_until_layer} is outside valid range [0, {len(layers) - 1}]")
 
@@ -951,7 +962,7 @@ def run_model_with_af1(
 
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
-            return base_model(
+            return _model()(
                 **inputs,
                 use_cache=False,
                 output_attentions=output_attentions,
@@ -1016,7 +1027,7 @@ def _cache_path_for_mode(
     cache_dir: Path,
     attention_backend: str,
 ) -> Path:
-    model_slug = canonical_model_slug(MODEL_ID)
+    model_slug = canonical_model_slug(DEFAULT_MODEL_ID)
     return (
         cache_dir
         / model_slug
@@ -1066,7 +1077,7 @@ def load_or_compute_mean_cache(
     if not sample_dirs:
         raise RuntimeError(f"seq_len={seq_len}: no sample dirs available for AF1 cache generation")
 
-    layers = get_layers(base_model)
+    layers = get_layers(_model())
     reference_layout: Optional[TokenLayout] = None
     key_to_sum: Dict[str, torch.Tensor] = {}
     key_to_count: Dict[str, int] = {}
@@ -1125,7 +1136,7 @@ def load_or_compute_mean_cache(
         "key_to_meta": key_to_meta,
         "reference_layout": serialize_token_layout(reference_layout),
         "metadata": {
-            "model_name": MODEL_ID,
+            "model_name": DEFAULT_MODEL_ID,
             "seq_len": int(seq_len),
             "wait_patch_mode": wait_patch_mode,
             "num_layers": len(layers),
@@ -1211,7 +1222,7 @@ def evaluate_af1_sample(
     num_patched_positions = sum(len(unit.positions) for unit in patch_units)
 
     return {
-        "model": MODEL_ID,
+        "model": DEFAULT_MODEL_ID,
         "sample_id": sample_id,
         "seq_len": len(frames),
         "gold_answer": gold_answer_text,

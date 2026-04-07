@@ -29,9 +29,8 @@ from evaluations.scripts.af1.layout import (
     sanitize_token_text,
 )
 from models.model import (
-    MODEL_ID,
     get_layers,
-    model as base_model,
+    move_inputs_to_model_device as move_inputs_to_explicit_model_device,
     prepare_attention_backend_for_forward,
 )
 
@@ -88,9 +87,12 @@ def instruction_mask_mode_summary(mode: str) -> str:
     return summaries[mode]
 
 
-def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    device = next(base_model.parameters()).device
-    return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
+def move_inputs_to_model_device(
+    inputs: Dict[str, torch.Tensor],
+    *,
+    model_obj: Any,
+) -> Dict[str, torch.Tensor]:
+    return move_inputs_to_explicit_model_device(inputs, model_obj=model_obj)
 
 
 def _prepare_forward_backend(
@@ -98,13 +100,14 @@ def _prepare_forward_backend(
     path_name: str,
     requires_abp_mask: bool,
     output_attentions: bool = False,
+    model_obj: Any,
 ) -> str:
     return prepare_attention_backend_for_forward(
         path_name=path_name,
         requires_abp_mask=requires_abp_mask,
         output_attentions=output_attentions,
         allow_sdpa_fallback=not requires_abp_mask,
-        model_obj=base_model,
+        model_obj=model_obj,
     )
 
 
@@ -271,6 +274,8 @@ def build_abp_attention_policy(
     wait_layer: int,
     transfer_layers: int,
     instruction_mask_mode: str,
+    *,
+    model_obj: Any,
 ) -> AttentionPolicy:
     """Create the multimodal AF1 ABP schedule.
 
@@ -279,7 +284,7 @@ def build_abp_attention_policy(
     the next `transfer_layers` layers, and all later layers use post-transfer
     self-only attention for the carrier as well.
     """
-    num_layers = len(get_layers(base_model))
+    num_layers = len(get_layers(model_obj))
     if wait_layer < 0 or wait_layer > num_layers:
         raise ValueError(f"wait_layer={wait_layer} must be in [0, {num_layers}]")
     if transfer_layers < 0:
@@ -369,7 +374,12 @@ def build_abp_sdpa_attention_mask(
     return mask
 
 
-def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> List[str]:
+def validate_attention_policy(
+    layout: SampleLayout,
+    policy: AttentionPolicy,
+    *,
+    model_obj: Any,
+) -> List[str]:
     frame_prompt_token = next(
         (
             position
@@ -422,7 +432,7 @@ def validate_attention_policy(layout: SampleLayout, policy: AttentionPolicy) -> 
         )
 
     instruction_transfer_note = "ABP instruction-token transfer handling: none"
-    layers = get_layers(base_model)
+    layers = get_layers(model_obj)
     if not layers:
         raise RuntimeError("AF1 validation could not find any decoder layers.")
     validation_config = getattr(getattr(layers[0], "self_attn", None), "config", None)
@@ -565,14 +575,16 @@ def _run_model_forward(
     *,
     path_name: str,
     requires_abp_mask: bool,
+    model_obj: Any,
 ) -> Any:
     _prepare_forward_backend(
         path_name=path_name,
         requires_abp_mask=requires_abp_mask,
         output_attentions=output_attentions,
+        model_obj=model_obj,
     )
     with torch.inference_mode():
-        return base_model(
+        return model_obj(
             **inputs,
             use_cache=False,
             output_attentions=output_attentions,
@@ -585,6 +597,8 @@ def _capture_wait_boundary_blocks(
     inputs: Dict[str, torch.Tensor],
     wait_layer: int,
     positions: Sequence[int],
+    *,
+    model_obj: Any,
 ) -> torch.Tensor:
     """Capture hidden states exactly at the AF1 wait boundary `x^(L_wait)`.
 
@@ -596,13 +610,14 @@ def _capture_wait_boundary_blocks(
     We stop the forward pass immediately after capture because the conditional
     mean only needs the wait-boundary activations for the selected positions.
     """
-    layers = get_layers(base_model)
+    layers = get_layers(model_obj)
     if wait_layer < 0 or wait_layer > len(layers):
         raise ValueError(f"wait_layer={wait_layer} must be in [0, {len(layers)}]")
     _prepare_forward_backend(
         path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
         requires_abp_mask=False,
         output_attentions=False,
+        model_obj=model_obj,
     )
 
     capture_positions = [int(position) for position in positions]
@@ -631,7 +646,7 @@ def _capture_wait_boundary_blocks(
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
             try:
-                base_model(
+                model_obj(
                     **inputs,
                     use_cache=False,
                     output_attentions=False,
@@ -740,6 +755,8 @@ def compute_frame_group_conditional_mean(
     cache_dir: Path,
     recompute_cache: bool,
     donor_policy: str,
+    *,
+    runtime: Any,
 ) -> Tuple[torch.Tensor, bool]:
     """Estimate one frame-group conditional mean for one target sample.
 
@@ -765,10 +782,11 @@ def compute_frame_group_conditional_mean(
         path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
         requires_abp_mask=False,
         output_attentions=False,
+        model_obj=runtime.model,
     )
     cache_path = _conditional_mean_cache_path(
         cache_dir=cache_dir,
-        model_name=MODEL_ID,
+        model_name=runtime.model_name,
         seq_len=target_sample.layout.seq_len,
         target_sample_id=target_sample.sample_id,
         frame_idx=frame_idx,
@@ -792,20 +810,33 @@ def compute_frame_group_conditional_mean(
         hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
         for donor_sample in donor_batch:
             hybrid = build_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample, frame_idx=frame_idx)
-            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
-            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
+            hybrid_inputs_cpu = core.build_inputs(
+                hybrid["frames"],
+                hybrid["question"],
+                processor=runtime.processor,
+            )
+            hybrid_inputs_list.append(
+                move_inputs_to_model_device(hybrid_inputs_cpu, model_obj=runtime.model)
+            )
 
         # Batched hybrid evaluation is safe only because layout validation
         # guarantees exact prompt/token alignment across compatible donors.
         batched_inputs = core.concatenate_inputs_for_batch(hybrid_inputs_list)
-        blocks.append(_capture_wait_boundary_blocks(batched_inputs, wait_layer=wait_layer, positions=frame_positions))
+        blocks.append(
+            _capture_wait_boundary_blocks(
+                batched_inputs,
+                wait_layer=wait_layer,
+                positions=frame_positions,
+                model_obj=runtime.model,
+            )
+        )
 
     mean_block = torch.cat(blocks, dim=0).mean(dim=0).to(dtype=torch.float32).cpu()
     torch.save(
         {
             "mean_block": mean_block,
             "metadata": {
-                "model_name": MODEL_ID,
+                "model_name": runtime.model_name,
                 "seq_len": int(target_sample.layout.seq_len),
                 "target_sample_id": target_sample.sample_id,
                 "frame_idx": int(frame_idx),
@@ -837,6 +868,8 @@ def compute_non_frame_conditional_mean(
     cache_dir: Path,
     recompute_cache: bool,
     donor_policy: str,
+    *,
+    runtime: Any,
 ) -> Tuple[torch.Tensor, bool]:
     """Estimate one conditional mean for all non-frame prompt tokens."""
     if len(donor_samples) < 2:
@@ -854,10 +887,11 @@ def compute_non_frame_conditional_mean(
         path_name=_WAIT_BOUNDARY_CAPTURE_PATH,
         requires_abp_mask=False,
         output_attentions=False,
+        model_obj=runtime.model,
     )
     cache_path = _non_frame_conditional_mean_cache_path(
         cache_dir=cache_dir,
-        model_name=MODEL_ID,
+        model_name=runtime.model_name,
         seq_len=target_sample.layout.seq_len,
         target_sample_id=target_sample.sample_id,
         wait_layer=wait_layer,
@@ -879,8 +913,14 @@ def compute_non_frame_conditional_mean(
         hybrid_inputs_list: List[Dict[str, torch.Tensor]] = []
         for donor_sample in donor_batch:
             hybrid = build_non_frame_hybrid_sample(target_sample=target_sample, donor_sample=donor_sample)
-            hybrid_inputs_cpu = core.build_inputs(hybrid["frames"], hybrid["question"])
-            hybrid_inputs_list.append(move_inputs_to_model_device(hybrid_inputs_cpu))
+            hybrid_inputs_cpu = core.build_inputs(
+                hybrid["frames"],
+                hybrid["question"],
+                processor=runtime.processor,
+            )
+            hybrid_inputs_list.append(
+                move_inputs_to_model_device(hybrid_inputs_cpu, model_obj=runtime.model)
+            )
 
         # Batched hybrid evaluation is safe only because layout validation
         # guarantees exact prompt/token alignment across compatible donors.
@@ -890,6 +930,7 @@ def compute_non_frame_conditional_mean(
                 batched_inputs,
                 wait_layer=wait_layer,
                 positions=non_frame_positions,
+                model_obj=runtime.model,
             )
         )
 
@@ -898,7 +939,7 @@ def compute_non_frame_conditional_mean(
         {
             "mean_block": mean_block,
             "metadata": {
-                "model_name": MODEL_ID,
+                "model_name": runtime.model_name,
                 "seq_len": int(target_sample.layout.seq_len),
                 "target_sample_id": target_sample.sample_id,
                 "wait_layer": int(wait_layer),
@@ -930,6 +971,8 @@ def compute_all_frame_group_means_for_sample(
     cache_dir: Path,
     recompute_cache: bool,
     donor_policy: str,
+    *,
+    runtime: Any,
 ) -> Tuple[Dict[int, torch.Tensor], Dict[str, int]]:
     """Compute conditional-mean replacements for every frame group in a sample."""
     if len(donor_samples) < 2:
@@ -950,6 +993,7 @@ def compute_all_frame_group_means_for_sample(
             cache_dir=cache_dir,
             recompute_cache=recompute_cache,
             donor_policy=donor_policy,
+            runtime=runtime,
         )
         frame_means[frame_idx] = mean_block
         cache_hits += int(cache_hit)
@@ -960,6 +1004,8 @@ def compute_all_frame_group_means_for_sample(
 def run_clean_model(
     inputs: Dict[str, torch.Tensor],
     output_attentions: bool = False,
+    *,
+    model_obj: Any,
 ) -> Any:
     return _run_model_forward(
         inputs,
@@ -967,6 +1013,7 @@ def run_clean_model(
         output_attentions=output_attentions,
         path_name=_CLEAN_FORWARD_PATH,
         requires_abp_mask=False,
+        model_obj=model_obj,
     )
 
 
@@ -978,6 +1025,8 @@ def run_model_with_intervention(
     policy: AttentionPolicy,
     mode: str,
     output_attentions: bool = False,
+    *,
+    model_obj: Any,
 ) -> Any:
     """Run the model with the selected intervention mode.
 
@@ -1003,7 +1052,7 @@ def run_model_with_intervention(
             "but one or both were not provided."
         )
 
-    layers = get_layers(base_model)
+    layers = get_layers(model_obj)
     if int(policy.num_model_layers) != len(layers):
         raise RuntimeError(
             f"Attention policy expected {policy.num_model_layers} layers but model exposes {len(layers)} layers"
@@ -1012,6 +1061,7 @@ def run_model_with_intervention(
         path_name=_MODE_TO_INTERVENTION_BACKEND_PATH[mode],
         requires_abp_mask=enable_abp_mask,
         output_attentions=output_attentions,
+        model_obj=model_obj,
     )
 
     boundary_output_layer_idx = policy.wait_layer - 1
@@ -1083,7 +1133,7 @@ def run_model_with_intervention(
 
     with temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
-            return base_model(
+            return model_obj(
                 **inputs,
                 use_cache=False,
                 output_attentions=output_attentions,

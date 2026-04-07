@@ -35,7 +35,11 @@ from evaluations.helpers import patching_core as core
 from evaluations.helpers.sdpa_attention import build_prompt_allow_matrix, build_sdpa_layer_mask
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
-from models.model import get_layers, model as base_model, prepare_attention_backend_for_forward
+from models.model import get_default_runtime, get_layers, prepare_attention_backend_for_forward
+
+
+def _model() -> Any:
+    return get_default_runtime().model
 
 _MODE_SUFFIX = "suffix"
 _PLOT_COLOR = "#ff7f0e"
@@ -236,7 +240,7 @@ def run_model_with_last_token_mask(
         requires_abp_mask=True,
         output_attentions=False,
         allow_sdpa_fallback=False,
-        model_obj=base_model,
+        model_obj=_model(),
     )
     raw_attention_mask = inputs.get("attention_mask")
 
@@ -267,7 +271,7 @@ def run_model_with_last_token_mask(
 
     with af1_utils.temporary_layer_wrappers(layers, wrapper_factory):
         with torch.inference_mode():
-            return base_model(
+            return _model()(
                 **inputs,
                 use_cache=False,
                 output_attentions=False,
@@ -964,7 +968,7 @@ def main() -> None:
     if not sample_dirs:
         raise RuntimeError(f"No sample directories found under: {data_root}")
 
-    layers = get_layers(base_model)
+    layers = get_layers(_model())
     selected_layers = core.parse_layer_selection(args.layers, num_layers=len(layers))
     per_sample_plot_dir = output_dir / "per_sample_plots"
 

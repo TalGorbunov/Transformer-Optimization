@@ -29,7 +29,15 @@ from evaluations.helpers import patching_core as tgi
 from evaluations.helpers import plots as plot_utils
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
-from models.model import find_subsequence, get_layers, model as base_model, processor
+from models.model import find_subsequence, get_default_runtime, get_layers
+
+
+def _model() -> Any:
+    return get_default_runtime().model
+
+
+def _processor() -> Any:
+    return get_default_runtime().processor
 
 
 def _sanitize_token_text(text: str) -> str:
@@ -73,8 +81,8 @@ def _token_span_from_char_span(
     start_char, end_char = int(char_span[0]), int(char_span[1])
     if start_char > 0 and text[start_char - 1].isspace():
         start_char -= 1
-    start_token = len(processor.tokenizer(text[:start_char], add_special_tokens=False)["input_ids"])
-    end_token = len(processor.tokenizer(text[:end_char], add_special_tokens=False)["input_ids"])
+    start_token = len(_processor().tokenizer(text[:start_char], add_special_tokens=False)["input_ids"])
+    end_token = len(_processor().tokenizer(text[:end_char], add_special_tokens=False)["input_ids"])
     return start_token, end_token
 
 
@@ -268,7 +276,7 @@ def locate_patchable_token_metadata(
     num_frames: int,
 ) -> Optional[List[Dict[str, Any]]]:
     prompt = tgi.build_prompt(question, num_frames=num_frames)
-    prompt_token_ids = processor.tokenizer(prompt, add_special_tokens=False)["input_ids"]
+    prompt_token_ids = _processor().tokenizer(prompt, add_special_tokens=False)["input_ids"]
     if not prompt_token_ids:
         return None
 
@@ -286,7 +294,7 @@ def locate_patchable_token_metadata(
         return None
 
     decoded_tokens = [
-        processor.tokenizer.decode([full_input_ids[position]], clean_up_tokenization_spaces=False)
+        _processor().tokenizer.decode([full_input_ids[position]], clean_up_tokenization_spaces=False)
         for position in patch_positions
     ]
     word_labels = _build_word_labels(decoded_tokens)
@@ -888,7 +896,7 @@ def main() -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
-    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
+    lm = LanguageModel(_model(), tokenizer=_processor().tokenizer)
     layers = get_layers(lm.model)
     selected_layers = tgi.parse_layer_selection(args.layers, num_layers=len(layers))
 

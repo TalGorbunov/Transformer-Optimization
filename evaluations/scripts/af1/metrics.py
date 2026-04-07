@@ -17,7 +17,6 @@ from evaluations.scripts.af1.kernel import (
     run_clean_model,
     run_model_with_intervention,
 )
-from models.model import MODEL_ID
 
 
 def _empty_row(model_name: str, sample_id: str, seq_len: int) -> Dict[str, Any]:
@@ -84,11 +83,13 @@ def score_valid_numeric_answers_with_runner(
     prompt_len: int,
     num_frames: int,
     runner: Any,
+    *,
+    processor: Any,
 ) -> Dict[str, Any]:
     scores_by_answer: Dict[str, float] = {}
     for value in range(num_frames + 1):
         answer_text = str(value)
-        answer_ids = core.token_ids_of_answer(answer_text)
+        answer_ids = core.token_ids_of_answer(answer_text, processor=processor)
         scoring_inputs = core.append_answer_tokens_for_scoring(inputs, answer_ids)
         outputs = runner(scoring_inputs, answer_ids)
         scores_by_answer[answer_text] = sequence_logprob_from_outputs(
@@ -115,14 +116,15 @@ def score_valid_numeric_answers_with_runner(
     }
 
 
-def run_clean_sample(sample: PreparedSample) -> Dict[str, Any]:
+def run_clean_sample(sample: PreparedSample, *, runtime: Any) -> Dict[str, Any]:
     """Score all valid numeric answers on the untouched base model."""
-    clean_inputs = move_inputs_to_model_device(sample.inputs_cpu)
+    clean_inputs = move_inputs_to_model_device(sample.inputs_cpu, model_obj=runtime.model)
     return score_valid_numeric_answers_with_runner(
         clean_inputs,
         prompt_len=sample.layout.prompt_len,
         num_frames=sample.layout.seq_len,
-        runner=lambda scoring_inputs, answer_ids: run_clean_model(scoring_inputs),
+        runner=lambda scoring_inputs, answer_ids: run_clean_model(scoring_inputs, model_obj=runtime.model),
+        processor=runtime.processor,
     )
 
 
@@ -132,9 +134,11 @@ def run_intervention_sample(
     non_frame_prompt_mean: Optional[Any],
     policy: AttentionPolicy,
     mode: str,
+    *,
+    runtime: Any,
 ) -> Dict[str, Any]:
     """Score all valid numeric answers after applying the selected intervention."""
-    intervention_inputs = move_inputs_to_model_device(sample.inputs_cpu)
+    intervention_inputs = move_inputs_to_model_device(sample.inputs_cpu, model_obj=runtime.model)
     return score_valid_numeric_answers_with_runner(
         intervention_inputs,
         prompt_len=sample.layout.prompt_len,
@@ -146,7 +150,9 @@ def run_intervention_sample(
             non_frame_prompt_mean=non_frame_prompt_mean,
             policy=policy,
             mode=mode,
+            model_obj=runtime.model,
         ),
+        processor=runtime.processor,
     )
 
 
@@ -158,6 +164,8 @@ def evaluated_row(
     policy: AttentionPolicy,
     k_donors_requested: int,
     mode: str,
+    *,
+    model_name: str,
 ) -> Dict[str, Any]:
     clean_pred = str(clean_metrics["best_answer_text"]).strip()
     af1_pred = str(af1_metrics["best_answer_text"]).strip()
@@ -165,7 +173,7 @@ def evaluated_row(
     af1_correct = int(af1_pred == sample.gold_answer)
     clean_top1_score_drop_metrics = compute_clean_top1_score_drop(clean_metrics, af1_metrics)
     gold_answer_score_drop_metrics = compute_gold_answer_score_drop(sample, clean_metrics, af1_metrics)
-    row = _empty_row(MODEL_ID, sample_id=sample.sample_id, seq_len=sample.layout.seq_len)
+    row = _empty_row(model_name, sample_id=sample.sample_id, seq_len=sample.layout.seq_len)
     row.update(
         {
             "mode": mode,
@@ -205,6 +213,7 @@ def evaluated_row(
 
 
 def skipped_row(
+    model_name: str,
     mode: str,
     sample_id: str,
     seq_len: int,
@@ -219,7 +228,7 @@ def skipped_row(
     layout_status: str = "skipped",
     layout_details: Optional[str] = None,
 ) -> Dict[str, Any]:
-    row = _empty_row(MODEL_ID, sample_id=sample_id, seq_len=seq_len)
+    row = _empty_row(model_name, sample_id=sample_id, seq_len=seq_len)
     row.update(
         {
             "mode": mode,

@@ -16,21 +16,26 @@ from evaluations.scripts.af1.common import (
     PreparedSample,
     SampleLayout,
 )
-from models.model import MODEL_ID, find_subsequence, image_token_groups, processor
+from models.model import find_subsequence, image_token_groups
 
 
 def sanitize_token_text(text: str) -> str:
     return text.replace("\n", "\\n").replace("\t", "\\t") if text else "<empty>"
 
 
-def decode_token_ids(token_ids: Sequence[int]) -> List[str]:
+def decode_token_ids(token_ids: Sequence[int], *, processor: Any) -> List[str]:
     return [
         processor.tokenizer.decode([int(token_id)], clean_up_tokenization_spaces=False)
         for token_id in token_ids
     ]
 
 
-def _token_span_from_char_span(text: str, char_span: Tuple[int, int]) -> Tuple[int, int]:
+def _token_span_from_char_span(
+    text: str,
+    char_span: Tuple[int, int],
+    *,
+    processor: Any,
+) -> Tuple[int, int]:
     start_char, end_char = int(char_span[0]), int(char_span[1])
     if start_char > 0 and text[start_char - 1].isspace():
         start_char -= 1
@@ -73,6 +78,8 @@ def _instruction_positions_from_prompt(
     prompt_text: str,
     prompt_text_start: int,
     num_frames: int,
+    *,
+    processor: Any,
 ) -> Tuple[int, ...]:
     instruction_text = INSTRUCTION_TRANSFER_PROMPT_SPAN.format(num_frames=int(num_frames))
     instruction_start = prompt_text.find(instruction_text)
@@ -82,7 +89,11 @@ def _instruction_positions_from_prompt(
             f"{instruction_text!r} in the constructed prompt"
         )
     instruction_span = (instruction_start, instruction_start + len(instruction_text))
-    instruction_token_span = _token_span_from_char_span(prompt_text, instruction_span)
+    instruction_token_span = _token_span_from_char_span(
+        prompt_text,
+        instruction_span,
+        processor=processor,
+    )
     instruction_positions = _positions_from_token_span(prompt_text_start, instruction_token_span)
     if not instruction_positions:
         raise RuntimeError(
@@ -96,6 +107,8 @@ def _special_token_positions(
     input_ids: Sequence[int],
     decoded_tokens: Sequence[str],
     token_text: str,
+    *,
+    processor: Any,
 ) -> Tuple[int, ...]:
     token_id = processor.tokenizer.convert_tokens_to_ids(token_text)
     positions_by_id = (
@@ -121,6 +134,8 @@ def build_sample_layout(
     frames: Sequence[Any],
     question: str,
     inputs: Dict[str, Any],
+    *,
+    processor: Any,
 ) -> SampleLayout:
     """Extract the prompt/token layout assumptions that AF1 depends on.
 
@@ -164,9 +179,17 @@ def build_sample_layout(
         question_text_start_in_prompt + int(room_span_in_question[1]),
     )
 
-    character_token_span = _token_span_from_char_span(prompt_text, character_span_in_prompt)
+    character_token_span = _token_span_from_char_span(
+        prompt_text,
+        character_span_in_prompt,
+        processor=processor,
+    )
     character_positions = _positions_from_token_span(prompt_text_start, character_token_span)
-    room_token_span = _token_span_from_char_span(prompt_text, room_span_in_prompt)
+    room_token_span = _token_span_from_char_span(
+        prompt_text,
+        room_span_in_prompt,
+        processor=processor,
+    )
     room_positions = _positions_from_token_span(prompt_text_start, room_token_span)
     if not room_positions:
         raise RuntimeError(f"sample_id={sample_id}: empty room token span")
@@ -174,26 +197,46 @@ def build_sample_layout(
         prompt_text,
         prompt_text_start=prompt_text_start,
         num_frames=len(frames),
+        processor=processor,
     )
 
     carrier_index = prompt_len - 1
-    prompt_decoded_tokens = decode_token_ids(input_ids)
+    prompt_decoded_tokens = decode_token_ids(input_ids, processor=processor)
 
-    frame_groups = image_token_groups(inputs["input_ids"][0].detach().cpu(), expected_num_frames=len(frames))
+    frame_groups = image_token_groups(
+        inputs["input_ids"][0].detach().cpu(),
+        expected_num_frames=len(frames),
+        processor=processor,
+    )
     if len(frame_groups) != len(frames):
         raise RuntimeError(
             f"sample_id={sample_id}: expected {len(frames)} frame groups but found {len(frame_groups)}"
         )
 
-    image_pad_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|image_pad|>")
+    image_pad_positions = _special_token_positions(
+        input_ids,
+        prompt_decoded_tokens,
+        "<|image_pad|>",
+        processor=processor,
+    )
     flattened_frame_positions = tuple(int(position) for group in frame_groups for position in group)
     if tuple(image_pad_positions) != flattened_frame_positions:
         raise RuntimeError(
             f"sample_id={sample_id}: image_pad positions {list(image_pad_positions)} do not match "
             f"frame groups {list(flattened_frame_positions)}"
         )
-    vision_start_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|vision_start|>")
-    vision_end_positions = _special_token_positions(input_ids, prompt_decoded_tokens, "<|vision_end|>")
+    vision_start_positions = _special_token_positions(
+        input_ids,
+        prompt_decoded_tokens,
+        "<|vision_start|>",
+        processor=processor,
+    )
+    vision_end_positions = _special_token_positions(
+        input_ids,
+        prompt_decoded_tokens,
+        "<|vision_end|>",
+        processor=processor,
+    )
 
     return SampleLayout(
         sample_id=sample_id,
@@ -318,7 +361,13 @@ def inspect_and_validate_layout(
     }
 
 
-def prepare_sample(sample_dir: Path, skip_hallway: bool) -> Tuple[Optional[PreparedSample], Optional[Dict[str, Any]]]:
+def prepare_sample(
+    sample_dir: Path,
+    skip_hallway: bool,
+    *,
+    model_name: str,
+    processor: Any,
+) -> Tuple[Optional[PreparedSample], Optional[Dict[str, Any]]]:
     sample_id, frames, question, _, answer_text = eval_utils.load_mmred_sample(sample_dir)
     parsed = eval_utils.parse_target_character_room(question)
     room_text = parsed[1] if parsed is not None else ""
@@ -327,7 +376,7 @@ def prepare_sample(sample_dir: Path, skip_hallway: bool) -> Tuple[Optional[Prepa
         row = {field: "" for field in PER_SAMPLE_FIELDS}
         row.update(
             {
-                "model": MODEL_ID,
+                "model": model_name,
                 "sample_id": sample_id,
                 "seq_len": int(len(frames)),
                 "used": 0,
@@ -342,13 +391,19 @@ def prepare_sample(sample_dir: Path, skip_hallway: bool) -> Tuple[Optional[Prepa
         return None, row
 
     try:
-        inputs_cpu = core.build_inputs(frames, question)
-        layout = build_sample_layout(sample_id=sample_id, frames=frames, question=question, inputs=inputs_cpu)
+        inputs_cpu = core.build_inputs(frames, question, processor=processor)
+        layout = build_sample_layout(
+            sample_id=sample_id,
+            frames=frames,
+            question=question,
+            inputs=inputs_cpu,
+            processor=processor,
+        )
     except Exception as exc:
         row = {field: "" for field in PER_SAMPLE_FIELDS}
         row.update(
             {
-                "model": MODEL_ID,
+                "model": model_name,
                 "sample_id": sample_id,
                 "seq_len": int(len(frames)),
                 "used": 0,

@@ -5,14 +5,26 @@ import torch
 from nnsight import LanguageModel
 
 from evaluations.helpers import utils as eval_utils
-from models.model import model as base_model, processor
+from models.model import (
+    get_default_runtime,
+    move_inputs_to_model_device as move_inputs_to_explicit_model_device,
+)
 
 iter_sample_dirs = eval_utils.iter_sample_dirs
 load_mmred_sample = eval_utils.load_mmred_sample
 parse_layer_selection = eval_utils.parse_layer_selection
 
 
-def token_ids_of_answer(answer_text: str) -> List[int]:
+def _resolve_processor(processor: Any = None) -> Any:
+    return get_default_runtime().processor if processor is None else processor
+
+
+def _resolve_model(model_obj: Any = None) -> Any:
+    return get_default_runtime().model if model_obj is None else model_obj
+
+
+def token_ids_of_answer(answer_text: str, processor: Any = None) -> List[int]:
+    processor = _resolve_processor(processor)
     ids = processor.tokenizer.encode(str(answer_text).strip(), add_special_tokens=False)
     if not ids:
         raise ValueError(f"Answer text tokenized to empty: {answer_text!r}")
@@ -28,7 +40,12 @@ def build_prompt(question: str, num_frames: int) -> str:
     )
 
 
-def build_inputs_from_prompt(frames: Sequence[Any], prompt: str) -> Dict[str, torch.Tensor]:
+def build_inputs_from_prompt(
+    frames: Sequence[Any],
+    prompt: str,
+    processor: Any = None,
+) -> Dict[str, torch.Tensor]:
+    processor = _resolve_processor(processor)
     messages = [{
         "role": "user",
         "content": (
@@ -46,13 +63,19 @@ def build_inputs_from_prompt(frames: Sequence[Any], prompt: str) -> Dict[str, to
     return dict(inputs)
 
 
-def build_inputs(frames: Sequence[Any], question: str) -> Dict[str, torch.Tensor]:
-    return build_inputs_from_prompt(frames, build_prompt(question, num_frames=len(frames)))
+def build_inputs(frames: Sequence[Any], question: str, processor: Any = None) -> Dict[str, torch.Tensor]:
+    return build_inputs_from_prompt(
+        frames,
+        build_prompt(question, num_frames=len(frames)),
+        processor=processor,
+    )
 
 
-def move_inputs_to_model_device(inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-    device = next(base_model.parameters()).device
-    return {key: (value.to(device) if torch.is_tensor(value) else value) for key, value in inputs.items()}
+def move_inputs_to_model_device(
+    inputs: Dict[str, torch.Tensor],
+    model_obj: Any = None,
+) -> Dict[str, torch.Tensor]:
+    return move_inputs_to_explicit_model_device(inputs, model_obj=_resolve_model(model_obj))
 
 
 def repeat_inputs_for_batch(inputs: Dict[str, torch.Tensor], batch_size: int) -> Dict[str, torch.Tensor]:

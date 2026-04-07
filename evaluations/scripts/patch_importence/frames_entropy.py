@@ -18,7 +18,15 @@ if str(_REPO_ROOT) not in sys.path:
 from evaluations.helpers import patching_core as core
 from evaluations.helpers import utils as eval_utils
 from evaluations.helpers.utils import iter_sample_dirs, load_mmred_sample
-from models.model import get_layers, image_token_groups, model as base_model, processor
+from models.model import get_default_runtime, get_layers, image_token_groups
+
+
+def _model() -> Any:
+    return get_default_runtime().model
+
+
+def _processor() -> Any:
+    return get_default_runtime().processor
 
 _STEPS_IN_ROOM_RE = re.compile(
     r"How many steps did\s+([A-Za-z]+)\s+spend in\s+the\s+([A-Za-z]+)",
@@ -939,7 +947,7 @@ def main() -> None:
 
     seq_len_label = eval_utils.resolve_seq_len_label(data_root)
 
-    lm = LanguageModel(base_model, tokenizer=processor.tokenizer)
+    lm = LanguageModel(_model(), tokenizer=_processor().tokenizer)
     layers = get_layers(lm.model)
     num_layers = len(layers)
     layer_sampled_counts = [0 for _ in range(num_layers)]

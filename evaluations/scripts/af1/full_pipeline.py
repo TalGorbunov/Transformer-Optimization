@@ -113,13 +113,13 @@ from evaluations.scripts.af1.reporting import (
     write_markdown_summary,
 )
 from models.model import (
-    MODEL_ID,
+    DEFAULT_MODEL_ID,
     attention_implementation_details,
     attention_backend_policy_summary,
     assert_non_eager_attention_backend,
     get_active_attention_implementation,
     get_layers,
-    model as base_model,
+    load_model_runtime,
     prepare_attention_backend_for_forward,
 )
 
@@ -154,7 +154,7 @@ class GridRunOutputs:
     expected_per_sample_rows: int
 
 
-CleanMetricsCacheKey = Tuple[int, str, str]
+CleanMetricsCacheKey = Tuple[str, int, str, str]
 
 
 def parse_args() -> argparse.Namespace:
@@ -164,7 +164,7 @@ def parse_args() -> argparse.Namespace:
             "conditional means at the wait boundary and ABP-style last-token transfer."
         )
     )
-    ap.add_argument("--model_name", type=str, default=MODEL_ID)
+    ap.add_argument("--model_name", type=str, default=DEFAULT_MODEL_ID)
     ap.add_argument("--data_root_base", type=str, default="data/mmred_images")
     ap.add_argument("--split", type=str, default="all")
     ap.add_argument("--seq_len", type=int, required=True)
@@ -321,8 +321,8 @@ def seq_len_data_root(data_root_base: Path, seq_len: int, split: str) -> Path:
     return data_root_base / f"seq_len_{seq_len}" / split
 
 
-def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str, Any]:
-    first_param = next(base_model.parameters())
+def model_runtime_info(runtime: Any, requested_device: str, requested_dtype: str) -> Dict[str, Any]:
+    first_param = next(runtime.model.parameters())
     actual_device = str(first_param.device)
     actual_dtype = str(first_param.dtype)
     requested_device = str(requested_device).strip()
@@ -332,14 +332,14 @@ def model_runtime_info(requested_device: str, requested_dtype: str) -> Dict[str,
                 f"Requested --device={requested_device!r}, but the current model is loaded on {actual_device!r}."
             )
     return {
-        "model_name": MODEL_ID,
+        "model_name": runtime.model_name,
         "requested_device": requested_device,
         "actual_model_device": actual_device,
         "requested_dtype": str(requested_dtype),
         "actual_model_dtype": actual_dtype,
-        "active_attention_implementation": get_active_attention_implementation(base_model),
-        "attention_implementation_details": attention_implementation_details(base_model),
-        "attention_backend_policy": attention_backend_policy_summary(base_model),
+        "active_attention_implementation": get_active_attention_implementation(runtime.model),
+        "attention_implementation_details": attention_implementation_details(runtime.model),
+        "attention_backend_policy": attention_backend_policy_summary(runtime.model),
     }
 
 
@@ -360,6 +360,7 @@ def _clean_metrics_cache_path(
     cache_dir: Path,
     sample: PreparedSample,
     attention_backend: str,
+    model_name: str,
 ) -> Path:
     signature_payload = {
         "sample_id": sample.sample_id,
@@ -373,7 +374,7 @@ def _clean_metrics_cache_path(
     ).hexdigest()[:16]
     return (
         cache_dir
-        / canonical_model_slug(MODEL_ID)
+        / canonical_model_slug(model_name)
         / "clean_metrics"
         / f"backend_{attention_backend}"
         / f"seq_len_{sample.layout.seq_len}"
@@ -412,15 +413,16 @@ def load_or_compute_clean_metrics(
     sample: PreparedSample,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> Dict[str, Any]:
     clean_backend = prepare_attention_backend_for_forward(
         path_name="af1_clean_forward",
         requires_abp_mask=False,
         output_attentions=False,
         allow_sdpa_fallback=True,
-        model_obj=base_model,
+        model_obj=runtime.model,
     )
-    clean_cache_key = (args.seq_len, sample.sample_id, clean_backend)
+    clean_cache_key = (runtime.model_name, args.seq_len, sample.sample_id, clean_backend)
     clean_metrics = clean_metrics_cache.get(clean_cache_key)
     if clean_metrics is not None:
         return clean_metrics
@@ -429,6 +431,7 @@ def load_or_compute_clean_metrics(
         cache_dir=cache_dir,
         sample=sample,
         attention_backend=clean_backend,
+        model_name=runtime.model_name,
     )
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     if cache_path.exists() and not bool(args.recompute_cache):
@@ -438,13 +441,13 @@ def load_or_compute_clean_metrics(
             clean_metrics_cache[clean_cache_key] = clean_metrics
             return clean_metrics
 
-    clean_metrics = run_clean_sample(sample)
+    clean_metrics = run_clean_sample(sample, runtime=runtime)
     clean_metrics_cache[clean_cache_key] = clean_metrics
     torch.save(
         {
             "metrics": clean_metrics,
             "metadata": {
-                "model_name": MODEL_ID,
+                "model_name": runtime.model_name,
                 "seq_len": int(sample.layout.seq_len),
                 "sample_id": sample.sample_id,
                 "sample_dir": str(sample.sample_dir),
@@ -469,6 +472,7 @@ def sample_passes_clean_top1_filter(
     sample: PreparedSample,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> bool:
     if not bool(args.clean_top1_must_match_gold):
         return True
@@ -477,6 +481,7 @@ def sample_passes_clean_top1_filter(
         sample=sample,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
     clean_pred = str(clean_metrics["best_answer_text"]).strip()
     return clean_pred == sample.gold_answer
@@ -490,6 +495,7 @@ def eligible_target_sample_ids(
     enable_wait_patch: bool,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> List[str]:
     eligible_ids: List[str] = []
     for item in grid_items:
@@ -500,6 +506,7 @@ def eligible_target_sample_ids(
             sample=item,
             cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
+            runtime=runtime,
         ):
             continue
         if enable_wait_patch and len(
@@ -522,6 +529,7 @@ def trim_grid_items_to_max_used(
     enable_wait_patch: bool,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> PreparedEvaluationInputs:
     if int(args.max_samples) <= 0:
         return prepared_inputs
@@ -533,6 +541,7 @@ def trim_grid_items_to_max_used(
         enable_wait_patch=enable_wait_patch,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
     if len(eligible_ids) <= int(args.max_samples):
         return prepared_inputs
@@ -568,12 +577,15 @@ def count_eligible_targets_for_selected_dirs(
     enable_wait_patch: bool,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> int:
     prepared_samples: List[PreparedSample] = []
     for sample_dir in sample_dirs:
         prepared_sample, _ = prepare_sample(
             sample_dir,
             skip_hallway=bool(args.skip_hallway),
+            model_name=runtime.model_name,
+            processor=runtime.processor,
         )
         if prepared_sample is not None:
             prepared_samples.append(prepared_sample)
@@ -584,6 +596,7 @@ def count_eligible_targets_for_selected_dirs(
         enable_wait_patch=enable_wait_patch,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
 
 
@@ -594,6 +607,7 @@ def count_eligible_targets_for_prepared_samples(
     enable_wait_patch: bool,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> int:
     reference_layout = choose_reference_layout(prepared_samples)
     if reference_layout is None:
@@ -617,6 +631,7 @@ def count_eligible_targets_for_prepared_samples(
             enable_wait_patch=enable_wait_patch,
             cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
+            runtime=runtime,
         )
     )
 
@@ -628,6 +643,7 @@ def select_sample_dirs_for_evaluation(
     enable_wait_patch: bool,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> Tuple[List[Path], List[str]]:
     if int(args.max_samples) <= 0:
         return list(all_sample_dirs), []
@@ -640,6 +656,8 @@ def select_sample_dirs_for_evaluation(
         prepared_sample, _ = prepare_sample(
             sample_dir,
             skip_hallway=bool(args.skip_hallway),
+            model_name=runtime.model_name,
+            processor=runtime.processor,
         )
         if prepared_sample is not None:
             prepared_selected_samples.append(prepared_sample)
@@ -649,6 +667,7 @@ def select_sample_dirs_for_evaluation(
             enable_wait_patch=enable_wait_patch,
             cache_dir=cache_dir,
             clean_metrics_cache=clean_metrics_cache,
+            runtime=runtime,
         )
         if eligible_target_count >= int(args.max_samples):
             return (
@@ -763,6 +782,7 @@ def prepare_evaluation_inputs(
     args: argparse.Namespace,
     sample_dirs: Sequence[Path],
     enable_wait_patch: bool,
+    runtime: Any,
 ) -> PreparedEvaluationInputs:
     validation_notes: List[str] = []
     donor_notes: List[str] = []
@@ -772,6 +792,8 @@ def prepare_evaluation_inputs(
         prepared_sample, skipped_sample_row = prepare_sample(
             sample_dir,
             skip_hallway=bool(args.skip_hallway),
+            model_name=runtime.model_name,
+            processor=runtime.processor,
         )
         if skipped_sample_row is not None:
             loaded_items.append(skipped_sample_row)
@@ -811,6 +833,7 @@ def prepare_evaluation_inputs(
             )
             if report["status"] != "exact_match":
                 incompatible_row = skipped_row(
+                    model_name=runtime.model_name,
                     mode=args.mode,
                     sample_id=item.sample_id,
                     seq_len=item.layout.seq_len,
@@ -899,6 +922,7 @@ def evaluate_grid_point(
     per_sample_writer: csv.DictWriter,
     stdout_per_sample_writer: csv.DictWriter,
     per_sample_handle: Any,
+    runtime: Any,
 ) -> GridPointEvaluation:
     mode_flags = intervention_mode_flags(args.mode)
     enable_wait_patch = mode_flags["enable_wait_patch"]
@@ -925,7 +949,7 @@ def evaluate_grid_point(
         return GridPointEvaluation(
             sample_rows=sample_rows,
             summary_row=summarize_grid_point_results(
-                MODEL_ID,
+                runtime.model_name,
                 mode=args.mode,
                 seq_len=args.seq_len,
                 wait_layer=wait_layer,
@@ -946,6 +970,7 @@ def evaluate_grid_point(
         wait_layer=wait_layer,
         transfer_layers=transfer_layers,
         instruction_mask_mode=str(args.instruction_mask_mode),
+        model_obj=runtime.model,
     )
     if enable_abp_mask:
         note = (
@@ -965,7 +990,7 @@ def evaluate_grid_point(
                 f"[debug][mode={args.mode}] seq_len={args.seq_len} wait_layer={wait_layer} "
                 f"transfer_layers={transfer_layers} {format_transition_frame_debug(reference_layout, policy)}"
             )
-        for note in validate_attention_policy(reference_layout, policy=policy):
+        for note in validate_attention_policy(reference_layout, policy=policy, model_obj=runtime.model):
             validation_notes_for_grid_point.append(
                 f"seq_len={args.seq_len} wait_layer={wait_layer} transfer_layers={transfer_layers}: {note}"
             )
@@ -1020,10 +1045,12 @@ def evaluate_grid_point(
                 sample=item,
                 cache_dir=cache_dir,
                 clean_metrics_cache=clean_metrics_cache,
+                runtime=runtime,
             )
             clean_pred = str(clean_metrics["best_answer_text"]).strip()
             if clean_pred != item.gold_answer:
                 skipped_sample_row = skipped_row(
+                    model_name=runtime.model_name,
                     mode=args.mode,
                     sample_id=item.sample_id,
                     seq_len=item.layout.seq_len,
@@ -1067,6 +1094,7 @@ def evaluate_grid_point(
             donor_ids = [sample.sample_id for sample in donor_pool]
             if len(donor_pool) < 2:
                 skipped_sample_row = skipped_row(
+                    model_name=runtime.model_name,
                     mode=args.mode,
                     sample_id=item.sample_id,
                     seq_len=item.layout.seq_len,
@@ -1109,6 +1137,7 @@ def evaluate_grid_point(
                 cache_dir=cache_dir,
                 recompute_cache=bool(args.recompute_cache),
                 donor_policy=DONOR_POLICY,
+                runtime=runtime,
             )
             seq_cache_hits += int(cache_stats["cache_hits"])
             seq_cache_misses += int(cache_stats["cache_misses"])
@@ -1120,6 +1149,7 @@ def evaluate_grid_point(
                 cache_dir=cache_dir,
                 recompute_cache=bool(args.recompute_cache),
                 donor_policy=DONOR_POLICY,
+                runtime=runtime,
             )
             seq_cache_hits += int(non_frame_cache_hit)
             seq_cache_misses += int(not non_frame_cache_hit)
@@ -1130,6 +1160,7 @@ def evaluate_grid_point(
                 sample=item,
                 cache_dir=cache_dir,
                 clean_metrics_cache=clean_metrics_cache,
+                runtime=runtime,
             )
         af1_metrics = run_intervention_sample(
             item,
@@ -1137,6 +1168,7 @@ def evaluate_grid_point(
             non_frame_prompt_mean=non_frame_prompt_mean,
             policy=policy,
             mode=args.mode,
+            runtime=runtime,
         )
         row = evaluated_row(
             sample=item,
@@ -1146,6 +1178,7 @@ def evaluate_grid_point(
             policy=policy,
             k_donors_requested=args.k_donors,
             mode=args.mode,
+            model_name=runtime.model_name,
         )
         sample_rows.append(row)
         _emit_per_sample_row(row, per_sample_writer, stdout_per_sample_writer, per_sample_handle)
@@ -1173,7 +1206,7 @@ def evaluate_grid_point(
     return GridPointEvaluation(
         sample_rows=sample_rows,
         summary_row=summarize_grid_point_results(
-            MODEL_ID,
+            runtime.model_name,
             mode=args.mode,
             seq_len=args.seq_len,
             wait_layer=wait_layer,
@@ -1195,6 +1228,7 @@ def run_grid_evaluation(
     prepared_inputs: PreparedEvaluationInputs,
     cache_dir: Path,
     clean_metrics_cache: Dict[CleanMetricsCacheKey, Dict[str, Any]],
+    runtime: Any,
 ) -> GridRunOutputs:
     all_sample_rows: List[Dict[str, Any]] = []
     summary_rows: List[Dict[str, Any]] = []
@@ -1233,6 +1267,7 @@ def run_grid_evaluation(
                 per_sample_writer=per_sample_writer,
                 stdout_per_sample_writer=stdout_per_sample_writer,
                 per_sample_handle=per_sample_handle,
+                runtime=runtime,
             )
             all_sample_rows.extend(result.sample_rows)
             summary_rows.append(result.summary_row)
@@ -1265,6 +1300,7 @@ def write_final_reports(
     donor_notes: Sequence[str],
     cache_notes: Sequence[str],
     start_time: float,
+    runtime: Any,
 ) -> Tuple[Dict[str, str], List[Tuple[str, str, str]]]:
     summary_table = format_summary_table(summary_rows)
     print(f"\nFinal AF1 Frame-CAMA Table (mode={args.mode}, seq_len={args.seq_len})")
@@ -1308,7 +1344,7 @@ def write_final_reports(
     write_markdown_summary(
         markdown_summary_path,
         config={
-            "model_name": args.model_name,
+            "model_name": runtime.model_name,
             "mode": args.mode,
             "data_root_base": args.data_root_base,
             "split": args.split,
@@ -1346,7 +1382,7 @@ def write_final_reports(
                 "wait_only": intervention_mode_summary("wait_only"),
                 "mask_only": intervention_mode_summary("mask_only"),
             },
-            "attention_backend_policy": attention_backend_policy_summary(base_model),
+            "attention_backend_policy": attention_backend_policy_summary(runtime.model),
         },
         summary_rows=summary_rows,
         validation_notes=validation_notes,
@@ -1367,10 +1403,6 @@ def main() -> None:
     )
     mode_flags = intervention_mode_flags(args.mode)
     enable_wait_patch = mode_flags["enable_wait_patch"]
-    if args.model_name != MODEL_ID:
-        raise ValueError(
-            f"This script is pinned to {MODEL_ID!r}; received --model_name={args.model_name!r}"
-        )
     if enable_wait_patch and args.k_donors < 2:
         raise ValueError(
             "--k_donors must be at least 2 because one donor is not a conditional mean."
@@ -1380,14 +1412,15 @@ def main() -> None:
 
     parse_dtype(args.dtype)
     set_seed(args.seed)
+    runtime = load_model_runtime(args.model_name, device_map=args.device)
     start_time = time.time()
-    active_attention_implementation = assert_non_eager_attention_backend(base_model)
-    backend_policy = attention_backend_policy_summary(base_model)
+    active_attention_implementation = assert_non_eager_attention_backend(runtime.model)
+    backend_policy = attention_backend_policy_summary(runtime.model)
     unmasked_backend = str(backend_policy["unmasked_paths"]["actual_backend"])
     masked_backend = str(backend_policy["abp_masked_paths"]["actual_backend"])
     unmasked_fallback_reason = backend_policy["unmasked_paths"]["fallback_reason"]
-    runtime_info = model_runtime_info(requested_device=args.device, requested_dtype=args.dtype)
-    num_model_layers = len(get_layers(base_model))
+    runtime_info = model_runtime_info(runtime, requested_device=args.device, requested_dtype=args.dtype)
+    num_model_layers = len(get_layers(runtime.model))
     print(json.dumps(runtime_info, indent=2, sort_keys=True))
     startup_attention_note = (
         "startup attention backend policy: "
@@ -1447,6 +1480,7 @@ def main() -> None:
         enable_wait_patch=enable_wait_patch,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
     validation_notes.extend(sample_selection_notes)
     if not sample_dirs:
@@ -1463,6 +1497,7 @@ def main() -> None:
         args=args,
         sample_dirs=sample_dirs,
         enable_wait_patch=enable_wait_patch,
+        runtime=runtime,
     )
     prepared_inputs = trim_grid_items_to_max_used(
         args=args,
@@ -1470,6 +1505,7 @@ def main() -> None:
         enable_wait_patch=enable_wait_patch,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
     validation_notes.extend(prepared_inputs.validation_notes)
     donor_notes.extend(prepared_inputs.donor_notes)
@@ -1481,6 +1517,7 @@ def main() -> None:
         prepared_inputs=prepared_inputs,
         cache_dir=cache_dir,
         clean_metrics_cache=clean_metrics_cache,
+        runtime=runtime,
     )
     validation_notes.extend(grid_outputs.validation_notes)
     summary_rows = sorted(
@@ -1500,6 +1537,7 @@ def main() -> None:
         donor_notes=donor_notes,
         cache_notes=grid_outputs.cache_notes,
         start_time=start_time,
+        runtime=runtime,
     )
 
     if len(summary_rows) != len(valid_grid_combinations):
