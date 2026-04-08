@@ -11,6 +11,7 @@ DONOR_POLICY = "same_seq_len_validated_layout_seeded_shuffle_exclude_target"
 VALID_MODES = ("full_af1", "wait_only", "mask_only")
 VALID_INSTRUCTION_MASK_MODES = (
     "base",
+    "no_attention",
     "vision_end_only",
     "vision_boundary_only",
     "prompt_only",

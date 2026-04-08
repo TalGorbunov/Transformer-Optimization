@@ -74,6 +74,7 @@ def intervention_mode_summary(mode: str) -> str:
 def instruction_mask_mode_summary(mode: str) -> str:
     summaries = {
         "base": "transfer=base_causal_padding_mask post_transfer=self_only",
+        "no_attention": "transfer=self_only post_transfer=self_only",
         "vision_end_only": "transfer=self_plus_earlier_vision_end post_transfer=self_only",
         "vision_boundary_only": "transfer=self_plus_earlier_vision_start_end post_transfer=self_only",
         "prompt_only": "transfer=self_plus_earlier_non_frame_non_boundary_prompt post_transfer=self_only",
@@ -206,6 +207,8 @@ def _instruction_allowed_prompt_keys(
     mode = str(policy.instruction_mask_mode)
     if mode == "base":
         return None
+    if mode == "no_attention":
+        return [int(query_idx)]
 
     earlier_image_pad = {
         int(position) for position in policy.image_pad_positions if int(position) < int(query_idx)

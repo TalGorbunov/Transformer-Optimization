@@ -331,7 +331,11 @@ def build_token_layout(
         )
 
     prompt_decoded_tokens = decode_token_ids(input_ids)
-    frame_groups = image_token_groups(inputs["input_ids"][0].detach().cpu(), expected_num_frames=len(frames))
+    frame_groups = image_token_groups(
+        inputs["input_ids"][0].detach().cpu(),
+        expected_num_frames=len(frames),
+        processor=_processor(),
+    )
     if len(frames) > 0 and len(frame_groups) != len(frames):
         raise RuntimeError(
             f"sample_id={sample_id}: expected {len(frames)} frame token groups but found {len(frame_groups)}"

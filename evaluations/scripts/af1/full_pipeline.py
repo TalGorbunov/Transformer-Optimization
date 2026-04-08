@@ -243,13 +243,13 @@ def parse_args() -> argparse.Namespace:
             "Instruction-token masking during transfer layers for the prompt "
             "span 'Respond with a single integer from 0 to {num_frames} "
             "(0 is allowed). Output only the integer.\\n': `base` keeps the "
-            "base causal/padding mask, `vision_end_only` keeps self plus "
-            "earlier `<|vision_end|>` keys, `vision_boundary_only` keeps self "
-            "plus earlier `<|vision_start|>`/`<|vision_end|>` keys, "
-            "`prompt_only` keeps self plus earlier non-frame non-boundary "
-            "prompt keys, and `image_pad_only` keeps self plus earlier "
-            "`<|image_pad|>` keys. After transfer, instruction tokens become "
-            "self-only in all modes."
+            "base causal/padding mask, `no_attention` keeps self only, "
+            "`vision_end_only` keeps self plus earlier `<|vision_end|>` keys, "
+            "`vision_boundary_only` keeps self plus earlier "
+            "`<|vision_start|>`/`<|vision_end|>` keys, `prompt_only` keeps "
+            "self plus earlier non-frame non-boundary prompt keys, and "
+            "`image_pad_only` keeps self plus earlier `<|image_pad|>` keys. "
+            "After transfer, instruction tokens become self-only in all modes."
         ),
     )
     ap.add_argument("--debug_tokenization", action="store_true")
