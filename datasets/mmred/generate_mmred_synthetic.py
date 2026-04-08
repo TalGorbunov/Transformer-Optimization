@@ -9,22 +9,13 @@ import shutil
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from datasets import Dataset, DatasetDict, load_from_disk
+from datasets import Dataset, load_from_disk
 
 
 DEFAULT_SEQ_LENS: Tuple[int, ...] = (2, 4, 8, 16, 32)
 DEFAULT_SAMPLES_PER_SEQ = 300
-DEFAULT_SPLIT_RATIOS = (0.8, 0.1, 0.1)
-
-DEFAULT_EVIDENCE_COUNTS: Dict[int, Tuple[int, ...]] = {
-    2: (2,),
-    4: (2, 3, 4),
-    8: (2, 3, 4, 5, 6, 7, 8),
-    16: (2, 4, 6, 8, 10, 12, 14, 16),
-    32: (2, 4, 8, 12, 16, 20, 24, 28, 32),
-}
 
 PATTERNS: Tuple[str, ...] = (
     "clustered",
@@ -50,6 +41,19 @@ DEFAULT_ROOMS: Tuple[str, ...] = (
     "Bedroom",
     "Hallway",
 )
+
+REQUIRED_COLUMNS = {
+    "sample_id",
+    "seq_len",
+    "question",
+    "answer",
+    "target_character",
+    "target_room",
+    "evidence_indices",
+    "evidence_count",
+    "positional_pattern",
+    "frames",
+}
 
 
 @dataclass(frozen=True)
@@ -83,22 +87,12 @@ def parse_seq_lens(value: str) -> List[int]:
     seq_lens = [int(x.strip()) for x in value.split(",") if x.strip()]
     if not seq_lens:
         raise ValueError("--seq-lens cannot be empty")
+    if any(x <= 0 for x in seq_lens):
+        raise ValueError("--seq-lens must contain positive integers")
     return seq_lens
 
 
-def parse_split_ratios(value: str) -> Tuple[float, float, float]:
-    parts = [float(x.strip()) for x in value.split(",") if x.strip()]
-    if len(parts) != 3:
-        raise ValueError("--split-ratios must have exactly 3 comma-separated values (train,val,test)")
-    if any(x <= 0 for x in parts):
-        raise ValueError("split ratios must be positive")
-    total = sum(parts)
-    if total <= 0:
-        raise ValueError("split ratios must sum to > 0")
-    return (parts[0] / total, parts[1] / total, parts[2] / total)
-
-
-def allocate_quota(values: Sequence[int], total: int) -> Dict[int, int]:
+def allocate_quota(values: Sequence[Any], total: int) -> Dict[Any, int]:
     """Balanced allocation with deterministic remainder distribution."""
     if total <= 0:
         raise ValueError("total must be > 0")
@@ -112,23 +106,6 @@ def allocate_quota(values: Sequence[int], total: int) -> Dict[int, int]:
     for v in ordered[:rem]:
         quota[v] += 1
     return quota
-
-
-def allocate_split_sizes(total: int, ratios: Tuple[float, float, float]) -> Dict[str, int]:
-    names = ("train", "val", "test")
-    raw = [total * r for r in ratios]
-    floors = [int(x) for x in raw]
-    remainder = total - sum(floors)
-
-    frac_order = sorted(
-        range(3),
-        key=lambda i: (raw[i] - floors[i], ratios[i]),
-        reverse=True,
-    )
-    for i in frac_order[:remainder]:
-        floors[i] += 1
-
-    return dict(zip(names, floors))
 
 
 def pick_other(rng: random.Random, pool: Sequence[str], forbidden: str) -> str:
@@ -145,8 +122,10 @@ def generate_evidence_indices(
     pattern: str,
 ) -> Tuple[int, ...]:
     all_indices = list(range(seq_len))
-    if evidence_count < 2 or evidence_count > seq_len:
+    if evidence_count < 0 or evidence_count > seq_len:
         raise ValueError("evidence_count out of range")
+    if evidence_count == 0:
+        return ()
     if evidence_count == seq_len:
         return tuple(all_indices)
 
@@ -155,6 +134,8 @@ def generate_evidence_indices(
         return tuple(range(start, start + evidence_count))
 
     if pattern == "evenly_spread":
+        if evidence_count == 1:
+            return ((seq_len - 1) // 2,)
         if evidence_count == 2:
             return (0, seq_len - 1)
         base = sorted({round(i * (seq_len - 1) / (evidence_count - 1)) for i in range(evidence_count)})
@@ -394,8 +375,8 @@ def validate_sample(sample: Sample) -> List[str]:
         if question_lines[-1] != expected_tail:
             errors.append("question tail mismatch")
 
-    if sample.evidence_count < 2:
-        errors.append("evidence_count < 2")
+    if sample.evidence_count < 0 or sample.evidence_count > sample.seq_len:
+        errors.append("evidence_count out of range")
 
     if sample.answer != sample.evidence_count:
         errors.append("answer != evidence_count")
@@ -452,63 +433,69 @@ def sample_to_record(sample: Sample) -> Dict[str, Any]:
     }
 
 
-def split_records(
-    records: List[Dict[str, Any]],
-    split_sizes: Dict[str, int],
-) -> Dict[str, List[Dict[str, Any]]]:
-    train_n = split_sizes["train"]
-    val_n = split_sizes["val"]
-    return {
-        "train": records[:train_n],
-        "val": records[train_n : train_n + val_n],
-        "test": records[train_n + val_n :],
-    }
+def dataset_from_records(records: List[Dict[str, Any]], features: Any) -> Dataset:
+    if records:
+        return Dataset.from_list(records)
+    return Dataset.from_dict({name: [] for name in features}, features=features)
+
+
+def save_dataset(dataset: Dataset, dataset_dir: Path) -> None:
+    if len(dataset) == 0:
+        dataset.save_to_disk(str(dataset_dir), num_shards=1)
+        return
+    dataset.save_to_disk(str(dataset_dir))
 
 
 def inspect_reference_schema(reference_root: Path) -> None:
-    seq2 = reference_root / "seq_len_2"
-    if not seq2.exists():
-        print(f"Reference dataset not found at {seq2}; continuing without schema preview.")
-        return
+    candidates = (
+        reference_root / "seq_len_2",
+        reference_root / "seq_len_2" / "all_uniform",
+        reference_root / "seq_len_2" / "by_evidence_count" / "exact_2",
+    )
 
-    try:
-        ds = load_from_disk(str(seq2))
-        split_name = next((name for name in ("train", "val", "test") if name in ds), None)
-        if split_name is None:
-            print(f"Reference {seq2} has no train/val/test splits; continuing.")
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            ds = load_from_disk(str(candidate))
+        except Exception:
+            continue
+
+        if isinstance(ds, Dataset):
+            print("Reference MMReD schema snapshot:")
+            print(f"  path={candidate}")
+            print(f"  columns={ds.column_names}")
+            print(f"  features={ds.features}")
             return
-        row = ds[split_name][0]
-        print("Reference MMReD schema snapshot:")
-        print(f"  split={split_name} columns={list(row.keys())}")
-        print(f"  features={ds[split_name].features}")
-    except Exception as exc:  # pragma: no cover
-        print(f"Failed to inspect reference schema from {seq2}: {exc}")
+
+        if hasattr(ds, "keys"):
+            split_name = next((name for name in ("train", "val", "test") if name in ds), None)
+            if split_name is None:
+                continue
+            print("Reference MMReD schema snapshot:")
+            print(f"  path={candidate}")
+            print(f"  split={split_name} columns={ds[split_name].column_names}")
+            print(f"  features={ds[split_name].features}")
+            return
+
+    print(f"Reference dataset not found under {reference_root}; continuing without schema preview.")
 
 
 def generate_seq_len_dataset(
     seq_len: int,
     total_samples: int,
-    split_ratios: Tuple[float, float, float],
     characters: Sequence[str],
     rooms: Sequence[str],
     seed: int,
-) -> Tuple[DatasetDict, Dict[str, Any]]:
-    evidence_values = DEFAULT_EVIDENCE_COUNTS.get(seq_len)
-    if evidence_values is None:
-        raise ValueError(f"Unsupported seq_len={seq_len}; expected one of {sorted(DEFAULT_EVIDENCE_COUNTS)}")
-
+) -> Tuple[Dict[int, List[Dict[str, Any]]], List[Dict[str, Any]], Dict[str, Any]]:
+    evidence_values = tuple(range(seq_len + 1))
     rng = random.Random(seed + seq_len * 1009)
 
     evidence_quota = allocate_quota(evidence_values, total_samples)
     pattern_quota = allocate_quota(PATTERNS, total_samples)
-
-    evidence_pool: List[int] = []
-    for count in sorted(evidence_quota):
-        evidence_pool.extend([count] * evidence_quota[count])
     pattern_pool: List[str] = []
     for pattern in PATTERNS:
         pattern_pool.extend([pattern] * pattern_quota[pattern])
-    rng.shuffle(evidence_pool)
     rng.shuffle(pattern_pool)
 
     pair_counter: Counter[Tuple[str, str]] = Counter()
@@ -524,197 +511,271 @@ def generate_seq_len_dataset(
     seen_exact: set[Tuple[Any, ...]] = set()
     seen_near: set[Tuple[Any, ...]] = set()
 
-    samples: List[Sample] = []
+    records_by_evidence = {count: [] for count in evidence_values}
+    total_generated = 0
     attempts = 0
     max_attempts = total_samples * 800
 
-    while len(samples) < total_samples and attempts < max_attempts:
-        idx = len(samples)
-        attempts += 1
-        sample = build_sample(
-            rng=rng,
-            seq_len=seq_len,
-            sample_index=idx,
-            evidence_count=evidence_pool[idx],
-            pattern=pattern_pool[idx],
-            characters=characters,
-            rooms=rooms,
-            pair_counter=pair_counter,
-        )
-
-        errors = validate_sample(sample)
-        if errors:
+    for evidence_count in evidence_values:
+        bucket_target = evidence_quota[evidence_count]
+        if bucket_target == 0:
             continue
 
-        if enforce_uniqueness:
-            sig = sample_signature(sample)
-            near = near_duplicate_signature(sample)
-            if sig in seen_exact or near in seen_near:
-                continue
-            seen_exact.add(sig)
-            seen_near.add(near)
-        samples.append(sample)
+        while len(records_by_evidence[evidence_count]) < bucket_target and attempts < max_attempts:
+            attempts += 1
+            sample = build_sample(
+                rng=rng,
+                seq_len=seq_len,
+                sample_index=total_generated,
+                evidence_count=evidence_count,
+                pattern=pattern_pool[total_generated],
+                characters=characters,
+                rooms=rooms,
+                pair_counter=pair_counter,
+            )
 
-    if len(samples) != total_samples:
+            errors = validate_sample(sample)
+            if errors:
+                continue
+
+            if enforce_uniqueness:
+                sig = sample_signature(sample)
+                near = near_duplicate_signature(sample)
+                if sig in seen_exact or near in seen_near:
+                    continue
+                seen_exact.add(sig)
+                seen_near.add(near)
+
+            records_by_evidence[evidence_count].append(sample_to_record(sample))
+            total_generated += 1
+
+    if total_generated != total_samples:
         raise RuntimeError(
             f"Could not generate enough unique samples for seq_len={seq_len}. "
-            f"generated={len(samples)} target={total_samples} attempts={attempts}"
+            f"generated={total_generated} target={total_samples} attempts={attempts}"
         )
 
-    records = [sample_to_record(s) for s in samples]
-    rng.shuffle(records)
-
-    split_sizes = allocate_split_sizes(total_samples, split_ratios)
-    split_records_map = split_records(records, split_sizes)
-
-    dataset_dict = DatasetDict(
-        {
-            split: Dataset.from_list(rows)
-            for split, rows in split_records_map.items()
-        }
-    )
+    all_uniform_records: List[Dict[str, Any]] = []
+    for evidence_count in evidence_values:
+        all_uniform_records.extend(records_by_evidence[evidence_count])
 
     summary = {
         "seq_len": seq_len,
         "total": total_samples,
-        "splits": split_sizes,
-        "evidence_hist": dict(Counter(r["evidence_count"] for r in records)),
-        "pattern_hist": dict(Counter(r["positional_pattern"] for r in records)),
+        "exact_counts": dict(evidence_quota),
+        "evidence_hist": dict(Counter(r["evidence_count"] for r in all_uniform_records)),
+        "pattern_hist": dict(Counter(r["positional_pattern"] for r in all_uniform_records)),
     }
-    return dataset_dict, summary
+    return records_by_evidence, all_uniform_records, summary
+
+
+def load_plain_dataset(dataset_dir: Path, errors: List[str]) -> Optional[Dataset]:
+    if not dataset_dir.exists():
+        errors.append(f"missing directory: {dataset_dir}")
+        return None
+
+    try:
+        ds = load_from_disk(str(dataset_dir))
+    except Exception as exc:
+        errors.append(f"failed to load {dataset_dir}: {exc}")
+        return None
+
+    if not isinstance(ds, Dataset):
+        errors.append(f"{dataset_dir}: expected a plain HF Dataset directory, found {type(ds).__name__}")
+        return None
+    return ds
+
+
+def validate_rows(
+    dataset: Dataset,
+    dataset_label: str,
+    seq_len: int,
+    *,
+    expected_evidence_count: Optional[int],
+    enforce_uniqueness: bool,
+    seen_exact: Optional[set[Tuple[Any, ...]]] = None,
+    seen_near: Optional[set[Tuple[Any, ...]]] = None,
+) -> Tuple[List[str], Counter[int], List[str]]:
+    errors: List[str] = []
+    histogram: Counter[int] = Counter()
+    sample_ids: List[str] = []
+
+    missing_columns = [k for k in sorted(REQUIRED_COLUMNS) if k not in dataset.column_names]
+    if missing_columns:
+        errors.append(f"{dataset_label} missing columns: {missing_columns}")
+
+    exact_seen = seen_exact if seen_exact is not None else set()
+    near_seen = seen_near if seen_near is not None else set()
+
+    for row_idx, row in enumerate(dataset):
+        row_id = f"{dataset_label}:{row_idx}"
+
+        missing = [k for k in REQUIRED_COLUMNS if k not in row]
+        if missing:
+            errors.append(f"{row_id} missing columns: {missing}")
+            continue
+
+        if row["seq_len"] != seq_len:
+            errors.append(f"{row_id} seq_len mismatch")
+
+        if expected_evidence_count is not None and row["evidence_count"] != expected_evidence_count:
+            errors.append(
+                f"{row_id} evidence_count mismatch expected={expected_evidence_count} actual={row['evidence_count']}"
+            )
+
+        q_lines = [ln.strip() for ln in str(row["question"]).splitlines() if ln.strip()]
+        expected_q = f"How many steps did {row['target_character']} spend in the {row['target_room']}?"
+        if len(q_lines) < seq_len + 1 or q_lines[-1] != expected_q:
+            errors.append(f"{row_id} question format mismatch")
+
+        frames = row["frames"]
+        if not isinstance(frames, list) or len(frames) != seq_len:
+            errors.append(f"{row_id} malformed frames length")
+            continue
+
+        derived_indices: List[int] = []
+        per_frame_pairs: List[Tuple[str, str]] = []
+        tags: List[str] = []
+        for frame in frames:
+            if not isinstance(frame, dict):
+                errors.append(f"{row_id} malformed frame entry")
+                continue
+            fi = frame.get("frame_index")
+            ch = frame.get("character")
+            rm = frame.get("room")
+            if not isinstance(fi, int) or not isinstance(ch, str) or not isinstance(rm, str):
+                errors.append(f"{row_id} malformed frame fields")
+                continue
+            is_ev = ch == row["target_character"] and rm == row["target_room"]
+            if frame.get("is_evidence") != is_ev:
+                errors.append(f"{row_id} is_evidence mismatch at frame {fi}")
+            if is_ev:
+                derived_indices.append(fi)
+                tags.append("E")
+            elif ch == row["target_character"]:
+                tags.append("SCWR")
+            elif rm == row["target_room"]:
+                tags.append("DCSR")
+            else:
+                tags.append("DCDD")
+            per_frame_pairs.append((ch, rm))
+
+        derived_indices = sorted(derived_indices)
+        if derived_indices != sorted(row["evidence_indices"]):
+            errors.append(f"{row_id} bad evidence indices")
+
+        if row["answer"] != len(derived_indices) or row["evidence_count"] != len(derived_indices):
+            errors.append(f"{row_id} incorrect answer/evidence_count")
+
+        exact_sig = (
+            row["seq_len"],
+            row["target_character"],
+            row["target_room"],
+            row["positional_pattern"],
+            tuple(per_frame_pairs),
+            tuple(frame.get("text", "") for frame in frames if isinstance(frame, dict)),
+        )
+        near_sig = (
+            row["seq_len"],
+            row["target_character"],
+            row["target_room"],
+            tuple(sorted(row["evidence_indices"])),
+            row["positional_pattern"],
+            tuple(tags),
+        )
+
+        if enforce_uniqueness:
+            if exact_sig in exact_seen:
+                errors.append(f"{row_id} duplicate sample")
+            exact_seen.add(exact_sig)
+
+            if near_sig in near_seen:
+                errors.append(f"{row_id} near-duplicate sample")
+            near_seen.add(near_sig)
+
+        histogram[int(row["evidence_count"])] += 1
+        sample_ids.append(str(row["sample_id"]))
+
+    return errors, histogram, sample_ids
 
 
 def validate_dataset_dir(
     output_dir: Path,
     seq_lens: Sequence[int],
     expected_total_per_seq: int,
-    split_ratios: Tuple[float, float, float],
 ) -> List[str]:
     errors: List[str] = []
-    expected_splits = allocate_split_sizes(expected_total_per_seq, split_ratios)
 
     for seq_len in seq_lens:
         seq_dir = output_dir / f"seq_len_{seq_len}"
+        exact_root = seq_dir / "by_evidence_count"
+        all_uniform_dir = seq_dir / "all_uniform"
         enforce_uniqueness = seq_len > 2
+        evidence_values = tuple(range(seq_len + 1))
+        expected_quota = allocate_quota(evidence_values, expected_total_per_seq)
+
         if not seq_dir.exists():
             errors.append(f"missing directory: {seq_dir}")
             continue
 
-        try:
-            ds = load_from_disk(str(seq_dir))
-        except Exception as exc:
-            errors.append(f"failed to load {seq_dir}: {exc}")
-            continue
+        if not exact_root.exists():
+            errors.append(f"missing directory: {exact_root}")
 
-        for split in ("train", "val", "test"):
-            if split not in ds:
-                errors.append(f"{seq_dir}: missing split '{split}'")
+        exact_seen: set[Tuple[Any, ...]] = set()
+        near_seen: set[Tuple[Any, ...]] = set()
+        exact_sample_ids: List[str] = []
 
-        if any(split not in ds for split in ("train", "val", "test")):
-            continue
+        for evidence_count in evidence_values:
+            bucket_dir = exact_root / f"exact_{evidence_count}"
+            ds = load_plain_dataset(bucket_dir, errors)
+            if ds is None:
+                continue
 
-        seen_exact: set[Tuple[Any, ...]] = set()
-        seen_near: set[Tuple[Any, ...]] = set()
-
-        for split in ("train", "val", "test"):
-            split_ds = ds[split]
-            if len(split_ds) != expected_splits[split]:
+            if len(ds) != expected_quota[evidence_count]:
                 errors.append(
-                    f"{seq_dir}:{split} count mismatch expected={expected_splits[split]} actual={len(split_ds)}"
+                    f"{bucket_dir} count mismatch expected={expected_quota[evidence_count]} actual={len(ds)}"
                 )
 
-            for row_idx, row in enumerate(split_ds):
-                row_id = f"{seq_dir.name}:{split}:{row_idx}"
+            row_errors, _, sample_ids = validate_rows(
+                ds,
+                f"{seq_dir.name}/by_evidence_count/exact_{evidence_count}",
+                seq_len,
+                expected_evidence_count=evidence_count,
+                enforce_uniqueness=enforce_uniqueness,
+                seen_exact=exact_seen,
+                seen_near=near_seen,
+            )
+            errors.extend(row_errors)
+            exact_sample_ids.extend(sample_ids)
 
-                required = {
-                    "sample_id",
-                    "seq_len",
-                    "question",
-                    "answer",
-                    "target_character",
-                    "target_room",
-                    "evidence_indices",
-                    "evidence_count",
-                    "positional_pattern",
-                    "frames",
-                }
-                missing = [k for k in required if k not in row]
-                if missing:
-                    errors.append(f"{row_id} missing columns: {missing}")
-                    continue
+        all_uniform = load_plain_dataset(all_uniform_dir, errors)
+        if all_uniform is None:
+            continue
 
-                if row["seq_len"] != seq_len:
-                    errors.append(f"{row_id} seq_len mismatch")
+        if len(all_uniform) != expected_total_per_seq:
+            errors.append(
+                f"{all_uniform_dir} count mismatch expected={expected_total_per_seq} actual={len(all_uniform)}"
+            )
 
-                q_lines = [ln.strip() for ln in str(row["question"]).splitlines() if ln.strip()]
-                expected_q = f"How many steps did {row['target_character']} spend in the {row['target_room']}?"
-                if len(q_lines) < seq_len + 1 or q_lines[-1] != expected_q:
-                    errors.append(f"{row_id} question format mismatch")
+        row_errors, histogram, all_uniform_sample_ids = validate_rows(
+            all_uniform,
+            f"{seq_dir.name}/all_uniform",
+            seq_len,
+            expected_evidence_count=None,
+            enforce_uniqueness=enforce_uniqueness,
+        )
+        errors.extend(row_errors)
 
-                frames = row["frames"]
-                if not isinstance(frames, list) or len(frames) != seq_len:
-                    errors.append(f"{row_id} malformed frames length")
-                    continue
+        intended_hist = Counter(expected_quota)
+        actual_hist = Counter({count: histogram.get(count, 0) for count in evidence_values})
+        if actual_hist != intended_hist:
+            errors.append(
+                f"{all_uniform_dir} evidence-count histogram mismatch expected={dict(intended_hist)} "
+                f"actual={dict(actual_hist)}"
+            )
 
-                derived_indices: List[int] = []
-                per_frame_pairs: List[Tuple[str, str]] = []
-                tags: List[str] = []
-                for frame in frames:
-                    if not isinstance(frame, dict):
-                        errors.append(f"{row_id} malformed frame entry")
-                        continue
-                    fi = frame.get("frame_index")
-                    ch = frame.get("character")
-                    rm = frame.get("room")
-                    if not isinstance(fi, int) or not isinstance(ch, str) or not isinstance(rm, str):
-                        errors.append(f"{row_id} malformed frame fields")
-                        continue
-                    is_ev = ch == row["target_character"] and rm == row["target_room"]
-                    if frame.get("is_evidence") != is_ev:
-                        errors.append(f"{row_id} is_evidence mismatch at frame {fi}")
-                    if is_ev:
-                        derived_indices.append(fi)
-                        tags.append("E")
-                    elif ch == row["target_character"]:
-                        tags.append("SCWR")
-                    elif rm == row["target_room"]:
-                        tags.append("DCSR")
-                    else:
-                        tags.append("DCDD")
-                    per_frame_pairs.append((ch, rm))
-
-                derived_indices = sorted(derived_indices)
-                if derived_indices != sorted(row["evidence_indices"]):
-                    errors.append(f"{row_id} bad evidence indices")
-
-                if row["answer"] != len(derived_indices) or row["evidence_count"] != len(derived_indices):
-                    errors.append(f"{row_id} incorrect answer/evidence_count")
-
-                exact_sig = (
-                    row["seq_len"],
-                    row["target_character"],
-                    row["target_room"],
-                    row["positional_pattern"],
-                    tuple(per_frame_pairs),
-                    tuple(frame.get("text", "") for frame in frames if isinstance(frame, dict)),
-                )
-                near_sig = (
-                    row["seq_len"],
-                    row["target_character"],
-                    row["target_room"],
-                    tuple(sorted(row["evidence_indices"])),
-                    row["positional_pattern"],
-                    tuple(tags),
-                )
-
-                if enforce_uniqueness:
-                    if exact_sig in seen_exact:
-                        errors.append(f"{row_id} duplicate sample")
-                    seen_exact.add(exact_sig)
-
-                    if near_sig in seen_near:
-                        errors.append(f"{row_id} near-duplicate sample")
-                    seen_near.add(near_sig)
+        if Counter(all_uniform_sample_ids) != Counter(exact_sample_ids):
+            errors.append(f"{all_uniform_dir} sample_id set does not match by_evidence_count buckets")
 
     return errors
 
@@ -723,9 +784,9 @@ def print_summary(summaries: Iterable[Dict[str, Any]]) -> None:
     print("Generation summary:")
     for summary in summaries:
         seq_len = summary["seq_len"]
-        print(f"- seq_len={seq_len}: total={summary['total']}")
-        print(
-            f"  splits: train={summary['splits']['train']} val={summary['splits']['val']} test={summary['splits']['test']}"
+        print(f"- seq_len={seq_len}: all_uniform={summary['total']}")
+        exact_counts = ", ".join(
+            f"{k}:{summary['exact_counts'][k]}" for k in sorted(summary["exact_counts"])
         )
         ev_hist = ", ".join(
             f"{k}:{summary['evidence_hist'][k]}" for k in sorted(summary["evidence_hist"])
@@ -733,20 +794,28 @@ def print_summary(summaries: Iterable[Dict[str, Any]]) -> None:
         pt_hist = ", ".join(
             f"{k}:{summary['pattern_hist'][k]}" for k in sorted(summary["pattern_hist"])
         )
+        print(f"  exact bucket sizes: {exact_counts}")
         print(f"  evidence-count histogram: {ev_hist}")
         print(f"  positional-pattern histogram: {pt_hist}")
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Generate synthetic MMReD-style datasets in Hugging Face DatasetDict layout."
+        description=(
+            "Generate synthetic MMReD-style datasets in plain Hugging Face Dataset layout under "
+            "seq_len_k/by_evidence_count/exact_j and seq_len_k/all_uniform."
+        )
     )
     parser.add_argument("--output-dir", type=Path, default=Path("data/mmred_generated"))
     parser.add_argument("--reference-root", type=Path, default=Path("data/mmred"))
     parser.add_argument("--seed", type=int, default=12345)
-    parser.add_argument("--samples-per-seq", type=int, default=DEFAULT_SAMPLES_PER_SEQ)
+    parser.add_argument(
+        "--samples-per-seq",
+        type=int,
+        default=DEFAULT_SAMPLES_PER_SEQ,
+        help="Total number of samples saved in seq_len_k/all_uniform for each requested seq_len.",
+    )
     parser.add_argument("--seq-lens", type=str, default=",".join(str(x) for x in DEFAULT_SEQ_LENS))
-    parser.add_argument("--split-ratios", type=str, default="0.8,0.1,0.1")
     parser.add_argument("--characters", type=str, default=",".join(DEFAULT_CHARACTERS))
     parser.add_argument("--rooms", type=str, default=",".join(DEFAULT_ROOMS))
     parser.add_argument("--validate-only", action="store_true")
@@ -766,7 +835,6 @@ def main() -> None:
     args = parser.parse_args()
 
     seq_lens = parse_seq_lens(args.seq_lens)
-    split_ratios = parse_split_ratios(args.split_ratios)
     characters = parse_csv_list(args.characters)
     rooms = parse_csv_list(args.rooms)
 
@@ -778,7 +846,6 @@ def main() -> None:
             output_dir=args.output_dir,
             seq_lens=seq_lens,
             expected_total_per_seq=args.samples_per_seq,
-            split_ratios=split_ratios,
         )
         if errors:
             print(f"Validation failed: {len(errors)} issues")
@@ -794,13 +861,9 @@ def main() -> None:
     summaries: List[Dict[str, Any]] = []
 
     for seq_len in seq_lens:
-        if seq_len not in DEFAULT_EVIDENCE_COUNTS:
-            raise ValueError(f"Unsupported seq_len={seq_len}; expected {sorted(DEFAULT_EVIDENCE_COUNTS)}")
-
-        ds_dict, summary = generate_seq_len_dataset(
+        records_by_evidence, all_uniform_records, summary = generate_seq_len_dataset(
             seq_len=seq_len,
             total_samples=args.samples_per_seq,
-            split_ratios=split_ratios,
             characters=characters,
             rooms=rooms,
             seed=args.seed,
@@ -814,7 +877,13 @@ def main() -> None:
                 f"{seq_dir} already exists. Pass --overwrite to replace existing generated data."
             )
 
-        ds_dict.save_to_disk(str(seq_dir))
+        features = Dataset.from_list(all_uniform_records[:1]).features
+        bucket_root = seq_dir / "by_evidence_count"
+        for evidence_count in range(seq_len + 1):
+            bucket_dir = bucket_root / f"exact_{evidence_count}"
+            save_dataset(dataset_from_records(records_by_evidence[evidence_count], features), bucket_dir)
+
+        save_dataset(dataset_from_records(all_uniform_records, features), seq_dir / "all_uniform")
         summaries.append(summary)
 
     print_summary(summaries)
