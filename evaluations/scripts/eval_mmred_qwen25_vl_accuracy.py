@@ -8,17 +8,20 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
 from datasets import load_from_disk
 from PIL import Image
 from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
 
+from evaluations.helpers import utils as eval_utils
+from models.model import DEFAULT_MODEL_ID
 
-MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"
-SEQ_LENS: Sequence[int] = (2, 4)
+MODEL_ID = DEFAULT_MODEL_ID
+PREFERRED_SEQ_LENS: Sequence[int] = (2, 4, 8)
 INTEGER_RE = re.compile(r"[+-]?\d+")
+SEQ_LEN_DIR_RE = re.compile(r"seq_len_(\d+)$")
 
 
 @dataclass
@@ -29,17 +32,18 @@ class Sample:
     question: str
     gold_text: str
     gold_int: Optional[int]
+    evidence_count: int
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Evaluate Qwen 2.5 VL 7B Instruct on MMReD-style seq_len=2 and seq_len=4 data."
+        description="Evaluate the current Qwen 2.5 VL model on rendered MMReD data and summarize accuracy by seq_len and evidence-count bucket."
     )
     parser.add_argument(
         "--data-root",
         type=Path,
         default=default_data_root(),
-        help="Base rendered-image root containing seq_len_2/ and seq_len_4/ directories.",
+        help="Base rendered-image root containing seq_len_*/ directories.",
     )
     parser.add_argument(
         "--split-root",
@@ -50,7 +54,18 @@ def parse_args() -> argparse.Namespace:
             "stores samples under all/. If omitted, the script will try to infer it from --data-root."
         ),
     )
-    parser.add_argument("--split", type=str, default="test", choices=["train", "val", "test", "all"])
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="all_uniform",
+        help="Subset folder under each seq_len directory to evaluate. Common values: all_uniform, all, train, val, test.",
+    )
+    parser.add_argument(
+        "--seq-lens",
+        type=str,
+        default=None,
+        help="Optional comma-separated seq_len list to evaluate. Defaults to discovering all seq_len_* dirs under --data-root.",
+    )
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument(
         "--dtype",
@@ -64,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Load the model with bitsandbytes 4-bit quantization.",
     )
-    parser.add_argument("--max-new-tokens", type=int, default=1)
+    parser.add_argument("--max-new-tokens", type=int, default=4)
     parser.add_argument(
         "--limit-per-seq",
         type=int,
@@ -77,12 +92,53 @@ def parse_args() -> argparse.Namespace:
 
 def default_data_root() -> Path:
     for candidate in (
+        Path("data/mmred_new_images"),
         Path("data/mmred_images_generated"),
         Path("data/mmred_images"),
     ):
         if candidate.exists():
             return candidate
-    return Path("data/mmred_images_generated")
+    return Path("data/mmred_new_images")
+
+
+def parse_seq_lens_arg(raw: Optional[str]) -> Optional[List[int]]:
+    if raw is None or not str(raw).strip():
+        return None
+    values: List[int] = []
+    for part in str(raw).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        try:
+            values.append(int(part))
+        except ValueError as exc:
+            raise ValueError(f"Invalid integer in --seq-lens: {part!r}") from exc
+    if not values:
+        raise ValueError("--seq-lens must not be empty when provided")
+    return values
+
+
+def discover_seq_lens(data_root: Path) -> List[int]:
+    seq_lens: List[int] = []
+    for child in sorted(data_root.iterdir()):
+        if not child.is_dir():
+            continue
+        match = SEQ_LEN_DIR_RE.fullmatch(child.name)
+        if match is None:
+            continue
+        seq_lens.append(int(match.group(1)))
+    if not seq_lens:
+        raise FileNotFoundError(f"Could not find any seq_len_* directories under {data_root}")
+    return seq_lens
+
+
+def resolve_seq_lens(data_root: Path, raw: Optional[str]) -> List[int]:
+    explicit = parse_seq_lens_arg(raw)
+    if explicit is not None:
+        return explicit
+    discovered = discover_seq_lens(data_root)
+    preferred = [seq_len for seq_len in PREFERRED_SEQ_LENS if seq_len in discovered]
+    return preferred if preferred else discovered
 
 
 def resolve_device(requested: str) -> str:
@@ -189,6 +245,10 @@ def resolve_sample_dirs(
     if split != "all" and direct_split_dir.is_dir():
         return iter_sample_dirs(direct_split_dir)
 
+    evidence_bucket_dir = seq_root / "by_evidence_count" / split
+    if split != "all" and evidence_bucket_dir.is_dir():
+        return iter_sample_dirs(evidence_bucket_dir)
+
     all_dir = seq_root / "all"
     if split == "all":
         if all_dir.is_dir():
@@ -198,11 +258,16 @@ def resolve_sample_dirs(
             split_dir = seq_root / split_name
             if split_dir.is_dir():
                 combined.extend(iter_sample_dirs(split_dir))
+        if not combined:
+            all_uniform_dir = seq_root / "all_uniform"
+            if all_uniform_dir.is_dir():
+                combined.extend(iter_sample_dirs(all_uniform_dir))
         return combined
 
     if not all_dir.is_dir():
         raise FileNotFoundError(
-            f"Could not find either {direct_split_dir} or {all_dir} for seq_len={seq_len} split={split}."
+            f"Could not find subset directory {direct_split_dir}, evidence bucket {evidence_bucket_dir}, "
+            f"or fallback all-dir {all_dir} for seq_len={seq_len} split={split}."
         )
     if split_root is None:
         raise FileNotFoundError(
@@ -281,6 +346,7 @@ def load_mmred_style_sample(sample_dir: Path) -> Sample:
         question=question_text,
         gold_text=gold_text,
         gold_int=extract_first_integer(gold_text),
+        evidence_count=len(eval_utils.collect_evidence_frame_indices(question_text, states)),
     )
 
 
@@ -401,18 +467,33 @@ def format_duration(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{secs:02d}"
 
 
+def bucket_accuracy_lines(
+    *,
+    seq_len: int,
+    evidence_stats: Dict[int, Tuple[int, int]],
+) -> List[str]:
+    lines: List[str] = []
+    for evidence_count in sorted(evidence_stats):
+        correct, total = evidence_stats[evidence_count]
+        lines.append(
+            f"seq_len={seq_len} evidence_count={evidence_count}: accuracy = {accuracy_string(correct, total)}"
+        )
+    return lines
+
+
 def main() -> int:
     started_at = time.time()
     args = parse_args()
     data_root = args.data_root.resolve()
     split_root = args.split_root.resolve() if args.split_root is not None else infer_split_root(data_root)
+    seq_lens = resolve_seq_lens(data_root, args.seq_lens)
     device = resolve_device(args.device)
     dtype = resolve_dtype(args.dtype, device)
 
     print(f"model: {args.model_id}")
     print(f"data_root: {data_root}")
     print(f"split: {args.split}")
-    print(f"seq_lens: {list(SEQ_LENS)}")
+    print(f"seq_lens: {list(seq_lens)}")
     print(f"device: {device}")
     print(f"dtype: {dtype}")
     print(f"load_in_4bit: {args.load_in_4bit}")
@@ -434,8 +515,10 @@ def main() -> int:
 
     total_correct = 0
     total_count = 0
+    per_seq_totals: Dict[int, Tuple[int, int]] = {}
+    per_seq_evidence_totals: Dict[int, Dict[int, Tuple[int, int]]] = {}
 
-    for seq_len in SEQ_LENS:
+    for seq_len in seq_lens:
         sample_dirs = resolve_sample_dirs(
             data_root=data_root,
             seq_len=seq_len,
@@ -451,7 +534,8 @@ def main() -> int:
 
         seq_correct = 0
         seq_total = 0
-        print(f"Evaluating seq_len={seq_len} on {len(sample_dirs)} samples")
+        evidence_stats: Dict[int, List[int]] = {}
+        print(f"Evaluating seq_len={seq_len} split={args.split} on {len(sample_dirs)} samples")
 
         for sample_index, sample_dir in enumerate(sample_dirs, start=1):
             sample_id = sample_dir.name
@@ -459,11 +543,13 @@ def main() -> int:
             raw_prediction = ""
             predicted_int: Optional[int] = None
             correct = False
+            evidence_count: Optional[int] = None
 
             try:
                 sample = load_mmred_style_sample(sample_dir)
                 sample_id = sample.sample_id
                 gold_display = sample.gold_int if sample.gold_int is not None else repr(sample.gold_text)
+                evidence_count = int(sample.evidence_count)
                 raw_prediction = run_clean_generation(
                     model=model,
                     processor=processor,
@@ -484,17 +570,53 @@ def main() -> int:
                 seq_correct += 1
                 total_correct += 1
 
+            if evidence_count is None:
+                evidence_count = -1
+            if evidence_count not in evidence_stats:
+                evidence_stats[evidence_count] = [0, 0]
+            evidence_stats[evidence_count][1] += 1
+            if correct:
+                evidence_stats[evidence_count][0] += 1
+
             print(
                 f"[seq_len={seq_len} {sample_index}/{len(sample_dirs)}] "
                 f"sample_id={sample_id} "
+                f"evidence_count={evidence_count} "
                 f"gold={gold_display} "
                 f"pred={predicted_int if predicted_int is not None else 'None'} "
                 f"correct={int(correct)} "
                 f"raw={raw_prediction!r}"
             )
 
+        per_seq_totals[seq_len] = (seq_correct, seq_total)
+        per_seq_evidence_totals[seq_len] = {
+            evidence_count: (stats[0], stats[1])
+            for evidence_count, stats in evidence_stats.items()
+        }
+
         print(f"seq_len={seq_len}: accuracy = {accuracy_string(seq_correct, seq_total)}")
+        for line in bucket_accuracy_lines(
+            seq_len=seq_len,
+            evidence_stats=per_seq_evidence_totals[seq_len],
+        ):
+            print(line)
         print()
+
+    if args.split == "all_uniform":
+        print("All-uniform summed accuracy by seq_len:")
+        for seq_len in seq_lens:
+            seq_correct, seq_total = per_seq_totals[seq_len]
+            print(f"seq_len={seq_len} all_uniform total: accuracy = {accuracy_string(seq_correct, seq_total)}")
+        print()
+
+    print(f"Accuracy by seq_len and evidence_count for split={args.split}:")
+    for seq_len in seq_lens:
+        for line in bucket_accuracy_lines(
+            seq_len=seq_len,
+            evidence_stats=per_seq_evidence_totals[seq_len],
+        ):
+            print(line)
+    print()
 
     print(f"overall: accuracy = {accuracy_string(total_correct, total_count)}")
     print(f"total_runtime: {format_duration(time.time() - started_at)}")
