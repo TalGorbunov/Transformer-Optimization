@@ -5,9 +5,11 @@ This simplified version keeps only two experiment families:
 1. restoration on the fully corrupted run
 2. clean-ablation damage on the clean run
 
-And it only measures three prompt-token groups:
+And it only measures five prompt-token groups:
 - evidence frames
+- instruction
 - question
+- character + room
 - last token
 
 The implementation intentionally stays close to the existing restoration
@@ -34,22 +36,32 @@ if str(_REPO_ROOT) not in sys.path:
 from evaluations.helpers import patching_core as tgi
 from evaluations.helpers import utils as eval_utils
 from evaluations.scripts.patch_importence import group_restoration_importance as gri
-from models.model import DEFAULT_MODEL_ID, get_layers
+from models.model import DEFAULT_MODEL_ID, find_subsequence, get_layers
 
 NORMALIZED_EPS = 1e-8
+INSTRUCTION_PROMPT_SPAN = (
+    "Respond with a single integer from 0 to {num_frames} "
+    "(0 is allowed). Output only the integer.\n"
+)
 ANALYSIS_GROUPS = (
     "evidence_frames",
+    "instruction",
     "question",
+    "character_room",
     "last_token",
 )
 GROUP_LABELS = {
     "evidence_frames": "evidence frames",
+    "instruction": "instruction",
     "question": "question",
+    "character_room": "character + room",
     "last_token": "last token",
 }
 GROUP_COLORS = {
     "evidence_frames": "#1f77b4",
+    "instruction": "#9467bd",
     "question": "#ff7f0e",
+    "character_room": "#2ca02c",
     "last_token": "#d62728",
 }
 
@@ -99,6 +111,61 @@ def _resolve_seq_len_display(
 
 def _mean(values: List[float]) -> float:
     return (sum(values) / len(values)) if values else float("nan")
+
+
+def _question_subspan_positions(
+    *,
+    question_text: str,
+    question_positions: Sequence[int],
+    char_span: Tuple[int, int],
+) -> List[int]:
+    start_char, end_char = int(char_span[0]), int(char_span[1])
+    if start_char > 0 and question_text[start_char - 1].isspace():
+        start_char -= 1
+    start_token = len(_processor().tokenizer(question_text[:start_char], add_special_tokens=False)["input_ids"])
+    end_token = len(_processor().tokenizer(question_text[:end_char], add_special_tokens=False)["input_ids"])
+    return [int(position) for position in question_positions[start_token:end_token]]
+
+
+def _prompt_subspan_positions(
+    *,
+    prompt_text: str,
+    prompt_text_start: int,
+    char_span: Tuple[int, int],
+) -> List[int]:
+    start_char, end_char = int(char_span[0]), int(char_span[1])
+    if start_char > 0 and prompt_text[start_char - 1].isspace():
+        start_char -= 1
+    start_token = len(_processor().tokenizer(prompt_text[:start_char], add_special_tokens=False)["input_ids"])
+    end_token = len(_processor().tokenizer(prompt_text[:end_char], add_special_tokens=False)["input_ids"])
+    return list(range(int(prompt_text_start) + int(start_token), int(prompt_text_start) + int(end_token)))
+
+
+def _instruction_positions_from_prompt(
+    *,
+    clean_inputs: Dict[str, Any],
+    question: str,
+    num_frames: int,
+) -> List[int]:
+    input_ids = [int(token_id) for token_id in clean_inputs["input_ids"][0].detach().cpu().tolist()]
+    prompt_text = tgi.build_prompt(question, num_frames=num_frames)
+    prompt_text_ids = _processor().tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+    prompt_text_start = find_subsequence(input_ids, [int(token_id) for token_id in prompt_text_ids])
+    if prompt_text_start is None:
+        raise RuntimeError("failed to locate prompt text in multimodal prompt")
+
+    instruction_text = INSTRUCTION_PROMPT_SPAN.format(num_frames=int(num_frames))
+    instruction_start = prompt_text.find(instruction_text)
+    if instruction_start < 0:
+        raise RuntimeError(f"failed to locate instruction span in prompt: {instruction_text!r}")
+    instruction_positions = _prompt_subspan_positions(
+        prompt_text=prompt_text,
+        prompt_text_start=int(prompt_text_start),
+        char_span=(instruction_start, instruction_start + len(instruction_text)),
+    )
+    if not instruction_positions:
+        raise RuntimeError(f"instruction span tokenized to an empty position set: {instruction_text!r}")
+    return [int(position) for position in instruction_positions]
 
 
 def _bootstrap_center_and_ci(
@@ -152,6 +219,28 @@ def extract_unified_group_metadata(
     if patch_metadata is None:
         return None
 
+    try:
+        instruction_positions = _instruction_positions_from_prompt(
+            clean_inputs=clean_inputs,
+            question=question,
+            num_frames=num_frames,
+        )
+    except Exception as exc:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            f"failed to locate instruction token positions ({exc})"
+        )
+        return None
+
+    parsed_target = eval_utils.parse_target_character_room_with_spans(question)
+    if parsed_target is None:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            "failed to parse target character/room spans from question"
+        )
+        return None
+    target_character, target_room, character_span, room_span = parsed_target
+
     selected_frame_indices = sorted({
         int(frame_idx)
         for frame_idx in evidence_frame_indices
@@ -162,6 +251,23 @@ def extract_unified_group_metadata(
         for frame_idx in selected_frame_indices
         for position in patch_metadata["frame_groups"][int(frame_idx)]
     ]
+    character_positions = _question_subspan_positions(
+        question_text=question,
+        question_positions=patch_metadata["question_positions"],
+        char_span=character_span,
+    )
+    room_positions = _question_subspan_positions(
+        question_text=question,
+        question_positions=patch_metadata["question_positions"],
+        char_span=room_span,
+    )
+    if not character_positions or not room_positions:
+        print(
+            f"[{sample_index}/{total_samples}] sample_id={sample_id} skipped: "
+            "failed to locate character/room token positions inside question span"
+        )
+        return None
+    character_room_positions = [int(position) for position in [*character_positions, *room_positions]]
 
     return {
         "frame_groups": [[int(position) for position in group] for group in patch_metadata["frame_groups"]],
@@ -169,11 +275,19 @@ def extract_unified_group_metadata(
         "all_frame_positions": [int(position) for position in patch_metadata["all_frame_positions"]],
         "selected_evidence_frames": [int(frame_idx) for frame_idx in selected_frame_indices],
         "evidence_frame_positions": [int(position) for position in evidence_frame_positions],
+        "instruction_positions": [int(position) for position in instruction_positions],
         "question_positions": [int(position) for position in patch_metadata["question_positions"]],
+        "target_character": str(target_character),
+        "target_room": str(target_room),
+        "character_positions": [int(position) for position in character_positions],
+        "room_positions": [int(position) for position in room_positions],
+        "character_room_positions": [int(position) for position in character_room_positions],
         "carrier_index": int(clean_inputs["input_ids"].shape[1] - 1),
         "group_positions": {
             "evidence_frames": [int(position) for position in evidence_frame_positions],
+            "instruction": [int(position) for position in instruction_positions],
             "question": [int(position) for position in patch_metadata["question_positions"]],
+            "character_room": [int(position) for position in character_room_positions],
             "last_token": [-1],
         },
     }
@@ -265,6 +379,7 @@ def build_common_sample_fields(
     frame_groups: Sequence[Sequence[int]],
     frame_group_sizes: Sequence[int],
     all_frame_positions: Sequence[int],
+    instruction_positions: Sequence[int],
     question_positions: Sequence[int],
     carrier_index: int,
     selected_layers_spec: Optional[str],
@@ -292,6 +407,7 @@ def build_common_sample_fields(
         "frame_groups_json": json.dumps([[int(position) for position in group] for group in frame_groups]),
         "frame_group_sizes_json": json.dumps([int(size) for size in frame_group_sizes]),
         "all_frame_positions_json": json.dumps([int(position) for position in all_frame_positions]),
+        "instruction_positions_json": json.dumps([int(position) for position in instruction_positions]),
         "question_positions_json": json.dumps([int(position) for position in question_positions]),
         "carrier_index": int(carrier_index),
         "selected_layers_spec": selected_layers_spec,
@@ -312,36 +428,48 @@ def _group_positions_for_output(
 
 
 def format_unified_summary_table(
-    summary_rows: Sequence[Tuple[int, float, float, float, float, float, float]]
+    summary_rows: Sequence[Tuple[int, float, float, float, float, float, float, float, float, float, float]]
 ) -> str:
     if not summary_rows:
         return "<none>"
     header = (
         "layer".ljust(7)
         + "R_ev_frames".center(14)
+        + "R_instruction".center(15)
         + "R_question".center(14)
+        + "R_char+room".center(14)
         + "R_last".center(12)
         + "D_ev_frames".center(14)
+        + "D_instruction".center(15)
         + "D_question".center(14)
+        + "D_char+room".center(14)
         + "D_last".center(12)
     )
     rows = [header]
     for (
         layer_idx,
         r_evidence_frames,
+        r_instruction,
         r_question,
+        r_character_room,
         r_last,
         d_evidence_frames,
+        d_instruction,
         d_question,
+        d_character_room,
         d_last,
     ) in summary_rows:
         rows.append(
             f"{str(layer_idx).ljust(7)}"
             f"{f'{r_evidence_frames:.4f}'.center(14)}"
+            f"{f'{r_instruction:.4f}'.center(15)}"
             f"{f'{r_question:.4f}'.center(14)}"
+            f"{f'{r_character_room:.4f}'.center(14)}"
             f"{f'{r_last:.4f}'.center(12)}"
             f"{f'{d_evidence_frames:.4f}'.center(14)}"
+            f"{f'{d_instruction:.4f}'.center(15)}"
             f"{f'{d_question:.4f}'.center(14)}"
+            f"{f'{d_character_room:.4f}'.center(14)}"
             f"{f'{d_last:.4f}'.center(12)}"
         )
     return "\n".join(rows)
@@ -471,7 +599,9 @@ def process_sample(
         f"evidence_frames={evidence_frame_indices} "
         f"selected_evidence_frames={group_metadata['selected_evidence_frames']} "
         f"evidence_frame_token_count={len(group_metadata['evidence_frame_positions'])} "
+        f"instruction_group_size={len(group_metadata['instruction_positions'])} "
         f"question_group_size={len(group_metadata['question_positions'])} "
+        f"character_room_group_size={len(group_metadata['character_room_positions'])} "
         f"denominator={denominator:.4f} carrier_index={group_metadata['carrier_index']}"
     )
 
@@ -495,6 +625,7 @@ def process_sample(
         frame_groups=group_metadata["frame_groups"],
         frame_group_sizes=group_metadata["frame_group_sizes"],
         all_frame_positions=group_metadata["all_frame_positions"],
+        instruction_positions=group_metadata["instruction_positions"],
         question_positions=group_metadata["question_positions"],
         carrier_index=group_metadata["carrier_index"],
         selected_layers_spec=selected_layers_spec,
@@ -504,7 +635,7 @@ def process_sample(
 
     restoration_rows: List[Dict[str, Any]] = []
     damage_rows: List[Dict[str, Any]] = []
-    summary_rows: List[Tuple[int, float, float, float, float, float, float]] = []
+    summary_rows: List[Tuple[int, float, float, float, float, float, float, float, float, float, float]] = []
 
     for layer_idx in selected_layers:
         restored_scores = run_group_patch_scores(
@@ -588,10 +719,14 @@ def process_sample(
             (
                 int(layer_idx),
                 float(restoration_normalized_by_group["evidence_frames"]),
+                float(restoration_normalized_by_group["instruction"]),
                 float(restoration_normalized_by_group["question"]),
+                float(restoration_normalized_by_group["character_room"]),
                 float(restoration_normalized_by_group["last_token"]),
                 float(damage_normalized_by_group["evidence_frames"]),
+                float(damage_normalized_by_group["instruction"]),
                 float(damage_normalized_by_group["question"]),
+                float(damage_normalized_by_group["character_room"]),
                 float(damage_normalized_by_group["last_token"]),
             )
         )
@@ -745,7 +880,7 @@ def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(
         description=(
             "Run a unified bottleneck pipeline that measures restoration and clean-ablation damage "
-            "for evidence frames, question, and last token on MMRed samples."
+            "for evidence frames, instruction, question, character + room, and last token on MMRed samples."
         )
     )
     ap.add_argument(
@@ -779,6 +914,15 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help="Maximum number of valid samples to process.",
+    )
+    ap.add_argument(
+        "--sample_seed",
+        type=int,
+        default=None,
+        help=(
+            "Optional seed for randomized sample order. If omitted, sample order is "
+            "randomized from system entropy on each run."
+        ),
     )
     ap.add_argument(
         "--clean_top1_must_match_gold",
@@ -880,6 +1024,7 @@ def finalize_outputs(
         "frame_group_sizes_json",
         "frame_groups_json",
         "all_frame_positions_json",
+        "instruction_positions_json",
         "question_positions_json",
         "carrier_index",
         "selected_layers_spec",
@@ -1033,6 +1178,13 @@ def main() -> None:
     sample_dirs = eval_utils.iter_sample_dirs(clean_data_dir)
     if not sample_dirs:
         raise RuntimeError(f"No sample directories found under: {clean_data_dir}")
+    sample_rng = random.Random(args.sample_seed)
+    sample_rng.shuffle(sample_dirs)
+    sample_seed_label = "<system>" if args.sample_seed is None else str(int(args.sample_seed))
+    print(
+        f"Randomized sample order over {len(sample_dirs)} dataset samples "
+        f"(sample_seed={sample_seed_label}, target valid sample_limit={int(args.sample_limit)})."
+    )
 
     sample_payloads: List[Dict[str, Any]] = []
     processed_samples = 0
@@ -1069,7 +1221,8 @@ def main() -> None:
 
     print(
         f"Processed {len(sample_payloads)} samples "
-        f"(target limit={int(args.sample_limit)}, clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)})."
+        f"(target limit={int(args.sample_limit)}, sample_seed={sample_seed_label}, "
+        f"clean_top1_must_match_gold={bool(args.clean_top1_must_match_gold)})."
     )
     if not sample_payloads:
         print(
