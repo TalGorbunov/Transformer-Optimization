@@ -33,7 +33,9 @@ def load_model_runtime(
     model_name: str,
     *,
     device_map: Any = "cuda",
+    device: Optional[str] = None,
     use_4bit: bool = True,
+    torch_dtype: Optional[torch.dtype] = None,
     attn_implementation: str = "sdpa",
     trust_remote_code: bool = True,
     use_fast_processor: bool = False,
@@ -51,9 +53,16 @@ def load_model_runtime(
     if device_map is not None:
         model_kwargs["device_map"] = device_map
     if use_4bit:
-        model_kwargs["quantization_config"] = build_4bit_quantization_config()
+        quantization_config = build_4bit_quantization_config()
+        if torch_dtype is not None:
+            quantization_config.bnb_4bit_compute_dtype = torch_dtype
+        model_kwargs["quantization_config"] = quantization_config
+    elif torch_dtype is not None:
+        model_kwargs["torch_dtype"] = torch_dtype
 
     model = AutoModelForImageTextToText.from_pretrained(model_name, **model_kwargs)
+    if device_map is None and device is not None:
+        model.to(device)
     model.eval()
     configure_attention_backend(attn_implementation, model_obj=model)
     return ModelRuntime(model_name=str(model_name), processor=processor, model=model)
