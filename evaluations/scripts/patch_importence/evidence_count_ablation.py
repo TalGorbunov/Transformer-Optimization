@@ -2,8 +2,8 @@
 Standalone MMReD evidence-count analysis.
 
 This experiment is not layer-based. It groups results by the exact number of
-evidence frames and measures clamped gold-answer drops on clean-top1-correct
-samples and absolute clean-top1 score differences on all samples.
+evidence frames and measures clamped GT-answer drops on clean-top1-correct
+samples and absolute GT-answer score differences on all samples.
 
 The implementation intentionally reuses the current MMReD runtime, prompt/input
 construction, answer-token extraction, corrupted-sample traversal, and score
@@ -50,15 +50,10 @@ PER_FRAME_FIELDS = [
     "gold_answer",
     "clean_top1_answer",
     "clean_top1_is_gold",
-    "clean_score_gold",
-    "single_corrupt_score_gold",
-    "clean_ablation_drop",
-    "clean_ablation_drop_all_samples",
-    "clean_score_top1",
-    "single_corrupt_score_top1",
-    "abs_influence_top1",
-    "d_i_max",
-    "d_i_abs",
+    "clean_score_gt",
+    "single_corrupt_score_gt",
+    "d_i_gt_clamped_influence",
+    "d_i_gt_abs_influence",
 ]
 
 PER_SAMPLE_FIELDS = [
@@ -70,18 +65,8 @@ PER_SAMPLE_FIELDS = [
     "clean_top1_answer",
     "clean_top1_is_gold",
     "num_evidence_frames",
-    "mean_clean_ablation_drop",
-    "mean_clean_ablation_drop_all_samples",
-    "entropy_drop_sum",
-    "entropy_norm",
-    "total_abs_influence",
-    "per_frame_avg_abs_influence",
-    "mean_clean_ablation_max_clean_top1_correct",
-    "per_frame_avg_max_influence_clean_top1_correct",
-    "entropy_max_clean_top1_correct",
-    "mean_clean_ablation_abs_all_samples",
-    "per_frame_avg_abs_influence_all_samples",
-    "entropy_abs_all_samples",
+    "per_frame_avg_gt_clamped_influence_clean_top1_correct",
+    "per_frame_avg_gt_abs_influence_all_samples",
 ]
 
 AGGREGATE_BY_COUNT_FIELDS = [
@@ -102,9 +87,9 @@ AGGREGATE_BY_COUNT_FIELDS = [
 AGGREGATE_BY_FRAME_INDEX_FIELDS = [
     "seq_len",
     "frame_idx",
-    "mean_clean_ablation_drop",
-    "median_clean_ablation_drop",
-    "std_clean_ablation_drop",
+    "mean_d_i_gt_clamped_influence_clean_top1_correct",
+    "median_d_i_gt_clamped_influence_clean_top1_correct",
+    "std_d_i_gt_clamped_influence_clean_top1_correct",
     "n",
     "mean_ci_low",
     "mean_ci_high",
@@ -113,19 +98,11 @@ AGGREGATE_BY_FRAME_INDEX_FIELDS = [
 ]
 
 METRIC_ORDER = (
-    "mean_clean_ablation_max_clean_top1_correct",
-    "per_frame_avg_max_influence_clean_top1_correct",
-    "entropy_max_clean_top1_correct",
-    "mean_clean_ablation_abs_all_samples",
-    "entropy_abs_all_samples",
-    "per_frame_avg_abs_influence_all_samples",
-    "mean_clean_ablation_drop",
-    "mean_clean_ablation_drop_all_samples",
-    "entropy_norm",
-    "total_abs_influence",
-    "per_frame_avg_abs_influence",
-    "entropy_drop_sum",
+    "per_frame_avg_gt_clamped_influence_clean_top1_correct",
+    "per_frame_avg_gt_abs_influence_all_samples",
 )
+
+MULTIMODAL_BATCH_KEYS = {"pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw"}
 
 
 @dataclass(frozen=True)
@@ -223,7 +200,6 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Use 4-bit loading on CUDA by default.",
     )
-    parser.add_argument("--eps", type=float, default=1e-8)
     parser.add_argument(
         "--bootstrap-samples",
         "--bootstrap_samples",
@@ -231,15 +207,33 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1000,
     )
+    parser.add_argument(
+        "--aggregate-every",
+        "--aggregate_every",
+        dest="aggregate_every",
+        type=int,
+        default=None,
+        help="Optional cadence for rewriting aggregate CSVs every N processed samples. Defaults to end-only.",
+    )
+    parser.add_argument(
+        "--score-batch-size",
+        "--score_batch_size",
+        dest="score_batch_size",
+        type=int,
+        default=4,
+        help="Micro-batch size for within-sample corrupted GT scoring.",
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
     if args.max_samples_per_exact_dir is not None and int(args.max_samples_per_exact_dir) <= 0:
         raise ValueError("--max-samples-per-exact-dir must be positive when provided")
-    if float(args.eps) <= 0.0:
-        raise ValueError("--eps must be positive")
     if int(args.bootstrap_samples) <= 0:
         raise ValueError("--bootstrap-samples must be positive")
+    if args.aggregate_every is not None and int(args.aggregate_every) <= 0:
+        raise ValueError("--aggregate-every must be positive when provided")
+    if int(args.score_batch_size) <= 0:
+        raise ValueError("--score-batch-size must be positive")
     return args
 
 
@@ -575,6 +569,154 @@ def score(
     )
 
 
+def resolve_pad_token_id(runtime: Any) -> int:
+    pad_token_id = getattr(runtime.processor.tokenizer, "pad_token_id", None)
+    if pad_token_id is None:
+        pad_token_id = getattr(runtime.processor.tokenizer, "eos_token_id", None)
+    if pad_token_id is None:
+        raise ValueError("Tokenizer has no pad_token_id or eos_token_id for batched scoring.")
+    return int(pad_token_id)
+
+
+def pad_scoring_tensors_for_batch(
+    scoring_inputs_list: Sequence[Dict[str, Any]],
+    *,
+    pad_token_id: int,
+) -> Dict[str, Any]:
+    if not scoring_inputs_list:
+        raise ValueError("scoring_inputs_list must be non-empty")
+    if len(scoring_inputs_list) == 1:
+        return dict(scoring_inputs_list[0])
+
+    def pad_dim1(value: torch.Tensor, *, pad_value: int) -> torch.Tensor:
+        if value.dim() < 2 or int(value.shape[0]) != 1:
+            raise ValueError(f"Expected a single-row sequence tensor, got shape={tuple(value.shape)}")
+        max_len = max(int(inputs["input_ids"].shape[1]) for inputs in scoring_inputs_list)
+        pad_len = int(max_len - int(value.shape[1]))
+        if pad_len <= 0:
+            return value
+        pad_shape = list(value.shape)
+        pad_shape[1] = pad_len
+        suffix = torch.full(
+            tuple(pad_shape),
+            int(pad_value),
+            dtype=value.dtype,
+            device=value.device,
+        )
+        return torch.cat([value, suffix], dim=1)
+
+    out: Dict[str, Any] = {}
+    keys = list(scoring_inputs_list[0].keys())
+    for key in keys:
+        values = [inputs[key] for inputs in scoring_inputs_list]
+        first_value = values[0]
+        if not torch.is_tensor(first_value):
+            out[key] = first_value
+            continue
+        if key == "input_ids":
+            out[key] = torch.cat([pad_dim1(value, pad_value=pad_token_id) for value in values], dim=0)
+            continue
+        if key == "attention_mask":
+            out[key] = torch.cat([pad_dim1(value, pad_value=0) for value in values], dim=0)
+            continue
+        if key in MULTIMODAL_BATCH_KEYS:
+            out[key] = torch.cat(values, dim=0)
+            continue
+        if first_value.dim() == 0:
+            out[key] = torch.stack(values, dim=0)
+            continue
+        if (
+            first_value.dim() >= 2
+            and int(first_value.shape[0]) == 1
+            and all(int(value.shape[0]) == 1 for value in values)
+        ):
+            if all(
+                int(value.shape[1]) == int(scoring_inputs_list[idx]["input_ids"].shape[1])
+                for idx, value in enumerate(values)
+            ):
+                out[key] = torch.cat([pad_dim1(value, pad_value=0) for value in values], dim=0)
+                continue
+            if all(tuple(value.shape[1:]) == tuple(first_value.shape[1:]) for value in values):
+                out[key] = torch.cat(values, dim=0)
+                continue
+        raise ValueError(f"Cannot batch input {key!r} with shape={tuple(first_value.shape)}")
+    return out
+
+
+def sequence_logprobs_from_logits_by_prompt_len(
+    logits: torch.Tensor,
+    *,
+    prompt_lens: Sequence[int],
+    answer_token_ids_: Sequence[int],
+) -> List[float]:
+    if logits.dim() != 3:
+        raise ValueError(f"Expected logits rank-3 [batch, seq, vocab], got {tuple(logits.shape)}")
+    if int(logits.shape[0]) != len(prompt_lens):
+        raise ValueError(f"logits batch size {int(logits.shape[0])} does not match prompt_lens={len(prompt_lens)}")
+    if not answer_token_ids_:
+        raise ValueError("answer_token_ids_ must be non-empty")
+
+    answer_len = len(answer_token_ids_)
+    target_token_ids = torch.tensor(answer_token_ids_, device=logits.device, dtype=torch.long)
+    scores: List[float] = []
+    for batch_idx, prompt_len in enumerate(prompt_lens):
+        prompt_len = int(prompt_len)
+        if prompt_len <= 0:
+            raise ValueError("prompt_len must be >= 1")
+        token_positions = torch.arange(answer_len, device=logits.device, dtype=torch.long) + (prompt_len - 1)
+        selected_logits = logits[int(batch_idx), token_positions, :]
+        log_probs = torch.log_softmax(selected_logits, dim=-1)
+        target_log_probs = torch.gather(log_probs, dim=-1, index=target_token_ids.unsqueeze(-1)).squeeze(-1)
+        scores.append(float(target_log_probs.sum().item()))
+    return scores
+
+
+def score_batched_same_answer(
+    *,
+    lm: LanguageModel,
+    inputs_and_prompt_lens: Sequence[Tuple[Dict[str, Any], int]],
+    answer_token_ids_: Sequence[int],
+    score_batch_size: int,
+    pad_token_id: int,
+) -> List[float]:
+    if int(score_batch_size) <= 0:
+        raise ValueError("score_batch_size must be positive")
+    if not inputs_and_prompt_lens:
+        return []
+
+    answer_ids = [int(token_id) for token_id in answer_token_ids_]
+    scoring_items = [
+        (
+            tgi.append_answer_tokens_for_scoring(inputs, answer_ids),
+            int(prompt_len),
+        )
+        for inputs, prompt_len in inputs_and_prompt_lens
+    ]
+
+    scores: List[float] = []
+    for start_idx in range(0, len(scoring_items), int(score_batch_size)):
+        microbatch = scoring_items[start_idx : start_idx + int(score_batch_size)]
+        microbatch_inputs = pad_scoring_tensors_for_batch(
+            [item[0] for item in microbatch],
+            pad_token_id=int(pad_token_id),
+        )
+        microbatch_prompt_lens = [int(item[1]) for item in microbatch]
+        with torch.inference_mode():
+            with lm.trace(microbatch_inputs):
+                saved_logits = lm.output.logits.save()
+        logits = saved_logits.value if hasattr(saved_logits, "value") else saved_logits
+        scores.extend(
+            sequence_logprobs_from_logits_by_prompt_len(
+                logits,
+                prompt_lens=microbatch_prompt_lens,
+                answer_token_ids_=answer_ids,
+            )
+        )
+    if len(scores) != len(inputs_and_prompt_lens):
+        raise RuntimeError(f"Expected {len(inputs_and_prompt_lens)} scores, got {len(scores)}")
+    return scores
+
+
 def normalize_answer_text(answer_text: Any) -> str:
     return str(answer_text).strip()
 
@@ -585,7 +727,7 @@ def process_sample(
     sample_dir: Path,
     runtime: Any,
     lm: LanguageModel,
-    eps: float,
+    score_batch_size: int,
     sample_index: int,
     total_samples: int,
 ) -> Optional[Tuple[Dict[str, Any], List[Dict[str, Any]]]]:
@@ -638,19 +780,11 @@ def process_sample(
     except Exception as exc:
         print(f"{log_prefix} skipped: invalid gold answer tokenization ({exc})")
         return None
-    if clean_top1_is_gold:
-        clean_top1_answer_ids = gold_answer_ids
-    else:
-        try:
-            clean_top1_answer_ids = answer_token_ids(clean_top1_answer, runtime)
-        except Exception as exc:
-            print(f"{log_prefix} skipped: invalid clean top-1 tokenization ({exc})")
-            return None
 
-    clean_score_gold = clean_metrics["scores_by_answer"].get(gold_answer)
-    if clean_score_gold is None:
+    clean_score_gt = clean_metrics["scores_by_answer"].get(gold_answer)
+    if clean_score_gt is None:
         try:
-            clean_score_gold = score(
+            clean_score_gt = score(
                 lm=lm,
                 inputs=clean_inputs,
                 prompt_len=clean_prompt_len,
@@ -659,24 +793,11 @@ def process_sample(
         except Exception as exc:
             print(f"{log_prefix} skipped: failed to score clean gold answer ({exc})")
             return None
-    clean_score_gold = float(clean_score_gold)
-
-    clean_score_top1 = clean_metrics["scores_by_answer"].get(clean_top1_answer)
-    if clean_score_top1 is None:
-        try:
-            clean_score_top1 = score(
-                lm=lm,
-                inputs=clean_inputs,
-                prompt_len=clean_prompt_len,
-                answer_token_ids_=clean_top1_answer_ids,
-            )
-        except Exception as exc:
-            print(f"{log_prefix} skipped: failed to score clean top-1 answer ({exc})")
-            return None
-    clean_score_top1 = float(clean_score_top1)
+    clean_score_gt = float(clean_score_gt)
 
     part1_valid = bool(clean_top1_is_gold and int(bucket_spec.evidence_count) >= 1)
     per_frame_rows: List[Dict[str, Any]] = []
+    corrupted_variants: List[Tuple[int, Dict[str, Any], int]] = []
 
     for frame_idx in evidence_frame_indices:
         corrupted_sample_dir = eval_utils.resolve_corrupted_sample_dir(
@@ -718,33 +839,42 @@ def process_sample(
             )
             return None
 
-        try:
-            single_corrupt_score_gold = score(
-                lm=lm,
-                inputs=corrupted_inputs,
-                prompt_len=corrupted_prompt_len,
-                answer_token_ids_=gold_answer_ids,
-            )
-            if clean_top1_is_gold:
-                single_corrupt_score_top1 = single_corrupt_score_gold
-            else:
-                single_corrupt_score_top1 = score(
-                    lm=lm,
-                    inputs=corrupted_inputs,
-                    prompt_len=corrupted_prompt_len,
-                    answer_token_ids_=clean_top1_answer_ids,
-                )
-        except Exception as exc:
-            print(
-                f"{log_prefix} skipped: failed scoring single-corrupt frame_idx={int(frame_idx)} ({exc})"
-            )
-            return None
+        corrupted_variants.append((int(frame_idx), corrupted_inputs, int(corrupted_prompt_len)))
 
-        d_i_max = float(max(0.0, clean_score_gold - float(single_corrupt_score_gold)))
-        d_i_abs = float(abs(clean_score_top1 - float(single_corrupt_score_top1)))
-        clean_ablation_drop_all_samples = d_i_max
-        clean_ablation_drop = d_i_max if part1_valid else float("nan")
-        abs_influence_top1 = d_i_abs
+    try:
+        single_corrupt_gt_scores = score_batched_same_answer(
+            lm=lm,
+            inputs_and_prompt_lens=[(inputs, prompt_len) for _, inputs, prompt_len in corrupted_variants],
+            answer_token_ids_=gold_answer_ids,
+            score_batch_size=int(score_batch_size),
+            pad_token_id=resolve_pad_token_id(runtime),
+        )
+    except Exception as exc:
+        print(f"{log_prefix} warning: batched corrupted GT scoring failed ({exc}); falling back to sequential scoring")
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        single_corrupt_gt_scores = []
+        for frame_idx, corrupted_inputs, corrupted_prompt_len in corrupted_variants:
+            try:
+                single_corrupt_gt_scores.append(
+                    score(
+                        lm=lm,
+                        inputs=corrupted_inputs,
+                        prompt_len=int(corrupted_prompt_len),
+                        answer_token_ids_=gold_answer_ids,
+                    )
+                )
+            except Exception as sequential_exc:
+                print(
+                    f"{log_prefix} skipped: failed scoring single-corrupt frame_idx={int(frame_idx)} "
+                    f"after batched fallback ({sequential_exc})"
+                )
+                return None
+
+    for (frame_idx, _, _), single_corrupt_score_gt in zip(corrupted_variants, single_corrupt_gt_scores):
+        single_corrupt_score_gt = float(single_corrupt_score_gt)
+        d_i_gt_clamped_influence = float(max(0.0, clean_score_gt - single_corrupt_score_gt))
+        d_i_gt_abs_influence = float(abs(clean_score_gt - single_corrupt_score_gt))
 
         per_frame_rows.append({
             "seq_len": int(bucket_spec.seq_len),
@@ -756,70 +886,39 @@ def process_sample(
             "gold_answer": str(gold_answer),
             "clean_top1_answer": str(clean_top1_answer),
             "clean_top1_is_gold": bool(clean_top1_is_gold),
-            "clean_score_gold": float(clean_score_gold),
-            "single_corrupt_score_gold": float(single_corrupt_score_gold),
-            "clean_ablation_drop": float(clean_ablation_drop),
-            "clean_ablation_drop_all_samples": float(clean_ablation_drop_all_samples),
-            "clean_score_top1": float(clean_score_top1),
-            "single_corrupt_score_top1": float(single_corrupt_score_top1),
-            "abs_influence_top1": float(abs_influence_top1),
-            "d_i_max": float(d_i_max),
-            "d_i_abs": float(d_i_abs),
+            "clean_score_gt": float(clean_score_gt),
+            "single_corrupt_score_gt": float(single_corrupt_score_gt),
+            "d_i_gt_clamped_influence": float(d_i_gt_clamped_influence),
+            "d_i_gt_abs_influence": float(d_i_gt_abs_influence),
         })
 
-    part1_drops = [
-        float(row["clean_ablation_drop"])
+    if len(per_frame_rows) != len(evidence_frame_indices):
+        print(
+            f"{log_prefix} skipped: scored corrupted frames mismatch "
+            f"expected={len(evidence_frame_indices)} actual={len(per_frame_rows)}"
+        )
+        return None
+
+    gt_clamped_influences = [
+        float(row["d_i_gt_clamped_influence"])
         for row in per_frame_rows
-        if math.isfinite(float(row["clean_ablation_drop"]))
+        if math.isfinite(float(row["d_i_gt_clamped_influence"]))
     ]
-    mean_clean_ablation_drop = (
-        float(sum(part1_drops) / len(part1_drops))
-        if part1_valid and part1_drops
+    per_frame_avg_gt_clamped_influence_clean_top1_correct = (
+        float(sum(gt_clamped_influences) / len(gt_clamped_influences))
+        if part1_valid and gt_clamped_influences
         else float("nan")
     )
-    all_sample_clean_ablation_drops = [
-        float(row["clean_ablation_drop_all_samples"])
+    gt_abs_influences = [
+        float(row["d_i_gt_abs_influence"])
         for row in per_frame_rows
-        if math.isfinite(float(row["clean_ablation_drop_all_samples"]))
+        if math.isfinite(float(row["d_i_gt_abs_influence"]))
     ]
-    mean_clean_ablation_drop_all_samples = (
-        float(sum(all_sample_clean_ablation_drops) / len(all_sample_clean_ablation_drops))
-        if all_sample_clean_ablation_drops
+    per_frame_avg_gt_abs_influence_all_samples = (
+        float(sum(gt_abs_influences) / len(gt_abs_influences))
+        if gt_abs_influences
         else float("nan")
     )
-    entropy_drop_sum = (
-        float(sum(part1_drops))
-        if part1_valid and part1_drops
-        else float("nan")
-    )
-
-    entropy_norm = float("nan")
-    if part1_valid and len(per_frame_rows) >= 2:
-        drop_sum = float(entropy_drop_sum)
-        if drop_sum > float(eps):
-            probabilities = [float(drop) / drop_sum for drop in part1_drops]
-            entropy = -sum(float(prob) * math.log(float(prob)) for prob in probabilities if prob > 0.0)
-            entropy_norm = float(entropy / math.log(float(len(per_frame_rows))))
-
-    mean_clean_ablation_max_clean_top1_correct = float(mean_clean_ablation_drop)
-    per_frame_avg_max_influence_clean_top1_correct = float(mean_clean_ablation_drop)
-    entropy_max_clean_top1_correct = float(entropy_norm)
-
-    total_abs_influence = float(sum(float(row["d_i_abs"]) for row in per_frame_rows))
-    per_frame_avg_abs_influence = (
-        float(total_abs_influence / float(len(per_frame_rows)))
-        if per_frame_rows
-        else float("nan")
-    )
-    mean_clean_ablation_abs_all_samples = float(per_frame_avg_abs_influence)
-    per_frame_avg_abs_influence_all_samples = float(per_frame_avg_abs_influence)
-    entropy_abs_all_samples = float("nan")
-    if len(per_frame_rows) >= 2:
-        abs_sum = float(total_abs_influence)
-        if abs_sum > float(eps):
-            probabilities = [float(row["d_i_abs"]) / abs_sum for row in per_frame_rows]
-            entropy = -sum(float(prob) * math.log(float(prob)) for prob in probabilities if prob > 0.0)
-            entropy_abs_all_samples = float(entropy / math.log(float(len(per_frame_rows))))
 
     per_sample_row = {
         "seq_len": int(bucket_spec.seq_len),
@@ -830,28 +929,18 @@ def process_sample(
         "clean_top1_answer": str(clean_top1_answer),
         "clean_top1_is_gold": bool(clean_top1_is_gold),
         "num_evidence_frames": int(len(per_frame_rows)),
-        "mean_clean_ablation_drop": float(mean_clean_ablation_drop),
-        "mean_clean_ablation_drop_all_samples": float(mean_clean_ablation_drop_all_samples),
-        "entropy_drop_sum": float(entropy_drop_sum),
-        "entropy_norm": float(entropy_norm),
-        "total_abs_influence": float(total_abs_influence),
-        "per_frame_avg_abs_influence": float(per_frame_avg_abs_influence),
-        "mean_clean_ablation_max_clean_top1_correct": float(mean_clean_ablation_max_clean_top1_correct),
-        "per_frame_avg_max_influence_clean_top1_correct": float(per_frame_avg_max_influence_clean_top1_correct),
-        "entropy_max_clean_top1_correct": float(entropy_max_clean_top1_correct),
-        "mean_clean_ablation_abs_all_samples": float(mean_clean_ablation_abs_all_samples),
-        "per_frame_avg_abs_influence_all_samples": float(per_frame_avg_abs_influence_all_samples),
-        "entropy_abs_all_samples": float(entropy_abs_all_samples),
+        "per_frame_avg_gt_clamped_influence_clean_top1_correct": float(
+            per_frame_avg_gt_clamped_influence_clean_top1_correct
+        ),
+        "per_frame_avg_gt_abs_influence_all_samples": float(per_frame_avg_gt_abs_influence_all_samples),
     }
 
     print(
         f"{log_prefix} kept: clean_top1={clean_top1_answer!r} clean_top1_is_gold={clean_top1_is_gold} "
-        f"num_evidence_frames={len(per_frame_rows)} mean_clean_ablation_drop={mean_clean_ablation_drop:.6f} "
-        f"mean_clean_ablation_drop_all_samples={mean_clean_ablation_drop_all_samples:.6f} "
-        f"entropy_drop_sum={entropy_drop_sum:.6f} entropy_norm={entropy_norm:.6f} "
-        f"total_abs_influence={total_abs_influence:.6f} "
-        f"per_frame_avg_abs_influence={per_frame_avg_abs_influence:.6f} "
-        f"entropy_abs_all_samples={entropy_abs_all_samples:.6f}"
+        f"num_evidence_frames={len(per_frame_rows)} "
+        f"per_frame_avg_gt_clamped_influence_clean_top1_correct="
+        f"{per_frame_avg_gt_clamped_influence_clean_top1_correct:.6f} "
+        f"per_frame_avg_gt_abs_influence_all_samples={per_frame_avg_gt_abs_influence_all_samples:.6f}"
     )
     return per_sample_row, per_frame_rows
 
@@ -921,19 +1010,20 @@ def build_aggregate_by_frame_index_rows(
     for seq_len in sorted(int(value) for value in seq_lens):
         for frame_idx in range(int(seq_len)):
             values = [
-                float(row["clean_ablation_drop"])
+                float(row["d_i_gt_clamped_influence"])
                 for row in per_frame_rows
                 if int(row["seq_len"]) == int(seq_len)
                 and int(row["frame_idx"]) == int(frame_idx)
-                and math.isfinite(float(row.get("clean_ablation_drop", float("nan"))))
+                and bool(row.get("clean_top1_is_gold"))
+                and math.isfinite(float(row.get("d_i_gt_clamped_influence", float("nan"))))
             ]
             summary = summarize_values(values, n_bootstrap=n_bootstrap, rng=rng)
             rows.append({
                 "seq_len": int(seq_len),
                 "frame_idx": int(frame_idx),
-                "mean_clean_ablation_drop": float(summary["mean"]),
-                "median_clean_ablation_drop": float(summary["median"]),
-                "std_clean_ablation_drop": float(summary["std"]),
+                "mean_d_i_gt_clamped_influence_clean_top1_correct": float(summary["mean"]),
+                "median_d_i_gt_clamped_influence_clean_top1_correct": float(summary["median"]),
+                "std_d_i_gt_clamped_influence_clean_top1_correct": float(summary["std"]),
                 "n": int(len(values)),
                 "mean_ci_low": float(summary["mean_ci_low"]),
                 "mean_ci_high": float(summary["mean_ci_high"]),
@@ -951,6 +1041,7 @@ def plot_metric_vs_evidence_count(
     title: str,
     y_label: str,
     min_evidence_count: int,
+    formula_text: Optional[str] = None,
 ) -> Path:
     import matplotlib
 
@@ -1018,6 +1109,23 @@ def plot_metric_vs_evidence_count(
         ax.legend(frameon=True, title="solid=mean, dashed=median")
     else:
         ax.text(0.5, 0.5, "No valid data", transform=ax.transAxes, ha="center", va="center")
+    if formula_text:
+        ax.text(
+            0.02,
+            0.98,
+            formula_text,
+            transform=ax.transAxes,
+            ha="left",
+            va="top",
+            fontsize=8.5,
+            linespacing=1.25,
+            bbox={
+                "boxstyle": "round,pad=0.35",
+                "facecolor": "white",
+                "edgecolor": "0.85",
+                "alpha": 0.86,
+            },
+        )
     fig.tight_layout()
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, bbox_inches="tight")
@@ -1050,10 +1158,10 @@ def plot_frame_index_metric(
         if not seq_rows:
             continue
         x = [int(row["frame_idx"]) for row in seq_rows]
-        mean_y = [float(row["mean_clean_ablation_drop"]) for row in seq_rows]
+        mean_y = [float(row["mean_d_i_gt_clamped_influence_clean_top1_correct"]) for row in seq_rows]
         mean_lo = [float(row["mean_ci_low"]) for row in seq_rows]
         mean_hi = [float(row["mean_ci_high"]) for row in seq_rows]
-        median_y = [float(row["median_clean_ablation_drop"]) for row in seq_rows]
+        median_y = [float(row["median_d_i_gt_clamped_influence_clean_top1_correct"]) for row in seq_rows]
         median_lo = [float(row["median_ci_low"]) for row in seq_rows]
         median_hi = [float(row["median_ci_high"]) for row in seq_rows]
         color = color_cycle[line_index % len(color_cycle)] if color_cycle else None
@@ -1081,7 +1189,7 @@ def plot_frame_index_metric(
 
     ax.set_title(title, fontsize=13, pad=10)
     ax.set_xlabel("Temporal frame index")
-    ax.set_ylabel("Mean clean-ablation drop")
+    ax.set_ylabel("Mean GT clamped influence")
     ax.grid(alpha=0.25, linestyle="--", linewidth=0.8)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1117,7 +1225,9 @@ def print_configuration(
     print(f"dtype={resolved_dtype}")
     print(f"use_4bit={use_4bit}")
     print(f"seq_lens={list(seq_lens)}")
-    print(f"bootstrap_samples={int(args.bootstrap_samples)} seed={int(args.seed)} eps={float(args.eps):.1e}")
+    print(f"bootstrap_samples={int(args.bootstrap_samples)} seed={int(args.seed)}")
+    print(f"aggregate_every={args.aggregate_every}")
+    print(f"score_batch_size={int(args.score_batch_size)}")
     if args.max_samples_per_exact_dir is not None:
         print(f"max_samples_per_exact_dir={int(args.max_samples_per_exact_dir)}")
     for seq_len, split in sorted(exact_zero_counts):
@@ -1201,7 +1311,7 @@ def main() -> None:
                     sample_dir=sample_dir,
                     runtime=runtime,
                     lm=lm,
-                    eps=float(args.eps),
+                    score_batch_size=int(args.score_batch_size),
                     sample_index=running_index,
                     total_samples=total_samples,
                 )
@@ -1224,30 +1334,31 @@ def main() -> None:
             per_frame_rows.extend(sample_frame_rows)
             append_csv_rows(per_sample_csv_path, [per_sample_row], PER_SAMPLE_FIELDS)
             append_csv_rows(per_frame_csv_path, sample_frame_rows, PER_FRAME_FIELDS)
-
-            aggregate_by_count_rows = build_aggregate_by_count_rows(
-                bucket_specs=bucket_specs,
-                per_sample_rows=per_sample_rows,
-                n_bootstrap=int(args.bootstrap_samples),
-                seed=int(args.seed),
-            )
-            aggregate_by_frame_index_rows = build_aggregate_by_frame_index_rows(
-                seq_lens=seq_lens,
-                per_frame_rows=per_frame_rows,
-                n_bootstrap=int(args.bootstrap_samples),
-                seed=int(args.seed),
-            )
-            write_csv_atomic(
-                aggregate_by_count_csv_path,
-                aggregate_by_count_rows,
-                AGGREGATE_BY_COUNT_FIELDS,
-            )
-            write_csv_atomic(
-                aggregate_by_frame_index_csv_path,
-                aggregate_by_frame_index_rows,
-                AGGREGATE_BY_FRAME_INDEX_FIELDS,
-            )
             processed_samples += 1
+
+            if args.aggregate_every is not None and processed_samples % int(args.aggregate_every) == 0:
+                aggregate_by_count_rows = build_aggregate_by_count_rows(
+                    bucket_specs=bucket_specs,
+                    per_sample_rows=per_sample_rows,
+                    n_bootstrap=int(args.bootstrap_samples),
+                    seed=int(args.seed),
+                )
+                aggregate_by_frame_index_rows = build_aggregate_by_frame_index_rows(
+                    seq_lens=seq_lens,
+                    per_frame_rows=per_frame_rows,
+                    n_bootstrap=int(args.bootstrap_samples),
+                    seed=int(args.seed),
+                )
+                write_csv_atomic(
+                    aggregate_by_count_csv_path,
+                    aggregate_by_count_rows,
+                    AGGREGATE_BY_COUNT_FIELDS,
+                )
+                write_csv_atomic(
+                    aggregate_by_frame_index_csv_path,
+                    aggregate_by_frame_index_rows,
+                    AGGREGATE_BY_FRAME_INDEX_FIELDS,
+                )
 
     final_aggregate_by_count_rows = build_aggregate_by_count_rows(
         bucket_specs=bucket_specs,
@@ -1277,61 +1388,38 @@ def main() -> None:
     plot_paths.append(
         plot_metric_vs_evidence_count(
             aggregate_rows=final_aggregate_by_count_rows,
-            metric="mean_clean_ablation_max_clean_top1_correct",
-            output_path=output_dir / "mean_single_frame_clean_ablation_max_vs_evidence_count_clean_top1_correct.png",
-            title="Mean Single-Frame Clean-Ablation (Max) vs Evidence Count (Clean Top-1 Correct)",
-            y_label="Mean single-frame max drop",
+            metric="per_frame_avg_gt_clamped_influence_clean_top1_correct",
+            output_path=output_dir / "mean_per_frame_avg_gt_clamped_influence_vs_evidence_count_clean_top1_correct.png",
+            title="Mean Per-Frame Average GT Clamped Influence vs Evidence Count (Clean Top-1 Correct)",
+            y_label="Mean per-frame avg GT clamped influence",
             min_evidence_count=1,
+            formula_text=(
+                "GT clamped per-frame influence:\n"
+                "d_i = max(0, s_clean(GT) - s_corrupt_i(GT))\n"
+                "avg = (1/k) * sum_i d_i"
+            ),
         )
     )
     plot_paths.append(
         plot_metric_vs_evidence_count(
             aggregate_rows=final_aggregate_by_count_rows,
-            metric="per_frame_avg_max_influence_clean_top1_correct",
-            output_path=output_dir / "mean_per_frame_avg_max_influence_vs_evidence_count_clean_top1_correct.png",
-            title="Mean Per-Frame Average Clamped Influence vs Evidence Count (Clean Top-1 Correct)",
-            y_label="Mean per-frame avg max influence",
+            metric="per_frame_avg_gt_abs_influence_all_samples",
+            output_path=output_dir / "mean_per_frame_avg_gt_abs_influence_vs_evidence_count_all_samples.png",
+            title="Mean Per-Frame Average GT Absolute Influence vs Evidence Count (All Samples)",
+            y_label="Mean per-frame avg GT abs influence",
             min_evidence_count=1,
+            formula_text=(
+                "GT absolute per-frame influence:\n"
+                "d_i = abs(s_clean(GT) - s_corrupt_i(GT))\n"
+                "avg = (1/k) * sum_i d_i"
+            ),
         )
     )
     plot_paths.append(
-        plot_metric_vs_evidence_count(
-            aggregate_rows=final_aggregate_by_count_rows,
-            metric="entropy_max_clean_top1_correct",
-            output_path=output_dir / "normalized_entropy_max_vs_evidence_count_clean_top1_correct.png",
-            title="Mean Normalized Entropy (Max) vs Evidence Count (Clean Top-1 Correct)",
-            y_label="Mean normalized entropy (max)",
-            min_evidence_count=2,
-        )
-    )
-    plot_paths.append(
-        plot_metric_vs_evidence_count(
-            aggregate_rows=final_aggregate_by_count_rows,
-            metric="mean_clean_ablation_abs_all_samples",
-            output_path=output_dir / "mean_single_frame_clean_ablation_abs_vs_evidence_count_all_samples.png",
-            title="Mean Single-Frame Clean-Ablation (Abs) vs Evidence Count (All Samples)",
-            y_label="Mean single-frame abs drop",
-            min_evidence_count=1,
-        )
-    )
-    plot_paths.append(
-        plot_metric_vs_evidence_count(
-            aggregate_rows=final_aggregate_by_count_rows,
-            metric="entropy_abs_all_samples",
-            output_path=output_dir / "normalized_entropy_abs_vs_evidence_count_all_samples.png",
-            title="Mean Normalized Entropy (Abs) vs Evidence Count (All Samples)",
-            y_label="Mean normalized entropy (abs)",
-            min_evidence_count=2,
-        )
-    )
-    plot_paths.append(
-        plot_metric_vs_evidence_count(
-            aggregate_rows=final_aggregate_by_count_rows,
-            metric="per_frame_avg_abs_influence_all_samples",
-            output_path=output_dir / "mean_per_frame_avg_abs_influence_vs_evidence_count_all_samples.png",
-            title="Mean Per-Frame Average Absolute Influence vs Evidence Count (All Samples)",
-            y_label="Mean per-frame avg abs influence",
-            min_evidence_count=1,
+        plot_frame_index_metric(
+            aggregate_rows=final_aggregate_by_frame_index_rows,
+            output_path=output_dir / "mean_gt_clamped_frame_influence_by_frame_index_clean_top1_correct.png",
+            title="Mean GT Clamped Frame Influence by Temporal Frame Index (Clean Top-1 Correct)",
         )
     )
 
