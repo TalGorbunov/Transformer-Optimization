@@ -16,6 +16,7 @@ Deterministic rules:
 
 Also:
 - Only renders examples with qtype == "steps_in_room"
+- Loads one local plain HF Dataset directory at a time
 - Writes qa.txt next to images with the original question/answer metadata.
 """
 
@@ -24,9 +25,10 @@ import ast
 import argparse
 import re
 import shutil
+from pathlib import Path
 from typing import Dict, List, Tuple
 
-from datasets import load_dataset, load_from_disk
+from datasets import Dataset, load_from_disk
 from PIL import Image, ImageDraw, ImageFont
 
 # Fixed room order (spec)
@@ -43,6 +45,7 @@ CHAR_COLORS: Dict[str, Tuple[int, int, int]] = {
 
 IMG_SIZE = 512
 
+
 def load_font(size: int) -> ImageFont.ImageFont:
     # DejaVuSans is commonly available on Linux. Falls back to default bitmap font.
     try:
@@ -50,7 +53,8 @@ def load_font(size: int) -> ImageFont.ImageFont:
     except Exception:
         return ImageFont.load_default()
 
-def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[str, Tuple[int,int,int,int]]:
+
+def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[str, Tuple[int, int, int, int]]:
     """
     Create a 2x3 grid of rectangles with fixed room order.
 
@@ -68,7 +72,7 @@ def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[s
     cell_w = (grid_w - (cols - 1) * gap) // cols
     cell_h = (grid_h - (rows - 1) * gap) // rows
 
-    boxes: Dict[str, Tuple[int,int,int,int]] = {}
+    boxes: Dict[str, Tuple[int, int, int, int]] = {}
     idx = 0
     for r in range(rows):
         for c in range(cols):
@@ -79,6 +83,7 @@ def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[s
             boxes[ROOMS[idx]] = (x0, y0, x1, y1)
             idx += 1
     return boxes
+
 
 def room_anchor_slots(room_box, n_slots=6):
     x0, y0, x1, y1 = room_box
@@ -140,6 +145,7 @@ def parse_question_states(question: str) -> List[Dict]:
         raise ValueError("No step states found in question text.")
     return states
 
+
 def render_frame(rooms: Dict[str, List[str]], step_id: int, out_path: str) -> None:
     """
     Render a single 512x512 frame according to spec.
@@ -174,8 +180,12 @@ def render_frame(rooms: Dict[str, List[str]], step_id: int, out_path: str) -> No
             color = CHAR_COLORS.get(ch, (120, 120, 120))
 
             # circle
-            draw.ellipse((cx - circle_r, cy - circle_r, cx + circle_r, cy + circle_r),
-                         fill=color, outline=(0, 0, 0), width=2)
+            draw.ellipse(
+                (cx - circle_r, cy - circle_r, cx + circle_r, cy + circle_r),
+                fill=color,
+                outline=(0, 0, 0),
+                width=2,
+            )
 
             # name above
             tw, th = draw.textbbox((0, 0), ch, font=font_name)[2:]
@@ -188,6 +198,7 @@ def render_frame(rooms: Dict[str, List[str]], step_id: int, out_path: str) -> No
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     img.save(out_path)
+
 
 def write_qa_txt(sample_dir: str, ex: Dict) -> None:
     path = os.path.join(sample_dir, "qa.txt")
@@ -213,6 +224,7 @@ _STEPS_IN_ROOM_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+
 def parse_target_character_room(question_text: str) -> Tuple[str, str]:
     """
     Extract (C, R) from the natural-language question line:
@@ -229,6 +241,7 @@ def parse_target_character_room(question_text: str) -> Tuple[str, str]:
     # Normalize room capitalization to match renderer's ROOMS naming (Kitchen, Bathroom, ...)
     r_norm = r[:1].upper() + r[1:].lower()
     return c, r_norm
+
 
 def split_question_into_states_and_tail(question_text: str) -> Tuple[List[Dict], List[str]]:
     """
@@ -255,6 +268,7 @@ def split_question_into_states_and_tail(question_text: str) -> Tuple[List[Dict],
         raise ValueError("No step states found in question text.")
     tail_lines = lines[last_state_line_idx + 1:] if last_state_line_idx >= 0 else []
     return states, tail_lines
+
 
 def rooms_to_room2chars(rooms: Dict) -> Dict[str, List[str]]:
     """
@@ -297,9 +311,11 @@ def rooms_to_room2chars(rooms: Dict) -> Dict[str, List[str]]:
         out[r] = sorted(out[r])
     return out
 
+
 def char_in_room(step_rooms: Dict, character: str, room: str) -> bool:
     r2c = rooms_to_room2chars(step_rooms)
     return character in r2c.get(room, [])
+
 
 def corrupt_step_rooms(step_rooms: Dict, character: str, room: str) -> Dict[str, List[str]]:
     """
@@ -314,6 +330,7 @@ def corrupt_step_rooms(step_rooms: Dict, character: str, room: str) -> Dict[str,
     for r in new:
         new[r] = sorted(new[r])
     return new
+
 
 def write_corrupted_qa_txt(out_dir: str, orig_qa: Dict, new_question_text: str) -> None:
     """
@@ -331,6 +348,7 @@ def write_corrupted_qa_txt(out_dir: str, orig_qa: Dict, new_question_text: str) 
             f.write("\n")
         f.write("answer:\n")
         f.write(str(orig_qa.get("answer")) + "\n")
+
 
 def read_sample_qa(sample_dir: str) -> Dict:
     """
@@ -373,24 +391,67 @@ def read_sample_qa(sample_dir: str) -> Dict:
     meta["answer"] = "\n".join(answer_lines).strip()
     return meta
 
+
+def dataset_relative_path(dataset_root: Path) -> Path:
+    for idx, part in enumerate(dataset_root.parts):
+        if part.startswith("seq_len_"):
+            return Path(*dataset_root.parts[idx:])
+    return Path(dataset_root.name)
+
+
+def load_plain_dataset(dataset_root: Path) -> Dataset:
+    ds = load_from_disk(str(dataset_root))
+    if not isinstance(ds, Dataset):
+        raise TypeError(
+            f"Expected --dataset-root to point to one plain HF Dataset directory, found {type(ds).__name__}"
+        )
+    return ds
+
+
+def is_renderable_dataset_dir(path: Path) -> bool:
+    return path.name == "all_uniform" or (
+        path.name.startswith("exact_") and path.parent.name == "by_evidence_count"
+    )
+
+
+def resolve_dataset_roots(dataset_root: Path, recursive: bool) -> List[Path]:
+    if not recursive:
+        return [dataset_root]
+
+    if is_renderable_dataset_dir(dataset_root):
+        return [dataset_root]
+
+    roots = sorted(
+        path
+        for path in dataset_root.rglob("*")
+        if path.is_dir() and is_renderable_dataset_dir(path)
+    )
+    if not roots:
+        raise FileNotFoundError(
+            f"No renderable dataset directories found under {dataset_root}. "
+            "Expected all_uniform and/or by_evidence_count/exact_* folders."
+        )
+    return roots
+
+
 def generate_corrupted_sample_from_rendered(
-    sample_dir: str,
+    sample_dir: Path,
     corrupt_frame_idx: int,
     character: str,
     room: str,
-    out_root: str,
-    split: str,
+    out_root: Path,
+    dataset_rel_dir: Path,
 ) -> str:
     """
     Given a rendered sample folder (with frames + qa.txt), generate a NEW corrupted sample folder:
-      out_root/seq_len_{x}/{split}/{sample_id}/corrupted_frame_{y}/
+      out_root/<dataset_rel_dir>/<sample_id>/corrupted_frame_{y}/
 
     It re-renders ALL frames, but applies the corruption ONLY to frame y by removing `character`
     from `room` in that step's rooms state.
 
     Returns the output directory path.
     """
-    qa = read_sample_qa(sample_dir)
+    qa = read_sample_qa(str(sample_dir))
     states, tail_lines = split_question_into_states_and_tail(qa["question"])
     seq_len = len(states)
 
@@ -413,22 +474,15 @@ def generate_corrupted_sample_from_rendered(
     dict_lines = [repr(s) for s in new_states]
     new_question_text = "\n".join(dict_lines + tail_lines).rstrip("\n") + "\n"
 
-    sample_id = os.path.basename(os.path.normpath(sample_dir))
-    out_dir = os.path.join(
-        out_root,
-        f"seq_len_{seq_len}",
-        split,
-        sample_id,
-        f"corrupted_frame_{corrupt_frame_idx}",
-    )
-
-    os.makedirs(out_dir, exist_ok=True)
+    sample_id = sample_dir.name
+    out_dir = out_root / dataset_rel_dir / sample_id / f"corrupted_frame_{corrupt_frame_idx}"
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # Render frames
     for t, s in enumerate(new_states):
         step_id = int(s.get("step_id", t + 1))
         rooms_norm = rooms_to_room2chars(s["rooms"])
-        render_frame(rooms_norm, step_id, os.path.join(out_dir, f"{t:03d}.png"))
+        render_frame(rooms_norm, step_id, os.fspath(out_dir / f"{t:03d}.png"))
 
     # Write qa.txt (corrupted)
     qa_out = {
@@ -438,18 +492,19 @@ def generate_corrupted_sample_from_rendered(
         "seq_len": qa.get("seq_len", seq_len),
         "answer": qa.get("answer"),
     }
-    write_corrupted_qa_txt(out_dir, qa_out, new_question_text)
+    write_corrupted_qa_txt(os.fspath(out_dir), qa_out, new_question_text)
 
-    return out_dir
+    return os.fspath(out_dir)
 
-def create_all_corruptions_for_sample(sample_dir: str, out_root: str, split: str) -> int:
+
+def create_all_corruptions_for_sample(sample_dir: Path, out_root: Path, dataset_rel_dir: Path) -> int:
     """
     For a given rendered sample_dir, create corrupted samples for each evidence frame:
     a frame t is an evidence frame if character C is in room R at step t.
 
     Returns number of corruptions created.
     """
-    qa = read_sample_qa(sample_dir)
+    qa = read_sample_qa(str(sample_dir))
     print(f"Processing sample_id={qa.get('qid')} with qtype={qa.get('qtype')}")
     states, _ = split_question_into_states_and_tail(qa["question"])
     c, r = parse_target_character_room(qa["question"])
@@ -466,78 +521,113 @@ def create_all_corruptions_for_sample(sample_dir: str, out_root: str, split: str
             character=c,
             room=r,
             out_root=out_root,
-            split=split,
+            dataset_rel_dir=dataset_rel_dir,
         )
         created += 1
     return created
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--config", default="seq_len_16")
-    ap.add_argument("--split", default="train", choices=["train", "val", "test", "all"])
-    ap.add_argument(
-        "--dataset-root",
-        default=None,
-        help="Optional local HF dataset root containing seq_len_* folders saved via DatasetDict.save_to_disk.",
-    )
-    ap.add_argument("--out", default="data/mmred_images")
-    ap.add_argument("--limit", type=int, default=10, help="max rendered samples AFTER qtype filter")
-    ap.add_argument("--corrupt_out", default="data/mmred_corrupted", help="Output root for corrupted samples")
-    args = ap.parse_args()
 
-    split_names = ["train", "val", "test"] if args.split == "all" else [args.split]
-    out_split_name = "all" if args.split == "all" else args.split
-    rendered_root = os.path.join(args.out, args.config, out_split_name)
-    if args.split == "all":
-        if os.path.isdir(rendered_root):
-            shutil.rmtree(rendered_root)
-        corrupt_all_dir = os.path.join(args.corrupt_out, args.config, "all")
-        if os.path.isdir(corrupt_all_dir):
-            shutil.rmtree(corrupt_all_dir)
+def render_dataset(dataset_root: Path, out_root: Path, corrupt_out_root: Path, limit: int) -> Tuple[int, int]:
+    dataset_rel = dataset_relative_path(dataset_root)
+    rendered_root = out_root / dataset_rel
+    corrupt_root = corrupt_out_root / dataset_rel
+
+    if rendered_root.is_dir():
+        shutil.rmtree(rendered_root)
+    if corrupt_root.is_dir():
+        shutil.rmtree(corrupt_root)
+
+    ds = load_plain_dataset(dataset_root)
 
     rendered = 0
-    rendered_sample_dirs: List[str] = []
-    for split_name in split_names:
-        if args.dataset_root:
-            ds_dict = load_from_disk(os.path.join(args.dataset_root, args.config))
-            ds = ds_dict[split_name]
-        else:
-            ds = load_dataset("ef1e43ce/mmred", args.config, split=split_name)
-        for idx in range(len(ds)):
-            ex = ds[idx]
+    rendered_sample_dirs: List[Path] = []
+    for idx in range(len(ds)):
+        ex = ds[idx]
 
-            # Only qtype == steps_in_room (as requested)
-            if ex.get("qtype") != "steps_in_room":
-                continue
+        # Only qtype == steps_in_room (as requested)
+        if ex.get("qtype") != "steps_in_room":
+            continue
 
-            states = parse_question_states(ex["question"])
-            qid = str(ex.get("qid", idx))
-            sample_dir = os.path.join(args.out, args.config, out_split_name, qid)
+        states = parse_question_states(ex["question"])
+        qid = str(ex.get("qid") or ex.get("sample_id") or idx)
+        sample_dir = rendered_root / qid
 
-            for t, s in enumerate(states):
-                step_id = int(s.get("step_id", t + 1))
-                rooms = s["rooms"]
-                render_frame(rooms, step_id, os.path.join(sample_dir, f"{t:03d}.png"))
+        for t, s in enumerate(states):
+            step_id = int(s.get("step_id", t + 1))
+            rooms = rooms_to_room2chars(s["rooms"])
+            render_frame(rooms, step_id, os.fspath(sample_dir / f"{t:03d}.png"))
 
-            write_qa_txt(sample_dir, ex)
-            rendered_sample_dirs.append(sample_dir)
+        write_qa_txt(os.fspath(sample_dir), ex)
+        rendered_sample_dirs.append(sample_dir)
 
-            rendered += 1
-            if rendered >= args.limit:
-                break
-        if rendered >= args.limit:
+        rendered += 1
+        if rendered >= limit:
             break
 
-    print(f"Rendered {rendered} samples (qtype=steps_in_room) into: {os.path.abspath(rendered_root)}")
+    print(f"Rendered {rendered} samples (qtype=steps_in_room) into: {rendered_root.resolve()}")
 
     total_created = 0
-    for sd in rendered_sample_dirs:
+    for sample_dir in rendered_sample_dirs:
         try:
-            total_created += create_all_corruptions_for_sample(sd, args.corrupt_out, out_split_name)
+            total_created += create_all_corruptions_for_sample(sample_dir, corrupt_out_root, dataset_rel)
         except Exception as e:
-            print(f"[WARN] skipping corruption for {sd}: {e}")
+            print(f"[WARN] skipping corruption for {sample_dir}: {e}")
 
-    print(f"Created {total_created} corrupted sample folders under: {os.path.abspath(args.corrupt_out)}")
+    print(f"Created {total_created} corrupted sample folders under: {corrupt_out_root.resolve()}")
+    return rendered, total_created
+
+
+def main():
+    ap = argparse.ArgumentParser(
+        description=(
+            "Render one local MMReD plain HF Dataset directory such as "
+            "seq_len_4/by_evidence_count/exact_2 or seq_len_8/all_uniform. "
+            "With --recursive, a seq_len_* directory or generated root will render all "
+            "all_uniform and exact_* dataset folders underneath."
+        )
+    )
+    ap.add_argument(
+        "--dataset-root",
+        type=Path,
+        required=True,
+        help="Path to one plain HF Dataset directory to render, or a parent directory with --recursive.",
+    )
+    ap.add_argument("--out", type=Path, default=Path("data/mmred_images"))
+    ap.add_argument(
+        "--limit",
+        type=int,
+        default=10,
+        help="Max rendered samples after qtype filter. In --recursive mode this applies per dataset folder.",
+    )
+    ap.add_argument(
+        "--corrupt-out",
+        type=Path,
+        default=Path("data/mmred_corrupted"),
+        help="Output root for corrupted samples",
+    )
+    ap.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Recursively render all all_uniform and by_evidence_count/exact_* dataset folders under --dataset-root.",
+    )
+    args = ap.parse_args()
+
+    dataset_root = args.dataset_root.resolve()
+    dataset_roots = resolve_dataset_roots(dataset_root, args.recursive)
+
+    total_rendered = 0
+    total_corrupted = 0
+    for root in dataset_roots:
+        rendered, corrupted = render_dataset(root, args.out, args.corrupt_out, args.limit)
+        total_rendered += rendered
+        total_corrupted += corrupted
+
+    if len(dataset_roots) > 1:
+        print(
+            f"Finished rendering {len(dataset_roots)} dataset folders: "
+            f"rendered_samples={total_rendered} corrupted_samples={total_corrupted}"
+        )
+
 
 if __name__ == "__main__":
     main()
