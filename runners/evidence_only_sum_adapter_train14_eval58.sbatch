@@ -41,7 +41,7 @@ D_MEM="${D_MEM:-256}"
 
 mkdir -p "${OUTPUT_DIR}"
 
-python -u experiments/evidence_only_sum_evidence_adapter_seq1_8_7b.py \
+python -u experiments/evidence_only/evidence_only_sum_evidence_adapter_seq1_8_7b.py \
   --run-all \
   --train-seq-lens ${TRAIN_SEQ_LENS} \
   --epochs "${EPOCHS}" \

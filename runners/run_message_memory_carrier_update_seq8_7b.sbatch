@@ -69,8 +69,8 @@ RUN_FULL="${RUN_FULL:-1}"
 
 STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
 EXPERIMENT_DIR="${EXPERIMENT_DIR:-${OUTPUT_ROOT}/${STAMP}_message_memory_carrier_update_seq8_7b}"
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_message_memory_carrier_update_seq8_7b.py"
-SUMMARY_SCRIPT="${REPO_ROOT}/scripts/probes/summarize_message_memory_carrier_update_seq8_7b.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_message_memory_carrier_update_seq8_7b.py"
+SUMMARY_SCRIPT="${REPO_ROOT}/experiments/carrier_probes/summarize_message_memory_carrier_update_seq8_7b.py"
 
 read -ra EVIDENCE_COUNT_ARRAY <<< "${EVIDENCE_COUNTS//,/ }"
 

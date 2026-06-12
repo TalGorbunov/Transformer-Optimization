@@ -17,7 +17,7 @@ mkdir -p logs
 RUN_NAME="${RUN_NAME:-$(date +%Y%m%d_%H%M%S)}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 
-"${PYTHON}" scripts/probes/run_message_memory_carrier_update_seq8_7b.py \
+"${PYTHON}" experiments/carrier_probes/run_message_memory_carrier_update_seq8_7b.py \
   --run-baseline-and-layer-local-raw-matrix \
   --run-name "${RUN_NAME}" \
   --message-mode auto \

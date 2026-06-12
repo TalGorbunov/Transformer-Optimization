@@ -100,7 +100,7 @@ read -ra LAYER_WINDOW_ARRAY <<< "${LAYER_WINDOWS//,/ }"
 read -ra PARAM_TYPE_ARRAY <<< "${PARAM_TYPES//,/ }"
 read -ra MARGIN_LAMBDA_ARRAY <<< "${MARGIN_LAMBDA//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_oracle_count_multilayer_injection_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/oracle_bounds/run_oracle_count_multilayer_injection_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

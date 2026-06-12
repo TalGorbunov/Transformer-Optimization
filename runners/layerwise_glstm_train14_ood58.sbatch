@@ -44,7 +44,7 @@ TRAIN_PER_COUNT="${TRAIN_PER_COUNT:-50}"
 
 mkdir -p "${OUTPUT_ROOT}/slurm"
 
-python -u experiments/layerwise_frame_message_glstm.py \
+python -u experiments/glstm/layerwise_frame_message_glstm.py \
   --model-name "${MODEL_NAME}" \
   --source-dataset-root "${SOURCE_DATASET_ROOT}" \
   --output-root "${OUTPUT_ROOT}" \

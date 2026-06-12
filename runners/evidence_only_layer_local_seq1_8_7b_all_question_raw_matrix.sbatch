@@ -34,7 +34,7 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 PYTHON="${PYTHON:-python}"
 RUN_NAME="${RUN_NAME:-all_question_messages_raw_matrix_$(date +%Y%m%d_%H%M%S)}"
 
-"${PYTHON}" -u scripts/experiments/evidence_only_layer_local_seq1_8_7b.py \
+"${PYTHON}" -u experiments/evidence_only/evidence_only_layer_local_seq1_8_7b.py \
   --run-all \
   --token-group all_question \
   --readout-mode raw_matrix \

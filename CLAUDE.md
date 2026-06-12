@@ -95,7 +95,7 @@ sbatch --export=ALL,DRY_RUN=1 runners/run_message_memory_carrier_update_seq8_7b.
 ```
 Common override vars: `MODEL_NAME`, `DATASET_ROOT`, `OUTPUT_DIR`/`OUTPUT_ROOT`, `SEQ_LEN`, `LAYERS`,
 `EPOCHS`, `LR`, `D_MEM`, `LOAD_IN_4BIT`, `NO_PLOTS`, `RUN_SMOKE`/`RUN_FULL`. Some experiment scripts
-can also be run directly, e.g. `python -u scripts/experiments/<name>.py --run-all`.
+can also be run directly, e.g. `python -u experiments/<subject>/<name>.py --run-all`.
 
 Runners auto: locate `REPO_ROOT`, `source .venv/bin/activate`, set `PYTHONUNBUFFERED=1` and
 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `mkdir` the output dir, tee a `runner-<jobid>.log`,
@@ -131,9 +131,15 @@ evaluations/
   helpers/                 af1_utils, patching_core, sdpa_attention, plots, utils  (shared infra)
   experiments/mmred/       MMRED task definitions
   scripts/                 eval scripts (accuracy mosaics, image-size sweeps, af1, attention, patching)
-experiments/               big trainable-adapter scripts (gLSTM, gated token mixer, evidence-only, ...)
-scripts/experiments/       experiment entrypoints (distractor adapters, translator, pna mixing, ...)
-scripts/probes/            probe entrypoints (message-memory, codebook, count-direction, ...)
+experiments/               ALL experiment entrypoints, one subject per subdir (a real package —
+                           import as experiments.<subject>.<module>):
+  evidence_only/           evidence-only adapters (sum / layer-local / all-question-to-last)
+  distractor/              distractor-task adapters (oracle-mask sum, supervised gated sum)
+  oracle_bounds/           oracle count injection / translator upper-bound probes + diagnostics
+  carrier_probes/          message-memory, count-direction, codebook, injection-sweep probes
+  carrier_mixing/          pna/pnamix LoRA carrier mixing, visual_fixed8 sweeps, frame sigmoid-sum
+  glstm/                   gLSTM memory adapters (layerwise, mechanism ablation, final comparison,
+                           gated token mixer, native factorized attention)
 runners/                   sbatch + .sh submit wrappers (env-var driven); runners/archive/ = retired
 data/                      MMRED dataset variants (mmred_images_park = main; *_evidence_only_seq1_8,
                            *_no_step_marker, *_perm_bias, *_corrupted* = ablation variants)

@@ -114,7 +114,7 @@ read -ra TAU_ARRAY <<< "${TAUS//,/ }"
 read -ra LAMBDA_COUNT_CLS_ARRAY <<< "${LAMBDA_COUNT_CLS//,/ }"
 read -ra LAMBDA_COUNT_REG_ARRAY <<< "${LAMBDA_COUNT_REG//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_answer_aligned_count_codebook_memory_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_answer_aligned_count_codebook_memory_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

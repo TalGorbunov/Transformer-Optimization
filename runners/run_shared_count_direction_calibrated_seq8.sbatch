@@ -101,7 +101,7 @@ read -ra CARRIER_ARRAY <<< "${CARRIERS//,/ }"
 read -ra LAMBDA_COUNT_ARRAY <<< "${LAMBDA_COUNTS//,/ }"
 read -ra LAMBDA_RES_ARRAY <<< "${LAMBDA_RES//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_shared_count_direction_calibrated_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_shared_count_direction_calibrated_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

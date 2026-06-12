@@ -76,7 +76,7 @@ read -ra TARGET_ARRAY <<< "${TARGETS//,/ }"
 read -ra SINGLE_LAYER_ARRAY <<< "${SINGLE_LAYERS//,/ }"
 read -ra LAYER_WINDOW_ARRAY <<< "${LAYER_WINDOWS//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_memory_injection_site_sweep_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_memory_injection_site_sweep_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

@@ -104,7 +104,7 @@ CODEBOOK_TYPE="${CODEBOOK_TYPES[${TASK_ID}]}"
 
 read -ra EVIDENCE_COUNT_ARRAY <<< "${EVIDENCE_COUNTS//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/experiments/oracle_count_injection_site_sweep_seq8_7b.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/oracle_bounds/oracle_count_injection_site_sweep_seq8_7b.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

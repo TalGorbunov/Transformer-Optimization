@@ -141,7 +141,7 @@ LR="${LR:-${TASK_LR}}"
 
 read -ra EVIDENCE_COUNT_ARRAY <<< "${EVIDENCE_COUNTS//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/experiments/translator_ablation_gold_count_seq8_7b.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/oracle_bounds/translator_ablation_gold_count_seq8_7b.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

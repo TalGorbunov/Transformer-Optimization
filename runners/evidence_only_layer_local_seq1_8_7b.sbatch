@@ -31,4 +31,4 @@ fi
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-python -u scripts/experiments/evidence_only_layer_local_seq1_8_7b.py --run-all "$@"
+python -u experiments/evidence_only/evidence_only_layer_local_seq1_8_7b.py --run-all "$@"

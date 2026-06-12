@@ -81,7 +81,7 @@ read -ra LAYER_WINDOW_ARRAY <<< "${LAYER_WINDOWS//,/ }"
 read -ra ALPHA_ARRAY <<< "${ALPHA_VALUES//,/ }"
 read -ra MODE_ARRAY <<< "${INJECTION_MODES//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_memory_carrier_site_layer_norm_sweep_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_memory_carrier_site_layer_norm_sweep_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"

@@ -33,7 +33,7 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 
 RUN_NAME="${RUN_NAME:-all_question_to_last_raw_matrix_$(date +%Y%m%d_%H%M%S)}"
 
-python -u scripts/experiments/evidence_only_all_question_to_last_seq1_8_7b.py \
+python -u experiments/evidence_only/evidence_only_all_question_to_last_seq1_8_7b.py \
   --run-all \
   --message-token-group all_question \
   --query-token-group last_token \

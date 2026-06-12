@@ -95,7 +95,7 @@ read -ra EVIDENCE_COUNT_ARRAY <<< "${EVIDENCE_COUNTS//,/ }"
 read -ra LAYER_ARRAY <<< "${LAYERS//,/ }"
 read -ra CARRIER_ARRAY <<< "${CARRIERS//,/ }"
 
-SCRIPT_PATH="${REPO_ROOT}/scripts/probes/run_message_memory_count_channel_ablation_seq8.py"
+SCRIPT_PATH="${REPO_ROOT}/experiments/carrier_probes/run_message_memory_count_channel_ablation_seq8.py"
 
 CMD=(
   python -u "${SCRIPT_PATH}"
