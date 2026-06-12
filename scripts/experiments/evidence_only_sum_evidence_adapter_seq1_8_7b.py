@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -52,15 +52,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-root", type=Path, default=DEFAULT_DATASET_ROOT)
     parser.add_argument("--source-dataset-root", type=Path, default=DEFAULT_SOURCE_DATASET_ROOT)
     parser.add_argument("--seq-lens", nargs="+", default=[str(x) for x in range(1, 9)])
-    parser.add_argument(
-        "--train-seq-lens",
-        nargs="+",
-        default=[],
-        help=(
-            "Optional subset of --seq-lens used for the train/val splits. Seq lens outside "
-            "this subset contribute all their samples to the test split (length/count OOD)."
-        ),
-    )
     parser.add_argument("--samples-per-seq-len", type=int, default=100)
     parser.add_argument("--force-generate", action="store_true", default=False)
 
@@ -1445,7 +1436,6 @@ def main() -> int:
             "dataset_root": os.fspath(Path(args.dataset_root).resolve()),
             "source_dataset_root": os.fspath(Path(args.source_dataset_root).resolve()),
             "seq_lens": [int(x) for x in seq_lens],
-            "train_seq_lens": base.split_int_tokens(args.train_seq_lens) if args.train_seq_lens else [int(x) for x in seq_lens],
             "output_root": os.fspath(Path(args.output_root).resolve()),
             "output_dir": os.fspath(output_dir),
             "run_baseline": bool(should_run_baseline),
@@ -1485,22 +1475,6 @@ def main() -> int:
             max_train_per_seq=int(args.max_train_samples_per_seq_len),
             max_eval_per_seq=int(args.max_eval_samples_per_seq_len),
         )
-        train_seq_lens = base.split_int_tokens(args.train_seq_lens) if args.train_seq_lens else list(seq_lens)
-        if any(seq_len not in seq_lens for seq_len in train_seq_lens):
-            raise ValueError("--train-seq-lens must be a subset of --seq-lens")
-        if sorted(train_seq_lens) != sorted(seq_lens):
-            train_set = {int(x) for x in train_seq_lens}
-
-            def record_seq_len(idx: int) -> int:
-                return len(records[int(idx)].frame_paths)
-
-            ood_extra = [idx for idx in splits["train"] + splits["val"] if record_seq_len(idx) not in train_set]
-            splits["train"] = [idx for idx in splits["train"] if record_seq_len(idx) in train_set]
-            splits["val"] = [idx for idx in splits["val"] if record_seq_len(idx) in train_set]
-            splits["test"] = sorted(
-                splits["test"] + ood_extra,
-                key=lambda idx: (len(records[idx].frame_paths), records[idx].sample_id),
-            )
         base.print_split_counts(records, splits, seq_lens)
         if should_run_sum_evidence and (not splits["train"] or not splits["val"]):
             raise RuntimeError("Sum-evidence training requires non-empty train and val splits")
