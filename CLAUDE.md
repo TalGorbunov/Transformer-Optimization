@@ -121,7 +121,12 @@ tail -f logs/<jobname>-<jobid>.out                           # live SLURM log (a
   interpretation / "Readout" — **read this first** to see what a run concluded), `diagnostics.json`
   (smoke sanity flags like `hooks_ok`, `nonzero_gates`), `run_done.json` (completion marker),
   `checkpoints/*.pt` / `*_adapter.pt`, `plots/*.png`.
-- Suggested name for new runs: `outputs/<method>_<shortdesc>_seq<N>_<model>/<YYYYMMDD_HHMMSS>/`.
+- **Output dir naming rule:** a run's output tree must be named after the Python script that
+  produced it: `outputs/<script_basename_without_.py>/<YYYYMMDD_HHMMSS>/` (e.g.
+  `evidence_only_sum_evidence_adapter_seq1_8_7b.py` → `outputs/evidence_only_sum_evidence_adapter_seq1_8_7b/20260612_161616/`).
+  Keep the timestamped run subdirs. Variant/config suffixes go on the timestamped subdir
+  (e.g. `20260608_101718_carrier_glstm_layerwise`), never on the root. This keeps every metric
+  traceable to the exact script that produced it.
 
 ## 4. Repo layout
 

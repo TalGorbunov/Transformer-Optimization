@@ -129,6 +129,7 @@
 | 2026-06-07→09 | `outputs/layerwise_frame_message_glstm`, `layerwise_glstm_mechanism_ablation` | gLSTM mechanism ablation: persistent vs fresh, layerwise vs final-only | 7B, L14–17, d_mem 64, 3.3M params | layerwise-persistent **98.1% IID / 88.1% length-OOD** vs direct-sum 94.5/73.9 | ✅ | Cross-layer **persistent state +18.7pp length-OOD**; layerwise injection +~1pp IID. ⚠️ verify what's frozen — "memory-disabled" drops to ~58%, so a lot rides on the adapter. |
 | 2026-06-08 | `outputs/layerwise_fresh_query_aggregation_ablation`, `native_frame_factorized_attention` | Fresh-query / native-attention factorization | 7B, smoke | ~0% | ❌ | Generating fresh queries / factorizing native attention fails; explicit messaging or memory is needed. |
 | 2026-06-09→10 | `outputs/final_glstm_aggregation_comparison` | **Head-to-head:** gLSTM (final-only) vs sum vs LoRA baseline | 7B, L14–17, lr 1e-4, 3 ep | gLSTM **70.5%** high-aggregation-extrap vs sum 46.0% / LoRA 48.5%; IID 98.9% | ✅ | **Current leading comparison:** gLSTM memory > sum > LoRA on the hard extrapolation split. |
+| 2026-06-12 | `outputs/evidence_only_sum_adapter_train14_eval58_7b/{20260612_160218,20260612_161616}` | Sum adapter **OOD extrapolation**: train seq 1–4 only, eval seq 5–8 (new `--train-seq-lens` split; OOD test n=100/seq) | 7B, evidence-only, L14–17, d256, lr 1e-4, 1 vs 3 ep | 1 ep (val 96.7%): OOD 60–96%, undercounts; **3 ep (val 100%): OOD 100%** (460/460, mean pred = gold exactly) | ✅ | **Perfect length+count extrapolation** once converged — counts 5–8 never seen as labels. 1-ep degradation was undertraining, not an extrapolation limit. Diagnostics clean (frozen Qwen, exact messages, disjoint splits). Caveat: in evidence-only, count ≡ seq_len (axes confounded); jobs 93447/93452. |
 
 ---
 
@@ -144,6 +145,12 @@
   attention messages** and injects them at carrier/question tokens (L14–17): 100% at seq 1–8 vs ~39%
   base, MAE→0. Sum, layer-local, and raw-matrix readouts all reach 100% — confirming the
   **additive-aggregation hypothesis** (sum of per-frame signals ≫ joint MLP, 63.7% vs ~22% on the probe).
+- **And it extrapolates perfectly (2026-06-12):** trained on seq/count 1–4 only, the converged (3-ep)
+  sum adapter scores **100% on seq/count 5–8** (n=100/seq) with exactly calibrated mean predictions —
+  lengths, counts, and answer labels all unseen in training. The additive mechanism *computes* the
+  count rather than memorizing the mapping (contrast: LoRA/maxmix get 0% count-OOD). This is the
+  "simple solution that generalizes" for the evidence-only task; the open problems remain distractors
+  and count-extrapolation on the distractor task.
 - **gLSTM beats everything simpler on clean data.** Layerwise *persistent* gLSTM ≈ 98–99% IID and
   88–89% length-OOD, and in the head-to-head `final_glstm_aggregation_comparison` it leads on the hard
   high-aggregation-extrapolation split (70.5% vs sum 46% vs LoRA 48.5%). Cross-layer state persistence
@@ -213,7 +220,7 @@
 | LoRA + carrier mixing (maxmix/slots) | clean high-count 82–97% | trained-clean | ✅ (clean only) | `outputs/pnamix_clean_aggregation_lora`, `visual_fixed8_iid_carrier_slots_lora` |
 | Memory adapter / count-direction | 45–61% | distractor task | ⚠️ partial | `outputs_oreo/{shared_count_direction*,answer_aligned*}`, `outputs_no_train/message_memory_carrier_update` |
 | Learned token mixers (GTM/PNA/LoRA-attn) | 50–53% | distractor task | ⚠️ partial | `outputs_no_train/{gated_token_mixer_adapter,pna_gated_token_mixer_adapter}` |
-| **Evidence-only sum/layer-local/raw-matrix** | **100%** | evidence-only | ✅ solved | `outputs_no_train/evidence_only_*` |
+| **Evidence-only sum/layer-local/raw-matrix** | **100%** (incl. **100% OOD**: train 1–4 → eval 5–8) | evidence-only | ✅ solved + extrapolates | `outputs_no_train/evidence_only_*`, `outputs/evidence_only_sum_adapter_train14_eval58_7b` |
 | **gLSTM memory adapter** | IID 98–99% / length-OOD 88% / hi-extrap 70.5% | clean splits | ✅ **leading** | `outputs/{final_glstm_aggregation_comparison,layerwise_*glstm*}`, `outputs_kitkat/glstm_memory_adapter_7b_seq8` |
 | Oracle pos/neg write-read (distractor) | **96.3%** | oracle mask | 📊 target upper bound | `outputs_no_train/distractor_oracle_posneg_write_read_adapter_seq8_7b` |
 
