@@ -60,6 +60,7 @@ CARRIER_LORA = "carrier_lora"
 CARRIER_DIRECT_SUM = "carrier_direct_sum"
 CARRIER_GLSTM_LAYERWISE = "carrier_glstm_layerwise"
 CARRIER_GLSTM_FINAL_ONLY = "carrier_glstm_final_only"
+CARRIER_GLSTM_SOFTMAX = "carrier_glstm_layerwise_softmax"
 VARIANTS = (
     GLOBAL_LORA,
     CARRIER_LORA,
@@ -81,9 +82,12 @@ VARIANT_ALIASES = {
     "final": CARRIER_GLSTM_FINAL_ONLY,
     "final_only": CARRIER_GLSTM_FINAL_ONLY,
     "carrier_glstm_final_only": CARRIER_GLSTM_FINAL_ONLY,
+    "softmax": CARRIER_GLSTM_SOFTMAX,
+    "softmax_read": CARRIER_GLSTM_SOFTMAX,
+    "carrier_glstm_layerwise_softmax": CARRIER_GLSTM_SOFTMAX,
 }
-MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY}
-GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY}
+MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
+GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
 
 
 class Tee:
@@ -273,6 +277,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--length-ood-per-count", type=int, default=20)
     parser.add_argument("--composition-ood-per-count", type=int, default=20)
     parser.add_argument("--heldout-compositions", type=int, default=4)
+    parser.add_argument(
+        "--filler-kind",
+        choices=["neutral", "distractor"],
+        default="neutral",
+        help=(
+            "Pool used for non-evidence frames. 'neutral' = queried character absent and queried "
+            "room empty (clean task). 'distractor' = queried character elsewhere or queried room "
+            "occupied by other characters (hard task)."
+        ),
+    )
     parser.add_argument("--force-regenerate-dataset", action="store_true", default=False)
 
     parser.add_argument("--epochs", type=int, default=3)
@@ -458,7 +472,7 @@ def scan_source_frame_pools(
             characters.update(eval_utils.extract_characters_from_states(states))
             rooms.update(eval_utils.extract_rooms_from_states(states))
         pools: Dict[str, Dict[Tuple[str, str], Dict[str, List[Dict[str, Any]]]]] = {
-            partition: defaultdict(lambda: {"evidence": [], "neutral": []})
+            partition: defaultdict(lambda: {"evidence": [], "neutral": [], "distractor": []})
             for partition in ("train", "val", "test")
         }
         for sample_dir, states in parsed_samples:
@@ -473,13 +487,14 @@ def scan_source_frame_pools(
                     raise FileNotFoundError(frame_path)
                 for character in sorted(characters):
                     for room in sorted(rooms):
-                        kind: Optional[str] = None
                         if character in room_to_chars.get(room, []):
                             kind = "evidence"
                         elif character not in present_chars and not room_to_chars.get(room, []):
                             kind = "neutral"
-                        if kind is None:
-                            continue
+                        else:
+                            # Queried character elsewhere, or queried room occupied by
+                            # other characters: a non-evidence frame with active content.
+                            kind = "distractor"
                         pools[partition][(character, room)][kind].append(
                             {
                                 "frame_path": os.fspath(frame_path.relative_to(PROJECT_ROOT)),
@@ -502,6 +517,7 @@ def scan_source_frame_pools(
                     f"{character}|{room}": {
                         "evidence": len(kind_pools["evidence"]),
                         "neutral": len(kind_pools["neutral"]),
+                        "distractor": len(kind_pools["distractor"]),
                     }
                     for (character, room), kind_pools in sorted(pair_pools.items())
                 }
@@ -529,13 +545,14 @@ def valid_pairs_for_lengths(
     pools: Dict[int, Dict[str, Dict[Tuple[str, str], Dict[str, List[Dict[str, Any]]]]]],
     lengths: Sequence[int],
     partition: str,
+    filler_kind: str = "neutral",
 ) -> set[Tuple[str, str]]:
     valid: Optional[set[Tuple[str, str]]] = None
     for length in lengths:
         pairs = {
             pair
             for pair, pair_pools in pools[int(length)][str(partition)].items()
-            if pair_pools.get("evidence") and pair_pools.get("neutral")
+            if pair_pools.get("evidence") and pair_pools.get(str(filler_kind))
         }
         valid = pairs if valid is None else valid & pairs
     return valid or set()
@@ -546,13 +563,13 @@ def merged_frame_pools_for_partition(
     source_lengths: Sequence[int],
 ) -> Dict[str, Dict[Tuple[str, str], Dict[str, List[Dict[str, Any]]]]]:
     merged: Dict[str, Dict[Tuple[str, str], Dict[str, List[Dict[str, Any]]]]] = {
-        partition: defaultdict(lambda: {"evidence": [], "neutral": []})
+        partition: defaultdict(lambda: {"evidence": [], "neutral": [], "distractor": []})
         for partition in ("train", "val", "test")
     }
     for source_length in source_lengths:
         for partition, pair_pools in pools[int(source_length)].items():
             for pair, kind_pools in pair_pools.items():
-                for kind in ("evidence", "neutral"):
+                for kind in ("evidence", "neutral", "distractor"):
                     for ref in kind_pools.get(kind, []):
                         merged[partition][pair][kind].append(dict(ref))
     return merged
@@ -561,13 +578,14 @@ def merged_frame_pools_for_partition(
 def fill_empty_output_length_pools(
     pools: Dict[int, Dict[str, Dict[Tuple[str, str], Dict[str, List[Dict[str, Any]]]]]],
     output_lengths: Sequence[int],
+    filler_kind: str = "neutral",
 ) -> List[int]:
     synthesized: List[int] = []
     source_lengths = sorted(int(length) for length in pools)
     merged = merged_frame_pools_for_partition(pools, source_lengths)
     for length in [int(x) for x in output_lengths]:
-        has_test_pairs = bool(valid_pairs_for_lengths(pools, [length], "test"))
-        has_train_pairs = bool(valid_pairs_for_lengths(pools, [length], "train"))
+        has_test_pairs = bool(valid_pairs_for_lengths(pools, [length], "test", filler_kind))
+        has_train_pairs = bool(valid_pairs_for_lengths(pools, [length], "train", filler_kind))
         if has_test_pairs and has_train_pairs:
             continue
         pools[int(length)] = merged
@@ -581,10 +599,11 @@ def choose_holdout_compositions(
     ood_lengths: Sequence[int],
     count: int,
     seed: int,
+    filler_kind: str = "neutral",
 ) -> List[Tuple[str, str]]:
     del ood_lengths
-    train_pairs = valid_pairs_for_lengths(pools, train_lengths, "train")
-    test_pairs = valid_pairs_for_lengths(pools, train_lengths, "test")
+    train_pairs = valid_pairs_for_lengths(pools, train_lengths, "train", filler_kind)
+    test_pairs = valid_pairs_for_lengths(pools, train_lengths, "test", filler_kind)
     candidates = sorted(train_pairs & test_pairs)
     if not candidates:
         raise RuntimeError("No character-room compositions are valid across train and OOD lengths")
@@ -603,6 +622,7 @@ def generate_split(
     source_partition_name: str,
     allowed_pairs: Sequence[Tuple[str, str]],
     seed: int,
+    filler_kind: str = "neutral",
 ) -> List[FrameMemoryExample]:
     rng = random.Random(int(seed))
     examples: List[FrameMemoryExample] = []
@@ -621,7 +641,7 @@ def generate_split(
                 pair
                 for pair in allowed
                 if pools[length][source_partition_name].get(pair, {}).get("evidence")
-                and pools[length][source_partition_name].get(pair, {}).get("neutral")
+                and pools[length][source_partition_name].get(pair, {}).get(str(filler_kind))
             ]
             if not valid_pairs:
                 raise RuntimeError(f"{split}: no valid allowed pairs for length={length}")
@@ -630,7 +650,7 @@ def generate_split(
             evidence_positions = tuple(sorted(rng.sample(range(length), int(gold_count))))
             evidence_set = set(evidence_positions)
             evidence_refs = choose_refs(rng, pair_pool["evidence"], int(gold_count))
-            neutral_refs = choose_refs(rng, pair_pool["neutral"], int(length) - int(gold_count))
+            neutral_refs = choose_refs(rng, pair_pool[str(filler_kind)], int(length) - int(gold_count))
             rng.shuffle(evidence_refs)
             rng.shuffle(neutral_refs)
             ordered_refs: List[Dict[str, Any]] = []
@@ -746,8 +766,10 @@ def dataset_config(args: argparse.Namespace) -> Dict[str, Any]:
             },
         },
         "evidence_positions_randomized": True,
-        "hard_semantic_distractors": False,
+        "hard_semantic_distractors": str(args.filler_kind) == "distractor",
+        "filler_kind": str(args.filler_kind),
         "neutral_rule": "queried character absent and queried room empty",
+        "distractor_rule": "queried character elsewhere or queried room occupied by other characters",
         "balanced_counts_per_length": True,
         **per_count,
     }
@@ -775,17 +797,21 @@ def ensure_dataset(
             int(args.dataset_seed),
             all_lengths,
         )
-        synthesized_lengths = fill_empty_output_length_pools(pools, all_lengths)
+        filler_kind = str(config.get("filler_kind", "neutral"))
+        synthesized_lengths = fill_empty_output_length_pools(pools, all_lengths, filler_kind)
         heldout_pairs = choose_holdout_compositions(
             pools,
             config["train_lengths"],
             config["length_ood_lengths"],
             int(args.heldout_compositions),
             int(args.dataset_seed),
+            filler_kind,
         )
-        train_pairs = sorted(valid_pairs_for_lengths(pools, all_lengths, "train") - set(heldout_pairs))
+        train_pairs = sorted(valid_pairs_for_lengths(pools, all_lengths, "train", filler_kind) - set(heldout_pairs))
         if not train_pairs:
-            train_pairs = sorted(valid_pairs_for_lengths(pools, config["train_lengths"], "train") - set(heldout_pairs))
+            train_pairs = sorted(
+                valid_pairs_for_lengths(pools, config["train_lengths"], "train", filler_kind) - set(heldout_pairs)
+            )
         split_seed_offsets = {
             TRAIN_SPLIT: 11,
             VAL_SPLIT: 23,
@@ -805,6 +831,7 @@ def ensure_dataset(
                 source_partition_name=str(split_cfg["source_partition"]),
                 allowed_pairs=allowed_pairs,
                 seed=int(args.dataset_seed) + split_seed_offsets[split],
+                filler_kind=filler_kind,
             )
             write_jsonl(split_paths[split], [example_to_json(example) for example in generated[split]])
         manifest = {
@@ -1680,6 +1707,19 @@ class LayerwiseFrameMessageMemory(nn.Module):
         if self.variant == CARRIER_DIRECT_SUM:
             read = (self.w_sum[mpos](slots_for_read) * valid_for_read.unsqueeze(-1).float()).sum(dim=2)
             matrix_shape = [batch, max_carriers, self.memory_dim]
+        elif self.variant == CARRIER_GLSTM_SOFTMAX:
+            # Softmax-normalized read control: identical q/k/v machinery to the
+            # associative read, but the per-frame contributions are normalized to a
+            # convex combination (weighted mean) instead of an unnormalized sum.
+            k = self.w_k[mpos](slots_for_read).float()
+            v = self.w_v[mpos](slots_for_read).float()
+            q = self.w_q[mpos](self.carrier_norm[mpos](carrier_states.float())).float()
+            logits = torch.einsum("bcfe,bce->bcf", k, q) / math.sqrt(float(self.memory_dim))
+            logits = logits.masked_fill(~valid_for_read, float("-inf"))
+            weights = torch.softmax(logits, dim=2)
+            weights = torch.nan_to_num(weights, nan=0.0)
+            read = torch.einsum("bcf,bcfd->bcd", weights, v)
+            matrix_shape = [batch, max_carriers, max_frames]
         else:
             k = self.w_k[mpos](slots_for_read).float()
             v = self.w_v[mpos](slots_for_read).float()

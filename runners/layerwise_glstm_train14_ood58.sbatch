@@ -31,7 +31,7 @@ fi
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
-OUTPUT_ROOT="${OUTPUT_ROOT:-outputs/layerwise_glstm_train14_ood58_7b}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-outputs/layerwise_frame_message_glstm}"
 SOURCE_DATASET_ROOT="${SOURCE_DATASET_ROOT:-data/mmred_images_park}"
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-VL-7B-Instruct}"
 VARIANTS="${VARIANTS:-carrier_glstm_layerwise}"
@@ -41,6 +41,9 @@ LENGTH_OOD_LENGTHS="${LENGTH_OOD_LENGTHS:-5,6,7,8}"
 EPOCHS="${EPOCHS:-3}"
 LR="${LR:-1e-4}"
 TRAIN_PER_COUNT="${TRAIN_PER_COUNT:-50}"
+FILLER_KIND="${FILLER_KIND:-neutral}"
+RUN_PREFIX="${RUN_PREFIX:-}"
+EXTRA_ARGS="${EXTRA_ARGS:-}"
 
 mkdir -p "${OUTPUT_ROOT}/slurm"
 
@@ -55,6 +58,9 @@ python -u experiments/glstm/layerwise_frame_message_glstm.py \
   --epochs "${EPOCHS}" \
   --lr "${LR}" \
   --train-per-count "${TRAIN_PER_COUNT}" \
+  --filler-kind "${FILLER_KIND}" \
+  --run-prefix "${RUN_PREFIX}" \
+  ${EXTRA_ARGS} \
   2>&1 | tee "${OUTPUT_ROOT}/slurm/runner-${SLURM_JOB_ID:-local}.log"
 
 cp "logs/${SLURM_JOB_NAME:-glstm_train14_ood58}-${SLURM_JOB_ID:-local}.out" "${OUTPUT_ROOT}/slurm/" 2>/dev/null || true
