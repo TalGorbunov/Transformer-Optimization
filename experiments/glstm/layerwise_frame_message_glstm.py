@@ -61,6 +61,7 @@ CARRIER_DIRECT_SUM = "carrier_direct_sum"
 CARRIER_GLSTM_LAYERWISE = "carrier_glstm_layerwise"
 CARRIER_GLSTM_FINAL_ONLY = "carrier_glstm_final_only"
 CARRIER_GLSTM_SOFTMAX = "carrier_glstm_layerwise_softmax"
+CARRIER_PNA = "carrier_pna"
 VARIANTS = (
     GLOBAL_LORA,
     CARRIER_LORA,
@@ -85,8 +86,10 @@ VARIANT_ALIASES = {
     "softmax": CARRIER_GLSTM_SOFTMAX,
     "softmax_read": CARRIER_GLSTM_SOFTMAX,
     "carrier_glstm_layerwise_softmax": CARRIER_GLSTM_SOFTMAX,
+    "pna": CARRIER_PNA,
+    "carrier_pna": CARRIER_PNA,
 }
-MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
+MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA}
 GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
 
 
@@ -1284,10 +1287,15 @@ class LayerwiseFrameMessageMemory(nn.Module):
         self.w_k = nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
         self.w_v = nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
         self.w_out = nn.ModuleList([nn.Linear(self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+        self.w_out_pna = (
+            nn.ModuleList([nn.Linear(12 * self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_PNA
+            else None
+        )
         self.gamma = nn.Parameter(torch.full((len(self.layers),), float(gamma_init), dtype=torch.float32))
         for module in [*self.message_to_slot, *self.w_sum, *self.w_q, *self.w_k, *self.w_v]:
             nn.init.xavier_uniform_(module.weight, gain=0.5)
-        for module in self.w_out:
+        for module in (list(self.w_out) + (list(self.w_out_pna) if self.w_out_pna is not None else [])):
             nn.init.zeros_(module.weight)
 
         self._carrier_positions: Optional[List[List[int]]] = None
@@ -1707,6 +1715,25 @@ class LayerwiseFrameMessageMemory(nn.Module):
         if self.variant == CARRIER_DIRECT_SUM:
             read = (self.w_sum[mpos](slots_for_read) * valid_for_read.unsqueeze(-1).float()).sum(dim=2)
             matrix_shape = [batch, max_carriers, self.memory_dim]
+        elif self.variant == CARRIER_PNA:
+            # PNA readout over frames: [sum, mean, max, std] x [identity, amplify, attenuate].
+            # Degree = number of valid frame-slots per carrier. Generalizes the sum read.
+            s = self.w_sum[mpos](slots_for_read).float()
+            mask = valid_for_read.unsqueeze(-1).float()
+            s = s * mask
+            n = valid_for_read.float().sum(dim=2, keepdim=True).clamp_min(1.0)  # [b, c, 1]
+            agg_sum = s.sum(dim=2)
+            agg_mean = agg_sum / n
+            s_for_max = s.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
+            agg_max = torch.nan_to_num(s_for_max.amax(dim=2), neginf=0.0)
+            var = (((s - agg_mean.unsqueeze(2)) ** 2) * mask).sum(dim=2) / n
+            agg_std = var.clamp_min(0.0).sqrt()
+            aggs = [agg_sum, agg_mean, agg_max, agg_std]
+            amplify = torch.log(n + 1.0)  # [b, c, 1]
+            attenuate = 1.0 / amplify.clamp_min(1e-6)
+            streams = [agg * scaler for scaler in (torch.ones_like(amplify), amplify, attenuate) for agg in aggs]
+            read = torch.cat(streams, dim=-1)  # [b, c, 12*memory_dim]
+            matrix_shape = [batch, max_carriers, 12 * self.memory_dim]
         elif self.variant == CARRIER_GLSTM_SOFTMAX:
             # Softmax-normalized read control: identical q/k/v machinery to the
             # associative read, but the per-frame contributions are normalized to a
@@ -1728,7 +1755,10 @@ class LayerwiseFrameMessageMemory(nn.Module):
             read = torch.einsum("bcde,bce->bcd", matrix, q)
             matrix_shape = list(matrix.shape)
         should_inject = self.variant != CARRIER_GLSTM_FINAL_ONLY or int(layer_idx) == max(self.layers)
-        injection = self.w_out[mpos](read).float()
+        if self.variant == CARRIER_PNA:
+            injection = self.w_out_pna[mpos](read).float()
+        else:
+            injection = self.w_out[mpos](read).float()
         injection = self.gamma[self.layer_to_pos[int(layer_idx)]].float() * injection
         out = h_attn.clone()
         batch_size, seq_len, _hidden = h_attn.shape

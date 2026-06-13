@@ -80,6 +80,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--message-mode", default="auto", choices=["auto", "exact", "proxy"])
     parser.add_argument("--message-token-group", default="all_question", choices=sorted(carrier.TOKEN_GROUP_ALIASES))
     parser.add_argument("--inject-token-group", default="last_token", choices=sorted(carrier.TOKEN_GROUP_ALIASES))
+    parser.add_argument(
+        "--pool",
+        default="sum",
+        choices=["sum", "mean", "softmax", "pna"],
+        help=(
+            "Frame-message aggregator. sum=DeepSets (unnormalized). mean/softmax=normalized "
+            "(over-squashing baselines). pna=PNA readout: [sum,mean,max,std] x [identity,amplify,attenuate]."
+        ),
+    )
+    parser.add_argument(
+        "--share-weights",
+        action="store_true",
+        default=False,
+        help="Single shared phi/rho (and pool query) across all injected layers, instead of per-layer weights.",
+    )
 
     parser.add_argument("--lambda-margin", type=float, default=0.2)
     parser.add_argument("--margin-target", type=float, default=1.0)
@@ -174,6 +189,8 @@ class SimpleSumEvidenceAdapter(nn.Module):
         inject_layers: Sequence[int],
         gamma_init: float,
         message_mode: str,
+        pool: str = "sum",
+        share_weights: bool = False,
     ) -> None:
         super().__init__()
         self.hidden_size = int(hidden_size)
@@ -181,19 +198,34 @@ class SimpleSumEvidenceAdapter(nn.Module):
         self.inject_layers = [int(layer) for layer in inject_layers]
         self.layer_to_pos = {int(layer): pos for pos, layer in enumerate(self.inject_layers)}
         self.message_mode = str(message_mode)
-        self.readout_mode = ADDITIVE_SUM_READOUT
+        self.pool = str(pool)
+        self.share_weights = bool(share_weights)
         self.enabled = True
 
         n_layers = len(self.inject_layers)
+        n_modules = 1 if self.share_weights else n_layers
+        self._n_modules = n_modules
+        self._pna_streams = 12 if self.pool == "pna" else 1
+        pool_out = self.d_mem * self._pna_streams
         self.message_to_memory = nn.ModuleList(
-            [nn.Linear(self.hidden_size, self.d_mem, bias=False) for _ in range(n_layers)]
+            [nn.Linear(self.hidden_size, self.d_mem, bias=False) for _ in range(n_modules)]
         )
-        self.w_o = nn.ModuleList([nn.Linear(self.d_mem, self.hidden_size, bias=False) for _ in range(n_layers)])
+        self.w_o = nn.ModuleList([nn.Linear(pool_out, self.hidden_size, bias=False) for _ in range(n_modules)])
         self.gamma = nn.Parameter(torch.full((n_layers,), float(gamma_init), dtype=torch.float32))
+        self.pool_query = (
+            nn.Parameter(torch.zeros(n_modules, self.d_mem)) if self.pool == "softmax" else None
+        )
+        if self.pool == "softmax":
+            nn.init.normal_(self.pool_query, mean=0.0, std=0.02)
 
-        for layer in range(n_layers):
-            nn.init.xavier_uniform_(self.message_to_memory[layer].weight, gain=0.5)
-            nn.init.normal_(self.w_o[layer].weight, mean=0.0, std=0.002)
+        for module_idx in range(n_modules):
+            nn.init.xavier_uniform_(self.message_to_memory[module_idx].weight, gain=0.5)
+            nn.init.normal_(self.w_o[module_idx].weight, mean=0.0, std=0.002)
+
+        suffix = "" if self.pool == "sum" else f"_{self.pool}"
+        if self.share_weights:
+            suffix += "_shared"
+        self.readout_mode = ADDITIVE_SUM_READOUT + suffix
 
         self._message_target_positions: Optional[List[List[int]]] = None
         self._inject_positions: Optional[List[List[int]]] = None
@@ -238,6 +270,30 @@ class SimpleSumEvidenceAdapter(nn.Module):
         if not self._loss_update_energies:
             return torch.zeros((), device=device)
         return torch.stack(self._loss_update_energies, dim=0).sum(dim=0).mean()
+
+    def _mpos(self, layer_idx: int) -> int:
+        return 0 if self.share_weights else self.layer_to_pos[int(layer_idx)]
+
+    def _pool(self, z: torch.Tensor, mpos: int) -> torch.Tensor:
+        """Aggregate per-frame projected messages z=[batch, n_frames, d_mem] over frames."""
+        if self.pool == "sum":
+            return z.sum(dim=1)
+        if self.pool == "mean":
+            return z.mean(dim=1)
+        if self.pool == "softmax":
+            assert self.pool_query is not None
+            query = self.pool_query[mpos]
+            scores = (z * query).sum(dim=-1) / math.sqrt(self.d_mem)
+            weights = torch.softmax(scores, dim=1).unsqueeze(-1)
+            return (z * weights).sum(dim=1)
+        if self.pool == "pna":
+            n_frames = max(1, int(z.shape[1]))
+            aggs = [z.sum(dim=1), z.mean(dim=1), z.amax(dim=1), z.std(dim=1, unbiased=False)]
+            amplify = math.log(n_frames + 1.0)
+            attenuate = 1.0 / amplify if amplify > 1e-6 else 1.0
+            streams = [agg * scaler for scaler in (1.0, amplify, attenuate) for agg in aggs]
+            return torch.cat(streams, dim=-1)
+        raise ValueError(f"unknown pool {self.pool!r}")
 
     @staticmethod
     def _hidden_from_args(args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Optional[torch.Tensor]:
@@ -418,13 +474,14 @@ class SimpleSumEvidenceAdapter(nn.Module):
             return hidden_states
 
         layer_pos = self.layer_to_pos[int(layer_idx)]
+        mpos = self._mpos(int(layer_idx))
         self.hook_fire_counts[int(layer_idx)] += 1
         raw_messages, mode = self._message_contribution(module, hidden_states, int(layer_idx), kwargs)
         self.message_mode_counts[f"{int(layer_idx)}:{mode}"] += int(hidden_states.shape[0])
 
-        projected_messages = self.message_to_memory[layer_pos](raw_messages.float())
-        summed = projected_messages.float().sum(dim=1)
-        delta = self.w_o[layer_pos](summed).float()
+        projected_messages = self.message_to_memory[mpos](raw_messages.float())
+        summed = self._pool(projected_messages.float(), mpos)
+        delta = self.w_o[mpos](summed).float()
         actual_update = self.gamma[layer_pos].float() * delta
 
         out = hidden_states.clone()
@@ -649,6 +706,8 @@ def train_adapter(
         inject_layers=[int(x) for x in inject_layers],
         gamma_init=float(args.gamma_init),
         message_mode=str(args.message_mode),
+        pool=str(args.pool),
+        share_weights=bool(args.share_weights),
     ).to(device)
     carrier.verify_trainable_parameters(model, adapter)
     optimizer = torch.optim.AdamW(
