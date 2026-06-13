@@ -13,7 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -26,10 +26,10 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from scripts.experiments import evidence_only_layer_local_seq1_8_7b as base
-from scripts.experiments import translator_ablation_gold_count_seq8_7b as trans
-from scripts.probes import run_message_memory_adapter_stage1_stage3_seq8 as prev
-from scripts.probes import run_message_memory_carrier_update_seq8_7b as carrier
+from experiments.evidence_only import evidence_only_layer_local_seq1_8_7b as base
+from experiments.oracle_bounds import translator_ablation_gold_count_seq8_7b as trans
+from experiments.carrier_probes import run_message_memory_adapter_stage1_stage3_seq8 as prev
+from experiments.carrier_probes import run_message_memory_carrier_update_seq8_7b as carrier
 
 
 EXPERIMENT_NAME = "gated_token_mixer_adapter"
@@ -1953,7 +1953,7 @@ def main() -> int:
         prev.set_seed(int(args.seed))
         config = {
             "experiment_name": EVIDENCE_ONLY_EXPERIMENT_NAME if bool(args.evidence_only_seq1_8) else EXPERIMENT_NAME,
-            "script": "experiments/gated_token_mixer_adapter.py",
+            "script": "experiments/glstm/gated_token_mixer_adapter.py",
             "model_name": str(args.model_name),
             "dataset_root": os.fspath(Path(args.dataset_root).resolve()),
             "source_run": os.fspath(Path(args.source_run)),

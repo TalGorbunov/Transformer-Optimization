@@ -17,7 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -31,7 +31,7 @@ import torch.nn.functional as F
 from PIL import Image
 from torch import nn
 
-from experiments import layerwise_frame_message_glstm as base
+from experiments.glstm import layerwise_frame_message_glstm as base
 from models.model import find_subsequence, image_token_groups
 
 
@@ -2661,7 +2661,7 @@ def run_reference_equivalence(
     answer_ids: Dict[int, Tuple[int, ...]],
     device: str,
 ) -> None:
-    from scripts.experiments import layerwise_glstm_mechanism_ablation as ref
+    from experiments.glstm import layerwise_glstm_mechanism_ablation as ref
 
     layers = parse_layers(args)
     model_a, _processor_a, _load4_a, _mode_a = load_model_and_processor(args, device=device, dtype=torch.float32)

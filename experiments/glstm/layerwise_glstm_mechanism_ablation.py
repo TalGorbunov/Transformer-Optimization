@@ -29,7 +29,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from experiments import layerwise_frame_message_glstm as base
+from experiments.glstm import layerwise_frame_message_glstm as base
 
 
 EXPERIMENT_NAME = "layerwise_glstm_mechanism_ablation"

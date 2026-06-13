@@ -136,5 +136,6 @@ final_runs/
 
 logs/
 output*/
-/runners/
 .claude/
+# separate sub-repo with its own .git (see CLAUDE.md)
+/all-for-one/
