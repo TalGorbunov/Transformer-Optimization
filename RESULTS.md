@@ -10,7 +10,7 @@
 ---
 ## Executive summary
 
-We study **why a frozen vision-language model (Qwen2.5-VL-7B) fails at a simple visual *aggregation* tasks**,
+We study **why decoder only vision-language models fail at simple visual *aggregation* tasks**,
 and how to fix it with a small trainable adapter — framed through the graph-neural-network lens of
 **over-squashing** (attention ≈ message passing).
 
