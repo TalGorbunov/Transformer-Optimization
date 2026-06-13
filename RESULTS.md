@@ -10,7 +10,7 @@
 ---
 ## Executive summary
 
-We study **why a frozen vision-language model (Qwen2.5-VL-7B) fails at a simple visual *counting* task**,
+We study **why a frozen vision-language model (Qwen2.5-VL-7B) fails at a simple visual *aggregation* tasks**,
 and how to fix it with a small trainable adapter — framed through the graph-neural-network lens of
 **over-squashing** (attention ≈ message passing).
 
@@ -36,7 +36,7 @@ unnormalized sum of width ≥ max-count fixes the aggregation half outright, and
 distractor-*selection* problem that per-frame methods provably can't close.
 
 ---
-## Glossary (for readers new to this project)
+## Glossary
 
 | Term | Meaning |
 |------|---------|
