@@ -26,6 +26,7 @@ LAYER_END="${LAYER_END:-17}"
 POOL="${POOL:-sum}"
 SHARE_WEIGHTS="${SHARE_WEIGHTS:-0}"
 INJECT_TOKEN_GROUP="${INJECT_TOKEN_GROUP:-last_token}"
+SEED="${SEED:-0}"
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -38,6 +39,7 @@ python -u experiments/evidence_only/evidence_only_sum_evidence_adapter_seq1_8_7b
   --layer-start "${LAYER_START}" \
   --layer-end "${LAYER_END}" \
   --pool "${POOL}" \
+  --seed "${SEED}" \
   --inject-token-group "${INJECT_TOKEN_GROUP}" \
   $([ "${SHARE_WEIGHTS}" = "1" ] && echo --share-weights) \
   --output-dir "${OUTPUT_DIR}" \

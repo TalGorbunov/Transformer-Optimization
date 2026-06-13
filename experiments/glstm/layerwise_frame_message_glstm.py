@@ -314,6 +314,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--memory-projection-sharing", choices=["layer_specific", "shared"], default="layer_specific")
     parser.add_argument("--message-mode", choices=["exact", "auto", "proxy"], default="exact")
     parser.add_argument("--frame-kv-lora", action="store_true", default=False)
+    parser.add_argument(
+        "--no-carrier-lora",
+        action="store_true",
+        default=False,
+        help="Memory-only control: drop the carrier LoRA for memory variants so the memory adapter is the only trainable component (isolates its contribution from the LoRA).",
+    )
     parser.add_argument("--reconstruction-tol", type=float, default=5e-3)
     parser.add_argument("--fail-on-reconstruction-error", action=argparse.BooleanOptionalAction, default=False)
 
@@ -1938,6 +1944,8 @@ def make_adapter(args: argparse.Namespace, variant: str, hidden_size: int, layer
             reconstruction_tol=float(args.reconstruction_tol),
             fail_on_reconstruction_error=bool(args.fail_on_reconstruction_error),
         )
+    if bool(getattr(args, "no_carrier_lora", False)) and memory is not None:
+        lora = None  # memory-only control: isolate the memory adapter's contribution
     return ExperimentAdapter(lora=lora, memory=memory)
 
 
