@@ -62,6 +62,8 @@ CARRIER_GLSTM_LAYERWISE = "carrier_glstm_layerwise"
 CARRIER_GLSTM_FINAL_ONLY = "carrier_glstm_final_only"
 CARRIER_GLSTM_SOFTMAX = "carrier_glstm_layerwise_softmax"
 CARRIER_PNA = "carrier_pna"
+CARRIER_SLOT = "carrier_slot"
+NUM_SLOTS = 4  # competitive routing slots (evidence vs distractor vs ... separated jointly)
 VARIANTS = (
     GLOBAL_LORA,
     CARRIER_LORA,
@@ -88,8 +90,10 @@ VARIANT_ALIASES = {
     "carrier_glstm_layerwise_softmax": CARRIER_GLSTM_SOFTMAX,
     "pna": CARRIER_PNA,
     "carrier_pna": CARRIER_PNA,
+    "slot": CARRIER_SLOT,
+    "carrier_slot": CARRIER_SLOT,
 }
-MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA}
+MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA, CARRIER_SLOT}
 GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
 
 
@@ -1298,10 +1302,31 @@ class LayerwiseFrameMessageMemory(nn.Module):
             if self.variant == CARRIER_PNA
             else None
         )
+        # Slot routing: per-frame assignment to NUM_SLOTS competing slots (softmax across slots),
+        # then an unnormalized sum within each slot; readout reads all slot-sums concatenated.
+        self.slot_assign = (
+            nn.ModuleList([nn.Linear(self.memory_dim, NUM_SLOTS, bias=True) for _ in range(n_mem)])
+            if self.variant == CARRIER_SLOT
+            else None
+        )
+        self.w_out_slot = (
+            nn.ModuleList([nn.Linear(NUM_SLOTS * self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_SLOT
+            else None
+        )
         self.gamma = nn.Parameter(torch.full((len(self.layers),), float(gamma_init), dtype=torch.float32))
         for module in [*self.message_to_slot, *self.w_sum, *self.w_q, *self.w_k, *self.w_v]:
             nn.init.xavier_uniform_(module.weight, gain=0.5)
-        for module in (list(self.w_out) + (list(self.w_out_pna) if self.w_out_pna is not None else [])):
+        if self.slot_assign is not None:
+            for module in self.slot_assign:
+                nn.init.xavier_uniform_(module.weight, gain=0.5)
+                nn.init.zeros_(module.bias)
+        zero_outs = list(self.w_out)
+        if self.w_out_pna is not None:
+            zero_outs += list(self.w_out_pna)
+        if self.w_out_slot is not None:
+            zero_outs += list(self.w_out_slot)
+        for module in zero_outs:
             nn.init.zeros_(module.weight)
 
         self._carrier_positions: Optional[List[List[int]]] = None
@@ -1740,6 +1765,21 @@ class LayerwiseFrameMessageMemory(nn.Module):
             streams = [agg * scaler for scaler in (torch.ones_like(amplify), amplify, attenuate) for agg in aggs]
             read = torch.cat(streams, dim=-1)  # [b, c, 12*memory_dim]
             matrix_shape = [batch, max_carriers, 12 * self.memory_dim]
+        elif self.variant == CARRIER_SLOT:
+            # Competitive slot routing: each frame is softly assigned across NUM_SLOTS slots
+            # (softmax over SLOTS — global competition, not a per-frame independent gate), then
+            # each slot accumulates an UNNORMALIZED sum of its assigned frame values. Evidence
+            # and distractor frames can route to different slots; the count lives in the
+            # magnitude of a slot's sum. Readout sees all slot-sums concatenated.
+            s = self.w_sum[mpos](slots_for_read).float()  # [b, c, f, d]
+            assign_logits = self.slot_assign[mpos](s)  # [b, c, f, NUM_SLOTS]
+            assign_logits = assign_logits.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
+            assign = torch.softmax(assign_logits, dim=-1)  # competition across slots, per frame
+            assign = torch.nan_to_num(assign, nan=0.0) * valid_for_read.unsqueeze(-1).float()
+            # per-slot unnormalized sum over frames: [b, c, NUM_SLOTS, d]
+            slot_sums = torch.einsum("bcfk,bcfd->bckd", assign, s)
+            read = slot_sums.reshape(batch, max_carriers, NUM_SLOTS * self.memory_dim)
+            matrix_shape = [batch, max_carriers, NUM_SLOTS * self.memory_dim]
         elif self.variant == CARRIER_GLSTM_SOFTMAX:
             # Softmax-normalized read control: identical q/k/v machinery to the
             # associative read, but the per-frame contributions are normalized to a
@@ -1763,6 +1803,8 @@ class LayerwiseFrameMessageMemory(nn.Module):
         should_inject = self.variant != CARRIER_GLSTM_FINAL_ONLY or int(layer_idx) == max(self.layers)
         if self.variant == CARRIER_PNA:
             injection = self.w_out_pna[mpos](read).float()
+        elif self.variant == CARRIER_SLOT:
+            injection = self.w_out_slot[mpos](read).float()
         else:
             injection = self.w_out[mpos](read).float()
         injection = self.gamma[self.layer_to_pos[int(layer_idx)]].float() * injection
