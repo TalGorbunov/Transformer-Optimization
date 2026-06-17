@@ -11,7 +11,7 @@ import random
 import sys
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import MethodType
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -56,6 +56,8 @@ EVAL_SPLITS = (VAL_SPLIT, IID_TEST_SPLIT, LENGTH_OOD_SPLIT, COMPOSITION_OOD_SPLI
 VISUAL_INPUT_KEYS = ("pixel_values", "pixel_values_videos", "image_grid_thw", "video_grid_thw")
 
 GLOBAL_LORA = "global_lora"
+VISION_LORA = "vision_lora"          # LoRA on the frozen ViT blocks' attention (qkv/proj) — unblocks vision extraction
+VISION_LM_LORA = "vision_lm_lora"    # ViT-LoRA AND LM-attention LoRA together (full path: extraction + routing)
 CARRIER_LORA = "carrier_lora"
 CARRIER_DIRECT_SUM = "carrier_direct_sum"
 CARRIER_GLSTM_LAYERWISE = "carrier_glstm_layerwise"
@@ -63,7 +65,13 @@ CARRIER_GLSTM_FINAL_ONLY = "carrier_glstm_final_only"
 CARRIER_GLSTM_SOFTMAX = "carrier_glstm_layerwise_softmax"
 CARRIER_PNA = "carrier_pna"
 CARRIER_SLOT = "carrier_slot"
-NUM_SLOTS = 4  # competitive routing slots (evidence vs distractor vs ... separated jointly)
+CARRIER_MAX = "carrier_max"  # max-pool over frames (saturating; for set-cardinality tasks)
+CARRIER_UNION = "carrier_union"  # dedup/union: soft-route frames to room slots, noisy-OR presence, count slots
+CARRIER_PMA = "carrier_pma"  # Set-Transformer PMA: k learnable seed queries, unnormalized gated pool per seed
+CARRIER_REGISTER = "carrier_register"  # K appended register tokens; one unnormalized per-slot aggregate per register
+NUM_SLOTS = 4  # default competitive routing slots (override with --num-slots; want >= max distinct rooms)
+UNION_SLOTS = 8  # default latent room slots for carrier_union; must be >= max distinct rooms (DeepSets width>=N)
+PMA_SEEDS = 8  # default number of PMA seed vectors (capacity = k * memory_dim); override with --pma-seeds
 VARIANTS = (
     GLOBAL_LORA,
     CARRIER_LORA,
@@ -74,6 +82,13 @@ VARIANTS = (
 VARIANT_ALIASES = {
     "global": GLOBAL_LORA,
     "global_lora": GLOBAL_LORA,
+    "vision": VISION_LORA,
+    "vit": VISION_LORA,
+    "vision_lora": VISION_LORA,
+    "vit_lora": VISION_LORA,
+    "vision_lm": VISION_LM_LORA,
+    "vision_lm_lora": VISION_LM_LORA,
+    "vit_lm_lora": VISION_LM_LORA,
     "carrier": CARRIER_LORA,
     "carrier_lora": CARRIER_LORA,
     "direct": CARRIER_DIRECT_SUM,
@@ -92,8 +107,19 @@ VARIANT_ALIASES = {
     "carrier_pna": CARRIER_PNA,
     "slot": CARRIER_SLOT,
     "carrier_slot": CARRIER_SLOT,
+    "max": CARRIER_MAX,
+    "carrier_max": CARRIER_MAX,
+    "union": CARRIER_UNION,
+    "dedup": CARRIER_UNION,
+    "carrier_union": CARRIER_UNION,
+    "pma": CARRIER_PMA,
+    "carrier_pma": CARRIER_PMA,
+    "set_transformer": CARRIER_PMA,
+    "register": CARRIER_REGISTER,
+    "registers": CARRIER_REGISTER,
+    "carrier_register": CARRIER_REGISTER,
 }
-MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA, CARRIER_SLOT}
+MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA, CARRIER_SLOT, CARRIER_MAX, CARRIER_UNION, CARRIER_PMA, CARRIER_REGISTER}
 GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
 
 
@@ -127,6 +153,9 @@ class FrameMemoryExample:
     template_id: str
     composition_key: str
     source_dataset_info: Tuple[Dict[str, Any], ...]
+    # Per-frame canonical room id (within this sample) of the queried entity; -1 = absent/none.
+    # Used only by the room-binding auxiliary loss; empty for tasks that don't supply it (count).
+    per_frame_room_id: Tuple[int, ...] = ()
 
 
 @dataclass
@@ -144,6 +173,8 @@ class FrameMemoryBatch:
     sample_ids: List[str]
     sample_indices: List[int]
     visual_input_keys: List[str]
+    per_frame_room_ids: Optional[List[List[int]]] = None
+    register_positions: Optional[List[List[int]]] = None
 
 
 def split_tokens(raw_values: Sequence[Any]) -> List[str]:
@@ -154,7 +185,14 @@ def split_tokens(raw_values: Sequence[Any]) -> List[str]:
 
 
 def parse_int_tokens(raw_values: Sequence[Any]) -> List[int]:
-    return sorted(dict.fromkeys(int(part) for part in split_tokens(raw_values)))
+    out: List[int] = []
+    for part in split_tokens(raw_values):
+        if "-" in part and not part.startswith("-"):  # inclusive range "12-16" (comma-free for SLURM --export)
+            lo, hi = part.split("-", 1)
+            out.extend(range(int(lo), int(hi) + 1))
+        else:
+            out.append(int(part))
+    return sorted(dict.fromkeys(out))
 
 
 def parse_variants(raw_values: Sequence[Any]) -> List[str]:
@@ -294,6 +332,37 @@ def parse_args() -> argparse.Namespace:
             "occupied by other characters (hard task)."
         ),
     )
+    parser.add_argument(
+        "--task",
+        choices=["count", "rooms_visited", "co_occupancy"],
+        default="count",
+        help=(
+            "count = how many frames the character is in the queried room (default, pool-rebuild). "
+            "rooms_visited = how many DISTINCT rooms the character visited (set-cardinality), built "
+            "from natural trajectory samples; evidence-only = character present in every frame."
+        ),
+    )
+    parser.add_argument("--rooms-visited-per-label", type=int, default=60, help="examples per rooms_visited label per split")
+    parser.add_argument(
+        "--rooms-visited-distractors",
+        action="store_true",
+        default=False,
+        help=(
+            "rooms_visited variant where the character is ABSENT in some frames (distractors): keep "
+            "samples where C is present in >=1 and <seq_len frames; gold = distinct rooms among the "
+            "present frames. The adapter must ignore the distractor frames before deduping."
+        ),
+    )
+    parser.add_argument(
+        "--co-occ-evidence-only",
+        action="store_true",
+        default=False,
+        help=(
+            "co_occupancy evidence-only variant: keep only samples where BOTH queried characters are "
+            "present in EVERY frame (no absent-character frames), so the task is pure per-frame "
+            "same/diff-room classification + count, with no selection of which frames to consider."
+        ),
+    )
     parser.add_argument("--force-regenerate-dataset", action="store_true", default=False)
 
     parser.add_argument("--epochs", type=int, default=3)
@@ -312,6 +381,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lora-rank", type=int, default=8)
     parser.add_argument("--lora-alpha", type=float, default=16.0)
     parser.add_argument("--lora-dropout", type=float, default=0.05)
+    parser.add_argument(
+        "--vision-lora-layers",
+        default="all",
+        help="ViT block indices for vision_lora/vision_lm_lora variants (comma/space list, or 'all').",
+    )
     parser.add_argument("--memory-dim", type=int, default=64)
     parser.add_argument("--gamma-init", type=float, default=1e-3)
     parser.add_argument("--projection-sharing", choices=["layer_specific", "shared"], default="layer_specific")
@@ -326,6 +400,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--reconstruction-tol", type=float, default=5e-3)
     parser.add_argument("--fail-on-reconstruction-error", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--num-slots", type=int, default=NUM_SLOTS,
+                        help="Competitive slots for carrier_slot (want >= max distinct rooms).")
+    parser.add_argument("--pma-seeds", type=int, default=PMA_SEEDS,
+                        help="Seed vectors for carrier_pma (set-memory capacity = k * memory_dim).")
+    parser.add_argument("--binding-loss-weight", type=float, default=0.0,
+                        help="Weight of the room-binding auxiliary loss for carrier_slot/carrier_union "
+                             "(same-room frames -> same slot). 0 disables (emergent binding only).")
+    parser.add_argument("--register-tokens", type=int, default=0,
+                        help="Append K real placeholder 'register' tokens to the prompt and inject one "
+                             "unnormalized per-slot aggregate into each (widens the frozen-stream hand-off "
+                             "beyond the 2 carriers). 0 disables. Used by the carrier_register variant.")
 
     parser.add_argument("--candidate-min", type=int, default=0)
     parser.add_argument("--candidate-max", type=int, default=10)
@@ -430,6 +515,7 @@ def example_to_json(example: FrameMemoryExample) -> Dict[str, Any]:
         "template_id": example.template_id,
         "composition_key": example.composition_key,
         "source_dataset_info": list(example.source_dataset_info),
+        "per_frame_room_id": list(example.per_frame_room_id),
     }
 
 
@@ -448,6 +534,7 @@ def example_from_json(row: Dict[str, Any]) -> FrameMemoryExample:
         template_id=str(row["template_id"]),
         composition_key=str(row.get("composition_key", f"{row['queried_character']}|{row['queried_room']}")),
         source_dataset_info=tuple(dict(item) for item in row.get("source_dataset_info", [])),
+        per_frame_room_id=tuple(int(x) for x in row.get("per_frame_room_id", [])),
     )
 
 
@@ -716,6 +803,35 @@ def generate_split(
 
 
 def dataset_config(args: argparse.Namespace) -> Dict[str, Any]:
+    if str(getattr(args, "task", "count")) in ("rooms_visited", "co_occupancy"):
+        _task = str(args.task)
+        train_lengths = parse_int_tokens(args.train_lengths) or [8]
+        length_ood_lengths = parse_int_tokens(args.length_ood_lengths)
+        seq_len = int(train_lengths[0])
+        per_label = 1 if bool(args.smoke_test) else int(args.rooms_visited_per_label)
+        _splits = {
+            TRAIN_SPLIT: {"lengths": train_lengths, "source_partition": "train", "composition": "train_allowed"},
+            VAL_SPLIT: {"lengths": train_lengths, "source_partition": "val", "composition": "train_allowed"},
+            IID_TEST_SPLIT: {"lengths": train_lengths, "source_partition": "test", "composition": "train_allowed"},
+        }
+        if length_ood_lengths:
+            _splits[LENGTH_OOD_SPLIT] = {"lengths": length_ood_lengths, "source_partition": "any", "composition": "train_allowed"}
+            _splits[COMPOSITION_OOD_SPLIT] = {"lengths": train_lengths, "source_partition": "any", "composition": "heldout"}
+        return {
+            "task": _task,
+            "dataset_seed": int(args.dataset_seed),
+            "source_dataset_root": os.fspath(Path(args.source_dataset_root).resolve()),
+            "fallback_source_dataset_root": os.fspath(Path(args.fallback_source_dataset_root).resolve())
+            if args.fallback_source_dataset_root is not None else None,
+            "source_split": str(args.source_split),
+            "seq_len": seq_len,
+            "train_lengths": train_lengths,
+            "length_ood_lengths": length_ood_lengths,
+            "rooms_visited_per_label": per_label,
+            "rooms_visited_distractors": bool(getattr(args, "rooms_visited_distractors", False)),
+            "co_occ_evidence_only": bool(getattr(args, "co_occ_evidence_only", False)),
+            "splits": _splits,
+        }
     train_lengths = parse_int_tokens(args.train_lengths)
     length_ood_lengths = parse_int_tokens(args.length_ood_lengths)
     if bool(args.smoke_test):
@@ -788,6 +904,211 @@ def dataset_config(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
+def _holdout_composition(comp, dataset_seed, frac=0.25):
+    """Deterministically mark ~frac of compositions as held-out (for composition-OOD)."""
+    h = int(hashlib.sha256(f"comp|{comp}|{int(dataset_seed)}".encode("utf-8")).hexdigest(), 16)
+    return (h % 1000) < int(frac * 1000)
+
+
+def _route_ood_split(length, train_lengths, length_ood_lengths, comp, dataset_seed, sample_name, tag):
+    """Assign an example to a split. length-OOD = held-out length on in-distribution comps;
+    composition-OOD = held-out comps at train lengths; else sample-partitioned train/iid_val/iid_test."""
+    held = _holdout_composition(comp, dataset_seed)
+    if int(length) in set(int(x) for x in length_ood_lengths):
+        return None if held else LENGTH_OOD_SPLIT
+    if held:
+        return COMPOSITION_OOD_SPLIT
+    part = source_partition(f"{tag}:len{int(length)}:{sample_name}", int(dataset_seed))
+    return {"train": TRAIN_SPLIT, "val": VAL_SPLIT, "test": IID_TEST_SPLIT}.get(part, IID_TEST_SPLIT)
+
+
+def _balance_ood_splits(cand, per_label, dataset_seed):
+    caps = {TRAIN_SPLIT: int(per_label), VAL_SPLIT: max(8, int(per_label) // 4),
+            IID_TEST_SPLIT: max(12, int(per_label) // 3), LENGTH_OOD_SPLIT: max(12, int(per_label) // 3),
+            COMPOSITION_OOD_SPLIT: max(12, int(per_label) // 3)}
+    rng = random.Random(int(dataset_seed) + 4242)
+    out = {}
+    for split, cap in caps.items():
+        rows = []
+        for _label, pool in cand.get(split, {}).items():
+            rng.shuffle(pool)
+            for ex in pool[: int(cap)]:
+                rows.append(replace(ex, split=split, example_id=f"{split}_{ex.example_id}"))
+        rng.shuffle(rows)
+        out[split] = rows
+    return out
+
+
+def _scan_length_dirs(source_root, fallback_root, source_split, length):
+    split_root = source_root / f"seq_len_{int(length)}" / str(source_split)
+    if not split_root.is_dir() and fallback_root is not None:
+        c = fallback_root / f"seq_len_{int(length)}" / str(source_split)
+        if c.is_dir():
+            split_root = c
+    if not split_root.is_dir():
+        return []
+    return sorted([q for q in split_root.iterdir() if q.is_dir() and (q / "qa.txt").is_file()], key=lambda q: q.name)
+
+
+def _frame_paths_for(sample_dir, length):
+    fps = []
+    for fi in range(int(length)):
+        fp = sample_dir / f"{fi:03d}.png"
+        if not fp.is_file():
+            fp = sample_dir / f"frame_{fi:03d}.png"
+        if not fp.is_file():
+            return None
+        fps.append(os.fspath(fp.relative_to(PROJECT_ROOT)))
+    return fps
+
+
+def build_rooms_visited_examples(
+    *,
+    source_root,
+    fallback_source_root,
+    source_split,
+    train_lengths,
+    length_ood_lengths,
+    dataset_seed,
+    per_label,
+    distractors: bool = False,
+    evidence_only: bool = False,  # unused (rooms_visited is evidence-only unless distractors)
+):
+    """rooms_visited (set-cardinality), multi-length with length-OOD + composition-OOD splits."""
+    source_root = Path(source_root).resolve()
+    fallback_root = Path(fallback_source_root).resolve() if fallback_source_root is not None else None
+    train_lengths = [int(x) for x in train_lengths]
+    length_ood_lengths = [int(x) for x in length_ood_lengths]
+    all_lengths = sorted(set(train_lengths) | set(length_ood_lengths))
+    cand = {sp: defaultdict(list) for sp in (TRAIN_SPLIT, VAL_SPLIT, IID_TEST_SPLIT, LENGTH_OOD_SPLIT, COMPOSITION_OOD_SPLIT)}
+    saw = False
+    for length in all_lengths:
+        for sample_dir in _scan_length_dirs(source_root, fallback_root, source_split, length):
+            saw = True
+            _q, states, _g = mmred.parse_qa_file(sample_dir)
+            if len(states) != int(length):
+                continue
+            frame_paths = _frame_paths_for(sample_dir, length)
+            if frame_paths is None:
+                continue
+            for char in sorted(eval_utils.extract_characters_from_states(states)):
+                rooms_per_frame = [
+                    [room for room, occ in eval_utils.rooms_to_room2chars(st.get("rooms", {})).items() if char in occ]
+                    for st in states
+                ]
+                present_frames = [fi for fi, r in enumerate(rooms_per_frame) if len(r) > 0]
+                if distractors:
+                    if len(present_frames) == 0 or len(present_frames) >= int(length):
+                        continue
+                else:
+                    if len(present_frames) < int(length):
+                        continue
+                split_key = _route_ood_split(length, train_lengths, length_ood_lengths, char, dataset_seed, sample_dir.name, "rv")
+                if split_key is None:
+                    continue
+                rooms_visited = len({room for rooms in rooms_per_frame for room in rooms})
+                room_to_id: Dict[str, int] = {}
+                per_frame_room_id = []
+                for rooms in rooms_per_frame:
+                    if rooms:
+                        room_to_id.setdefault(rooms[0], len(room_to_id))
+                        per_frame_room_id.append(room_to_id[rooms[0]])
+                    else:
+                        per_frame_room_id.append(-1)
+                ex = FrameMemoryExample(
+                    example_id=f"rv_len{int(length)}_rooms{rooms_visited}_{sample_dir.name}_{char}",
+                    split="", frame_paths=tuple(frame_paths), num_frames=int(length),
+                    gold_count=int(rooms_visited), evidence_frame_indices=tuple(present_frames),
+                    question=f"How many distinct rooms did {char} visit across the {int(length)} frames?",
+                    answer=str(int(rooms_visited)), queried_character=str(char), queried_room="",
+                    template_id="rooms_visited", composition_key=str(char), source_dataset_info=tuple(),
+                    per_frame_room_id=tuple(per_frame_room_id),
+                )
+                cand[split_key][int(rooms_visited)].append(ex)
+    if not saw:
+        raise RuntimeError(f"No MMReD samples found for rooms_visited under {source_root} lengths={all_lengths}")
+    return _balance_ood_splits(cand, per_label, dataset_seed)
+
+
+def build_co_occupancy_examples(
+    *,
+    source_root,
+    fallback_source_root,
+    source_split,
+    train_lengths,
+    length_ood_lengths,
+    dataset_seed,
+    per_label,
+    distractors: bool = False,  # unused for co_occupancy
+    evidence_only: bool = False,  # keep only pairs present in EVERY frame
+):
+    """co_occupancy (#frames a pair shares a room), multi-length with length-OOD + composition-OOD splits."""
+    source_root = Path(source_root).resolve()
+    fallback_root = Path(fallback_source_root).resolve() if fallback_source_root is not None else None
+    train_lengths = [int(x) for x in train_lengths]
+    length_ood_lengths = [int(x) for x in length_ood_lengths]
+    all_lengths = sorted(set(train_lengths) | set(length_ood_lengths))
+    cand = {sp: defaultdict(list) for sp in (TRAIN_SPLIT, VAL_SPLIT, IID_TEST_SPLIT, LENGTH_OOD_SPLIT, COMPOSITION_OOD_SPLIT)}
+    saw = False
+    for length in all_lengths:
+        for sample_dir in _scan_length_dirs(source_root, fallback_root, source_split, length):
+            saw = True
+            _q, states, _g = mmred.parse_qa_file(sample_dir)
+            if len(states) != int(length):
+                continue
+            chars = sorted(eval_utils.extract_characters_from_states(states))
+            if len(chars) < 2:
+                continue
+            frame_paths = _frame_paths_for(sample_dir, length)
+            if frame_paths is None:
+                continue
+            for i in range(len(chars)):
+                for j in range(i + 1, len(chars)):
+                    c1, c2 = chars[i], chars[j]
+                    if evidence_only:
+                        both_all = all(
+                            any(c1 in occ for occ in eval_utils.rooms_to_room2chars(st.get("rooms", {})).values())
+                            and any(c2 in occ for occ in eval_utils.rooms_to_room2chars(st.get("rooms", {})).values())
+                            for st in states
+                        )
+                        if not both_all:
+                            continue
+                    comp = f"{c1}|{c2}"
+                    split_key = _route_ood_split(length, train_lengths, length_ood_lengths, comp, dataset_seed, sample_dir.name, "co")
+                    if split_key is None:
+                        continue
+                    shared = [fi for fi, st in enumerate(states)
+                              if any(c1 in occ and c2 in occ for occ in eval_utils.rooms_to_room2chars(st.get("rooms", {})).values())]
+                    gold = len(shared)
+                    # Per-frame shared room (canonical within-sample id) when the pair is together; -1 otherwise.
+                    room_to_id_co: Dict[str, int] = {}
+                    per_frame_room_id_co = []
+                    for st in states:
+                        shared_room = next(
+                            (room for room, occ in eval_utils.rooms_to_room2chars(st.get("rooms", {})).items()
+                             if c1 in occ and c2 in occ),
+                            None,
+                        )
+                        if shared_room is not None:
+                            room_to_id_co.setdefault(shared_room, len(room_to_id_co))
+                            per_frame_room_id_co.append(room_to_id_co[shared_room])
+                        else:
+                            per_frame_room_id_co.append(-1)
+                    ex = FrameMemoryExample(
+                        example_id=f"co_len{int(length)}_n{gold}_{sample_dir.name}_{c1}_{c2}",
+                        split="", frame_paths=tuple(frame_paths), num_frames=int(length),
+                        gold_count=int(gold), evidence_frame_indices=tuple(shared),
+                        question=f"In how many of the {int(length)} frames were {c1} and {c2} in the same room?",
+                        answer=str(int(gold)), queried_character=str(c1), queried_room="",
+                        template_id="co_occupancy", composition_key=comp, source_dataset_info=tuple(),
+                        per_frame_room_id=tuple(per_frame_room_id_co),
+                    )
+                    cand[split_key][int(gold)].append(ex)
+    if not saw:
+        raise RuntimeError(f"No MMReD samples found for co_occupancy under {source_root} lengths={all_lengths}")
+    return _balance_ood_splits(cand, per_label, dataset_seed)
+
+
 def ensure_dataset(
     args: argparse.Namespace,
     dataset_base: Path,
@@ -800,7 +1121,32 @@ def ensure_dataset(
     regenerate = bool(args.force_regenerate_dataset) or not manifest_path.is_file() or not all(
         path.is_file() for path in split_paths.values()
     )
-    if regenerate:
+    if regenerate and config.get("task") in ("rooms_visited", "co_occupancy"):
+        dataset_dir.mkdir(parents=True, exist_ok=True)
+        _builder = build_co_occupancy_examples if config.get("task") == "co_occupancy" else build_rooms_visited_examples
+        generated = _builder(
+            source_root=Path(args.source_dataset_root),
+            fallback_source_root=Path(args.fallback_source_dataset_root) if args.fallback_source_dataset_root is not None else None,
+            source_split=str(args.source_split),
+            train_lengths=list(config["train_lengths"]),
+            length_ood_lengths=list(config["length_ood_lengths"]),
+            dataset_seed=int(args.dataset_seed),
+            per_label=int(config["rooms_visited_per_label"]),
+            distractors=bool(config.get("rooms_visited_distractors", False)),
+            evidence_only=bool(config.get("co_occ_evidence_only", False)),
+        )
+        for split in config["splits"]:
+            write_jsonl(split_paths[split], [example_to_json(example) for example in generated[split]])
+        manifest = {
+            "dataset_hash": digest, "created_at": time.strftime("%Y-%m-%d %H:%M:%S"), "config": config,
+            "splits": {
+                split: {"path": os.fspath(split_paths[split]), "n": len(generated[split]),
+                        "rooms_visited_histogram": {str(k): sum(int(ex.gold_count) == k for ex in generated[split]) for k in range(9)}}
+                for split in config["splits"]
+            },
+        }
+        write_json(manifest_path, manifest)
+    elif regenerate:
         dataset_dir.mkdir(parents=True, exist_ok=True)
         all_lengths = sorted(set(config["train_lengths"]) | set(config["length_ood_lengths"]))
         pools, source_manifest = scan_source_frame_pools(
@@ -883,6 +1229,7 @@ def ensure_dataset(
 
 
 def assert_dataset(config: Dict[str, Any], examples: Dict[str, List[FrameMemoryExample]]) -> None:
+    rooms_visited_task = config.get("task") in ("rooms_visited", "co_occupancy")
     all_ids: set[str] = set()
     for split, rows in examples.items():
         if split not in config["splits"]:
@@ -902,12 +1249,14 @@ def assert_dataset(config: Dict[str, Any], examples: Dict[str, List[FrameMemoryE
                 raise RuntimeError(f"{split}: invalid count {row.gold_count} for length {row.num_frames}")
             if len(row.frame_paths) != int(row.num_frames):
                 raise RuntimeError(f"{split}: frame path count mismatch for {row.example_id}")
-            if len(set(row.evidence_frame_indices)) != int(row.gold_count):
+            if not rooms_visited_task and len(set(row.evidence_frame_indices)) != int(row.gold_count):
                 raise RuntimeError(f"{split}: evidence index/count mismatch for {row.example_id}")
             for frame_path in row.frame_paths:
                 resolved = resolve_frame_path(frame_path)
                 if not resolved.is_file():
                     raise FileNotFoundError(resolved)
+        if rooms_visited_task:
+            continue
         for length in expected_lengths:
             missing = [
                 count
@@ -951,6 +1300,7 @@ def prepare_batch(
     device: str,
     answer_ids: Optional[Dict[int, Tuple[int, ...]]] = None,
     answer_count_override: Optional[int] = None,
+    register_tokens: int = 0,
 ) -> FrameMemoryBatch:
     if len(examples) != 1:
         raise ValueError("Visual Qwen batches are kept at batch_size=1 for image/token alignment")
@@ -1045,6 +1395,35 @@ def prepare_batch(
     if errors:
         raise AssertionError(f"{example.example_id}: {'; '.join(errors)}")
 
+    # Insert K real "register" placeholder tokens INSIDE the user turn — right after the question text,
+    # before <|im_end|> — NOT after the generation header. (Appending after the header makes the answer be
+    # read off a pad token and the model diverges.) They are real positions, so the processor/model handle
+    # masks + rotary natively; the adapter overwrites their residuals with one unnormalized per-slot
+    # aggregate each, and the assistant turn reads them by attending back over the user turn. Widens the
+    # frozen-stream hand-off beyond the 2 question carriers (distinct from the failed prompt-text expansion:
+    # content is written by the unnormalized adapter, not the frozen softmax). Carriers/image spans are
+    # before the insertion point (unchanged); only prompt_last and the answer suffix shift right by K.
+    register_positions: List[int] = []
+    if int(register_tokens) > 0:
+        k_reg = int(register_tokens)
+        reg_id = getattr(tokenizer, "pad_token_id", None)
+        if reg_id is None:
+            reg_id = getattr(tokenizer, "eos_token_id", None)
+        if reg_id is None:
+            reg_id = int(input_ids[0, prompt_last].item())  # fall back to repeating the last prompt token
+        ins = int(prompt_start) + len(prompt_ids)  # just past the question text, before the turn marker
+        ins = max(0, min(ins, int(input_ids.shape[1])))
+        reg_block = torch.full((1, k_reg), int(reg_id), dtype=input_ids.dtype)
+        input_ids = torch.cat([input_ids[:, :ins], reg_block, input_ids[:, ins:]], dim=1)
+        attention_mask = torch.cat(
+            [attention_mask[:, :ins], torch.ones((1, k_reg), dtype=attention_mask.dtype), attention_mask[:, ins:]],
+            dim=1,
+        )
+        raw_inputs["input_ids"] = input_ids
+        raw_inputs["attention_mask"] = attention_mask
+        register_positions = list(range(ins, ins + k_reg))
+        prompt_last = prompt_last + k_reg  # header/readout token shifted right by the inserted registers
+
     loss_positions: Optional[torch.Tensor] = None
     loss_targets: Optional[torch.Tensor] = None
     if answer_ids is not None:
@@ -1078,6 +1457,8 @@ def prepare_batch(
         sample_ids=[example.example_id],
         sample_indices=[int(sample_indices[0])],
         visual_input_keys=visual_keys,
+        per_frame_room_ids=[list(example.per_frame_room_id)] if example.per_frame_room_id else None,
+        register_positions=[register_positions] if register_positions else None,
     )
 
 
@@ -1240,6 +1621,69 @@ class AttentionLoRAAdapter(nn.Module):
         }
 
 
+def get_visual_blocks(model: Any) -> Any:
+    """Locate the ViT encoder blocks (Qwen2.5-VL: model.visual.blocks, possibly under .model)."""
+    candidates = [
+        lambda m: getattr(getattr(m, "visual", None), "blocks", None),
+        lambda m: getattr(getattr(getattr(m, "model", None), "visual", None), "blocks", None),
+    ]
+    for getter in candidates:
+        blocks = getter(model)
+        if blocks is not None and hasattr(blocks, "__len__") and len(blocks) > 0:
+            return blocks
+    raise RuntimeError("Couldn't locate the vision-encoder blocks (model.visual.blocks).")
+
+
+class VisualAttentionLoRAAdapter(AttentionLoRAAdapter):
+    """LoRA on the frozen vision-encoder (ViT) blocks' attention. Qwen2.5-VL ViT attention uses a
+    fused ``qkv`` Linear and an output ``proj`` Linear (no carrier gating in vision → gated=False).
+    Reuses the parent's wrapper bookkeeping (set_context/clear_context/detach/stats); only ``attach``
+    differs because the blocks live under ``model.visual`` and the attention submodule is ``.attn``.
+
+    ``inject_layers`` may be the sentinel string ``"all"`` to wrap every ViT block (count is only
+    known once the model is loaded, so it is expanded lazily in ``attach``)."""
+
+    def __init__(self, *, inject_layers: Any, **kwargs: Any) -> None:
+        self._all_blocks = isinstance(inject_layers, str) and str(inject_layers).strip().lower() == "all"
+        super().__init__(inject_layers=([] if self._all_blocks else inject_layers), **kwargs)
+
+    def attach(self, model: Any) -> None:
+        if self._wrapped:
+            return
+        blocks = get_visual_blocks(model)
+        if self._all_blocks and not self.inject_layers:
+            self.inject_layers = list(range(len(blocks)))
+        wrapper_idx = 0
+        for block_idx in self.inject_layers:
+            if int(block_idx) < 0 or int(block_idx) >= len(blocks):
+                raise ValueError(f"vision LoRA block={block_idx} outside [0, {len(blocks) - 1}]")
+            attn = getattr(blocks[int(block_idx)], "attn", None)
+            if attn is None:
+                raise RuntimeError(f"vision block={block_idx} has no attn")
+            for name in self.target_modules:
+                base_layer = getattr(attn, name, None)
+                if base_layer is None:
+                    raise RuntimeError(f"vision block={block_idx}.attn has no {name}")
+                if wrapper_idx < len(self.wrappers):
+                    wrapper = self.wrappers[wrapper_idx]
+                    original = getattr(wrapper, "base_layer", None)
+                    if original is None:
+                        raise RuntimeError("Existing vision LoRA wrapper lost its base_layer reference")
+                else:
+                    original = base_layer.base_layer if isinstance(base_layer, LoRALinearWrapper) else base_layer
+                    wrapper = LoRALinearWrapper(
+                        original,
+                        rank=self.rank,
+                        alpha=self.alpha,
+                        dropout=self.dropout,
+                        gated=self.gated,
+                    )
+                    self.wrappers.append(wrapper)
+                setattr(attn, name, wrapper)
+                self._wrapped.append((attn, name, original, wrapper, int(block_idx)))
+                wrapper_idx += 1
+
+
 def _repeat_kv(states: torch.Tensor, num_heads: int) -> torch.Tensor:
     if int(states.shape[1]) == int(num_heads):
         return states
@@ -1268,11 +1712,20 @@ class LayerwiseFrameMessageMemory(nn.Module):
         message_mode: str,
         reconstruction_tol: float,
         fail_on_reconstruction_error: bool,
+        num_slots: int = NUM_SLOTS,
+        union_slots: int = UNION_SLOTS,
+        pma_seeds: int = PMA_SEEDS,
+        register_tokens: int = 0,
     ) -> None:
         super().__init__()
         self.variant = str(variant)
         self.hidden_size = int(hidden_size)
         self.memory_dim = int(memory_dim)
+        self.register_tokens = int(register_tokens)
+        # For the register variant, one slot per register token.
+        self.num_slots = int(register_tokens) if str(variant) == CARRIER_REGISTER and int(register_tokens) > 0 else int(num_slots)
+        self.union_slots = int(union_slots)
+        self.pma_seeds = int(pma_seeds)
         self.layers = [int(layer) for layer in layers]
         self.layer_to_pos = {int(layer): pos for pos, layer in enumerate(self.layers)}
         self.projection_sharing = str(projection_sharing)
@@ -1302,16 +1755,48 @@ class LayerwiseFrameMessageMemory(nn.Module):
             if self.variant == CARRIER_PNA
             else None
         )
-        # Slot routing: per-frame assignment to NUM_SLOTS competing slots (softmax across slots),
+        # Slot routing: per-frame assignment to num_slots competing slots (softmax across slots),
         # then an unnormalized sum within each slot; readout reads all slot-sums concatenated.
         self.slot_assign = (
-            nn.ModuleList([nn.Linear(self.memory_dim, NUM_SLOTS, bias=True) for _ in range(n_mem)])
-            if self.variant == CARRIER_SLOT
+            nn.ModuleList([nn.Linear(self.memory_dim, self.num_slots, bias=True) for _ in range(n_mem)])
+            if self.variant in (CARRIER_SLOT, CARRIER_REGISTER)
             else None
         )
         self.w_out_slot = (
-            nn.ModuleList([nn.Linear(NUM_SLOTS * self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+            nn.ModuleList([nn.Linear(self.num_slots * self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
             if self.variant == CARRIER_SLOT
+            else None
+        )
+        # Register mode: one shared projection mapping each per-slot sum -> hidden, written into its own
+        # appended register token position (one slot per register). Widens the frozen-stream hand-off.
+        self.w_out_register = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_REGISTER
+            else None
+        )
+        # Union/dedup: route each frame across union_slots latent "room" slots (softmax over slots),
+        # take noisy-OR presence per slot over frames, read the presence vector (sum = #distinct rooms).
+        self.union_assign = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.union_slots, bias=True) for _ in range(n_mem)])
+            if self.variant == CARRIER_UNION
+            else None
+        )
+        self.w_out_union = (
+            nn.ModuleList([nn.Linear(self.union_slots, self.hidden_size, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_UNION
+            else None
+        )
+        # PMA (Set-Transformer pooling-by-multihead-attention): k learnable seed queries pool the
+        # frame slots. Pooling is UNNORMALIZED (per-seed sigmoid gate over frames, no softmax) so
+        # magnitude/count survives — DeepSets in disguise, k seeds = capacity k*memory_dim.
+        self.pma_seed = (
+            nn.Parameter(torch.zeros(n_mem, self.pma_seeds, self.memory_dim))
+            if self.variant == CARRIER_PMA
+            else None
+        )
+        self.w_out_pma = (
+            nn.ModuleList([nn.Linear(self.pma_seeds * self.memory_dim, self.hidden_size, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_PMA
             else None
         )
         self.gamma = nn.Parameter(torch.full((len(self.layers),), float(gamma_init), dtype=torch.float32))
@@ -1321,11 +1806,23 @@ class LayerwiseFrameMessageMemory(nn.Module):
             for module in self.slot_assign:
                 nn.init.xavier_uniform_(module.weight, gain=0.5)
                 nn.init.zeros_(module.bias)
+        if self.union_assign is not None:
+            for module in self.union_assign:
+                nn.init.xavier_uniform_(module.weight, gain=0.5)
+                nn.init.zeros_(module.bias)
+        if self.pma_seed is not None:
+            nn.init.normal_(self.pma_seed, mean=0.0, std=0.02)  # distinct seeds break symmetry
         zero_outs = list(self.w_out)
         if self.w_out_pna is not None:
             zero_outs += list(self.w_out_pna)
         if self.w_out_slot is not None:
             zero_outs += list(self.w_out_slot)
+        if self.w_out_union is not None:
+            zero_outs += list(self.w_out_union)
+        if self.w_out_pma is not None:
+            zero_outs += list(self.w_out_pma)
+        if self.w_out_register is not None:
+            zero_outs += list(self.w_out_register)
         for module in zero_outs:
             nn.init.zeros_(module.weight)
 
@@ -1343,6 +1840,57 @@ class LayerwiseFrameMessageMemory(nn.Module):
         self.hook_fire_counts: Dict[int, int] = defaultdict(int)
         self.exact_failure_counts: Dict[str, int] = defaultdict(int)
         self.exact_failure_examples: List[str] = []
+        # Room-binding auxiliary loss (used by carrier_slot/carrier_union): per-frame canonical
+        # room ids per sample, the per-layer slot assignments recorded during the forward, and the
+        # weight. Same-room frames are pushed to the same slot, different-room frames apart, so the
+        # competitive slots bind to rooms (de-risks slot collapse using the known room labels).
+        self.binding_loss_weight: float = 0.0
+        self._per_frame_room_ids: Optional[List[List[int]]] = None
+        self._slot_assign_records: List[Tuple[torch.Tensor, torch.Tensor]] = []
+        self._last_binding_loss: float = 0.0
+        self._register_positions: Optional[List[List[int]]] = None
+
+    def _record_slot_assignment(self, assign: torch.Tensor, valid_for_read: torch.Tensor) -> None:
+        # assign: [b, c, f, K] soft slot distribution; valid_for_read: [b, c, f]. Only retained
+        # (with grad) while training under an active binding loss, to keep eval/inference cheap.
+        if self.binding_loss_weight > 0.0 and self.training and self._per_frame_room_ids is not None:
+            self._slot_assign_records.append((assign, valid_for_read))
+
+    def auxiliary_loss(self) -> Optional[torch.Tensor]:
+        # Same-room/different-room contrastive loss on the recorded slot assignments. For each
+        # carrier and frame-pair (i,j) with known rooms, target co-assignment p_i·p_j = 1 if the
+        # two frames share a room else 0. Averaged over recorded layers. Returns None if inactive.
+        if self.binding_loss_weight <= 0.0 or not self._slot_assign_records or self._per_frame_room_ids is None:
+            return None
+        terms: List[torch.Tensor] = []
+        for assign, valid in self._slot_assign_records:
+            b, c, f, _k = assign.shape
+            co = torch.einsum("bcik,bcjk->bcij", assign, assign)  # [b, c, f, f] soft co-assignment
+            for bi in range(min(b, len(self._per_frame_room_ids))):
+                rooms = self._per_frame_room_ids[bi]
+                if not rooms:
+                    continue
+                room_t = torch.tensor(rooms[:f], device=assign.device)
+                if int(room_t.numel()) < 1:
+                    continue
+                known = room_t >= 0  # -1 marks "absent / unknown room" → excluded
+                if int(known.sum()) < 2:
+                    continue
+                same = (room_t.unsqueeze(0) == room_t.unsqueeze(1)).float()  # [f, f]
+                pair_mask = (known.unsqueeze(0) & known.unsqueeze(1)).float()
+                pair_mask = pair_mask * (1.0 - torch.eye(int(room_t.numel()), device=assign.device))
+                valid_b = valid[bi].float()  # [c, f]
+                vm = torch.einsum("ci,cj->cij", valid_b, valid_b) * pair_mask.unsqueeze(0)
+                if float(vm.sum()) <= 0.0:
+                    continue
+                pred = co[bi, :, : room_t.numel(), : room_t.numel()]
+                loss_ij = (pred - same.unsqueeze(0)) ** 2
+                terms.append((loss_ij * vm).sum() / vm.sum().clamp_min(1.0))
+        if not terms:
+            return None
+        loss = torch.stack(terms).mean()
+        self._last_binding_loss = float(loss.detach().cpu().item())
+        return loss
 
     def write_pos(self, layer_idx: int) -> int:
         return 0 if self.projection_sharing == "shared" else self.layer_to_pos[int(layer_idx)]
@@ -1357,6 +1905,17 @@ class LayerwiseFrameMessageMemory(nn.Module):
         self._frame_valid_mask = batch.frame_valid_mask
         self._evidence_frame_indices = [[int(x) for x in row] for row in batch.evidence_frame_indices]
         self._sample_ids = list(batch.sample_ids)
+        self._per_frame_room_ids = (
+            [[int(x) for x in row] for row in batch.per_frame_room_ids]
+            if getattr(batch, "per_frame_room_ids", None) is not None
+            else None
+        )
+        self._slot_assign_records = []
+        self._register_positions = (
+            [[int(p) for p in row] for row in batch.register_positions]
+            if getattr(batch, "register_positions", None) is not None
+            else None
+        )
         self._slots = None
         self._last_stats = {
             "raw_message_norm_by_layer": {},
@@ -1381,6 +1940,9 @@ class LayerwiseFrameMessageMemory(nn.Module):
         self._frame_valid_mask = None
         self._evidence_frame_indices = None
         self._sample_ids = None
+        self._per_frame_room_ids = None
+        self._slot_assign_records = []
+        self._register_positions = None
         self._slots = None
 
     def attach(self, model: Any) -> None:
@@ -1743,8 +2305,16 @@ class LayerwiseFrameMessageMemory(nn.Module):
         self._slots = torch.where(valid.unsqueeze(-1), candidate, self._slots)
         slots_for_read, valid_for_read = self._apply_ablation(self._slots, valid, int(layer_idx))
         batch, max_carriers, max_frames, _d = slots_for_read.shape
+        reg_vectors: Optional[torch.Tensor] = None  # [b, K, d] per-register payload (register mode only)
         if self.variant == CARRIER_DIRECT_SUM:
             read = (self.w_sum[mpos](slots_for_read) * valid_for_read.unsqueeze(-1).float()).sum(dim=2)
+            matrix_shape = [batch, max_carriers, self.memory_dim]
+        elif self.variant == CARRIER_MAX:
+            # Max-pool over frames (saturating aggregator): elementwise max of projected slots,
+            # invalid frames masked to -inf. Output dim = memory_dim (reuses w_out, like direct_sum).
+            s = self.w_sum[mpos](slots_for_read).float()
+            s = s.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
+            read = torch.nan_to_num(s.amax(dim=2), neginf=0.0)
             matrix_shape = [batch, max_carriers, self.memory_dim]
         elif self.variant == CARRIER_PNA:
             # PNA readout over frames: [sum, mean, max, std] x [identity, amplify, attenuate].
@@ -1766,20 +2336,65 @@ class LayerwiseFrameMessageMemory(nn.Module):
             read = torch.cat(streams, dim=-1)  # [b, c, 12*memory_dim]
             matrix_shape = [batch, max_carriers, 12 * self.memory_dim]
         elif self.variant == CARRIER_SLOT:
-            # Competitive slot routing: each frame is softly assigned across NUM_SLOTS slots
+            # Competitive slot routing: each frame is softly assigned across num_slots slots
             # (softmax over SLOTS — global competition, not a per-frame independent gate), then
             # each slot accumulates an UNNORMALIZED sum of its assigned frame values. Evidence
             # and distractor frames can route to different slots; the count lives in the
-            # magnitude of a slot's sum. Readout sees all slot-sums concatenated.
+            # magnitude of a slot's sum. Readout sees all slot-sums concatenated. With the
+            # room-binding aux loss, slots bind to rooms → distinct-count = #active slots.
             s = self.w_sum[mpos](slots_for_read).float()  # [b, c, f, d]
-            assign_logits = self.slot_assign[mpos](s)  # [b, c, f, NUM_SLOTS]
+            assign_logits = self.slot_assign[mpos](s)  # [b, c, f, num_slots]
             assign_logits = assign_logits.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
             assign = torch.softmax(assign_logits, dim=-1)  # competition across slots, per frame
             assign = torch.nan_to_num(assign, nan=0.0) * valid_for_read.unsqueeze(-1).float()
-            # per-slot unnormalized sum over frames: [b, c, NUM_SLOTS, d]
+            self._record_slot_assignment(assign, valid_for_read)  # for the room-binding aux loss
+            # per-slot unnormalized sum over frames: [b, c, num_slots, d]
             slot_sums = torch.einsum("bcfk,bcfd->bckd", assign, s)
-            read = slot_sums.reshape(batch, max_carriers, NUM_SLOTS * self.memory_dim)
-            matrix_shape = [batch, max_carriers, NUM_SLOTS * self.memory_dim]
+            read = slot_sums.reshape(batch, max_carriers, self.num_slots * self.memory_dim)
+            matrix_shape = [batch, max_carriers, self.num_slots * self.memory_dim]
+        elif self.variant == CARRIER_UNION:
+            # Dedup/union: each frame softly routes to one of union_slots latent "room" slots
+            # (softmax over slots). Per-slot PRESENCE via noisy-OR over frames = P(any frame in
+            # this room). The presence vector's sum = number of distinct rooms; readout maps it in.
+            s = self.w_sum[mpos](slots_for_read).float()  # [b, c, f, d]
+            assign_logits = self.union_assign[mpos](s)  # [b, c, f, K]
+            assign_logits = assign_logits.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
+            assign = torch.softmax(assign_logits, dim=-1)  # per-frame room distribution
+            assign = torch.nan_to_num(assign, nan=0.0) * valid_for_read.unsqueeze(-1).float()
+            self._record_slot_assignment(assign, valid_for_read)  # for the room-binding aux loss
+            # noisy-OR presence per slot: 1 - prod_f(1 - assign_{f,k})  (differentiable union)
+            presence = 1.0 - torch.prod((1.0 - assign.clamp(0.0, 1.0)), dim=2)  # [b, c, K]
+            read = presence  # [b, c, K]; sum over K ~= distinct count
+            matrix_shape = [batch, max_carriers, self.union_slots]
+        elif self.variant == CARRIER_PMA:
+            # Set-Transformer PMA with UNNORMALIZED pooling: k learnable seed queries each pool
+            # the frame slots via a per-frame sigmoid gate (NOT softmax over frames), so the pooled
+            # magnitude scales with count (DeepSets). k seeds = capacity k*memory_dim; seeds can
+            # specialize to different rooms/aspects. Bypasses the saturating single-carrier channel.
+            k_proj = self.w_k[mpos](slots_for_read).float()  # [b, c, f, d]
+            v_proj = self.w_v[mpos](slots_for_read).float()  # [b, c, f, d]
+            seeds = self.pma_seed[mpos]  # [k, d]
+            compat = torch.einsum("kd,bcfd->bckf", seeds, k_proj) / math.sqrt(float(self.memory_dim))
+            gate = torch.sigmoid(compat)  # [b, c, k, f], unnormalized over f → count survives
+            gate = gate * valid_for_read.unsqueeze(2).float()
+            pooled = torch.einsum("bckf,bcfd->bckd", gate, v_proj)  # [b, c, k, d]
+            read = pooled.reshape(batch, max_carriers, self.pma_seeds * self.memory_dim)
+            matrix_shape = [batch, max_carriers, self.pma_seeds * self.memory_dim]
+        elif self.variant == CARRIER_REGISTER:
+            # Competitive per-slot unnormalized sums (as carrier_slot), but each slot is written to its
+            # OWN appended register token instead of being concatenated and crammed back into the 2
+            # carriers. Averaged over query carriers -> one payload vector per register. Capacity now
+            # lives in K real positions of the frozen stream; the binding loss makes register r ~ room r.
+            s = self.w_sum[mpos](slots_for_read).float()  # [b, c, f, d]
+            assign_logits = self.slot_assign[mpos](s)  # [b, c, f, num_slots]
+            assign_logits = assign_logits.masked_fill(~valid_for_read.unsqueeze(-1), float("-inf"))
+            assign = torch.softmax(assign_logits, dim=-1)
+            assign = torch.nan_to_num(assign, nan=0.0) * valid_for_read.unsqueeze(-1).float()
+            self._record_slot_assignment(assign, valid_for_read)  # for the room-binding aux loss
+            slot_sums = torch.einsum("bcfk,bcfd->bckd", assign, s)  # [b, c, K, d]
+            reg_vectors = slot_sums.mean(dim=1)  # [b, K, d] — one payload per register
+            read = reg_vectors.reshape(batch, self.num_slots * self.memory_dim).unsqueeze(1)
+            matrix_shape = [batch, self.num_slots, self.memory_dim]
         elif self.variant == CARRIER_GLSTM_SOFTMAX:
             # Softmax-normalized read control: identical q/k/v machinery to the
             # associative read, but the per-frame contributions are normalized to a
@@ -1805,6 +2420,12 @@ class LayerwiseFrameMessageMemory(nn.Module):
             injection = self.w_out_pna[mpos](read).float()
         elif self.variant == CARRIER_SLOT:
             injection = self.w_out_slot[mpos](read).float()
+        elif self.variant == CARRIER_UNION:
+            injection = self.w_out_union[mpos](read).float()
+        elif self.variant == CARRIER_PMA:
+            injection = self.w_out_pma[mpos](read).float()
+        elif self.variant == CARRIER_REGISTER:
+            injection = self.w_out_register[mpos](reg_vectors).float()  # [b, K, hidden] — one per register
         else:
             injection = self.w_out[mpos](read).float()
         injection = self.gamma[self.layer_to_pos[int(layer_idx)]].float() * injection
@@ -1813,9 +2434,16 @@ class LayerwiseFrameMessageMemory(nn.Module):
         carrier_norms: List[float] = []
         injection_norms: List[float] = []
         ratios: List[float] = []
+        # Register mode injects each per-slot payload into its own appended register token;
+        # all other variants inject the per-carrier update into the question carrier positions.
+        inject_positions = (
+            self._register_positions
+            if self.variant == CARRIER_REGISTER and self._register_positions is not None
+            else self._carrier_positions
+        )
         if should_inject:
-            assert self._carrier_positions is not None
-            for b, positions in enumerate(self._carrier_positions):
+            assert inject_positions is not None
+            for b, positions in enumerate(inject_positions):
                 for c, pos in enumerate(positions):
                     if c >= injection.shape[1] or not (0 <= int(pos) < seq_len):
                         continue
@@ -1904,12 +2532,20 @@ class LayerwiseFrameMessageMemory(nn.Module):
 
 
 class ExperimentAdapter(nn.Module):
-    def __init__(self, lora: Optional[AttentionLoRAAdapter], memory: Optional[LayerwiseFrameMessageMemory]) -> None:
+    def __init__(
+        self,
+        lora: Optional[AttentionLoRAAdapter],
+        memory: Optional[LayerwiseFrameMessageMemory],
+        vision_lora: Optional[VisualAttentionLoRAAdapter] = None,
+    ) -> None:
         super().__init__()
         self.lora = lora
         self.memory = memory
+        self.vision_lora = vision_lora
 
     def attach(self, model: Any) -> None:
+        if self.vision_lora is not None:
+            self.vision_lora.attach(model)
         if self.lora is not None:
             self.lora.attach(model)
         if self.memory is not None:
@@ -1920,10 +2556,14 @@ class ExperimentAdapter(nn.Module):
             self.memory.detach()
         if self.lora is not None:
             self.lora.detach()
+        if self.vision_lora is not None:
+            self.vision_lora.detach()
 
     def set_context(self, batch: FrameMemoryBatch) -> None:
         if self.lora is not None:
             self.lora.set_context(batch)
+        if self.vision_lora is not None:
+            self.vision_lora.set_context(batch)
         if self.memory is not None:
             self.memory.set_context(batch)
 
@@ -1932,6 +2572,8 @@ class ExperimentAdapter(nn.Module):
             self.memory.clear_context()
         if self.lora is not None:
             self.lora.clear_context()
+        if self.vision_lora is not None:
+            self.vision_lora.clear_context()
 
     def stats_for_row(self, row: int) -> Dict[str, Any]:
         stats: Dict[str, Any] = {}
@@ -1951,6 +2593,21 @@ class ExperimentAdapter(nn.Module):
             self.memory.ablation_seed = int(seed)
 
 
+def resolve_vision_lora_layers(args: argparse.Namespace) -> Any:
+    """Return the ViT block indices to wrap. Default "all" wraps every block (resolved at attach)."""
+    spec = str(getattr(args, "vision_lora_layers", "all") or "all").strip()
+    if spec.lower() in ("all", "*", ""):
+        return "all"
+    out: List[int] = []
+    for tok in spec.replace(",", " ").split():
+        if "-" in tok:  # inclusive range "16-31" (avoids commas, which SLURM --export splits on)
+            lo, hi = tok.split("-", 1)
+            out.extend(range(int(lo), int(hi) + 1))
+        else:
+            out.append(int(tok))
+    return out
+
+
 def make_adapter(args: argparse.Namespace, variant: str, hidden_size: int, layers: Sequence[int]) -> ExperimentAdapter:
     if bool(args.frame_kv_lora):
         raise NotImplementedError("--frame-kv-lora is reserved for follow-up sweeps and is not part of this matrix")
@@ -1964,6 +2621,26 @@ def make_adapter(args: argparse.Namespace, variant: str, hidden_size: int, layer
             gated=False,
         )
         return ExperimentAdapter(lora=lora, memory=None)
+    if variant in (VISION_LORA, VISION_LM_LORA):
+        vision_lora = VisualAttentionLoRAAdapter(
+            inject_layers=resolve_vision_lora_layers(args),
+            rank=int(args.lora_rank),
+            alpha=float(args.lora_alpha),
+            dropout=float(args.lora_dropout),
+            target_modules=("qkv", "proj"),
+            gated=False,
+        )
+        lm_lora = None
+        if variant == VISION_LM_LORA:
+            lm_lora = AttentionLoRAAdapter(
+                inject_layers=layers,
+                rank=int(args.lora_rank),
+                alpha=float(args.lora_alpha),
+                dropout=float(args.lora_dropout),
+                target_modules=("q_proj", "k_proj", "v_proj", "o_proj"),
+                gated=False,
+            )
+        return ExperimentAdapter(lora=lm_lora, memory=None, vision_lora=vision_lora)
     lora = AttentionLoRAAdapter(
         inject_layers=layers,
         rank=int(args.lora_rank),
@@ -1985,7 +2662,12 @@ def make_adapter(args: argparse.Namespace, variant: str, hidden_size: int, layer
             message_mode=str(args.message_mode),
             reconstruction_tol=float(args.reconstruction_tol),
             fail_on_reconstruction_error=bool(args.fail_on_reconstruction_error),
+            num_slots=int(getattr(args, "num_slots", NUM_SLOTS)),
+            union_slots=int(UNION_SLOTS),
+            pma_seeds=int(getattr(args, "pma_seeds", PMA_SEEDS)),
+            register_tokens=int(getattr(args, "register_tokens", 0)),
         )
+        memory.binding_loss_weight = float(getattr(args, "binding_loss_weight", 0.0))
     if bool(getattr(args, "no_carrier_lora", False)) and memory is not None:
         lora = None  # memory-only control: isolate the memory adapter's contribution
     return ExperimentAdapter(lora=lora, memory=memory)
@@ -2089,6 +2771,7 @@ def predict_count(
             device=device,
             answer_ids=answer_ids,
             answer_count_override=int(candidate),
+            register_tokens=(adapter.memory.register_tokens if adapter is not None and adapter.memory is not None else 0),
         )
         if adapter is not None:
             adapter.set_context(batch)
@@ -2156,10 +2839,15 @@ def train_adapter(
                     processor=processor,
                     device=device,
                     answer_ids=answer_ids,
+                    register_tokens=(adapter.memory.register_tokens if adapter.memory is not None else 0),
                 )
                 adapter.set_context(batch)
                 outputs = model(**batch.inputs, use_cache=False)
                 loss, _row_loss = answer_sequence_cross_entropy(outputs.logits, batch)
+                if adapter.memory is not None:
+                    aux = adapter.memory.auxiliary_loss()
+                    if aux is not None:
+                        loss = loss + adapter.memory.binding_loss_weight * aux.to(loss.device)
                 adapter.clear_context()
                 (loss / max(1, int(args.grad_accum))).backward()
                 train_loss_total += float(loss.detach().cpu().item())
@@ -2264,6 +2952,7 @@ def evaluate_split(
                 processor=processor,
                 device=device,
                 answer_ids=answer_ids,
+                register_tokens=(adapter.memory.register_tokens if adapter is not None and adapter.memory is not None else 0),
             )
             if adapter is not None:
                 adapter.set_context(batch)
@@ -2811,6 +3500,8 @@ def run_variant(
         diagnostics_dir = run_dir / "diagnostics"
         diagnostics_dir.mkdir(parents=True, exist_ok=True)
         for split in EVAL_SPLITS:
+            if split not in examples:
+                continue
             indices = limited_indices(examples[split], int(args.max_eval_examples), int(args.seed) + 101)
             if bool(args.smoke_test):
                 indices = indices[: min(2, len(indices))]

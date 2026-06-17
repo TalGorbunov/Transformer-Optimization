@@ -18,7 +18,7 @@ and how to fix it with a small trainable adapter — framed through the graph-ne
   mean*, which provably cannot represent "how many" (a mean is count-blind). Baseline accuracy collapses
   from ~85% at 1–2 frames to ~20–30% at 8 frames, even though the per-frame evidence is present and
   decodable — it's an aggregation failure, not a perception failure. **And it's not counting-specific
-  (Phase 6):** two *other* MMReD tasks — rooms-visited (set-cardinality) and co-occupancy (a 2-character
+ :** two *other* MMReD tasks — rooms-visited (set-cardinality) and co-occupancy (a 2-character
   predicate) — show the same seq_len collapse, with the output regressing toward a length-dependent
   *middle* estimate (undershooting high-answer tasks, overshooting low-answer ones). So the bottleneck is
   a general aggregation/representational-collapse failure, invariant to both the aggregation type and the
@@ -34,9 +34,9 @@ and how to fix it with a small trainable adapter — framed through the graph-ne
   and becomes **selection**. An oracle that knows which frames are evidence reaches **96%**, but every
   *learned* selector plateaus at **~63–68%** (memory adapters with a LoRA; ~47% for the bare gated posneg
   adapter). We now know this plateau is **robust to the selection mechanism**: per-frame gating, count-level
-  supervision, *and* competitive slot-attention routing (Phase 7) all land in it; only richer *aggregation*
+  supervision, *and* competitive slot-attention routing all land in it; only richer *aggregation*
   (PNA) nudges it (+4pp). And per-frame gating is *structurally* capped — errors compound with count, and
-  the per-frame evidence-detection ceiling is ~0.96 (Phase 5), short of the ~0.99 exact counting needs. So
+  the per-frame evidence-detection ceiling is ~0.96, short of the ~0.99 exact counting needs. So
   **the distractor gap is not closeable by better selection** — the remaining levers are richer aggregation
   and/or count-level (distributed) supervision, but neither has crossed ~68% yet. This is the open problem.
 
@@ -75,7 +75,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
   **aggregation/over-squashing** failure: per-frame evidence is present and decodable, but the model
   cannot combine many frames in a single forward pass. Last-token representations and the gold margin
   collapse sharply once **2–4 frames** must be aggregated.
-- **Current leading approach (updated Phase 5):** a frozen-Qwen **DeepSets readout** — `ρ(Σ φ(message_i))`:
+- **Current leading approach:** a frozen-Qwen **DeepSets readout** — `ρ(Σ φ(message_i))`:
   project each frame's attention "message", **unnormalized sum** over frames, inject at carrier/last-token
   residuals (~L14–17). gLSTM's associative memory-addressing is **dispensable** (sum ties/beats it on
   matched controls); the load-bearing ingredients are **unnormalized aggregation + width ≥ max-count**.
@@ -83,7 +83,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
   - ✅ **Evidence-only counting is solved** — sum / layer-local / raw-matrix / PNA adapters hit **100%**
     at seq_len 1–8 (vs ~39% base), incl. **100% count/length OOD** (train 1–4 → eval 5–8). Minimal form:
     a single layer, one shared φ/ρ, one inject at last token.
-  - ✅ **Two causal knobs isolated (Phase 5):** unnormalized sum vs mean/softmax = +24pp OOD
+  - ✅ **Two causal knobs isolated:** unnormalized sum vs mean/softmax = +24pp OOD
     (normalization is the failure); d_mem sweep saturates at **width = max-count N** (capacity bound).
   - ❌ **Distractors are the open frontier** — learned adapters plateau ~40–64%; only oracle-masked
     upper bounds (96%) recover. The gap is **selection** (per-frame evidence detection), not aggregation;
@@ -92,7 +92,134 @@ distractor-*selection* problem that per-frame methods provably can't close.
 ---
 
 ---
-## Synthesis — what's working, what isn't
+## Weekly progress
+
+### Earlier work (Feb 2026 → early June)  ·  pre-weekly-cadence summary
+
+Locating and diagnosing the bottleneck (full detail in the Experiment Log, Feb–May rows): baseline Qwen2.5-VL
+collapses from ~85% (1–2 frames) to ~20–30% (8 frames). Probes show the per-frame evidence is **decodable**
+(count probe ~95% seq2 / ~40% seq8 while the model gets ~30%) and causal ablations show individual-frame
+influence vanishes by seq8 → an **aggregation / over-squashing** failure, not perception. Last-token
+representational collapse (cosine 0.060→0.019, seq1→8) matches [Barbero et al. 2024](https://arxiv.org/abs/2406.04267).
+Evidence-only counting was first **solved** in this period by a sum/DeepSets adapter (~100%).
+
+### Week 2026.06.02-09
+
+**The story.** Pinned the *counting* fix down to two causally-isolated knobs; the minimal adapter is tiny and
+the heavy gLSTM memory turns out to be unnecessary.
+
+**Results.**
+- **Counting is solved and the fix is a 2-knob DeepSets sum.** Matched-harness ablations (n=3 seeds on the two
+  headline curves): (1) **unnormalized sum vs mean/softmax = +24pp on count/length-OOD** (sum/PNA 1.00 vs
+  mean/softmax 0.76) — normalization is the causal failure; (2) **capacity knee exactly at width = max-count**
+  (d_mem sweep saturates at 8 = N). Minimal deployable form: one mid-layer, one shared φ/ρ, inject once at the
+  last token → **100% incl. count/length OOD** (train 1–4 → eval 5–8). gLSTM's associative addressing is
+  **dispensable** (plain sum ties/beats it); PNA = sum (safe default).
+- **Aggregator-ingredient decomposition:** of the three candidate ingredients only **unnormalized aggregation**
+  and **width ≥ max-count** are load-bearing; the associative q·k addressing adds nothing over a plain sum.
+
+**Insight.** The counting bottleneck reduces to "attention is a normalized, bounded-width *mean*"; an
+unnormalized **sum** of width ≥ max-count fixes it as a single-layer adapter.
+
+### Week 2026.06.10-16
+
+We (a) showed the bottleneck **generalizes** to two new aggregation tasks, and (b) in
+a focused sprint traced *where* those new tasks fail — correcting our own first guess: the failure is
+**aggregation, not vision extraction**, and the **frame→carrier→last "stage" pathway is a general,
+task-agnostic property** of the model.
+
+**Results.**
+- **The bottleneck generalizes beyond counting.** Frozen-Qwen baselines on two *new* MMReD tasks —
+  **rooms-visited** (set-cardinality) and **co-occupancy** (2-character predicate) — show the same seq_len
+  collapse, regressing toward a length-dependent *middle* estimate (undershoot high-answer tasks, overshoot
+  low-answer ones). So the over-squashing failure is invariant to aggregation *type* and *predicate*.
+- **For the new tasks the wall is AGGREGATION, not vision** (this *revised* our mid-week "vision-extraction"
+  guess). Message probes that recompute each frame's attention-routed message to the carrier show the per-frame
+  evidence **reaches the carrier with high fidelity** (rooms-visited room 0.85; co-occupancy same/diff **AUROC
+  0.97**). Yet **decode-then-count** (classify each frame, then count — no learned count fn) far beats the model:
+  rooms-visited **0.63 vs model 0.10**, co-occupancy **0.52 vs 0.27**. Evidence is extracted+routed; the model
+  fails to *combine* it. Attention-LoRA (`global_lora`, ~0.58) ≈ the decode-then-count ceiling → it helps by
+  improving **re-attention/aggregation**. **Vision-encoder LoRA does not help** (ViT-only 0.50, ViT+LM 0.596 ≈
+  LM-only 0.58) — confirming the lever is LM aggregation, not the vision tower.
+- **The frame→carrier→last STAGE pathway is task-general.** Layerwise token-group restoration (n=40, same
+  method for all three tasks) gives the identical staircase: frames rescue **early** (L0–12) → question/carrier
+  **mid** (peak L14–16) → last token **late** (L18–26), crossover ~L14–16. Invariant across three predicates →
+  a **general, training-induced routing scaffold**, not a counting artifact.
+  (Plot: `outputs/stages_7b_plots/stages_restoration_by_group_7b_n40.png`.)
+- **Distractor selection still plateaus.** New selection mechanisms (count-level supervision, competitive
+  slot-attention routing) all land in the ~63–68% band; only richer *aggregation* (PNA) nudges it (+4pp).
+
+**Insights.**
+- The staged frames→carrier→last flow is **how this model routes evidence in general** (reproduces on 3 tasks)
+  — likely a training-induced computational scaffold worth treating as a fixed substrate for interventions.
+- For set-cardinality tasks the evidence is present and routed; the model just doesn't aggregate it — the same
+  diagnosis as counting, now shown one task-family wider.
+- Methodological self-correction: the symbolic text-oracle and pooled linear probes *over-stated* an
+  "extraction" story; the message-level + decode-then-count probes are the trustworthy test.
+
+**Caveat to carry.** rooms-visited's symbolic oracle is only **0.76** (vs co-occ 0.98) → its dedup-distinct-count
+*computation* is itself partly lossy, stacking an internal-computation limit on top of the aggregation gap.
+
+**In progress (this week).**
+- **DeepSets aggregator sweep** (count-only, running now): does an explicit operator recover the new-task
+  count? Sum for counting/co-occupancy (additive); a **union/dedup** operator (noisy-OR per room → count) for
+  rooms-visited, since plain sum can't dedup distinct rooms. Tests operator-must-match-algebra; if union works,
+  next is a width / injection-layer sweep.
+- Distractor selection remains the standing open problem (richer aggregation or count-level supervision).
+
+### [2026-06-16] The bottleneck is a bandwidth-limited, saturating aggregation cut — not the operator or the aggregator
+
+**Diagnosis (task-general).** All three MMReD tasks require aggregating N frames' evidence into the
+fixed-capacity residual stream of a few carrier/last tokens — a thin bottleneck cut that *saturates*.
+Evidence: last-token cosine collapse 0.060→0.019 (seq1→8); hidden-state norm 0.347→0.181; and the
+nested-evidence margin collapses at **k=2–4 frames even when the added frames are true evidence**
+(+6.66 → +0.15 → −1.03 → −2.23 for k=1,2,4,8). The channel is full by ~2 frames, so *more* information
+*hurts* — the clean over-squashing/capacity signature ([Di Giovanni 2023](https://arxiv.org/abs/2302.02941)
+width; [Alon & Yahav 2021](https://arxiv.org/abs/2006.05205) bottleneck; [Barbero 2024](https://arxiv.org/abs/2406.04267)
+last-token collapse).
+
+**What this rules out.** (a) *Operator swaps are dead* — maxmix, PNA-mix, native-attention factorization,
+and oracle routing all reweight the **same saturated channel** and plateau/fail (maxmix distractor ~47%,
+count-OOD 0%; native-attention factorization ~0% smoke; oracle routing ±2%). (b) *A better single-channel
+aggregator is not the fix* — unnormalized **sum solves counting (100%, incl. OOD)** because counting is a
+scalar (sum is a sufficient statistic), but sum/PNA only reach **~48% on rooms-visited** (sum 48.2%, PNA
+46.5%) and **~44% on co-occupancy** (baseline ~10%). Those are *set functions* (distinct-count /
+predicate-count) that need the carrier to hold the *set* of rooms/pairs, which a saturating scalar-ish
+channel cannot.
+
+
+### [2026-06-17] Week recap (06-12 → 06-17)
+
+
+**Aggregation operator + data sweeps (`agg_sweep` / `agg_moredata` / `agg_ood`).**
+- On rooms-visited, single-channel operators cluster **~46% iid** (carrier-sum 45.7%, slot/union/gLSTM/max within noise) — operator choice ≈ noise.
+- Doubling data lifts carrier-sum to **58.1% iid** → capacity/data, not the operator, moves the needle.
+
+**Read-mechanism / softmax ablation (evidence-only, neutral).**
+- len-OOD: gLSTM **0.778** / sum **0.762** / softmax **0.680** → normalization costs ~−10pp; associative addressing adds nothing over plain sum (= GIN sum>mean inside the frozen VLM).
+
+**Counting task status.**
+- Evidence-only sum adapter = **100%** (baseline 23%).
+- Distractor counting: baseline **24.4%**; best learned **PNA 68.1%** (> sum 63.8 / gLSTM 61.7); oracle-posneg ceiling **91.1%** (this run) → the residual gap is *selection*, not aggregation capacity.
+
+**Two new tasks (set-cardinality / predicate-count).**
+- **rooms_visited** (distinct rooms visited): frozen baseline **35.8%** → best adapter **63.9%** (global LM-attn LoRA); symbolic-text ceiling **75.8%**.
+- **co_occupancy** (frames two characters share a room): frozen baseline **31.9%** → best adapter **59.5%** (carrier-sum); symbolic-text ceiling **98.3%** → its headroom is in the vision→carrier path, not the arithmetic.
+- The evidence-only sum adapter does **not** apply to either — neither has an evidence-only variant (both are inherently full/distractor tasks).
+
+**Diagnosis on the new tasks (probe battery, both tasks).**
+- Per-frame evidence is well extracted **and routed** to the carrier: room decode **0.84–0.89**, co-occ same/diff **0.93** (AUROC 0.97).
+- But count is **not recoverable downstream**: count-from-messages ~**0.43–0.48** (≈ majority), last-token count decode **≤0.475** (≈ majority), frame-token-state pooling ≈ blind (~0.43).
+- decode-then-count oracle ≫ model (rooms **0.675 vs 0.10**, co-occ **0.55 vs 0.27**) → the bottleneck is **aggregation/dedup, not extraction** — revises the earlier "vision extraction" framing.
+- token-group corruption shows an identical frames→carrier→last staircase across all 3 tasks → the stage phenomenon is **task-general**.
+
+**Insights**
+- **One bottleneck explains all three MMReD tasks**: a bandwidth-limited carrier cut that saturates (~2 frames). Extraction is fine; aggregation is the cut.
+- The fix is **DeepSets-shaped** (unnormalized sum, width ≥ max-count) for *scalar* counting — solves clean counting (100%, incl. count-OOD) — but *set-functions* (distinct-room, co-occ) need the carrier to hold the **set**, which a saturating scalar channel can't → direction is a **multi-slot external set-memory**.
+- Distractor **selection** (~63–68% plateau) is robust to every selection mechanism tried; only richer aggregation nudges it (+4pp).
+
+---
+## Standing reference (cross-week synthesis)
 
 ### What's working
 - **The diagnosis is solid and convergent.** Probes (count decodable at ~95% seq2 / 40% seq8 while the
@@ -105,7 +232,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
     prove decoder-only transformers suffer **last-token representational collapse** — distinct input
     sequences map to arbitrarily close final-token representations — explicitly connect it to GNN
     over-squashing, and show it produces errors *specifically in counting and copying*, **worsened by
-    low-precision floats**. Our Phase 0 last-token cosine-collapse metric (0.060→0.019, seq1→8) is the
+    low-precision floats**. Our early-diagnosis last-token cosine-collapse metric (0.060→0.019, seq1→8) is the
     empirical signature of exactly this; their bf16 caveat is also a flag for our 4-bit/bf16 runs. This
     is the single closest transformer-side precedent — cite it as the mechanism behind the diagnosis.
 - **Evidence-only counting is fully solved** by a small frozen-Qwen adapter that **sums per-frame
@@ -127,7 +254,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
   continuous mixing. Oracle count injection → 100%, so **the frozen model can use a clean count signal**
   — the problem is producing one, not consuming it.
 
-### Phase 4 (2026-06-13): which aggregator ingredients actually matter, and why distractors are hard
+### Deep dive — aggregator ingredients: only two of three are load-bearing (counting + distractors)
 - **The aggregator decomposes into three ingredients; only two are load-bearing.** Matched-harness
   controls (same data/LoRA/training, only the read changes) isolate each: **(1) unnormalized read is
   necessary** — softmax-normalizing the memory read costs −9.8pp length-OOD (77.8→68.0) with IID
@@ -151,7 +278,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
   and the gate stays decorative. Detection, hardness, epochs, and gate placement are each falsified as
   the cause.
 
-### Phase 5 (2026-06-13): the counting fix is DeepSets, with two measured causal knobs
+### Deep dive — the counting fix is DeepSets, with two measured causal knobs
 - **The whole story collapses to one sentence:** the model cannot count because attention is a
   **normalized, bounded-width mean**, and the minimal fix is an **unnormalized sum (DeepSets,
   `ρ(Σ φ(message_i))`) with width ≥ max-count** — injectable as a *single-layer* adapter, not gLSTM.
@@ -197,12 +324,12 @@ distractor-*selection* problem that per-frame methods provably can't close.
   keys isn't enough, confirming the bottleneck is upstream of routing.
 - **Count extrapolation is a distinct, unsolved problem.** Train on counts 0–5, test on 7 → ~0% for every
   method; even all-counts-IID ceilings ~72%. Don't conflate "aggregation" wins with "count generalization".
-- **The per-frame gating interface is the wrong abstraction for closing the distractor gap** (Phase 4–5).
+- **The per-frame gating interface is the wrong abstraction for closing the distractor gap**.
   Every route through it fails for an understood reason: soft gates get bypassed by joint training (47%);
   a learned gate feeding a frozen exact-mask readout compounds errors (12–16%, below base); and
   training the readout to tolerate mask noise destroys the count signal (96→62 even at clean eval, since
   15%/frame ≈ count-label noise over 8 frames).
-  - **Detection-ceiling measured (Phase 5):** even a *pure* per-frame detector (λ_ce=0, 10 ep) ceilings at
+  - **Detection-ceiling measured:** even a *pure* per-frame detector (λ_ce=0, 10 ep) ceilings at
     **AUC ≈ 0.96, at layer 19** (w14–17 only reached 0.93 — the L14–17 write window every prior gate used
     was the wrong layer; evidence is most decodable at L19). This is higher than the earlier ~0.9 estimate
     but still short of the ~0.99/frame exact counting needs.
@@ -214,7 +341,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
     supervision** (calibrated `count = Σ P(evidence_i)`, where unbiased noise averages instead of
     compounding — though it too drifts at very high counts), or (b) **global/competitive selection** rather
     than independent per-element decisions (see Open questions).
-- **Aggregator richness recovers *some* distractor signal (Phase 5, mild).** A clean PNA readout beats pure
+- **Aggregator richness recovers *some* distractor signal (mild).** A clean PNA readout beats pure
   sum on distractors (iid 68.1% vs 63.8%, +4–6pp across splits), so the distractor gap is **not 100%
   selection** — distributional features (max/std of the frame messages) that pure sum discards carry real
   evidence-vs-distractor signal. But it's marginal (single-seed, still ~28pp below oracle), so it's a
@@ -230,25 +357,25 @@ distractor-*selection* problem that per-frame methods provably can't close.
 - `memory_carrier_site_layer_norm_sweep` showed the earlier all-question injection edge **disappears
   after proper √|S| normalization** → some prior "gains" may have been answer-steering, not cleaner
   aggregation. Re-audit injection-site claims with normalization held fixed.
-- **All Phase 4 numbers are single-seed.** The matched read-mechanism control (sum 76.2 vs gLSTM 77.8
+- **All 06-12→13 ablation numbers are single-seed.** The matched read-mechanism control (sum 76.2 vs gLSTM 77.8
   len-OOD) is a tie *within seed noise* — the "associative read is dispensable" claim should be confirmed
   with ≥3 seeds before it goes in the thesis. The softmax −9.8pp effect is larger and more likely robust,
-  but also single-seed and at short train lengths (degradation, not collapse). Phase 4 gLSTM runs still
+  but also single-seed and at short train lengths (degradation, not collapse). Those gLSTM runs still
   carry the unresolved "memory-disabled ~88–95%" flag (LoRA does much of the work at short lengths).
-- **Phase 5 — two core curves now n=3 (2026-06-13), the rest still single-seed.** The two *headline*
+- **The DeepSets ablation — two core curves now n=3 (2026-06-13), the rest still single-seed.** The two *headline*
   curves are confirmed at 3 seeds: pooling (sum/pna 1.00 vs mean/softmax 0.76, ±0.01) and the width sweep
   (knee at d_mem=8=N; per-seed d8 = 0.99/1.00/0.97). These are no longer single-seed. Still single-seed
   and to confirm before thesis: the **layer ablation** (esp. the single-layer L14/L16=1.00 vs L15/L17
   0.86–0.91 split — could be seed noise, don't claim a *specific* layer), shared-weights, and inject-site
-  rows. Phase 5 uses `--load-in-4bit` default per the runner; confirm consistent with other rows.
+  rows. Those runs use `--load-in-4bit` default per the runner; confirm consistent with other rows.
 
 ### Open questions / next experiments
-1. ~~**gLSTM on the distractor task**~~ — **done (Phase 4):** gLSTM ties/loses to plain sum on distractors
+1. ~~**gLSTM on the distractor task**~~ — **done:** gLSTM ties/loses to plain sum on distractors
    (61.7 vs 63.8 IID); associative read is dispensable.
-2. ~~**Why oracle-selection-then-sum is only 57%**~~ — **answered (Phase 4):** it's the missing negative
+2. ~~**Why oracle-selection-then-sum is only 57%**~~ — **answered:** it's the missing negative
    stream (≈+20pp) plus read depth (≈+5pp), not an injection/representation incompatibility.
 3. **Count-level / distributed stream supervision** for distractors — the per-frame gating interface is
-   falsified (Phase 4–5); supervise the *summed* pos/neg streams or the count directly instead of per-frame
+   falsified; supervise the *summed* pos/neg streams or the count directly instead of per-frame
    masks. This is now the headline open problem for closing 47→96.
 4. **Global/competitive selection instead of independent per-element gates (the GNN-method direction).**
    The diagnosis says per-element-independent decisions are structurally fatal (errors compound ×n / √n),
@@ -313,7 +440,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 > Append-only. One row per experiment family (tight group of runs). Dirs are relative to repo root.
 > Status: ✅ done & trusted · ⚠️ done but suspect/partial · ❌ failed/no-gain · 📊 characterization/probe only · ▶ running
 
-### Phase 0 — Locating the bottleneck (Feb–Apr 2026, 32B/7B)
+### Feb–Apr 2026 — Locating the bottleneck (32B/7B)
 
 | Date | Output dir | Method / change | Key config | Metric | Status | Notes |
 |------|-----------|-----------------|-----------|--------|--------|-------|
@@ -335,7 +462,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-04-29 | `outputs_least_oldest/selective_routing_oracle` | Keep only evidence frames (compact context) | 32B, seq 2/4/8 | seq8 28.7%→59.7% (compact) | ✅ | Shrinking the context to evidence frames recovers a lot → dilution/over-squashing from many frames. |
 | 2026-05-08 | `outputs_least_oldest/evidence_count_ablation` | Frame influence + entropy by count | 32B, seq8 | total influence 0.48(c1)→1.38(c8) | ✅ | Each frame's signal is weak; aggregate grows but model can't sum many weak signals. |
 
-### Phase 1 — Probing the frame→carrier→last pathway (May 2026, 7B)
+### May 2026 — Probing the frame→carrier→last pathway (7B)
 
 | Date | Output dir | Method / change | Key config | Metric | Status | Notes |
 |------|-----------|-----------------|-----------|--------|--------|-------|
@@ -357,7 +484,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-05-21 | `outputs_oh_man/frame_to_carrier_message_memory_probe_*` (multilayer/linear/mlp) | Detect frame→carrier "message memory" by layer | 7B, seq8, L14–17 | actual-message MLP up to 57.8% count acc | ✅ | Message-memory > content-only > raw; MLP needed. Multilayer run reused as a source run. |
 | 2026-05-21 | `outputs_oh_man/message_probe_sum_vs_joint_mlp_*`, `outputs_oreo/message_probe_base_vs_per_frame_*` | Per-frame **sum** vs joint MLP readout | 7B, seq8, counts 0–8 | per-frame sum **63.7%** vs joint MLP ~22%; binary per-frame **93%** | ✅ | **Aggregation is additive, not joint** — sum of per-frame signals wins decisively. Per-frame evidence ≈93% recoverable vs 16% base. |
 
-### Phase 2 — Memory-adapter / count-direction line (late May 2026, 7B)
+### Late May 2026 — Memory-adapter / count-direction line (7B)
 
 | Date | Output dir | Method / change | Key config | Metric (overall acc) | Status | Notes |
 |------|-----------|-----------------|-----------|--------|--------|-------|
@@ -373,7 +500,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-05-28→29 | `outputs_oreo/oracle_count_multilayer_injection`, `oracle_count_injection_site_sweep_seq8_7b` | Inject **oracle gold count** into residuals | 7B, seq8, L14–24 | (ceiling probe) | 📊 | Designed to measure the upper bound of count injection. |
 | 2026-05-29 | `outputs_oreo/translator_*` (codebook / layer-suffix / gold-count ablation) | Inject oracle count via codebook vs learned translator | 7B, seq8, L14–17…17–17 | static/energy-norm L14–17 **100%**; state-conditioned 51.9% | ✅(oracle) | Oracle count injection → 100% (model *can* use a clean count). Static/low-rank translators work; learned state-conditioned translators are fragile. Single late layer insufficient. |
 
-### Phase 3 — Evidence-only solved, distractor frontier (late May–Jun 2026, 7B)
+### Late May – early Jun 2026 — Evidence-only counting solved; distractor frontier (7B)
 
 | Date | Output dir | Method / change | Key config | Metric | Status | Notes |
 |------|-----------|-----------------|-----------|--------|--------|-------|
@@ -397,7 +524,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-06-09→10 | `outputs/final_glstm_aggregation_comparison` | **Head-to-head:** gLSTM (final-only) vs sum vs LoRA baseline | 7B, L14–17, lr 1e-4, 3 ep | gLSTM **70.5%** high-aggregation-extrap vs sum 46.0% / LoRA 48.5%; IID 98.9% | ✅ | **Current leading comparison:** gLSTM memory > sum > LoRA on the hard extrapolation split. |
 | 2026-06-12 | `outputs/evidence_only_sum_adapter_train14_eval58_7b/{20260612_160218,20260612_161616}` | Sum adapter **OOD extrapolation**: train seq 1–4 only, eval seq 5–8 (new `--train-seq-lens` split; OOD test n=100/seq) | 7B, evidence-only, L14–17, d256, lr 1e-4, 1 vs 3 ep | 1 ep (val 96.7%): OOD 60–96%, undercounts; **3 ep (val 100%): OOD 100%** (460/460, mean pred = gold exactly) | ✅ | **Perfect length+count extrapolation** once converged — counts 5–8 never seen as labels. 1-ep degradation was undertraining, not an extrapolation limit. Diagnostics clean (frozen Qwen, exact messages, disjoint splits). Caveat: in evidence-only, count ≡ seq_len (axes confounded); jobs 93447/93452. |
 
-### Phase 4 — Aggregator-ingredient decomposition + distractor-gap mechanism (2026-06-12→13, 7B)
+### Week of 06-10→16 — Aggregator-ingredient decomposition + distractor-gap mechanism (06-12→13, 7B)
 
 > All single-seed. Three first-submission gLSTM jobs (93513–15) ran ~10 min with mangled `TRAIN_LENGTHS`
 > (sbatch `--export` comma-splitting); cancelled, dirs marked `ABORTED.md`, resubmitted correctly. The
@@ -413,7 +540,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-06-12→13 | `outputs/distractor_posneg_write_read_adapter_seq8_7b/{learned_posneg_w14_17_r20_27_5ep,...10ep,learned_posneg_w18_21_r22_27_5ep,learned_posneg_lategate_w14_17_r20_27_5ep,learned_posneg_hardgate_w14_17_r20_27_5ep}` | **Learned-gate plateau** (sigmoid gate + aux mask BCE/count loss): epochs, gate layer (14–17 vs 18–21), late-gate-on-early-messages, straight-through hard gate | 7B, seq8, base 24.4%, 5–10 ep | **39–47% regardless of gate AUC (0.61↔0.91)**: 46.7/47.4/39.3/43.0/46.7%; gate AUC 0.81/0.84/0.87/0.87/0.61 | ⚠️ | **Accuracy invariant to gate quality** → learned-vs-oracle gap is *not* detection. Per-sample: |gate-count-err| uncorrelated with |pred-err| (r=−0.18). 46.7% = old gateless adapter score → joint training collapses to ungated-aggregate optimum; gate is decorative. Detection/hardness/epochs/layer all falsified. |
 | 2026-06-13 | `outputs/distractor_posneg_write_read_adapter_seq8_7b/{learned_posneg_frozenreadout_w14_17_r20_27_5ep,learned_posneg_frozenro_hardgate_noce_5ep}` | **Two-stage** (frozen oracle-trained 96.3% readout, train gate only): soft gate; hard gate + λ_ce=0 (pure detector → hard mask at interface) | 7B, seq8, base 24.4%, 5 ep, `--init-streams-from`/`--freeze-streams` | soft **12.6%**, hard-detector **16.3%** (both **below base**) | ❌ | Frozen exact-mask readout is brittle off the binary manifold: soft α≈0.5 halves streams → decodes "≈4"; hard mask compounds errors ≈ p⁸ (0.8⁸≈0.17). **Per-frame gating interface is the wrong abstraction** for closing 47→96 — needs ≥0.99/frame detection (unreached) or count-level stream supervision. |
 
-### Phase 5 — DeepSets baseline: isolating the two causal knobs (2026-06-13, 7B)
+### Week of 06-10→16 — DeepSets baseline: the two causal knobs (06-13, 7B)
 
 > The aggregation fix reframed as **DeepSets** (`ρ(Σ φ(message_i))`). New flags on
 > `experiments/evidence_only/evidence_only_sum_evidence_adapter_seq1_8_7b.py`: `--pool {sum,mean,softmax,pna}`,
@@ -430,14 +557,14 @@ distractor-*selection* problem that per-frame methods provably can't close.
 | 2026-06-13 | `outputs/distractor_posneg_write_read_adapter_seq8_7b/detceiling_w{14_17,18_21,14_21}_10ep` | **Per-frame detection ceiling**: gate trained as pure evidence detector (λ_ce=0, λ_count=0, λ_mask=1, 10 ep), measure max gate-AUC vs gold mask across write windows L14–17 / L18–21 / L14–21 | 7B, seq8 distractor | best-layer AUC: w14–17 **0.93 (L16)**; w18–21 **0.96 (L19)**; w14–21 **0.96 (L19)** | ✅📊 | **Detection ceilings ~0.96, at L19** (consistent across windows). Evidence is most linearly decodable at **L19**, not the L14–17 write window all prior gates used — that artifact was dragging earlier estimates to ~0.9. But 0.96/frame is still short of the ~0.99 needed: per-frame errors compound (bias×n + √n variance) so hard gating can't reach 96% and degrades with count. Concrete lever: gate from L19. |
 | 2026-06-13 | `outputs/layerwise_frame_message_glstm/2026*_distractor_{sum,glstm}_memonly_*` | **Memory-only control** (`--no-carrier-lora`): isolate the memory adapter's contribution from the carrier-LoRA on the distractor task | 7B, distractor, train 4,6,8, 3 ep | **gLSTM-memory iid 0.674 > sum-memory iid 0.605** (len-OOD 0.62 vs 0.57; comp-OOD 0.62 vs 0.59) | ✅(nuance) | **Reverses the with-LoRA finding:** without the carrier-LoRA, the gLSTM associative read genuinely beats plain sum on distractors (+7pp iid). The LoRA was masking the memory's contribution. So "associative read is dispensable" holds *with* the LoRA but **not** without it — on distractors the richer read carries selection-relevant signal (consistent with PNA 68.1 > sum 63.8). Single-seed. |
 
-### Phase 6 — Generalization beyond counting (2026-06-14, 7B)
+### Week of 06-10→16 — Generalization beyond counting (06-14, 7B)
 
 | Date | Output dir | Method / change | Key config | Metric | Status | Notes |
 |------|-----------|-----------------|-----------|--------|--------|-------|
 | 2026-06-14 | `outputs/eval_mmred_rooms_visited_baseline/full` (`evaluations/scripts/eval_mmred_rooms_visited_baseline.py`) | **Does the bottleneck generalize to a non-counting task?** Frozen-Qwen baseline on **rooms-visited** ("how many distinct rooms did C visit?", ans 0..6) — a **set-cardinality** aggregation (OR-within-room, then sum-over-rooms), labels recomputed from existing states, **no re-render**. 120 samples/seq_len | 7B, 4-bit, seq 1–8 | acc **0.87(s1) → 0.29 → 0.51 → 0.40 → 0.28 → 0.25 → 0.18 → 0.09(s8)**; undercounts (s8 mean pred 2.99 vs gold 4.34) | ✅📊 | **The over-squashing bottleneck is NOT counting-specific** — a different aggregation (set-cardinality) collapses the same way with seq_len, with the same under-aggregation signature. Generalizes the diagnosis the professor/peer asked about. Next: does the sum/DeepSets adapter fix it, or does set-cardinality need a different aggregator (OR/max-within-room)? Single-seed-equivalent (1 char sampled/sample). |
 | 2026-06-14 | `outputs/eval_mmred_cooccupancy_baseline/full` | **Second generalization task** (different *predicate*): frozen-Qwen baseline on **co-occupancy** ("in how many frames were C and D in the same room?", ans 0..seq_len) — a frame-count with a 2-character predicate. 120/seq_len | 7B, 4-bit, seq 1–8 | acc **0.93(s1) → 0.28 → 0.23 → 0.21 → 0.18 → 0.25 → 0.18 → 0.29(s8)**; **over**counts (s8 mean pred 2.23 vs gold 1.43) | ✅📊 | Same collapse with seq_len → bottleneck is invariant to **predicate** too (not just aggregation type). **Cross-task insight:** error *direction* flips — rooms-visited (high golds) **undershoots**, co-occupancy (low golds) **overshoots** → under over-squashing the output **regresses toward a length-dependent middle estimate** regardless of the true value. This is the representational-collapse signature ([Barbero 2024](https://arxiv.org/abs/2406.04267)) seen behaviorally across two new tasks. |
 
-### Phase 7 — New distractor-selection mechanisms: all plateau (2026-06-14, 7B)
+### Week of 06-10→16 — New distractor-selection mechanisms: all plateau (06-14, 7B)
 
 > Tests whether a *selection* mechanism beyond per-frame gating can close the distractor gap. Baselines:
 > sum 63.8 / gLSTM 61.7 / PNA 68.1 (iid). All distractor, train 4,6,8 → OOD 5,7,10, single-seed.
@@ -446,6 +573,24 @@ distractor-*selection* problem that per-frame methods provably can't close.
 |------|-----------|-----------------|-----------|--------|--------|-------|
 | 2026-06-14 | `outputs/distractor_posneg_write_read_adapter_seq8_7b/b2_countsup_nomask_{w14_17,lategate_w18_21}_8ep` | **B2 — count-level supervision, no per-frame mask** (gate trained only via answer-CE + Σα≈count; λ_mask=0); also a lategate-at-L19 variant | 7B, seq8, 8 ep | **43.0%** (write 14–17) / **45.2%** (lategate L19); gate AUC 0.77 / 0.86 | ❌ | Training the gate on the count alone does **not** beat the ~47% plateau, and learns a *weaker* detector than per-frame-mask supervision. Selection-via-count-supervision is not the lever. |
 | 2026-06-14 | `outputs/layerwise_frame_message_glstm/2026*_distractor_slot_noprobe_carrier_slot` (`CARRIER_SLOT`, new) | **B1 — slot-attention competitive routing + sum** (4 slots, softmax-across-slots assignment → per-slot unnormalized sum). The diagnosis-driven "global/competitive selection escapes per-frame compounding" hypothesis | 7B, L14–17, NUM_SLOTS=4, 3 ep, `--no-probes` | iid **64.0%** / len-OOD 60.8 / comp-OOD 61.4 (mem-disabled 53.6) | ❌(falsified) | Competitive routing lands **in the plateau** (≈ sum 63.8), not above it. **Conclusion across B1+B2:** the ~63–68% distractor plateau is **robust to every selection mechanism** (per-frame gate, count-supervision, competitive slots); only richer *aggregation* (PNA 68.1) nudges it, and only +4pp. The distractor gap is not closeable by better *selection*. (⚠️ first slot run 93951 hung in the sklearn probe phase — rerun with `--no-probes`; the variant's probe diagnostics are unvalidated.) |
+
+### Week of 06-10→16 — Stage pathway task-general + aggregation diagnosis (06-16, 7B)
+
+> Why it matters → Weekly progress → "Week of 06-10→16". Runs below.
+
+| Date | Output dir | Method / change | Key config | Metric | Status | Notes |
+|------|-----------|-----------------|-----------|--------|--------|-------|
+| 2026-06-16 | `outputs/token_group_corruption_new_tasks/{count,rooms_visited,co_occupancy}_7b_n40` (`token_group_corruption_new_tasks.py`; plot `outputs/stages_7b_plots/stages_restoration_by_group_7b_n40.png`) | **Layerwise token-group restoration** (blank corruption): patch clean **frames / question / last-token** activations at each layer into the corrupted run; median normalized rescue. Same method for all 3 tasks (count now apples-to-apples) | 7B, seq8, layers 0–26, n=40/task, `--corruption_mode evidence` | **All 3 tasks**: frames rescue EARLY (L0–12 ≈1.0) → question/carrier MID (peak L14–16) → last-token LATE (L18–26 →1.0). Crossover ~L14–16 | ✅ | **Stage phenomenon is task-general** — identical frames→carrier→last staircase across counting + the 2 new set-cardinality tasks → a general (training-induced) model behavior, not task-specific. |
+| 2026-06-16 | `outputs/probe_frame_to_carrier_message/{rooms_visited,co_occupancy,count}` (`probe_frame_to_carrier_message.py`, sanctioned SDPA attn recompute) | **Per-frame evidence + decode-then-count from the attention-routed frame→carrier message** (capture q/k/v + position_embeddings, reuse library rotary, recompute carrier-row softmax offline; model stays SDPA) | 7B, n=150, L16/18/19 | per-frame evidence decodes: rooms_visited room **0.85**, co_occ same/diff **AUROC 0.97** (shuffle ≈chance); **decode-then-count ≫ frozen model**: rooms **0.63 vs 0.10**, co_occ **0.52 vs 0.27** | ✅ | Evidence is extracted **and routed** to the carrier; the model fails to **aggregate** it → revises sprint-2 "vision extraction" framing to **AGGREGATION**. global_lora ~0.58 ≈ decode-then-count ceiling. |
+| 2026-06-16 | `outputs/rooms_visited_adapter/*rv7b_ev_vit{lora_late16,lmlora}*` (`layerwise_frame_message_glstm.py` `vision_lora`/`vision_lm_lora`) | **ViT / vision-encoder LoRA** (wrap `model.visual.blocks[*].attn`) — does adapting the frozen vision tower help? | 7B, rooms_visited evidence | vision_lora (ViT-only) **0.50**, vision_lm_lora (ViT+LM) **0.596** vs global_lora (LM-only) **0.58** | ✅ | Vision-encoder adaptation does **not** help beyond LM-attention LoRA → confirms the lever is LM re-attention (aggregation), not vision extraction. |
+
+### Week recap diagnostics (06-16→17, 7B) — symbolic ceiling, stage localization, operator/data sweeps
+
+| Date | Output dir | Method / change | Key config | Metric | Status | Notes |
+|------|-----------|-----------------|-----------|--------|--------|-------|
+| 2026-06-16 | `outputs/oracle_text_distinct_count/{rooms_visited,co_occupancy}_result.txt` (`oracle_text_distinct_count.py`) | **Symbolic-input ceiling**: feed frozen 7B the clean per-frame room/occupancy sequence as **text** (no vision) → isolates dedup/count arithmetic from extraction | 7B, n=120/task | rooms_visited **0.758**, co_occupancy **0.983** | ✅📊 | Count arithmetic is near-solved for co-occ (98%) and only mid for distinct-room dedup (76%) → most rooms-visited headroom is in the vision→carrier→aggregation path, not the arithmetic. |
+| 2026-06-16 | `outputs/probe_aggregation_stages/{rooms_visited,co_occupancy}` (`probe_aggregation_stages.py`); `outputs/probe_frame_token_states/{rooms_visited,co_occupancy}` (`probe_frame_token_states.py`) | **Where does count die?** per-frame evidence decode vs last-token count decode by layer; plus frame-token-state mean/sum pooling probe | 7B, n=150 | per-frame room decode **0.84** (L4); last-token count decode **≤0.475** ≈ maj 0.434 (all layers); frame-token mean/sum pool ≈ blind (~0.37–0.43) | ✅📊 | Evidence present at frames; **count absent at the last token and not in pooled frame states** → loss is in the aggregation step, corroborating the frame→carrier message probe. |
+| 2026-06-16→17 | `outputs/agg_sweep/*rv*`; `outputs/agg_moredata/20260617_040354_md_rv_sum_ml_carrier_direct_sum` | **Operator + data sweep on rooms-visited**: carrier sum/slot/union/gLSTM/max at L12–17, then 2× data on carrier-sum | 7B, single-seed | operators cluster **~46% iid** (carrier-sum 45.7%, mem-disabled 40.4%); 2× data → carrier-sum **iid 58.1%** (comp-OOD 41.7 / len-OOD 49.0) | ✅ | Operator choice ≈ noise; **data/capacity moves rooms-visited** (46→58). Best overall remains global LM-attn LoRA 63.9%. |
 
 ---
 
@@ -474,7 +619,7 @@ distractor-*selection* problem that per-frame methods provably can't close.
   over-squashing in language tasks*, NeurIPS 2024. [arXiv:2406.04267](https://arxiv.org/abs/2406.04267).
   Proves decoder last-token **representational collapse**, ties it to GNN over-squashing, and shows it
   causes failures *specifically in counting/copying* (exacerbated by low-precision FP) — the theory behind
-  our Phase 0 last-token cosine-collapse diagnostic and the bf16 caveat.
+  our early-diagnosis last-token cosine-collapse diagnostic and the bf16 caveat.
 - **gLSTM** — *Mitigating Over-Squashing by Increasing Storage Capacity*, 2025.
   [arXiv:2510.08450](https://arxiv.org/abs/2510.08450). The capacity/associative-memory approach our
   matched controls show is over-engineered for MMRED (its addressing is dispensable; sum suffices).

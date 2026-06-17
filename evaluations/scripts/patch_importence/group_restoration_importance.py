@@ -56,12 +56,12 @@ def _processor() -> Any:
     return _runtime().processor
 
 
-def configure_runtime(model_name: str) -> None:
+def configure_runtime(model_name: str, attn_implementation: str = "sdpa") -> None:
     global _RUNTIME
-    if str(model_name).strip() == str(DEFAULT_MODEL_ID):
+    if attn_implementation == "sdpa" and str(model_name).strip() == str(DEFAULT_MODEL_ID):
         _RUNTIME = get_default_runtime()
     else:
-        _RUNTIME = load_model_runtime(model_name)
+        _RUNTIME = load_model_runtime(model_name, attn_implementation=attn_implementation)
     model_utils._DEFAULT_RUNTIME = _RUNTIME
 
 

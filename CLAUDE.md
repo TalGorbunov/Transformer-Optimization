@@ -59,7 +59,21 @@ sinfo -p l40s-shared,h200-shared,rtx6k-shared -o "%P %t %C %G"   # %C = CPUs A/I
 squeue -p l40s-shared,h200-shared,rtx6k-shared -o "%P %t %u" | sort | uniq -c
 ```
 Override a runner's hardcoded partition at submit time with `sbatch -p <partition>` (it wins over the
-`#SBATCH -p` line). A 4-bit 7B job fits comfortably on any of L40S / RTX6000 / H200.
+`#SBATCH -p` line). A 4-bit 7B job fits comfortably on any of L40S / RTX6000 / H200 / A100.
+
+**ALWAYS check for free nodes across ALL partitions before submitting — never let a job sit blocked
+when another partition has idle GPUs.** The 3 "shared" partitions are often 8/8 full while the
+`*-public` ones (esp. `a100-public`, `l40s-public`) sit nearly idle. Check actual free GPUs (not just
+CPU load) and submit where there's room:
+```bash
+# free GPUs per node = GRES total minus GRES_USED; pick a node with spare GPUs
+sinfo -p l40s-shared,h200-shared,rtx6k-shared,a100-public,l40s-public \
+  -N -O "Partition:16,NodeHost:12,Gres:26,GresUsed:30,StateLong"
+```
+A100s are 80 GB so a 4-bit 7B fits trivially. `a100-public`/`l40s-public` use the same `.venv` and
+account; just pass `-p a100-public` (avoid `rtx6k-*` — its `.venv` python symlink is broken). If your
+job shows `PENDING (Priority/Resources)` and a public partition has free GPUs, cancel and resubmit
+there rather than waiting.
 
 ### QOS rules (IMPORTANT — read before submitting)
 
@@ -161,7 +175,12 @@ RESULTS.md                 research progress log — read this for context on wh
 - **Show the plan before spending GPU hours.** For anything that submits jobs or launches training,
   describe what you'll run, on which partition/QOS, and the expected cost. Wait for my OK.
 - **Pick the least-loaded partition and the smallest sufficient QOS** (see §3). Spread many jobs
-  across QOS to beat the 3-jobs-per-QOS cap.
+  across QOS to beat the 3-jobs-per-QOS cap. Always check free GPUs across *all* partitions
+  (incl. `a100-public`/`l40s-public`) before submitting so jobs don't sit blocked.
+- **Right-size experiments — enough to show a direction, not exhaustive.** Don't run 3000-sample
+  sweeps when a few hundred (or fewer) settle the question. Prefer small `--limit`/`per-count`/`per-label`,
+  fewer epochs, and `--no-plots`/`--no-probes` for quick reads; scale up only once a direction looks
+  worth confirming. Cheap, fast, decisive beats big and slow.
 - **One change at a time when debugging.** Don't bundle a config change, a code change, and a new run.
 - **Be honest about uncertainty.** If a result looks too good or a config looks off, say so. Catching
   data leakage / wrong normalization / train-eval overlap is more valuable than agreeing with me.
