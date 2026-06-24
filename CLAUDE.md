@@ -70,10 +70,12 @@ CPU load) and submit where there's room:
 sinfo -p l40s-shared,h200-shared,rtx6k-shared,a100-public,l40s-public \
   -N -O "Partition:16,NodeHost:12,Gres:26,GresUsed:30,StateLong"
 ```
-A100s are 80 GB so a 4-bit 7B fits trivially. `a100-public`/`l40s-public` use the same `.venv` and
-account; just pass `-p a100-public` (avoid `rtx6k-*` — its `.venv` python symlink is broken). If your
-job shows `PENDING (Priority/Resources)` and a public partition has free GPUs, cancel and resubmit
-there rather than waiting.
+A100s are 80 GB so a 4-bit 7B fits trivially. `a100-public`/`l40s-public`/`rtx6k-shared` use the same
+`.venv` and account; just pass `-p <partition>`. (The `rtx6k-*` venv was broken earlier but is **fixed
+as of 2026-06-23** — `python`/`torch`+CUDA verified working on n318; usable as overflow. One transient
+`NODE_FAIL` was seen on n318, so for long single-shot jobs prefer l40s/h200/a100 and keep rtx6k for
+overflow.) If your job shows `PENDING (Priority/Resources)` and a public partition has free GPUs,
+cancel and resubmit there rather than waiting.
 
 ### QOS rules (IMPORTANT — read before submitting)
 
@@ -135,12 +137,21 @@ tail -f logs/<jobname>-<jobid>.out                           # live SLURM log (a
   interpretation / "Readout" — **read this first** to see what a run concluded), `diagnostics.json`
   (smoke sanity flags like `hooks_ok`, `nonzero_gates`), `run_done.json` (completion marker),
   `checkpoints/*.pt` / `*_adapter.pt`, `plots/*.png`.
-- **Output dir naming rule:** a run's output tree must be named after the Python script that
-  produced it: `outputs/<script_basename_without_.py>/<YYYYMMDD_HHMMSS>/` (e.g.
-  `evidence_only_sum_evidence_adapter_seq1_8_7b.py` → `outputs/evidence_only_sum_evidence_adapter_seq1_8_7b/20260612_161616/`).
-  Keep the timestamped run subdirs. Variant/config suffixes go on the timestamped subdir
-  (e.g. `20260608_101718_carrier_glstm_layerwise`), never on the root. This keeps every metric
-  traceable to the exact script that produced it.
+- **Output dir structure (current convention — use this for EVERY experiment group):**
+  group experiments under one **experiment-group** root, then a **category**, then a **named experiment**,
+  then **timestamped run dirs**:
+  `outputs/<group>/<category>/<name>/<YYYYMMDD_HHMMSS>[_variant]/`
+  - Concrete example (this is how `frame_axis` is laid out):
+    `outputs/frame_axis/{cache/, adapter_cached/<name>/<ts>/, adapter_live/<name>/<ts>/, probes/<name>/<ts>/}`.
+  - **Every experiment group MUST also have `outputs/<group>/INDEX.md`** — a hand-maintained table
+    (experiment → canonical run path → headline number). Update it whenever a run becomes the canonical
+    result. This is the "where's the latest result" file; read/update it first.
+  - **Smokes / throwaway runs go in `outputs/_scratch/`**, never mixed with real results.
+  - **Superseded / archived trees** → `outputs_<codename>/` or `output_*_old/` (e.g. `outputs_long/` is the
+    pre-reorg archive). Never delete; move.
+  - I (Claude) **default new runs into this layout** (pass `--output outputs/<group>/<category>/<name>` and
+    keep the script's `<ts>` subdir), and **create/update `INDEX.md`** for the group. Older flat
+    `outputs/<script_basename>/<ts>/` trees predate this and stay in `outputs_long/`.
 
 ## 4. Repo layout
 

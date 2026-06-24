@@ -69,6 +69,8 @@ CARRIER_MAX = "carrier_max"  # max-pool over frames (saturating; for set-cardina
 CARRIER_UNION = "carrier_union"  # dedup/union: soft-route frames to room slots, noisy-OR presence, count slots
 CARRIER_PMA = "carrier_pma"  # Set-Transformer PMA: k learnable seed queries, unnormalized gated pool per seed
 CARRIER_REGISTER = "carrier_register"  # K appended register tokens; one unnormalized per-slot aggregate per register
+CARRIER_DIFF = "carrier_diff"  # Differential Transformer read: difference of two softmax maps over frames (signed routing)
+CARRIER_MAMBA = "carrier_mamba"  # Selective diagonal SSM scan over frames: gated, magnitude-preserving accumulation
 NUM_SLOTS = 4  # default competitive routing slots (override with --num-slots; want >= max distinct rooms)
 UNION_SLOTS = 8  # default latent room slots for carrier_union; must be >= max distinct rooms (DeepSets width>=N)
 PMA_SEEDS = 8  # default number of PMA seed vectors (capacity = k * memory_dim); override with --pma-seeds
@@ -118,8 +120,14 @@ VARIANT_ALIASES = {
     "register": CARRIER_REGISTER,
     "registers": CARRIER_REGISTER,
     "carrier_register": CARRIER_REGISTER,
+    "diff": CARRIER_DIFF,
+    "differential": CARRIER_DIFF,
+    "carrier_diff": CARRIER_DIFF,
+    "mamba": CARRIER_MAMBA,
+    "ssm": CARRIER_MAMBA,
+    "carrier_mamba": CARRIER_MAMBA,
 }
-MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA, CARRIER_SLOT, CARRIER_MAX, CARRIER_UNION, CARRIER_PMA, CARRIER_REGISTER}
+MEMORY_VARIANTS = {CARRIER_DIRECT_SUM, CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX, CARRIER_PNA, CARRIER_SLOT, CARRIER_MAX, CARRIER_UNION, CARRIER_PMA, CARRIER_REGISTER, CARRIER_DIFF, CARRIER_MAMBA}
 GLSTM_VARIANTS = {CARRIER_GLSTM_LAYERWISE, CARRIER_GLSTM_FINAL_ONLY, CARRIER_GLSTM_SOFTMAX}
 
 
@@ -411,6 +419,17 @@ def parse_args() -> argparse.Namespace:
                         help="Append K real placeholder 'register' tokens to the prompt and inject one "
                              "unnormalized per-slot aggregate into each (widens the frozen-stream hand-off "
                              "beyond the 2 carriers). 0 disables. Used by the carrier_register variant.")
+    parser.add_argument("--diff-output-norm", action=argparse.BooleanOptionalAction, default=True,
+                        help="carrier_diff: apply output LayerNorm after the differential read (the paper's "
+                             "GroupNorm). --no-diff-output-norm tests whether removing it recovers counting.")
+    parser.add_argument("--mamba-decay-init", type=float, default=-4.0,
+                        help="carrier_mamba: init for diagonal A=-exp(a_log); very negative => decay~1 => near-pure sum.")
+    parser.add_argument("--mamba-readout", choices=["sum", "final"], default="sum",
+                        help="carrier_mamba: aggregate y_t over frames (sum) or take the final state (final).")
+    parser.add_argument("--mamba-order-aug", action="store_true", default=False,
+                        help="carrier_mamba: randomly permute frame order during TRAINING (encourage perm-invariance).")
+    parser.add_argument("--mamba-eval-permute", action="store_true", default=False,
+                        help="carrier_mamba: randomly permute frame order at EVAL (probe order-sensitivity).")
 
     parser.add_argument("--candidate-min", type=int, default=0)
     parser.add_argument("--candidate-max", type=int, default=10)
@@ -1716,9 +1735,19 @@ class LayerwiseFrameMessageMemory(nn.Module):
         union_slots: int = UNION_SLOTS,
         pma_seeds: int = PMA_SEEDS,
         register_tokens: int = 0,
+        diff_output_norm: bool = True,
+        mamba_decay_init: float = -4.0,
+        mamba_readout: str = "sum",
+        mamba_order_aug: bool = False,
+        mamba_eval_permute: bool = False,
     ) -> None:
         super().__init__()
         self.variant = str(variant)
+        self.diff_output_norm = bool(diff_output_norm)
+        self.mamba_decay_init = float(mamba_decay_init)
+        self.mamba_readout = str(mamba_readout)
+        self.mamba_order_aug = bool(mamba_order_aug)
+        self.mamba_eval_permute = bool(mamba_eval_permute)
         self.hidden_size = int(hidden_size)
         self.memory_dim = int(memory_dim)
         self.register_tokens = int(register_tokens)
@@ -1799,6 +1828,52 @@ class LayerwiseFrameMessageMemory(nn.Module):
             if self.variant == CARRIER_PMA
             else None
         )
+        # Differential read (carrier_diff): a second key projection (the subtracted softmax map) +
+        # a learnable per-position mixing scalar lambda. Output [b,c,d] reuses w_out. Optional output
+        # LayerNorm (the paper's GroupNorm) is the knob that decides if the read stays mean-like.
+        self.w_k2 = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_DIFF
+            else None
+        )
+        self.diff_lambda = (
+            nn.Parameter(torch.full((n_mem,), 0.8, dtype=torch.float32))
+            if self.variant == CARRIER_DIFF
+            else None
+        )
+        self.diff_norm = (
+            nn.ModuleList([nn.LayerNorm(self.memory_dim) for _ in range(n_mem)])
+            if self.variant == CARRIER_DIFF and self.diff_output_norm
+            else None
+        )
+        # Mamba-style selective diagonal SSM (carrier_mamba) over the frame axis: per-channel
+        # input-dependent step (delta), input/output gates (B,C), learnable diagonal decay A=-exp(a_log).
+        # a_log init very negative => exp(delta*A)~1 => starts as a near-pure (un-decayed) sum.
+        self.mamba_in = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_MAMBA
+            else None
+        )
+        self.mamba_delta = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=True) for _ in range(n_mem)])
+            if self.variant == CARRIER_MAMBA
+            else None
+        )
+        self.mamba_b = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_MAMBA
+            else None
+        )
+        self.mamba_c = (
+            nn.ModuleList([nn.Linear(self.memory_dim, self.memory_dim, bias=False) for _ in range(n_mem)])
+            if self.variant == CARRIER_MAMBA
+            else None
+        )
+        self.mamba_a_log = (
+            nn.Parameter(torch.full((n_mem, self.memory_dim), float(self.mamba_decay_init), dtype=torch.float32))
+            if self.variant == CARRIER_MAMBA
+            else None
+        )
         self.gamma = nn.Parameter(torch.full((len(self.layers),), float(gamma_init), dtype=torch.float32))
         for module in [*self.message_to_slot, *self.w_sum, *self.w_q, *self.w_k, *self.w_v]:
             nn.init.xavier_uniform_(module.weight, gain=0.5)
@@ -1812,6 +1887,13 @@ class LayerwiseFrameMessageMemory(nn.Module):
                 nn.init.zeros_(module.bias)
         if self.pma_seed is not None:
             nn.init.normal_(self.pma_seed, mean=0.0, std=0.02)  # distinct seeds break symmetry
+        if self.w_k2 is not None:
+            for module in self.w_k2:
+                nn.init.xavier_uniform_(module.weight, gain=0.5)
+        for _ml in (self.mamba_in, self.mamba_delta, self.mamba_b, self.mamba_c):
+            if _ml is not None:
+                for module in _ml:
+                    nn.init.xavier_uniform_(module.weight, gain=0.5)
         zero_outs = list(self.w_out)
         if self.w_out_pna is not None:
             zero_outs += list(self.w_out_pna)
@@ -2408,6 +2490,52 @@ class LayerwiseFrameMessageMemory(nn.Module):
             weights = torch.nan_to_num(weights, nan=0.0)
             read = torch.einsum("bcf,bcfd->bcd", weights, v)
             matrix_shape = [batch, max_carriers, max_frames]
+        elif self.variant == CARRIER_DIFF:
+            # Differential read: difference of two softmax attention maps over frames -> signed
+            # effective per-frame weights. Optional output LayerNorm keeps it mean-like (the
+            # counting-killing knob; --no-diff-output-norm tests whether removing it recovers count).
+            k1 = self.w_k[mpos](slots_for_read).float()
+            k2 = self.w_k2[mpos](slots_for_read).float()
+            v = self.w_v[mpos](slots_for_read).float()
+            q = self.w_q[mpos](self.carrier_norm[mpos](carrier_states.float())).float()
+            scale = math.sqrt(float(self.memory_dim))
+            neg = ~valid_for_read
+            l1 = torch.einsum("bcfe,bce->bcf", k1, q).div(scale).masked_fill(neg, float("-inf"))
+            l2 = torch.einsum("bcfe,bce->bcf", k2, q).div(scale).masked_fill(neg, float("-inf"))
+            w1 = torch.nan_to_num(torch.softmax(l1, dim=2), nan=0.0)
+            w2 = torch.nan_to_num(torch.softmax(l2, dim=2), nan=0.0)
+            weights = w1 - self.diff_lambda[mpos] * w2  # signed weights over frames
+            read = torch.einsum("bcf,bcfd->bcd", weights, v)
+            if self.diff_norm is not None:
+                read = self.diff_norm[mpos](read)
+            matrix_shape = [batch, max_carriers, max_frames]
+        elif self.variant == CARRIER_MAMBA:
+            # Selective diagonal SSM scan over frames (pure torch; frames<=8 so a loop is fine, no
+            # mamba-ssm dep). h_t = exp(delta_t*A)*h_{t-1} + delta_t*B_t*x_t; y_t = C_t*h_t.
+            x = self.mamba_in[mpos](slots_for_read).float()                     # [b,c,f,d]
+            delta = F.softplus(self.mamba_delta[mpos](slots_for_read).float())  # [b,c,f,d]
+            b_gate = self.mamba_b[mpos](slots_for_read).float()                 # [b,c,f,d]
+            c_gate = self.mamba_c[mpos](slots_for_read).float()                 # [b,c,f,d]
+            a = -torch.exp(self.mamba_a_log[mpos]).float()                      # [d]
+            vmask = valid_for_read.float().unsqueeze(-1)                        # [b,c,f,1]
+            if (self.training and self.mamba_order_aug) or ((not self.training) and self.mamba_eval_permute):
+                order = torch.randperm(max_frames, device=x.device)
+                x, delta, b_gate, c_gate, vmask = (
+                    t[:, :, order, :] for t in (x, delta, b_gate, c_gate, vmask)
+                )
+            h = x.new_zeros((batch, max_carriers, self.memory_dim))
+            ys: List[torch.Tensor] = []
+            for t in range(max_frames):
+                decay = torch.exp(delta[:, :, t, :] * a)                        # [b,c,d]
+                upd = delta[:, :, t, :] * b_gate[:, :, t, :] * x[:, :, t, :]    # [b,c,d]
+                m = vmask[:, :, t, :]                                           # [b,c,1] gate out padding
+                h = m * (decay * h + upd) + (1.0 - m) * h
+                ys.append(c_gate[:, :, t, :] * h)
+            if self.mamba_readout == "final":
+                read = h
+            else:
+                read = (torch.stack(ys, dim=2) * vmask).sum(dim=2)              # [b,c,d]
+            matrix_shape = [batch, max_carriers, self.memory_dim]
         else:
             k = self.w_k[mpos](slots_for_read).float()
             v = self.w_v[mpos](slots_for_read).float()
@@ -2666,6 +2794,11 @@ def make_adapter(args: argparse.Namespace, variant: str, hidden_size: int, layer
             union_slots=int(UNION_SLOTS),
             pma_seeds=int(getattr(args, "pma_seeds", PMA_SEEDS)),
             register_tokens=int(getattr(args, "register_tokens", 0)),
+            diff_output_norm=bool(getattr(args, "diff_output_norm", True)),
+            mamba_decay_init=float(getattr(args, "mamba_decay_init", -4.0)),
+            mamba_readout=str(getattr(args, "mamba_readout", "sum")),
+            mamba_order_aug=bool(getattr(args, "mamba_order_aug", False)),
+            mamba_eval_permute=bool(getattr(args, "mamba_eval_permute", False)),
         )
         memory.binding_loss_weight = float(getattr(args, "binding_loss_weight", 0.0))
     if bool(getattr(args, "no_carrier_lora", False)) and memory is not None:
@@ -2908,12 +3041,14 @@ def train_adapter(
             if float(row["val_accuracy"]) >= best_val_acc:
                 best_val_acc = float(row["val_accuracy"])
                 best_state = {key: value.detach().cpu().clone() for key, value in adapter.state_dict().items()}
+                checkpoint_path.parent.mkdir(parents=True, exist_ok=True)  # defensive: shared-FS dir can vanish mid-run
                 torch.save(best_state, checkpoint_path)
     finally:
         adapter.detach()
     if best_state is not None:
         adapter.load_state_dict(best_state)
     else:
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)  # defensive: shared-FS dir can vanish mid-run
         torch.save(adapter.state_dict(), checkpoint_path)
     return history, checkpoint_path
 

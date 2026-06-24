@@ -19,5 +19,5 @@ MAX_SAMPLES="${MAX_SAMPLES:-120}"
 OUTPUT="${OUTPUT:-outputs/eval_mmred_rooms_visited_baseline}"
 
 TASK="${TASK:-rooms_visited}"
-python -u evaluations/scripts/eval_mmred_rooms_visited_baseline.py --task "${TASK}" \
+python -u evaluations/scripts/eval_mmred_rooms_visited_baseline.py --task "${TASK}" --data-root "${DATA_ROOT:-data/mmred_images_park}" \
   --seq-lens "${SEQ_LENS}" --max-samples "${MAX_SAMPLES}" --output "${OUTPUT}"

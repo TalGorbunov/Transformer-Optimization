@@ -68,7 +68,9 @@ def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[s
     grid_w = img - 2 * pad
     grid_h = img - 2 * pad - bottom_margin
 
-    cols, rows = 3, 2
+    n = len(ROOMS)
+    cols = 3 if n > 4 else 2                 # 6 rooms -> 3x2 (unchanged); 4 rooms -> 2x2
+    rows = (n + cols - 1) // cols
     cell_w = (grid_w - (cols - 1) * gap) // cols
     cell_h = (grid_h - (rows - 1) * gap) // rows
 
@@ -76,6 +78,8 @@ def room_grid_boxes(img: int = IMG_SIZE, pad: int = 24, gap: int = 14) -> Dict[s
     idx = 0
     for r in range(rows):
         for c in range(cols):
+            if idx >= n:
+                break
             x0 = pad + c * (cell_w + gap)
             y0 = pad + r * (cell_h + gap)
             x1 = x0 + cell_w

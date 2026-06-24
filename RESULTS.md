@@ -218,6 +218,400 @@ channel cannot.
 - The fix is **DeepSets-shaped** (unnormalized sum, width ≥ max-count) for *scalar* counting — solves clean counting (100%, incl. count-OOD) — but *set-functions* (distinct-room, co-occ) need the carrier to hold the **set**, which a saturating scalar channel can't → direction is a **multi-slot external set-memory**.
 - Distractor **selection** (~63–68% plateau) is robust to every selection mechanism tried; only richer aggregation nudges it (+4pp).
 
+
+### [2026-06-19] Text-frames + diagnostic decomposition — the bottleneck is single-pass *extract→aggregate composition*, not aggregation capacity and not selection-signal availability
+
+> **Refines the 06-16/06-17 "aggregation/dedup is the cut" framing.** Aggregation alone turns out to be
+> *easy* once the per-frame evidence is handed over; the evidence is *linearly present* in both the text
+> and the vision representations; the failure is the model's inability to **compose** per-frame
+> extract-and-bind with cross-frame aggregation **in a single forward pass**. Maps onto
+> [HERBench (arXiv 2512.14870)](https://arxiv.org/abs/2512.14870)'s two deficits (retrieval vs fusion).
+
+**Method — three diagnostics (all text-side unless noted).** Scripts: `eval_mmred_text_frames_acc.py`,
+`probe_evidence_selection_linear.py`, `probe_evidence_selection_image.py`.
+- **Frames-as-text.** Feed the per-frame room→occupant state as *text* instead of rendered images — removes
+  vision/perception entirely, leaving pure language-side aggregation.
+- **CoT (chain-of-thought).** Let the model write out per-frame reasoning before the answer (vs forcing a
+  single integer). Adds *serial computation steps* — externalises a running tally into the token stream
+  ([Merrill & Sabharwal ICLR'24](https://arxiv.org/abs/2310.07923); [Li et al. 2402.12875](https://arxiv.org/html/2402.12875):
+  CoT lets constant-depth transformers do inherently-serial work they can't do in one pass).
+- **Oracle-list.** Feed *only the queried entity's per-frame rooms* (no scene to scan) — removes
+  retrieval/selection, leaving pure cross-frame fusion. This is [HERBench]'s oracle-frame study, in text.
+- **Linear selection probe.** Logistic regression on the frozen *per-frame* representation predicting
+  `is_evidence` (C in R this frame), per layer, sample-disjoint split → is selection *linearly available*?
+
+**Findings.**
+- **Plain single-token, text frames** (`eval_mmred_text_frames_acc/`): steps_in_room **0.470**, rooms_visited
+  **0.389**, co_occupancy **0.338** — identical collapse to the image pipeline ⇒ **not a vision problem**.
+  Predictions are range-compressed toward a narrow prior band: steps/rooms **undercount** (bias →−1.7 at
+  sl8), co-occupancy **overcounts** (bias +0.8) — i.e. "guess a plausible small number," not "count low."
+- **CoT** (`_cot/`): steps **0.695**, rooms **0.570**, co-occ **0.623**; steps_in_room bias collapses to ≈0
+  at every length (the systematic undercount was a single-pass artifact). Residual decay at long len remains.
+- **Oracle-list** (`_oracle/`, `_oracle_cot/`): plain **0.841 / 0.883 / 0.662**; **CoT 0.985 / 1.000 / 0.940**.
+  rooms_visited oracle-CoT is **100% at every seq_len incl. 8, bias 0.00** — overturning the 06-17 claim that
+  the rooms_visited long-len saturation was a set-accumulation limit. **Aggregation/dedup is easy once
+  evidence is pre-extracted; the saturation was the per-frame extract-and-bind step.**
+- **Precision** (`_prec_nf4` vs `_prec_bf16`): nf4 ≈ full bf16 (0.470/0.389/0.338 vs 0.470/0.423/0.325); the
+  saturation is unchanged ⇒ 4-bit weight quant is **not** the cause (rules out Barbero's precision lever here).
+- **Linear selection probe** — evidence-vs-distractor is **linearly decodable** from the frozen per-frame rep,
+  peaking mid-late (layers ~18–21): **text AUC 0.997** (`probe_evidence_selection_linear/`, layer 21, bal-acc
+  0.965), **vision AUC 0.984** (`probe_evidence_selection_image/`, layer 19, bal-acc 0.939). The signal
+  survives into the vision tokens too ⇒ the distractor gap is **not** vision-side perception.
+
+**Insights / revised picture.**
+- The bottleneck is the **single-pass composition** "for each frame: locate the queried entity, decide
+  relevance, fold into a running count." Each piece is easy in isolation (probe: evidence present at AUC
+  0.98–0.997; oracle-list: aggregation → 88–100%), but the frozen model can't chain them in one forward pass.
+  **CoT** (serial steps) and **oracle-list** (pre-extraction) each relieve it; together → ~94–100%.
+- **Why the prior selection experiments plateaued (≈47–68%) is now a *supervision* problem, not signal
+  absence.** The evidence direction is sitting at AUC 0.98 (layer ~19), but gates trained only on the final
+  count loss never discover it. (Also: aggregator richness — the PNA line — was optimising the part that
+  *wasn't* broken, hence "PNA = sum" / only +4pp.)
+- Caveats: probe is *supervised* (proves linear separability/availability, not that the model uses it);
+  question placed first for query-conditioning (non-standard order); single seed; `steps_in_room` evidence
+  label; oracle-list/CoT aggregation results are text-side (vision-side oracle aggregation untested).
+
+**Next.** (1) **Per-frame-evidence-supervised adapter**: auxiliary per-frame `is_evidence` loss and/or
+initialise the gate toward the probe direction at layer ~19 (vs end-to-end count loss alone); move
+injection/readout from L14–17 to **~18–21** where the signal peaks. (2) Image-side **oracle-aggregation**
+to confirm fusion is easy on vision too. (3) Count-magnitude OOD readout remains a separate unsolved
+problem (PNA runs ~0% at unseen counts) — likely needs a regression/structured readout, not the frozen
+token head.
+
+
+### [2026-06-20] Frame-axis aggregator adapter — a task-agnostic one-pass fix; the residual is *extraction*, not the aggregator
+
+> Built the adapter the 06-19 diagnosis implied (read clean per-frame reps at L19 → aggregate → inject)
+> and swept it hard. **Plain DeepSets wins; PNA/codebook/balanced-loss don't help (PNA's count-scaler
+> *hurts* OOD); the ~75% IID ceiling is per-frame extraction error compounding, not aggregation.**
+> Scripts: `experiments/glstm/frame_axis_aggregator_adapter.py` (live, LM-injection readout),
+> `experiments/glstm/frame_axis_aggregator_cached.py` (cached, count-head readout). Shared L19 rep cache
+> at `outputs/frame_axis_cache/L19.pt`.
+
+**Architecture (task-agnostic, one forward pass).** A forward-pre-hook on decoder layer **L19** reads each
+frame's mean-pooled VISION-token rep, a learned per-frame φ → a fixed pool → side-channel; **two readouts**:
+(a) **live**: inject `ρ(agg)·gate` into the residual at the answer position, the frozen-LM head emits the
+count (deployable); (b) **cached**: a count-head on the aggregate (fast proxy — caches the 7B forward once,
+trains in minutes). Trained **jointly on all 3 tasks**. Qwen frozen+4-bit.
+
+**Methodology fixes worth keeping.** Disjoint **train/val/test split** stratified by seq_len (the IID eval
+was previously train-overlapping); per-epoch **val** with best-epoch checkpoint; `val_cap` must sample the
+**shuffled** split or it's short-seq-biased (val 0.84 vs true test 0.65 before the fix). Cached val ≈ test
+after the fix.
+
+**Results.**
+- **deepsets > seqmodel** in both readouts (live val 0.889 vs 0.852; cached 0.844 vs 0.713). The order-aware
+  transformer aggregator overfits these (permutation-invariant) tasks.
+- **Cached aggregator sweep** (train+test 1–8, 120 ep, `outputs/frame_axis_sweep/`): mean test_iid —
+  **deepsets 0.720**, pna_cb_balanced 0.714, pna_balanced 0.698, pna 0.690, pna_codebook 0.638,
+  deepsets_codebook 0.611. **No config beats plain deepsets**; **codebook-φ falsified** (meant to fix
+  rooms_visited dedup, made it worse); PNA narrow (only lifts additive tasks).
+- **Live 4-way head-to-head** (train 1–6, test IID 1–6 + OOD 7–8, LM-injection, `outputs/frame_axis_live_h2h/`):
+  | config | IID mean | OOD mean | note |
+  |---|---|---|---|
+  | **deepsets** | 0.754 | **0.558** | best OOD, smallest OOD bias (rooms −0.06) |
+  | pna_balanced | **0.766** | 0.528 | best IID but **worst OOD bias** (steps −0.34, rooms −0.33) |
+  | deepsets_balanced | 0.737 | 0.547 | balanced-loss marginal/negative |
+  | pna_cb_balanced | 0.686 | 0.442 | codebook dead |
+  **PNA's count-scaler HURTS OOD** (refuting the "scaler helps extrapolation" hypothesis): at unseen N the
+  scaler value `log(N+1)` is itself OOD → it *introduces* a length-extrapolation failure.
+- **Bias is solved two ways.** (1) Train on the **full length range (1–8)** → deepsets unbiased on all 3
+  (rooms bias −0.04 vs −1.80 when trained 1–6 only) → the rooms_visited "saturation" was an **OOD-length
+  artifact**, not an aggregation limit (`outputs/frame_axis_aggregator_cached_1to8/`). (2) The **live
+  LM-injection extrapolates** to unseen lengths where the **cached count-head saturates** (OOD rooms bias
+  −0.03 vs −1.80) — same aggregate, different readout → don't let cached OOD stand in for the model.
+
+**The ceiling, explained.** IID ~0.75 (steps 0.78 / rooms 0.68 / co-occ 0.80, LM readout) is **per-frame
+extraction error compounding**: the probe measured ~0.94 per-frame evidence accuracy, and exact-match count
+needs every frame right → 0.94⁶ ≈ 0.69, matching observed. Oracle-list (clean per-frame facts) → 0.84–1.0,
+so the 75→95 gap **is** extraction. **The aggregator is solved (sum of clean indicators is exact); the
+remaining lever is per-frame extraction**, e.g. **query-conditioned attention pooling** over a frame's
+tokens (vs the current mean-pool that dilutes the relevant token) — running now (`outputs/frame_axis_live_attnpool/`).
+
+**Conclusion.** The **task-agnostic backbone is the plain DeepSets frame-axis adapter** (read@L19 → sum/mean/max
+→ inject), trained on the right length range — simplest, best-generalizing, smallest; it relieves the
+aggregation bottleneck across counting/set-cardinality/relational and is unbiased. **The aggregator search
+is done** (PNA/codebook/balanced don't help; PNA hurts OOD). Remaining gains are in **per-frame extraction**
+(esp. rooms_visited ~0.68) and length-robust readout — not the aggregator.
+
+**Caveats.** Single seed; live runs ≤20 epochs (a deepsets +10-epoch continuation nudged val 0.748→0.763,
+so not fully peaked); OOD entangles length+count; cached count-head under-reports OOD vs the live readout.
+
+---
+### [2026-06-20b] Localizing the "extraction ceiling": it's single-pass *superposition*, not perception — and rooms is the genuine aggregation residual
+
+> Five diagnostics to pin down *what* the ~0.94/frame extraction ceiling actually is and whether we're
+> stuck at it: (1) 32B backbone, (2) resolution sweep, (3) crowding bucketing, (4) per-frame "look-again"
+> verification, (5) single-task rooms training to convergence. **Headline: the per-frame info is fully
+> present (isolated-frame readout → AUC 1.0); the 0.94 is a single-pass *superposition* artifact, not a
+> perception limit — recoverable by per-frame passes (steps count 0.79→0.93) but only when the task is
+> extraction-limited. rooms is aggregation-limited (plateaus ≪ its bound); co-occ is already soft-agg-optimal.**
+> Scripts: `evaluations/scripts/eval_per_frame_verification.py` (new), `probe_evidence_selection_image.py`
+> (extended: `--image-sizes` resolution sweep + crowding bucketing). Runs under `outputs/frame_axis/probes/`.
+
+**1. Bigger backbone does NOT raise perception (32B vs 7B, peak-over-layers, same probe).** steps is-evidence
+**0.892/0.951** (32B L43) vs 0.939/0.984 (7B L19); co-occ same-room **AUC 0.999** (32B) vs 0.996 (7B); rooms
+room-decode **0.858** (32B) vs 0.915 (7B). **No lift** — co-occ already saturated at 7B; steps/rooms flat.
+(32B came in slightly *lower*, but on 60 vs 90 samples and dim 5120 vs 3584 with the same linear probe → that
+biases the probe down; the defensible claim is "no increase," not a decrease.) → perception is **not
+capacity-bound**; scaling won't fix it.
+
+**2. Resolution plateaus at native (not a lever).** Per-frame is-evidence AUC by frame size: 224px 0.873 →
+336 0.945 → 448 0.971 → **native-512 0.969** → 672(upscaled) 0.982. Below ~448px it degrades, but we already
+feed native 512 and upscaling buys only ~+1pt. **The 0.94 is not resolution-limited at the resolution we use.**
+
+**3. Crowding (underpowered, directional).** is-evidence acc by #characters-in-frame, native res: 4ch 0.962 vs
+5ch 0.926 (gap widens at low res). Directionally **more entities → lower acc = binding/superposition**, but the
+dataset only ever has 4–5 chars/frame so the axis barely varies (crowd-4 n=26) — *suggestive, not decisive*.
+
+**4. Per-frame "look-again" verification — the key result.** Ask one focused single-frame question
+("is C in R here?" / "are C and D in the same room here?"), read P(yes), sum across frames.
+- **steps:** per-frame **bal-acc 0.987 / AUC 1.000** (≫ joint 0.94); **count 0.79 (single-pass adapter) → 0.928**.
+  Isolated frames decode ~perfectly ⇒ **the 0.94 ceiling is the single joint pass having to hold all N frames
+  at once (superposition), not perception.** The **extraction-axis analog of CoT** — relieves it at N× compute.
+- **co-occ:** per-frame 0.909/0.981 but **count 0.722 — *worse* than the single-pass adapter (0.867)**, and it
+  *decays* with length (0.867→0.717→0.583 over sl 4/6/8). co-occ's single-pass adapter wins via **soft
+  error-cancellation** (it already beat its hard extraction bound, 0.867 > 0.815); per-frame *hard*-sum throws
+  that away and compounds. **co-occ is not extraction-limited.**
+- Method note: **hard-sum > soft-sum at long sequences** (steps sl8: 0.883 vs 0.700) — summing soft P(yes)
+  accumulates per-frame leakage → overcounts (noisy-OR-style saturation).
+
+**5. Single-task rooms to convergence (rooms30, deepsets, 30ep, patience-8).** Val plateaued at ~0.77 from
+epoch 6 (early-stopped ep14) while train loss kept falling; **final test_iid 0.691, ~17pt under the 0.865
+extraction bound**, g5 collapses to **0.184**. **rooms is aggregation-limited (structural) — more training does
+not reach the bound.** (Test 0.691 < multi-task 0.748, but rooms30 trained on less data — cap 1140 vs 1890 —
+so this is *not* clean evidence that single-task hurts; the robust claim is only "plateaus short of bound.")
+
+**Synthesis — recognition vs binding, and option-4.** The extraction ceiling is **binding/superposition, not
+recognition**: resolution is maxed at native (2), perception doesn't scale with model size (1), and isolated
+per-frame extraction is ~perfect (4, AUC 1.0). The single joint pass simply can't read all N frames cleanly at
+once — **the same over-squashing as the aggregation thesis, one level up the pipeline.** The blanket "we're
+extraction-bounded, this is the best possible" (option-4) is **refuted**: per-frame passes exceed it for steps,
+and soft aggregation already exceeds the hard bound for co-occ. The defensible claim is *single-pass*
+optimality. **Per-task verdict:** steps = single-pass-extraction-limited (multi-pass fixes); co-occ = already
+soft-agg-optimal; **rooms = the genuine residual aggregation bottleneck** (one-pass distinct-count plateaus
+below its bound). *(Open: whether the per-frame extraction tax exists on the **text** versions — measured only
+for steps text, where it's ~absent at 0.997; not yet run for rooms/co-occ text.)*
+
+---
+### [2026-06-21] The extraction ceiling IS entity-crowding (superposition), measured directly; and rooms is aggregation-bound even with perfect extraction
+
+> Built count-balanced datasets with a **controllable entity count** (`generate_mmred_balanced.py --n-chars`)
+> and isolated extraction from aggregation. **Headline: per-frame extraction at the deployed L19 declines
+> monotonically with crowding (rooms 0.996→0.915→0.835 for 1→2→5 chars; steps 0.984→0.970→0.939) and is
+> ~1.0 with one entity — so the ~0.92 real-task ceiling is *superposition*, not perception. But removing the
+> extraction bound does NOT fix rooms: with perfect per-frame extraction (target-token read, AUC 1.0) the
+> adapter still only reaches 0.41, and the frozen model only 0.29 — distinct-count is aggregation-bound.**
+> Scripts: `generate_mmred_balanced.py` (now rooms/co_occ/steps + `--n-chars`), `probe_text_pooling_sweep.py`,
+> `probe_pertask_extraction.py` (+per-layer CSV, empty-list guard), `frame_axis_aggregator_adapter.py`
+> (+`--text`, +`frame_pool=target`). Datasets: `data/mmred_{rooms,steps,cooc}_balanced` (5-char, uniform
+> counts), `data/mmred_{rooms_1char,steps_1char,cooc_2char,cooc_3char,rooms_2char,steps_2char}`.
+
+**1. Text pooling sweep (`outputs/frame_axis/probes/text_pooling_sweep/`).** mean/last/max/target × layer, on
+the balanced text frames. **rooms:** mean 0.767 / last 0.733 / max 0.764 (all ~L19–26) vs **target-token L1 =
+1.000** — no content-pooling at the working layers recovers it; only reading the queried entity's own token at
+the embedding layer does (positional/parsing-trivial). **co-occ:** mean 0.964 is already best; pooling
+barely matters → co-occ is NOT pooling-handicapped. So "image>text" for rooms was a recipe artifact (mean-pool
+superposes the multi-room text block); for co-occ it isn't.
+
+**2. Count-balanced image-vs-text deepsets (`outputs/frame_axis/balanced/`, live 7B, N=8, uniform counts).**
+test_iid LM acc — **rooms** image 0.500 / text 0.398; **co-occ** image 0.586 / text 0.438 (0.519 at 35ep);
+**steps** text 0.704. Image≥text on both (rooms +10pt, co-occ +15pt); image near-unbiased, text biased
+(rooms +0.32, co-occ −0.34). Balanced data removes the old skew — co-occ's honest number is 0.586 (vs the
+distribution-inflated 0.867). Caveats: small per-count support (~17–24), noisy val, single seed.
+
+**3. target@L1 upper bound (`outputs/frame_axis/balanced/rooms_text_targetL1/`).** Read the queried token at
+L1 (where rooms extraction = 1.0) → deepsets. **lm 0.435 / aux 0.407.** Perfect per-frame extraction does NOT
+solve rooms — the aux count-head (bypasses the LM) agrees at 0.41 → it's the **aggregation** (distinct-count),
+not the readout. The earlier "soft-OR fails rooms" was confounded by extraction noise (saturation); clean
+extraction is the untested rescue.
+
+**4. Minimal-crowding extraction (`outputs/frame_axis/probes/crowding_min/`, image, L19).** rooms 1ch **0.996**
+/ 2ch **0.915** / 5ch **0.835**; steps 1ch **0.984** / 2ch **0.970** / 5ch **0.939**; co-occ 3ch **0.999**,
+5ch 0.996 (1–2ch = AUC 1.0 but **density-confounded**: with ≤2 chars "same room" ⟺ "1 occupied room", trivially
+separable — discard those, use ≥3ch). **Monotonic decline with crowding at the deployed layer = superposition,
+measured directly.** rooms/steps are extraction-(crowding-)limited; co-occ extraction is ~0.99 at every
+crowding → never extraction-bound.
+
+**5. Frozen base acc at minimal crowding (`outputs/frame_axis/probes/base_acc/`, image, no adapter).** steps
+1ch **0.583** (U-shaped per count: 1.0 at gold 0 and 8, 0.25 at gold 3), rooms 1ch **0.289** (undercounts
+3.5→2.7), co-occ 2ch **0.204** (undercounts 4.0→1.9). **Even with one entity and ~perfect extraction, the
+frozen 7B fails — worst on distinct-count/relational, best on sum** — confirming the bottleneck is single-pass
+*aggregation*, present already at minimal crowding.
+
+**Synthesis (task split, now nailed).** (a) **Extraction** is bounded by **entity superposition** at the
+pooling step — provably (1 entity → ~1.0 at L19; monotonic decline with crowding). The agnostic, non-bounding
+fix is to stop collapsing each frame to one mean vector (slot-attention / per-token aggregation that separates
+entities); L19 is the right task-agnostic layer (it *holds* the ~1.0 signal — 1-char proves it). (b) **steps /
+co-occ are extraction-(crowding-)limited** → clean extraction lifts them (steps text 0.704). (c) **rooms is
+aggregation-limited** → perfect extraction still caps it at 0.41; it needs a better *aggregator*
+(union-then-count), not a better extractor. The open test: soft-OR with clean (minimal-crowding) extraction.
+
+---
+### [2026-06-23] Minimal-crowding aggregator experiment — decrowding + DeepSets solves the count/set family; soft-OR perfects distinct-count
+
+> The experiment the 06-21 work set up (`outputs/frame_axis/agg_min/`, spec in `outputs/frame_axis/SPEC_minimal_crowding_aggregator.md`):
+> live 7B adapter, image, L19, mean-pool, **DeepSets vs `logic` (sum+soft-OR+soft-AND)**, one task-agnostic
+> module per task, on **count-balanced minimal-crowding** datasets (rooms·1char, steps·1char, co-occ·3char;
+> 250/count, `data/mmred_agg/`). **Headline: clean extraction (decrowding) is the dominant lever — it lifts
+> every task from ~0.2–0.5 to ~0.9–1.0 with PLAIN DeepSets; soft-OR perfects distinct-count (rooms 1.000).
+> So the "rooms aggregation wall" (target@L1 0.41) was a layer/setup confound — rooms was crowding-limited.**
+
+**Results (test_iid LM acc; frozen base / hard-compounding ceiling in parens).**
+| task | frozen base | **DeepSets** | **logic (soft-OR/sum)** | ceiling |
+|---|---|---|---|---|
+| rooms_visited | 0.289 | **0.973** (all counts ≥0.91) | **1.000** (perfect every count) | ≈1.0 (agg) |
+| steps_in_room | 0.583 | **0.950** (≥0.85 all counts) | **0.961** | 0.86 |
+| co_occupancy | 0.204 | **0.899** (counts 2,4 dip to 0.76–0.79) | **0.938** (all counts ≥0.86; soft-sum +0.039) | 0.78 |
+
+**Reads.** (1) **Decrowding is the lever:** rooms 0.50 (balanced-5char) → 0.973 (1char, DeepSets); steps 0.58→0.95;
+co-occ 0.20→0.90. (2) **DeepSets suffices** for the sum tasks and gets rooms to 0.973; **soft-OR (logic) is the
+correct distinct-count operator** and perfects rooms (1.000), fixing exactly the high-count dips — vindicating
+soft-OR, which had failed earlier only because *extraction noise* made noisy-OR saturate. (3) **Both sum tasks
+beat their hard-compounding ceiling** via soft summation (steps 0.95>0.86, co-occ 0.90>0.78). (4) On *clean*
+data logic ≥ DeepSets everywhere (it only *hurt* under crowded/noisy extraction) — but it's more complex/fragile,
+so **DeepSets is the recommended robust default; soft-OR is the principled refinement for set-cardinality.**
+
+**Confound check (honest).** The 0.50→0.973 *adapter* comparison is confounded (the minimal run also had more
+epochs 35 vs 20, more data 1050 vs 504 train, balanced-loss on). The *clean* isolation is the **extraction
+probe** (linear, no training, only #chars varies): rooms L19 hard-acc **0.835 (5ch) → 0.915 (2ch) → 0.996 (1ch)**;
+steps 0.939→0.970→0.984; co-occ ~0.97 at 3ch — pure crowding. **Caveat:** minimal-crowding tasks are perceptually
+trivial; the claim is about *aggregation*, and the realistic crowded task stays extraction-bounded (which a 4×
+backbone, 32B, does NOT fix). Frame as a controlled **aggregation-isolation** experiment, not a benchmark headline.
+
+**Operational.** Runner hard-codes `--time=12h`; these slow image runs (~20 min/epoch) hit the wall mid-final-eval
+and were killed (no checkpoint) → relaunched with `--time=18h`, 30 epochs. **Fix the runner default.** A **plain-LoRA
+SFT baseline** (`experiments/glstm/lora_sft_baseline.py`, peft 0.17.1) — "does fine-tuning native softmax suffice
+vs the explicit aggregator?" — is *running* (the apparent hang was ~18-min cold-cache model-load on n315, not a bug);
+results pending.
+
+**Scope (full MMRED task taxonomy).** The approach (decrowd + permutation-invariant sum/soft-OR) covers the entire
+**LC family**: the count tasks (`steps_in_room`, `rooms_visited`=soft-OR, `crowd_count`, `room_busy`,
+`char_accompanied`, `char_alone`) directly; the "which/who" argmax tasks (`where_spend`, `crowded_room`, `who_spend`,
+`spend_alone`, `spend_together`, `room_empty`) need a **comparative/argmax readout** but the aggregation is in-scope.
+It is **structurally wrong for the NIAH family** (FA/FI/FX: first/last/step-X) — those are order/position retrieval,
+which permutation-invariant pooling discards; they'd need the **order-aware `seqmodel` aggregator**. Relational tasks
+(co-occ, accompanied, alone) can't decrowd below ~2–3 chars.
+
+**Related work / novelty (lit search 2026-06-23; sources in References).** Every *ingredient* is published —
+query-conditioned visual pooling (QG-VTC, PARCEL; for efficiency), the image-before-question ordering effect
+(observed in MLLM probing, arXiv:2508.20279), permutation-invariant *counting* (Set Transformer counts unique
+elements), DeepSets on *frozen-LLM* states (ILSE), activation read+inject (steering). **The specific combination —
+reading question-conditioned per-frame states from a frozen autoregressive VLM, DeepSets/soft-OR aggregating across
+frames, injecting back, framed as over-squashing relief — has no direct precedent found.** Notably, **arXiv:2511.17722
+(Nov 2025) independently diagnoses VLM counting as "locate-but-not-enumerate under cognitive load"** = our
+extraction-fine/crowding-kills-aggregation result; they intervene via attention reweighting, we provide an explicit
+permutation-invariant aggregator + the extraction-vs-aggregation decomposition. Cite as concurrent corroboration.
+
+---
+### [2026-06-23] Count-extrapolation OOD + injection-direction failure — the readout, not the aggregator, is the OOD wall
+
+> Question: does the structured adapter beat LoRA where it *should* — on **counts never seen in training**?
+> (IID both tie, so only extrapolation can separate them.) Setup: minimal-crowding `mmred_agg/*`, fixed
+> 8 frames, **count-holdout** split (`--holdout-counts`): train on low counts, test on held-out high counts.
+
+**Head-to-head, train low / test held-out high (`outputs/frame_axis/ood_holdout/`):**
+| task (held-out) | deepsets | logic | **LoRA** |
+|---|---|---|---|
+| rooms (5,6) | 0.98→**0.000** | 0.96→**0.000** | 0.99→**0.000** |
+| steps (7,8) | 0.97→**0.000** | 0.95→**0.000** | 0.98→**0.452** |
+| co-occ (7,8) | 0.93→**0.000** | 0.94→**0.000** | 0.99→**0.094** |
+
+- **All methods cap at the top trained label OOD.** `mean_pred` pins at exactly 4.0 (rooms) / 6.0 (steps,cooc); accuracy on held-out counts = 0. LoRA's only "win" is **count 8 = "all 8 frames"**, copied from the prompt's stated frame count (nails 8, fails 7) — a cue, not counting. So on this axis LoRA ≥ adapter, and **neither extrapolates intermediate counts.**
+- **Root cause = the readout, not the aggregation.** The aux count head is a **9-way CE classifier** (`aux_head`, `frame_axis_aggregator_adapter.py:138`); held-out count classes get **zero gradient** → can never be argmax'd. The LM-injection readout (CE on output tokens) has the same disease. The aggregate sum keeps growing; the closed-label readout throws that away.
+
+**Can we instead INJECT a count direction so the frozen LM verbalizes it (Solution 3)?** Two probes
+(`probe_count_direction_extrapolation.py`, `probe_generic_number_direction.py`):
+- **READ — number axis compresses.** Fit a linear count direction on counts 0–4, read 5–8.
+  *Task-count axis* (`probes/count_direction_extrap/`): monotonic but heavily compressed — count 8 reads ~5.3, held-out acc ≈ 0.
+  *Generic LM-numeracy axis* (arithmetic prompts, `probes/generic_number_direction_L{16,19}/`): **perfect in-range (acc 1.0 on 0–4)** and better at 5 (~0.55–0.65), but **still saturates** (8 → ~5.5; 7,8 acc 0). So the LM encodes magnitude linearly **only up to ~5, then saturates**; the frame-aggregated count is *even more* collapsed (over-squashing signature).
+- **WRITE/steer — non-causal.** Forcing the residual along the direction, and a dose-response sweep to **±16×residual-rms**, left `emit_mean` **perfectly flat** at *both* L16 and L19 for *both* directions. Injecting a direction at the answer position has **zero causal control** over the emitted number. (The only injection that *does* control output is a learned per-count **codebook** — `translator_*` 100% in-range — which **cannot extrapolate** by construction.)
+
+**Verdict: injection-for-extrapolation is a dead end.** Read-axis saturation + non-causal steering, robust across directions/layers/magnitudes. You can make the frozen model count *in-range* (codebook=100%) but not *extrapolate* via injection. **Pivot: compute the count externally with an extensive additive head** (`count = Σ σ(w·φ(rᵢ))`) and **read the scalar directly** — extensive by construction, bypasses the LM's saturating number geometry. Mechanistic finding worth citing regardless: **frozen Qwen's number representation is linear only to ~5 then saturates.**
+
+**Additive-readout extrapolation — CONFIRMED (fast CPU probe on cached L19 per-frame reps, `cache/L19.pt`; crowded data, per-frame AUC~0.94).** Same reps, only the readout differs; trained on counts ≤4, tested on held-out 5–8:
+| task | additive `Σσ(w·repᵢ)` on held-out counts | 9-way classifier |
+|---|---|---|
+| **steps** (occurrence) | 5→4.9(**.82**) 6→5.8(.83) 7→6.8(.88) 8→7.8(**.93**) — **extrapolates** | caps ~4, **acc 0.00** |
+| **rooms** (distinct) | caps ~3.9 (acc ~0) — **plain sum is the wrong operator** | caps, acc 0.00 |
+| co-occ (occurrence) | inconclusive — crowded cache has only 4 examples with gold≥5 | — |
+- **The readout, not the aggregation, was the OOD wall.** A sum-of-per-frame-probabilities extrapolates to counts never trained (steps 0.82–0.93 on 5–8) *even on crowded data*; the closed-label softmax caps at the top trained count (0.00). This is the cleanest isolation — identical reps, readout swapped.
+- **Operator must match the task:** `Σσ` (sum) extrapolates for *occurrence*-counting; *distinct*-count (rooms) needs the **soft-OR extensive readout** `Σ_room[1−Π(1−p)]` (not yet probed — needs a per-frame per-room head; agg_min already showed soft-OR perfects rooms IID).
+- On *minimal-crowding* data (per-frame AUC 0.98–0.996) the additive accuracy would be higher; full-adapter minimal-crowding confirmation: `ood_holdout/{steps,rooms}_additive` (`--count-readout additive`).
+
+---
+### [2026-06-23] OOD count-extrapolation benchmark — what aggregator extrapolates, and *why* (the readout principle)
+
+> Setup: cached per-frame **L19** reps for minimal-crowding `mmred_agg/{steps_1char,rooms_1char,cooc_3char}`
+> (one frozen pass, `cache/minimal_L19_*.pt`), then **count-holdout** (train counts <5, test held-out ≥5)
+> readout experiments on CPU — fast, multi-seed, no LM injection (count read directly from the head).
+> All in `outputs/frame_axis/readout_benchmark/`.
+
+**Headline benchmark (IID → OOD exact-count accuracy; OOD = counts never trained):**
+| method | steps IID→OOD | rooms IID→OOD | co-occ IID→OOD |
+|---|---|---|---|
+| base Qwen (0-shot) | 0.23→0.11 | 0.31→**0.00** | 0.00→0.00 |
+| CoT Qwen | 0.30→0.63† | 0.33→**0.18** | 0.21→**0.06** |
+| LoRA Qwen | 0.98→0.45* | 0.99→**0.00** | 0.99→0.09 |
+| classifier (9-way CE) | 0.65→**0.00** | 0.96→**0.00** | 0.54→**0.00** |
+| **sum** (per-frame-sup) | **0.996** | 0.966–0.974 | **0.974** |
+| **soft-OR** (per-frame-sup) | — | **1.000** | — |
+
+\*LoRA's steps-OOD 0.45 is the count-8="all 8 frames" prompt cue (nails 8, fails 7), not real counting.
+†CoT steps-OOD 0.63 > its IID 0.30: CoT is well-calibrated (mean_pred≈gold both splits) but imprecise — it makes ±1
+errors on mid counts (low IID exact-match) yet nails the *saturated* high counts 7,8 ("all/almost-all frames"),
+inflating OOD exact-match. Still far below sum (0.996), and CoT collapses on rooms (0.18) / co-occ (0.06).
+
+**The central finding — extrapolation requires a FIXED extensive readout; learned readouts provably don't.**
+Across every configuration tried, the *only* readouts that extrapolate are **parameter-free** reductions of the
+**supervised per-frame quantity**: `count = Σᵢ pᵢ` (sum, occurrence) and `Σ_slot[1−Πᵢ(1−p)]` (soft-OR, distinct).
+*Any* learned readout re-introduces non-extrapolating solutions (it fits counts ≤4 with a combination that caps
+beyond). Evidence (multi-seed OOD mean±std, `stability.csv`/`deepsets_*.csv`):
+- **classifier (9-way CE):** 0.00 OOD everywhere — closed-label cap (`mean_pred` pins at top trained count).
+- **count-only scalar sum:** *unstable* — steps **0.52±0.38** (bimodal 0.99/0.21), co-occ 0.79±0.27, rooms 0.97±0.01
+  (rooms stable because the causal reps strongly encode a "new-room" signal). Under-determined by aggregate-only loss.
+- **canonical DeepSets** `ρ(Σφ)`, multi-dim φ-MLP, **count-only:** 0.56/0.54/0.25, unstable — *more capacity made it
+  worse* (more shortcut basins).
+- **canonical DeepSets + per-frame aux supervision:** still fails (steps 0.54±0.31, co-occ 0.22–0.38) — the per-frame
+  loss shapes φ but the **separate learned ρ stays decoupled** and doesn't extrapolate. **ρ-MLP caps OOD more than
+  ρ-linear** (nonlinear readout saturates at large sums).
+- **"universal" DeepSets** (multi-dim φ + fixed soft-sum/soft-OR channels + **linear** readout + per-frame sup):
+  **still fails** — steps 0.13, rooms 0.20, co-occ 0.08. **Even a *linear* learned readout over extensive channels
+  breaks extrapolation.** → The readout must be *parameter-free*, not just linear.
+- **Latent-dim control (`dimsweep.csv`):** canonical DeepSets count-only, ρ=linear, d ∈ {64,256,512,1024}.
+  OOD *monotonically decreases* with dim (steps 0.42→0.06, rooms 0.58→0.10, co-occ 0.25→0.005). **More capacity
+  makes it WORSE** → the failure is *not* a representational-capacity / Wagstaff-dim issue (already satisfied at
+  small d); it's learned-readout over-parameterization overfitting the bounded training-count range.
+- **Query-routed bank (`benchmark_query_router.py`):** one module = query-conditioned detector + router selecting
+  {sum, soft-OR}. **Failed** (OOD 0.24–0.46, mis-routed) — a *single shared* detector can't serve conflicting
+  per-task slot semantics, and a soft blend doesn't extrapolate. Auto-routing across operator *types* remains open;
+  the working task-agnostic method is the single-operator **marginal-contribution sum** (additive counting family).
+- **per-frame-supervised sum / soft-OR (fixed readout):** **stable & near-perfect** — steps 0.996±0.001, co-occ
+  0.974±0.003, rooms 1.000±0.000 (soft-OR) / 0.974 (sum, first-visit label).
+
+**Why sum doesn't overcount distinct (rooms):** it sums **first-visit** indicators, not occupancy — `[A,A,B]→[1,0,1]→2`.
+Causal attention lets frame *i*'s rep encode "seen this room before?", so the detector suppresses repeats.
+
+**Verification (`verify.csv`):** leak probes (regressors on mean/last/first-pooled reps) **fail** to extrapolate
+(0.0–0.1) while the sum succeeds; `sum_shuffle_diff = 0.000` (permutation-invariant). So the sum genuinely aggregates
+per-frame evidence — not a count leaked into a single pooled vector.
+
+**How much supervision (`auxloss.csv`, count-MSE + λ·per-frame-BCE):** a token λ does nothing; λ must be large
+(steps stabilizes only at λ≈1.0; co-occ at λ≳0.2). The per-frame objective must genuinely *steer* the detector.
+
+**Task-agnostic method (no operator selection):** `count = Σᵢ (per-frame "+1 marginal contribution")`, one fixed-sum
+readout. The per-frame label is a single unified concept — "does this frame add 1 to the answer" — auto-derived per
+task (occurrence: evidence; distinct: first-visit). Covers the whole *additive counting* family with **one operator**;
+validated: steps 0.996 / rooms 0.974 / co-occ 0.974. **Scope:** additive "how-many" tasks. Genuinely non-additive
+permutation-invariant functions (max, variance, threshold "crowded ≥3") need their *own* fixed reduction — a property
+of the function class (DeepSets hides it in a learned ρ that doesn't extrapolate), not a flaw in the method.
+
+**Net thesis claim:** *a per-frame-supervised, permutation-invariant sum with a **fixed extensive readout** extrapolates
+to unseen counts on all three tasks (0.97–1.0) where base Qwen, CoT, LoRA fine-tuning, and a closed-label classifier
+all collapse (≤0.45, mostly 0). Learned readouts — including the canonical DeepSets ρ — provably do not extrapolate,
+regardless of φ capacity or per-frame supervision.* (Lit grounding: DeepSets/Set-Transformer, Wagstaff set-function
+limits, PNA degree-scalers — see References, pending verified citations.)
+
 ---
 ## Standing reference (cross-week synthesis)
 
@@ -592,6 +986,171 @@ channel cannot.
 | 2026-06-16 | `outputs/probe_aggregation_stages/{rooms_visited,co_occupancy}` (`probe_aggregation_stages.py`); `outputs/probe_frame_token_states/{rooms_visited,co_occupancy}` (`probe_frame_token_states.py`) | **Where does count die?** per-frame evidence decode vs last-token count decode by layer; plus frame-token-state mean/sum pooling probe | 7B, n=150 | per-frame room decode **0.84** (L4); last-token count decode **≤0.475** ≈ maj 0.434 (all layers); frame-token mean/sum pool ≈ blind (~0.37–0.43) | ✅📊 | Evidence present at frames; **count absent at the last token and not in pooled frame states** → loss is in the aggregation step, corroborating the frame→carrier message probe. |
 | 2026-06-16→17 | `outputs/agg_sweep/*rv*`; `outputs/agg_moredata/20260617_040354_md_rv_sum_ml_carrier_direct_sum` | **Operator + data sweep on rooms-visited**: carrier sum/slot/union/gLSTM/max at L12–17, then 2× data on carrier-sum | 7B, single-seed | operators cluster **~46% iid** (carrier-sum 45.7%, mem-disabled 40.4%); 2× data → carrier-sum **iid 58.1%** (comp-OOD 41.7 / len-OOD 49.0) | ✅ | Operator choice ≈ noise; **data/capacity moves rooms-visited** (46→58). Best overall remains global LM-attn LoRA 63.9%. |
 
+### Text-frames + diagnostic decomposition (06-17→19, 7B) — composition bottleneck, selection-signal availability
+
+All text-side unless noted. Heatmaps per (gold-count × seq_len) saved per run; predictions logged. Scripts:
+`eval_mmred_text_frames_acc.py` (`--cot`, `--oracle-list`, precision flags), `probe_evidence_selection_linear.py` (text),
+`probe_evidence_selection_image.py` (vision tokens). Runners: `eval_text_frames_*.sbatch`, `probe_evidence_selection*.sbatch`.
+
+| Date | Output dir | Method / change | Key config | Metric (steps / rooms / co-occ) | Status | Notes |
+|------|-----------|-----------------|-----------|--------|--------|-------|
+| 2026-06-17 | `outputs/eval_mmred_text_frames_acc/` | **Frames-as-text, plain single-token** (no vision) | 7B nf4, 80/seq, sl1–8 | **0.470 / 0.389 / 0.338** | ✅📊 | Same collapse as images ⇒ not vision. Range-compressed prior: steps/rooms undercount (bias→−1.7 @sl8), co-occ overcounts (+0.8). |
+| 2026-06-17 | `outputs/eval_mmred_text_frames_acc_cot/` | **+ chain-of-thought** (reason then `Answer:`) | 7B nf4, 50/seq, 512 tok | **0.695 / 0.570 / 0.623** | ✅ | steps bias →≈0 at every len (single-pass artifact removed); residual long-len decay remains. |
+| 2026-06-17 | `outputs/eval_mmred_text_frames_acc_oracle/` · `_oracle_cot/` | **Oracle-list** (only queried entity's per-frame rooms; no scene) plain · CoT | 7B nf4, 80/50/seq | plain **0.841 / 0.883 / 0.662**; CoT **0.985 / 1.000 / 0.940** | ✅ | rooms_visited oracle-CoT **100% @ every sl incl 8, bias 0.00** → aggregation/dedup easy once extracted; revises 06-17 "set-accumulation limit". |
+| 2026-06-17 | `outputs/eval_mmred_text_frames_acc_prec_nf4/` · `_prec_bf16/` | **Precision lever**: 4-bit nf4 vs full bf16 weights (bf16 compute both) | 7B, 80/seq, plain | nf4 0.470/0.389/0.338 · bf16 0.470/0.423/0.325 | ✅ | nf4 ≈ bf16; saturation unchanged ⇒ quantization is **not** the cause. |
+| 2026-06-18 | `outputs/probe_evidence_selection_linear/` | **Linear selection probe (text tokens)**: per-layer logreg for `is_evidence` | 7B, n=2160 frames (sl4,6,8), 50.5% pos | best **layer 21 AUC 0.997**, bal-acc 0.965 (chance 0.5) | ✅📊 | Evidence/distractor **linearly present** in the frozen text rep, peaks mid-late. |
+| 2026-06-19 | `outputs/probe_evidence_selection_image/` | **Linear selection probe (vision tokens)**: same, over `<\|image_pad\|>` per-frame spans, question-first | 7B nf4, n=1800 frames, 50.6% pos | best **layer 19 AUC 0.984**, bal-acc 0.939 | ✅📊 | Signal **survives into vision tokens** (≈ text) ⇒ distractor gap is **not** vision-side perception; the gating plateau is a *supervision* gap (signal present, not learned from count loss). |
+
+### Frame-axis aggregator adapter (06-19→20, 7B) — read@L19 → aggregate → inject; deepsets wins
+
+One-pass adapter; reads per-frame vision reps at L19, aggregates, readout = LM-injection (live) or count-head
+(cached, fast proxy on a shared rep cache `outputs/frame_axis_cache/L19.pt`). Joint 3-task training, disjoint
+stratified splits, per-epoch val + best-epoch ckpt. Scripts: `frame_axis_aggregator_adapter.py` (live),
+`frame_axis_aggregator_cached.py` (cached). Metric = exact-match count; bias = mean_pred − mean_gold.
+
+| Date | Output dir | Method / change | Key config | Metric | Status | Notes |
+|------|-----------|-----------------|-----------|--------|--------|-------|
+| 2026-06-19 | `outputs/frame_axis_aggregator_cached/` (deepsets, seqmodel) | **cached count-head**, deepsets vs seqmodel, train 1–6 / OOD 7–8 | 7B nf4, 40 ep | deepsets val **0.844** > seqmodel 0.713; IID 0.73/0.54/0.80; OOD count-head **saturates** (rooms bias −1.80) | ✅ | deepsets > seqmodel; count-head under-reports OOD. |
+| 2026-06-19 | `outputs/frame_axis_aggregator_cached_1to8/` | **train+test 1–8** (no OOD), deepsets count-head | cap 400/seq, 40 ep | IID 0.667/0.510/0.772, **bias ≈0** (rooms −0.04) | ✅ | Full length range → **bias gone**; rooms saturation was an OOD-length artifact. |
+| 2026-06-19 | `outputs/frame_axis_live_h2h/{deepsets,deepsets_balanced,pna_balanced,pna_cb_balanced}` | **live LM-injection 4-way**, train 1–6 / OOD 7–8 | 7B nf4, 20 ep | IID mean 0.754 / 0.737 / 0.766 / 0.686; **OOD mean 0.558 / 0.547 / 0.528 / 0.442** | ✅ | **deepsets best OOD**; PNA scaler **hurts OOD** (bias −0.33); codebook dead; balanced marginal. |
+| 2026-06-19 | `outputs/frame_axis_sweep/{6 configs}` | **cached aggregator sweep** (train+test 1–8, converged) | 120 ep | mean test_iid: deepsets **0.720**, pna_cb_bal 0.714, pna_bal 0.698, pna 0.690, pna_cb 0.638, ds_cb 0.611 | ✅ | No config beats plain deepsets; codebook-φ falsified for dedup. |
+| 2026-06-20 | `outputs/frame_axis_live_deepsets_eval/` | **live-readout IID+OOD diagnostic plots** (deepsets winner, eval-only from ckpt) | EPOCHS=0 + `--init-from` | IID mean_pred tracks y=x to ~6 (vs count-head saturating) | ✅📊 | LM-injection readout well-calibrated; per-split plots: acc/mean-pred/confusion. |
+| 2026-06-20 | `outputs/frame_axis_live_attnpool/` | **query-conditioned attention pool** per frame (vs mean-pool) — *the extraction fix* | deepsets, train 1–6 / OOD 7–8, 20 ep | ▶ running | ▶ | Targets the per-frame extraction ceiling (0.94/frame compounding); needs live (raw tokens). |
+
+### Extraction-ceiling probes (06-20, 7B) — the read side is maxed at ~0.94/frame; *blame not yet fully localized*
+
+Three probes of per-frame **is-evidence** (C in R) decodability, all on **mean-pooled** L19 vision reps with a
+**linear** logreg (steps_in_room, n=1800 frames, sl 4/6/8, sample-disjoint split).
+
+| Date | Output dir | Probe | Result | Status | Notes |
+|------|-----------|-------|--------|--------|-------|
+| 2026-06-20 | `outputs/probe_adapter_messages/` (`probe_adapter_messages.py`) | does the **trained adapter's φ(rep)** still decode evidence vs the raw rep? | raw **0.939** bal-acc / 0.984 AUC; φ-message **0.931** / 0.977 (Δ ≈ 0) | ✅📊 | φ **preserves** per-frame evidence → φ/aggregation/readout near-optimal; adapter (count-loss-trained) extracts **as well as a supervised probe** → no supervision gap. |
+| 2026-06-20 | `outputs/probe_multilayer_evidence/` (`probe_multilayer_evidence.py`) | does **concatenating layers** beat the best single layer? | best single L19 0.939/0.984; concat band {14,17,19,22,25} 0.946/0.983; concat ALL 0.935/0.978 | ✅📊 | Multi-layer **redundant** (AUC gain ≈ 0; residual-stream layers correlated). Single mid-late layer suffices. |
+| (06-19) | `outputs/probe_evidence_selection_image/` | per-**single-layer** sweep | broad plateau L18–24 (~0.93–0.94 bal-acc / ~0.98 AUC); peak L20 0.944 | ✅📊 | No layer beats ~0.94; **layer choice robust** (no per-model tuning — "read ~0.7·depth"). |
+
+**Conclusion (scoped).** For **[mean-pool + linear probe + single/multi-layer]**, per-frame evidence caps at
+**~0.94 bal-acc / ~0.98 AUC**, and the adapter sits at that ceiling → the ~75% count accuracy is
+**compounding-limited (0.94⁶≈0.69)**, with the read side (layer/pooling/φ/aggregation) near-optimal.
+
+| 2026-06-20 | `outputs/probe_token_extraction/` (`probe_token_extraction.py`) | **Probe A — best read over RAW frame tokens** for is-evidence: mean/max/attn-pool+MLP | 7B, n=1260 frames | **mean+linear 0.897** (best); max+linear 0.827; attn-pool+MLP 0.873 | ✅📊 | **Mean+linear is best — token-level & non-linear reads do NOT beat it** → pooling/non-linearity is NOT the bottleneck; **attn-pool won't help.** |
+| 2026-06-20 | `outputs/probe_perception_binding/` (`probe_perception_binding.py`) | **Probe B — perception vs binding** (query-cond vs query-indep, binding-aware probe) | 7B, 14k triples | both ~**0.51 (chance)** | ⚠️ FLAWED | Confounded: probes *arbitrary* (X,Y) while reps encode only the *target*, and mean-pool destroys per-char binding → **does NOT localize vision-encoder vs LM-binding.** Discarded. |
+| 2026-06-20 | `outputs/probe_pertask_extraction/` (`probe_pertask_extraction.py`) | **Per-task per-layer extraction sweep** — all layers, rooms (7-way room-of-C) & co-occ (same-room) | 7B, n≈1620/task | rooms peaks **L21 0.925** (L19 ~0.915); co-occ peaks **L19 0.996**; broad plateau L18–24 | ✅📊 | **Read layer L19 is within ~1pt of the best layer for ALL 3 tasks** (steps L19–20, rooms L21, co-occ L19) → the read layer is **not** limiting any task; "read ~0.7·depth" is robust, no per-model/per-task tuning. |
+| 2026-06-21 | `outputs/frame_axis/balanced/{rooms,cooc}_{image,text}/` (`frame_axis_aggregator_adapter.py`) | **count-balanced deepsets, image vs text** (N=8, uniform counts, live 7B) | deepsets, 20ep | rooms img **0.500**/txt 0.398; co-occ img **0.586**/txt 0.438 | ✅📊 | image≥text both; image unbiased, text biased; balanced data → co-occ honest 0.586 (vs skew-inflated 0.867). Small per-count support, single seed. |
+| 2026-06-21 | `outputs/frame_axis/balanced/{steps_text,cooc_text_long,rooms_text_targetL1}/` | **text controls** — steps; co-occ 35ep; rooms target@L1 | live 7B | steps·text **0.704**; co-occ·text **0.519** (35ep, was 0.438); **rooms target@L1 lm 0.435 / aux 0.407** | ✅📊 | steps (clean extraction 0.997)→0.70; **perfect extraction (target@L1=1.0) still → 0.41 on rooms** ⇒ rooms aggregation-bound, not extraction. |
+| 2026-06-21 | `outputs/frame_axis/probes/crowding_min/` (`probe_pertask_extraction.py`, `probe_evidence_selection_image.py`) | **L19 extraction vs entity count** (image) | 7B, n≈90–135/cfg | rooms 1ch **0.996**/2ch 0.915/5ch 0.835; steps 1ch **0.984**/2ch 0.970/5ch 0.939; co-occ 3ch **0.999**/5ch 0.996 | ✅📊 | **monotonic decline with crowding at deployed L19 = superposition, measured.** co-occ ~0.99 always (not extraction-bound). 1–2ch co-occ = density-confounded (discard). |
+| 2026-06-21 | `outputs/frame_axis/probes/base_acc/` + `steps_base` log (`eval_mmred_rooms_visited_baseline.py`, `eval_mmred_qwen25_vl_accuracy.py`) | **frozen base acc at minimal crowding** (image, no adapter) | 7B, n=90–108 | steps 1ch **0.583** (U-shape), rooms 1ch **0.289**, co-occ 2ch **0.204**; all undercount | ✅📊 | **frozen fails even with 1 entity + perfect extraction** — worst on distinct-count/relational → single-pass *aggregation* is the bottleneck, not perception. Sets the adapter's bar to beat. |
+| 2026-06-21 | `outputs/frame_axis/probes/text_pooling_sweep/` (`probe_text_pooling_sweep.py`) | **text pooling × layer** (mean/last/max/target) | 7B, balanced N=8 | rooms: target@L1 **1.000** vs mean 0.767/last 0.733/max 0.764; co-occ: mean 0.964 best | ✅📊 | text rooms recoverable only via queried-token@L1 (positional/trivial); co-occ pooling-insensitive → "image>text" for rooms was a mean-pool artifact. |
+| 2026-06-20 | `outputs/frame_axis/probes/evidence_selection_image_32b/` | **32B steps is-evidence** (image probe, all-layer) | 32B nf4, n=60/seq sl4/6/8 | best **L43 bal-acc 0.892 / AUC 0.951** (vs 7B L19 0.939/0.984) | ✅📊 | Bigger backbone does **not** raise the perception ceiling; slightly-lower likely a probe-data artifact (60 vs 90 samples, dim 5120 vs 3584). Claim = "no lift," not decrease. |
+| 2026-06-20 | `outputs/frame_axis/probes/pertask_extraction_32b/` | **32B co-occ same-room + rooms room-decode** | 32B nf4, n=60/seq | co-occ **L44 AUC 0.999** (7B 0.996); rooms **L48 0.858** (7B 0.915) | ✅📊 | co-occ **already saturated** at 7B → no headroom; rooms no lift → perception not capacity-bound. |
+| 2026-06-20 | `outputs/frame_axis/probes/extraction_resolution_crowding/` (`probe_evidence_selection_image.py --image-sizes`) | **Exp1 resolution sweep + Exp3 crowding** (steps is-evidence, mean-pool) | 7B, n=40/seq, sizes 224–672px | AUC: 224 .873 / 336 .945 / 448 .971 / **native512 .969** / 672 .982; crowd@native 4ch .962 / 5ch .926 | ✅📊 | **Resolution plateaus at native** (upscale +1pt only) → not a lever. Crowding **underpowered** (data only 4–5 chars/frame) but directional (5<4) = binding. |
+| 2026-06-20 | `outputs/frame_axis/probes/per_frame_verify_steps/` (`eval_per_frame_verification.py`) | **Exp2 per-frame "look-again" verification**, steps | 7B, n=60/seq sl4/6/8 | per-frame **bal-acc 0.987 / AUC 1.000**; **count hard 0.928** / soft 0.850 | ✅📊 | Isolated frame ~perfect (≫ joint 0.94) ⇒ extraction ceiling is **single-pass superposition, not perception**; count **0.79→0.928** (extraction-axis CoT, N× compute). |
+| 2026-06-20 | `outputs/frame_axis/probes/per_frame_verify_cooc/` (`eval_per_frame_verification.py`) | **Exp2 per-frame verification**, co-occ | 7B, n=60/seq | per-frame 0.909/0.981; **count hard 0.722** / soft 0.717 (0.867→0.717→0.583 by sl) | ✅📊 | **Worse than single-pass adapter (0.867)**: co-occ wins via soft error-cancellation; per-frame hard-sum loses it & compounds → **not extraction-limited**. |
+| 2026-06-20 | `outputs/frame_axis/adapter_live/rooms30/20260620_182313_deepsets/` | **rooms-only deepsets, 30ep (patience-8 early-stop @ep14)**, train+test sl1–6 | 7B nf4, train cap 1140, no OOD | best val **0.778 (ep6)**; **test_iid 0.691**, bias +0.00; g5 collapse **0.184** | ✅ | **Plateau ≪ 0.865 extraction bound → rooms aggregation-limited (structural), not optimization.** vs multi-task 0.748 confounded by data cap (1140 vs 1890) — *not* "single-task hurts." |
+| 2026-06-20 | `outputs/frame_axis/adapter_live/h2h_cont_evalplot/` | **acc-per-count ceiling plot regen** (eval-only from h2h_cont best deepsets ckpt) | EPOCHS=0 + `--init-from`, train1–6/ood7,8 | steps 0.790 (**on** ceiling), rooms 0.748 (**below**), co-occ 0.867 (**above** hard bound) | ✅📊 | Canonical "acc per count + extraction-ceiling line" figure; rooms peels off ceiling at g≥3, g5 0.34. |
+| 2026-06-23 | `outputs/frame_axis/agg_min/rooms_visited_{deepsets,logic}/` | **minimal-crowding (1char) rooms: DeepSets vs soft-OR** | live 7B, 250/count, 30–35ep | DeepSets **0.973** (counts 1/1/1/.91/.97/.95); **logic 1.000** (perfect all counts) | ✅📊 | decrowd lifts rooms 0.50→0.97 (extraction-limited, not agg); **soft-OR perfects distinct-count**. |
+| 2026-06-23 | `outputs/frame_axis/agg_min/steps_in_room_{deepsets,logic}/` | **minimal-crowding (1char) steps** | live 7B, 250/count | DeepSets **0.9496**, logic **0.9614** (both ≥0.85 all counts) | ✅📊 | decrowd 0.58→0.95; **beats 0.86 hard-compounding ceiling** via soft sum; logic≈DeepSets. |
+| 2026-06-23 | `outputs/frame_axis/agg_min/co_occupancy_{deepsets,logic}/` | **minimal-crowding (3char) co-occ** | live 7B, 250/count | DeepSets **0.8991** (counts 2,4 dip 0.76–0.79); **logic 0.9377** (per-count 0:.97 1:.94 2:.86 3:.90 4:.90 5:.95 6:.97 7:.95 8:1.00) | ✅📊 | decrowd 0.20→0.90; beats 0.78 ceiling; **soft-sum (logic) +0.039 over DeepSets, lifts the count-2/4 dips to ≥0.86.** |
+| 2026-06-23 | `outputs/frame_axis/probes/{phimsg_min,crowding_min}/` | **L19 extraction (hard bal-acc/7-way) vs #chars** (probe, no training) | 7B image | rooms 0.835(5ch)→0.915(2ch)→0.996(1ch); steps 0.939→0.970→0.984; co-occ ~0.97@3ch; **φ preserves all** | ✅📊 | clean isolation: crowding (superposition) is the extraction lever; φ not lossy. |
+| 2026-06-23 | `outputs/frame_axis/ood_holdout/{steps,rooms,co_occupancy}_{deepsets,logic,lora}/` | **count-extrapolation OOD** (train low counts, test held-out high) | live 7B, minimal-crowding | OOD acc: deepsets/logic **0.000** all tasks; LoRA steps **0.452** (only count8="all frames"), cooc 0.094, rooms 0.000 | ✅📊 | **readout cap**: 9-way CE classifier can't emit unseen labels; mean_pred pins at top trained count. Neither extrapolates intermediate counts. |
+| 2026-06-23 | `outputs/frame_axis/probes/count_direction_extrap*/`, `generic_number_direction_L{16,19}/` | **cd-injection (Solution 3) probe**: linear count-direction read + steer | 7B; task-axis + generic arithmetic-axis | READ: task 8→5.3(acc0); generic perfect 0–4, 5→0.55, saturates 7,8. STEER/dose: emit_mean **flat to ±16×rms**, both layers | ✅📊 | **injection-for-extrapolation dead**: number axis saturates past ~5; direction non-causal at answer site. Only learned codebook controls output (in-range, no extrapolation). |
+| 2026-06-23 | `outputs/frame_axis/ood_holdout/{steps,rooms}_additive/` | **Solution 1: extensive additive count head** (`Σσ(·)`, `--count-readout additive`), count-holdout | live 7B, minimal-crowding | *running* (confirmatory) | ⏳ | full-adapter clean-data confirmation of the CPU-probe result below. |
+| 2026-06-23 | `cache/L19.pt` (CPU probe, no training of the VLM) | **additive readout vs 9-way classifier, count-holdout** (train ≤4, test 5–8); same reps, readout swapped | cached L19 per-frame reps, crowded | **steps additive extrapolates: 5–8 acc 0.82/0.83/0.88/0.93; classifier 0.00**. rooms: sum caps (wrong op→needs soft-OR). co-occ inconclusive (sparse) | ✅📊 | **readout, not aggregation, is the OOD wall**: extensive sum extrapolates, softmax caps. Operator must match task. |
+| 2026-06-23 | `outputs/frame_axis/readout_benchmark/{benchmark,stability}.csv`, `cache/minimal_L19_*.pt` | **OOD count-extrapolation benchmark** on minimal-crowding cached reps (count-holdout, multi-seed): base/CoT/LoRA/classifier vs sum/soft-OR | frozen 7B reps, CPU readouts | **per-frame-sup sum/soft-OR: steps 0.996 / rooms 1.000 / co-occ 0.974 (stable)**; base/CoT/LoRA/classifier OOD ≤0.45 (mostly 0); count-only sum unstable (steps 0.52±0.38) | ✅📊 | the verified main result; fixed-extensive readout extrapolates, generation baselines + classifier collapse. |
+| 2026-06-23 | `outputs/frame_axis/readout_benchmark/{deepsets_proper,deepsets_framesup,deepsets_universal,auxloss}.csv` | **why learned readouts fail**: canonical DeepSets `ρ(Σφ)` (count-only, +per-frame-sup, +fixed-extensive-channels+linear ρ); aux-loss λ sweep | cached reps, multi-seed CPU | canonical DeepSets fails all configs (0.08–0.59, unstable); ρ-MLP caps OOD; universal-linear-readout 0.13/0.20/0.08; aux λ must be ≈1 to stabilize | ✅📊 | **principle: extrapolation needs a parameter-free fixed extensive readout on the supervised per-frame quantity; any learned ρ (even linear) breaks it.** |
+| 2026-06-23 | `outputs/frame_axis/agg_min/lora_{rooms,steps,cooc}/` (`lora_sft_baseline.py`, peft) | **plain-LoRA SFT baseline** (native softmax, no aggregator) | h200, r=16 | ▶ running (slow n315 model-load ~18min; not a bug) | ▶ | baseline: does fine-tuning native softmax match the explicit aggregator. |
+
+**Conclusion (scoped).** For **[mean-pool + linear/MLP + single/multi-layer + token-level]**, per-frame evidence
+caps at **~0.94 bal-acc / ~0.98 AUC** — the **read side is exhausted**; *no* pooling/layer/aggregator/φ choice
+beats it (Probe A: mean+linear is the best read). The adapter sits at that ceiling. **The ~0.94/frame is the
+frozen 4-bit Qwen's per-frame information content; everything the adapter does on top is near-optimal.**
+
+**Still open (Probe B was the wrong instrument):** whether the ~0.94 is **vision-encoder perception** vs **LM
+query-conditioned binding** is *unresolved* — a correct probe needs a **raw-token, set-aware, query-independent
+occupancy** decode (no mean-pool). Practically it may not matter: both are upstream of the frozen reps, so the
+only lever past ~0.94 is **unfreezing (LoRA on vision encoder / early LM)**. Read-side options are done.
+
+**Why count accuracy (~0.80 IID) >> 0.94⁶≈0.69** (not a contradiction): (1) IID averages over **seq 1–6**, and
+0.94ⁿ for n=1..6 averages ≈ **0.81** (short seqs are easy) — 0.94⁶ is only the *seq-6* worst case; (2) **error
+cancellation** — count is a sum, so opposite per-frame errors cancel → P(count right) > P(all frames right);
+(3) **soft aggregation** — the adapter sums *continuous* evidence, more robust than hard-threshold compounding.
+deepsets +10ep continuation hits **IID 0.802** (steps 0.79 / rooms 0.75 / co-occ 0.87), right at the per-frame
+ceiling → the adapter is near-optimal given frozen perception.
+
+**✅ MILESTONE — adapter ceiling reached.** The frame-axis DeepSets adapter (read@L19 → φ → sum/mean/max →
+inject) is **near-optimal given the frozen 4-bit Qwen**: ~0.80 IID across the 3 tasks, unbiased, sitting at
+the averaged per-frame-info ceiling. The read side is exhausted (no pooling/layer/aggregator/φ beats it).
+The adapter line is **done** as a no-touch fix.
+
+**Per-task extraction probes (06-20, `outputs/probe_pertask_extraction/`) — the residual is TWO different
+bottlenecks.** Per-frame extraction is **good for all three** tasks: steps is-evidence **0.94**, co-occ
+same-room **0.94** (AUC 0.996), rooms-visited room-of-C **0.915** (7-way; majority 0.21). So extraction is NOT
+what separates them:
+- **steps_in_room & co_occupancy = extraction-bound** — aggregation is a *sum* (error-cancelling, easy), so
+  they sit at the 0.94/frame compounding limit (0.79 / 0.87; co-occ higher = low counts).
+- **rooms_visited = aggregation-bound, NOT extraction-bound** (corrects earlier ~0.85 guess). Extraction is
+  fine (0.915); the limiter is **single-shot distinct-count / dedup**: the symbolic clean-input ceiling is only
+  **0.758** (distinct-count has *no error cancellation* + must hold the *set*), and the adapter (0.748) sits at
+  it. **CoT → ~1.0** (serial dedup) → it's the over-squashing/aggregation bottleneck, not perception or the
+  aggregator (sweep tied; codebook-φ failed).
+
+**Net framing:** steps & co-occ are **frozen-perception-bound** (lever = vision LoRA); **rooms_visited is the
+clean one-pass set-aggregation bottleneck** (lever = serial computation / set-memory, e.g. distilling CoT).
+
+**Extraction-bound ceiling (task-generic optimality test, 06-20).** Method: corrupt the *true* per-frame
+quantities with the *measured* per-frame extraction error, apply **perfect aggregation**, Monte-Carlo the
+answer accuracy = "best achievable given current extraction." Adapter ≈ ceiling ⇒ aggregation near-optimal;
+adapter ≪ ceiling ⇒ aggregation has headroom. (Distinct from the **symbolic clean ceiling** = perfect
+extraction, *frozen-LM* aggregation.)
+
+| task | extraction-bound ceiling (perfect agg) | symbolic clean ceiling (frozen-LM agg) | adapter IID | read |
+|------|------|------|------|------|
+| steps_in_room | 0.816 | ~1.0 | 0.790 | **adapter ≈ ceiling → aggregation optimal** |
+| co_occupancy | 0.815 (hard; true higher, AUC 0.996) | 0.98 | 0.867 | adapter ≥ ceiling → optimal (uses soft evidence) |
+| rooms_visited | **0.865** | 0.758 | 0.748 | **adapter ≪ 0.865 → ~12pt AGGREGATION headroom** |
+
+**Correction to the milestone:** steps & co-occ aggregation is near-perfect (adapter at the extraction-bound
+ceiling). **rooms_visited is NOT at its aggregation ceiling** — a *perfect dedup* would reach **0.865** even at
+today's 0.915 extraction, but the adapter only reaches 0.748 (≈ frozen-LM single-shot dedup). So the DeepSets
+max-union is **not** deduping optimally; ~12 pts remain for a better one-pass set-aggregation or CoT-distillation.
+This is the genuine remaining over-squashing target (codebook-φ failed; CoT→~1.0). `cf. inline Monte-Carlo
+06-20; per-frame extraction steps 0.94 / co-occ 0.94 / rooms 0.915.`
+
+---
+
+### Diff Transformer & Mamba operator bake-off (2026-06-21)
+
+> New aggregator variants in `experiments/glstm/layerwise_frame_message_glstm.py`: **`carrier_mamba`**
+> (selective diagonal SSM scan over the frame axis; pure-torch, no mamba-ssm dep; `--mamba-decay-init/-readout/
+> -order-aug/-eval-permute`) and **`carrier_diff`** (difference-of-two-softmax read over frames; `--[no-]diff-output-norm`).
+> Controlled comparison: identical config across variants, 7B nf4, 6 ep, train-per-count 35, **candidate-max 10**
+> (so length-OOD len-10 = genuine count-extrapolation to unseen counts 9–10), **single-seed** (multi-seed confirm
+> in progress). Operators unit-tested (shapes/grads/counting-monotonicity). Two infra bugs fixed en route:
+> runner `--candidate-max 8` → KeyError on count len-OOD (override to 10); shared-NFS checkpoint-dir race
+> (defensive mkdir-before-save + unique OUTPUT_ROOT per job).
+> **Caveat:** absolute levels here are *below* the frame-axis DeepSets adapter (e.g. co-occ 0.867) — different
+> read window (L14–17 vs L19), 6 vs 30 ep, train sl4–8 vs sl1–6. These runs isolate the **operator** (ranking is
+> valid); they are not the project's SOTA absolute numbers.
+
+| Date | Output dir | Method / change | Key config | Metric | Status | Notes |
+|------|------------|-----------------|------------|--------|--------|-------|
+| 2026-06-21 | `outputs/dm4_count_{base,mamba,diffoff,diffon}/` | **carrier_mamba & carrier_diff(±output-norm) vs sum** — counting, neutral fillers | 7B nf4, 6ep, n=420, single-seed; len-OOD = counts 9–10 unseen | iid/lenOOD — **mamba 0.998/0.937** · sum 0.981/0.880 · diff-noNorm 0.931/0.840 · diff-norm 0.881/0.767 | ✅ | Mamba ≥ sum incl. extrapolation (memdis 0.55→0.998 ⇒ operator does the work). Diff output-norm caps counting; norm-off recovers but still < sum/mamba. Single-seed. |
+| 2026-06-21 | `outputs/dm4_distract_{base,mamba,diffon}/` | same operators — counting with **distractor** fillers (selection) | 7B nf4, 6ep, n=420; oracle pos/neg 0.963 | iid — mamba 0.652 ≈ sum 0.643 > diff 0.607 (lenOOD ~0.57–0.60) | ✅ | All ≪ oracle 0.96. **Diff WORSE than sum** & its memory adds ~0 (memdis 0.579→0.607). Neither operator closes the selection gap. |
+| 2026-06-21 | `outputs/diffmamba2_coocc/` | operators — **co_occupancy** evidence-only | 7B nf4, 6ep, n=106; oracle 0.98 | iid — glstm 0.613 · diff 0.604 · mamba 0.557 · sum 0.538 | ✅ | All ≪ 0.98 oracle; operator barely matters, memory adds little → routing/aggregation-limited, not operator. (Absolute < frame-axis adapter; see caveat.) |
+| 2026-06-21 | `outputs/dm4_{count_mamba,order_permEval,order_aug}/` | **mamba order-sensitivity** on counting | 7B nf4, 6ep, n=420 | iid 0.998 (normal) → 0.971 (permuted eval) → 0.979 (order-aug) | ✅ | Mamba **order-robust** on counting (near-sum decay init ⇒ ~perm-invariant); −2.7pp under permuted frames, aug recovers. |
+| 2026-06-22 | `outputs/dm5_count_{sum,mamba}_s{1,2}/` + dm4 seed0 | **3-seed confirm: mamba vs sum on counting** (seeds 0/1/2, data+init varied) | 7B nf4, 6ep, n=420 | IID **mamba 0.988** [.981,.998] > sum 0.972 [.950,.986]; **len-OOD mamba 0.929** [.920,.937] ≫ sum 0.877 [.873,.880] (non-overlapping); comp-OOD 0.986 vs 0.956 | ✅ | Headline robust across seeds; mamba's **count-extrapolation edge is the clean win** (len-OOD ranges don't overlap). IID edge real but small (ranges overlap). |
+
+**Conclusion (Diff vs Mamba).** **Mamba is a modest win** — matches/beats sum on counting *and* extrapolates
+better to unseen high counts (0.937 vs 0.880 len-OOD), is order-robust in practice, and contributes the most of
+any operator (largest mem-disabled→IID lift). It behaves as "a sum that can also gate," and is the natural choice
+for future order/sequential tasks where sum provably can't go. **Differential Transformer is not worth pursuing**
+as the aggregator: its output normalization caps counting (norm-off helps but still < sum/mamba), and on the
+distractor task — where its signed attention was *predicted* to win — it was **worse than sum**. **Most important:
+neither operator breaks the hard-task ceilings** (distractor ~0.65 vs 0.96, co-occ ~0.61 vs 0.98) — re-confirming
+the frame-axis finding that the residual bottleneck is extraction/routing & one-pass set-aggregation, **not the
+mixing operator**. Mamba only helps where the bottleneck genuinely *is* aggregation (counting). *3-seed confirmed (06-22):
+mamba ≥ sum on counting holds across seeds; the count-extrapolation edge (len-OOD 0.929 vs 0.877) has
+non-overlapping ranges. The other tasks remain single-seed.*
+
 ---
 
 ---
@@ -623,6 +1182,59 @@ channel cannot.
 - **gLSTM** — *Mitigating Over-Squashing by Increasing Storage Capacity*, 2025.
   [arXiv:2510.08450](https://arxiv.org/abs/2510.08450). The capacity/associative-memory approach our
   matched controls show is over-engineered for MMRED (its addressing is dispensable; sum suffices).
+
+### Count/size-EXTRAPOLATION grounding (added 2026-06-23; verified via lit-search subagent)
+- **★ Universal Approximation of Functions on Sets** — Wagstaff et al., JMLR 2022, v23(151).
+  [arXiv:2107.01959](https://arxiv.org/abs/2107.01959). Sharpens the 2019 bound: if latent dim is even *one*
+  below max set size, Deep Sets does **no better than a constant** on worst-case piecewise-affine targets.
+  Theoretical backbone for "an additive readout must scale width with the count range or provably breaks."
+- **★ When Can Transformers Count to n?** — Yehudai et al., 2024.
+  [arXiv:2407.15160](https://arxiv.org/abs/2407.15160). Sharp phase transition: counting is learnable iff
+  **embedding dim ≥ vocabulary**, else numerically unstable + catastrophic OOD. The transformer echo of the
+  Wagstaff dim-bound and of our "readout caps beyond the trained count range."
+- **★ Unveiling the Visual Counting Bottleneck in VLMs ("fractured magnitude hypothesis")** — Pang et al., 2026.
+  [arXiv:2605.30170](https://arxiv.org/abs/2605.30170) *(⚠ verify the 2605 listing resolves)*. **Direct
+  corroboration of our result**: VLMs fail to *extrapolate* counts **not at perception** (magnitude reps stay
+  linearly separable into the OOD regime) **but at the symbolic-mapping/readout stage** — exactly our "the readout,
+  not the aggregation, is the OOD wall." Strongly motivates a structured/additive readout over a learned one.
+- **Size generalization in GNNs** — Yehudai et al., *From Local Structures to Size Generalization in GNNs*, ICML 2021.
+  [arXiv:2010.08853](https://arxiv.org/abs/2010.08853). "Bad global minima" fit small graphs but fail on larger —
+  the GNN analogue of our count-only-sum instability (fits ≤4, caps ≥5).
+- **Set Transformer** — Lee et al., ICML 2019. [arXiv:1810.00825](https://arxiv.org/abs/1810.00825) *(verify ID)*.
+  Attention-based *learned* permutation-invariant pooling — the "learned aggregator/readout" foil our fixed-extensive
+  readout beats on extrapolation.
+
+**How these frame our contribution:** the lit establishes (a) representational dim bounds (Wagstaff; Transformers-count-to-n)
+and (b) that VLM count failure is a *readout/symbolic* problem, not perception (Pang). Our empirical contribution is the
+*learnability/extrapolation* counterpart: among readouts that all satisfy the representational bounds, **only a
+parameter-free fixed extensive reduction (sum / soft-OR) of a per-frame-supervised quantity extrapolates; every learned ρ
+(canonical DeepSets, even linear-over-extensive-channels) does not** — across 3 tasks, multi-seed, on a frozen VLM.
+
+### Related work / novelty positioning (lit search 2026-06-23)
+> Verdict: every *ingredient* is published; the *combination* (read question-conditioned per-frame states from a
+> frozen autoregressive VLM → DeepSets/soft-OR aggregate → inject-back, as over-squashing relief) has no direct
+> precedent found. These are snippet-level finds — verify the starred ones before citing as closest prior.
+
+- **★ Can VLMs Count? Attention-Based Interventions** — [arXiv:2511.17722](https://arxiv.org/abs/2511.17722).
+  **Concurrent corroboration of our diagnosis**: VLM counting = "locate-but-not-enumerate under cognitive load"
+  (= our extraction-fine / crowding-kills-aggregation). They fix via attention reweighting; we use an explicit
+  permutation-invariant aggregator + extraction-vs-aggregation decomposition. **Must cite.**
+- **VLM Can't Even Count to 20** — [arXiv:2510.04401](https://arxiv.org/abs/2510.04401). Compositional counting failures.
+- **GroundCount** — [arXiv:2603.10978](https://arxiv.org/pdf/2603.10978). Counting-hallucination mitigation via detection grounding.
+- **Set Transformer** — Lee et al. 2019, [arXiv:1810.00825](https://arxiv.org/pdf/1810.00825). Permutation-invariant
+  pooling; **canonical demo counts unique elements in an image** (= distinct-count / rooms_visited). Cite as the
+  perm-invariant-counting precedent + alternative aggregator.
+- **★ ILSE (Inter-Layer Structural Encoders)** — [arXiv:2603.22665](https://arxiv.org/html/2603.22665v1). DeepSets
+  over a **frozen LLM's layer** representations — closest "DeepSets-adapter-on-frozen-states" prior (over layers, not frames).
+- **Set-LLM: A Permutation-Invariant LLM** — [arXiv:2505.15433](https://arxiv.org/pdf/2505.15433).
+- **How Multimodal LLMs Solve Image Tasks** — [arXiv:2508.20279](https://arxiv.org/pdf/2508.20279). Documents the
+  **image-before-question ordering effect** (image tokens query-blind ⇒ lower probe acc; last token most decodable) —
+  the mechanism our question-first design exploits.
+- **QG-VTC** ([arXiv:2504.00654](https://arxiv.org/pdf/2504.00654)), **PARCEL** ([arXiv:2605.30126](https://arxiv.org/abs/2605.30126)) —
+  query-conditioned visual-token pooling, but for **efficiency/compression**, not aggregation-for-counting.
+- **Activation steering / read-inject lineage** — Activation Engineering ([arXiv:2308.10248](https://arxiv.org/html/2308.10248v5)),
+  REAL ([arXiv:2506.08359](https://arxiv.org/abs/2506.08359)), InversionView ([arXiv:2405.17653](https://arxiv.org/pdf/2405.17653)).
+  Our read-aggregate-**inject-back** resembles this.
 
 ### Candidate methods for the distractor-selection problem (proposed next directions, not yet tried)
 - **Slot Attention** — Locatello et al., *Object-Centric Learning with Slot Attention*, NeurIPS 2020.
