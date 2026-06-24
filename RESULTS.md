@@ -589,6 +589,21 @@ beyond). Evidence (multi-seed OOD mean±std, `stability.csv`/`deepsets_*.csv`):
 - **per-frame-supervised sum / soft-OR (fixed readout):** **stable & near-perfect** — steps 0.996±0.001, co-occ
   0.974±0.003, rooms 1.000±0.000 (soft-OR) / 0.974 (sum, first-visit label).
 
+**Definitive readout ablation (`benchmark_readout_ablation.py`) — per-frame detector held FIXED, vary ONLY the pooling:**
+| readout (same pᵢ) | steps IID→OOD | co-occ IID→OOD | verdict |
+|---|---|---|---|
+| **sum** `Σpᵢ` (fixed, parameter-free) | 0.97→**0.997** | 0.90→**0.974** | **fully extrapolates** |
+| mean `Σpᵢ/N` | 0.20→0.00 | 0.20→0.00 | count-blind (read direct)* |
+| max `maxᵢ pᵢ` | 0.39→0.00 | 0.37→0.00 | count-blind (saturates) |
+| **learned ρ(Σpᵢ)** (MLP on the *correct* sum) | 0.98→**0.744** | 0.92→**0.739** | fits 0–4, **degrades OOD** |
+- **The headline figure:** same detector, swap only the readout. **Only the fixed parameter-free `sum` is lossless OOD.**
+  A learned decoder *on the correct sum* fits IID (0.98) but **drops ~25 pts OOD** — nothing should be learned between the
+  sum and the answer. (Degradation *scales with the readout's input dim*: 1-D scalar-sum → mild 0.74; high-dim `Σφ`
+  canonical-DeepSets ρ → hard fail ~0.5. Fixed sum wins in every case.)
+- \*fixed N=8 here, so `mean = sum/N` is a *rescaled* sum (recoverable by ×N); read directly it predicts the fraction →
+  count-blind. Mean's failure is *fundamental* only when N varies; `max` and `learned ρ` are count-blind/non-extrapolating
+  even at fixed N.
+
 **Why sum doesn't overcount distinct (rooms):** it sums **first-visit** indicators, not occupancy — `[A,A,B]→[1,0,1]→2`.
 Causal attention lets frame *i*'s rep encode "seen this room before?", so the detector suppresses repeats.
 
@@ -605,6 +620,34 @@ task (occurrence: evidence; distinct: first-visit). Covers the whole *additive c
 validated: steps 0.996 / rooms 0.974 / co-occ 0.974. **Scope:** additive "how-many" tasks. Genuinely non-additive
 permutation-invariant functions (max, variance, threshold "crowded ≥3") need their *own* fixed reduction — a property
 of the function class (DeepSets hides it in a learned ρ that doesn't extrapolate), not a flaw in the method.
+
+**The read → reduce → decode template (the generalization, and where task-knowledge enters):** the method is not a
+counting trick — it's a 4-stage template, and *each stage has a defined agnosticism level*:
+```
+[A] read  per-frame state x_i from the frozen VLM      <- TASK-AGNOSTIC (always identical)
+[B] phi:  x_i -> per-frame state p_i                   <- form agnostic; SUPERVISION TARGET is the task knob
+[C] reduce: combine p_1..p_N  -> z (fixed-size summary) <- task-specific CHOICE from a small FIXED menu
+[D] head:  decode z -> answer                          <- task-specific, but tiny & swappable
+```
+- **Is φ's loss task-specific?** The *architecture* of φ (small MLP + nonlinearity) is identical across tasks. Only the
+  per-frame **target** `label_i` changes ("is-evidence" / "which room" / …) — a **one-line declaration, not a learned
+  black box**. So φ's *form* is agnostic; the supervision label is the task knob. (You *can* drop the per-frame label
+  and train φ end-to-end from the final answer — but that is exactly where extrapolation got fragile: itself a finding.)
+- **The reduction `z = REDUCE_i φ(x_i)` is a task-agnostic set summary** — a fixed-size summary of the whole set — and
+  you bolt **any fixed head** on it. The last step is the only thing that changes by question type:
+```
+which room did C spend most time in?  ->  [B] p_{i,r}=prob C in room r at frame i  (same per-frame state)
+                                            [C] score_r = SUM_i p_{i,r}              (per-room occupancy)
+                                            [D] answer  = name( argmax_r score_r )   (categorical decode)
+```
+  - **count** question → `[D]` = `sum → scalar`;  **name** question → `[D]` = `argmax → label`;  **yes/no** → `soft-OR
+    → threshold`. Same skeleton (read+reduce identical), different *last step*. So text-answer tasks (room/char name)
+    are covered by swapping only `[D]` to a categorical (argmax/softmax) decode — `[A][B][C]` are unchanged, and argmax
+    is parameter-free so it extrapolates trivially (the name vocabulary is a closed known set, no magnitude OOD).
+- **Why it stays interpretable & extrapolates:** "what question is this" lives in **three small declarative knobs** —
+  (i) what φ extracts, (ii) which reduction, (iii) which head — *not* in a big learned decoder. The generalization
+  pitch: **a read → reduce → decode template where counting is one instantiation** (scalar/count, argmax/name,
+  soft-OR/yes-no, regressor, … all bolt onto the same agnostic set summary `z`).
 
 **Net thesis claim:** *a per-frame-supervised, permutation-invariant sum with a **fixed extensive readout** extrapolates
 to unseen counts on all three tasks (0.97–1.0) where base Qwen, CoT, LoRA fine-tuning, and a closed-label classifier
@@ -1057,6 +1100,7 @@ Three probes of per-frame **is-evidence** (C in R) decodability, all on **mean-p
 | 2026-06-23 | `cache/L19.pt` (CPU probe, no training of the VLM) | **additive readout vs 9-way classifier, count-holdout** (train ≤4, test 5–8); same reps, readout swapped | cached L19 per-frame reps, crowded | **steps additive extrapolates: 5–8 acc 0.82/0.83/0.88/0.93; classifier 0.00**. rooms: sum caps (wrong op→needs soft-OR). co-occ inconclusive (sparse) | ✅📊 | **readout, not aggregation, is the OOD wall**: extensive sum extrapolates, softmax caps. Operator must match task. |
 | 2026-06-23 | `outputs/frame_axis/readout_benchmark/{benchmark,stability}.csv`, `cache/minimal_L19_*.pt` | **OOD count-extrapolation benchmark** on minimal-crowding cached reps (count-holdout, multi-seed): base/CoT/LoRA/classifier vs sum/soft-OR | frozen 7B reps, CPU readouts | **per-frame-sup sum/soft-OR: steps 0.996 / rooms 1.000 / co-occ 0.974 (stable)**; base/CoT/LoRA/classifier OOD ≤0.45 (mostly 0); count-only sum unstable (steps 0.52±0.38) | ✅📊 | the verified main result; fixed-extensive readout extrapolates, generation baselines + classifier collapse. |
 | 2026-06-23 | `outputs/frame_axis/readout_benchmark/{deepsets_proper,deepsets_framesup,deepsets_universal,auxloss}.csv` | **why learned readouts fail**: canonical DeepSets `ρ(Σφ)` (count-only, +per-frame-sup, +fixed-extensive-channels+linear ρ); aux-loss λ sweep | cached reps, multi-seed CPU | canonical DeepSets fails all configs (0.08–0.59, unstable); ρ-MLP caps OOD; universal-linear-readout 0.13/0.20/0.08; aux λ must be ≈1 to stabilize | ✅📊 | **principle: extrapolation needs a parameter-free fixed extensive readout on the supervised per-frame quantity; any learned ρ (even linear) breaks it.** |
+| 2026-06-24 | `experiments/glstm/benchmark_readout_ablation.py` (+ `dimsweep.csv`) | **definitive readout ablation**: per-frame detector FIXED, vary only pooling (sum/mean/max/learned-ρ); + latent-dim sweep {64..1024} | cached reps, multi-seed CPU | sum IID→OOD 0.97→**0.997** (steps), 0.90→**0.974** (cooc); mean/max OOD **0.00**; **learned ρ(Σ) 0.98→0.74** (degrades). dim-sweep: more dim → *worse* OOD | ✅📊 | the headline figure: only the fixed parameter-free sum is lossless OOD; learned decoder on the correct sum drops ~25pts; capacity makes it worse not better. |
 | 2026-06-23 | `outputs/frame_axis/agg_min/lora_{rooms,steps,cooc}/` (`lora_sft_baseline.py`, peft) | **plain-LoRA SFT baseline** (native softmax, no aggregator) | h200, r=16 | ▶ running (slow n315 model-load ~18min; not a bug) | ▶ | baseline: does fine-tuning native softmax match the explicit aggregator. |
 
 **Conclusion (scoped).** For **[mean-pool + linear/MLP + single/multi-layer + token-level]**, per-frame evidence
