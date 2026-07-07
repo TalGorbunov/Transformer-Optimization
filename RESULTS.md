@@ -2139,6 +2139,198 @@ d′(n)=d∞−c/n, or cache more frames (128-length samples donate 16× frames 
 
 ---
 
+## [2026-07-06] ✅📊 OVERNIGHT CAUSAL BATTERY — native-port doses (first behavior-moving dose; knob-vs-line double dissociation), real-state transplant, attention-edge patching, three-way window confirmation; write-into-any-activation-channel refuted; two instrument nulls flagged
+
+> **Runs:** `outputs/frame_axis/probes/dprime_dose/native_port/20260706_225256/` (job 118594, n=250),
+> `…/dprime_dose/causal_night/` (118588, n=250), `…/dprime_dose/rescue_early/` (118608, n=250),
+> `…/carrier_transplant/` (118589, 100 diff-gold + 25 same-gold pairs), `…/attn_edge_patch/` (118590,
+> n=150), `…/pixel_minimal_pair/` (118607, n=150). New scripts: `carrier_transplant.py`,
+> `attn_edge_patch.py`, `pixel_minimal_pair.py`; `dprime_dose_response.py` gained rescue/setg/noisew/nat* arms.
+> All steps task, 7B nf4, carrier = room token (off9), layers 14–20 unless noted.
+
+**1. Native-port doses (E6c — injections along the model's OWN reading axis, L16+L20).** natdose×2:
+emitted **0.240 → 0.300, MAE 1.48 → 1.06** — the FIRST dose in the program to move behavior upward — by
+unlocking high counts the base model never emits (g5: 0.00 → 0.58, g7: 0.10 → 0.28); overshoots at λ≥4
+(monotone collapse toward high answers = causal direction confirmed). natscrub: emitted 0.240 → 0.196
+with decode@L24 intact (0.22 ≈ base 0.23); random-axis scrub control clean (0.228). **Double
+dissociation at one token: δ̂/w* arms move content-not-behavior; native arms move behavior-not-content.**
+natset (write a chosen g′ along the port): follows at 0.176 < coincidence 0.240 — the port is a
+**confidence knob, not a number line**.
+
+**2. Real-state carrier transplant (no synthetic directions).** Same-question donor with |Δgold| ≥ 2,
+carrier state swapped at L15/17/19/21 entries: emitted follows the DONOR 0.04 → 0.18 and repaired-read
+0.05 → 0.20, both **monotone in blend α** (0.25/0.5/0.75/1.0); same-gold control transplant harmless
+(0.28, MAE 1.16). The count is a transferable object in the model's own state space.
+
+**3. Attention-edge path patching (E5b).** Cutting evidence-frame→carrier edges at L14–20: 0.353 →
+**0.207** (undercount, mean_pred 2.47 → 1.92); equal-count random-frame cuts: 0.380 (≈ base); all-frame
+cuts: 0.253 (prior fallback — no signal beats confidently-wrong signal). Route exclusivity confirmed.
+
+**4. Transfer window ≤ L17 is now CAUSAL, three independent ways:** cutlate (last←carrier edges cut at
+L17–20) = null (0.373); rescue-late (re-inject after scrub at L21-entry) = exact scrub replica (0.196);
+rescue-early (inject L15-entry under continuous scrub) also fails (0.204) because **attention re-delivers
+messages every layer** — removal must be continuous, leaving no restoration slot. Scrub-then-rescue is
+infeasible-by-mechanism at this locus; the infeasibility itself measures the re-delivery dynamics.
+
+**5. No activation channel is dictatable.** setg along δ̂: 0.068 vs 0.24 coincidence (anti-follows);
+natset 0.176 < 0.24. Liu's decodable ≠ correctable reproduced at our locus on BOTH axes ⇒ the tally
+register's symbolic readout wins **by exhaustion** — token space is the only graded, dictatable interface.
+
+**6. Pixel minimal pairs (input-space causality) — half-confirmed, instrument honest-failed.** One-frame
+re-render moving C out of R: 56% of emissions move, 53% move DOWN (vs 23% control churn), MAE-to-new-gold
+1.37 → 1.24. Up-edits register at only 19% — blocked by the undershoot bias wall, as the softmax story
+predicts. The carrier-state w*-projection instrument FAILED its own control (control edits shift −0.034 ≈
+down-edits −0.038): state-level projection measures edit churn, not signed evidence. Clean version needs
+message-level capture. **noisew (graded w*-noise at carrier):** flat on both channels — inconclusive
+(decode instrument ceiling 0.25; injection partly post-window). Not evidence against the law.
+
+**Synthesis.** The causal chapter is closed on all four sides: **content** (scrub kills it, transplant
+carries it, specific edges route it), **access** (native-axis doses open it, native scrub narrows it,
+cos(native, w*) = 0.005 and length-invariant), **timing** (≤L17, three nulls), **interface** (nothing
+dictatable but tokens). The base-model per-gold rows also directly exhibit the fraction-reader signature
+(g1/g5/g6 at 0.00 across all 250-sample arms). Follow-ups parked: message-level pixel-pair capture;
+pre-window noise dose; per-digit native ports (deprioritized — natset below coincidence).
+
+---
+
+## [2026-07-07] 📊 CONSOLIDATION: every Mamba result in one place — frozen Falcon-Mamba-LM vs frozen Qwen (text), and the carrier_mamba adapter operator vs sum, per input type (messages vs cached reps) and per task
+
+> No new runs — this section tabulates existing logged results so the Mamba story is readable in one
+> place ahead of the Falcon-Mamba mechanistic track. Sources named per table; original rows unchanged.
+
+**A. Frozen Mamba-LM vs frozen Qwen-LM — text-MMRED, zero-shot** (run
+`outputs/frame_axis/mamba_lm_text/20260627_125502/` (+3 sibling ts dirs same day), model
+`tiiuae/falcon-mamba-7b-instruct`, n=45/task; Qwen text refs from the text-frames baseline evals):
+
+| task (text frames, N=8) | Falcon-Mamba-7B | frozen Qwen-7B (text) | winner |
+|---|---|---|---|
+| steps count | 0.244 (MAE 1.36) | **0.47** | Qwen |
+| rooms visited | 0.244 (MAE 1.02) | **0.39** | Qwen |
+| co-occupancy | **0.400** (MAE 0.60) | 0.34 | Mamba |
+
+*Caveats: n=45/task (±0.07 SE); pretraining/instruction-tuning confound (script docstring). The
+task-dependent flip (Mamba wins only co-occ) is unexplained — a candidate signature of recency-weighted
+accumulation (evidence-position profiles differ per task); pre-registered for the mechanistic track.*
+
+**B. carrier_mamba adapter operator vs sum — PER-MESSAGE input (frame→carrier attention messages,
+IMAGE pipeline, frozen Qwen-VL 7B nf4;** `layerwise_frame_message_glstm.py`**):**
+
+| task / condition | mamba IID | sum IID | mamba len-OOD | sum len-OOD | run |
+|---|---|---|---|---|---|
+| counting, neutral fillers (3-seed) | **0.988** [.981,.998] | 0.972 [.950,.986] | **0.929** [.920,.937] | 0.877 [.873,.880] | `outputs/dm5_count_{sum,mamba}_s{1,2}/`+dm4 |
+| counting + distractors (selection) | 0.652 | 0.643 | ~0.57–0.60 | ~0.57–0.60 | `outputs/dm4_distract_*/` (oracle 0.963) |
+| co-occupancy (evidence-only) | 0.557 | 0.538 | — | — | `outputs/diffmamba2_coocc/` (glstm 0.613; oracle 0.98) |
+| order-sensitivity (counting) | 0.998 → 0.971 permuted → 0.979 order-aug | | | | `outputs/dm4_{count_mamba,order_permEval,order_aug}/` |
+
+**C. mamba operator over PER-TOKEN cached reps (frozen minimal frame reps, IMAGE pipeline, LM readout):**
+co-occ **0.34**, rooms **0.51** — quoted in the [2026-06-25] Phase-2 synthesis (SNR-limited, as the
+theory predicts: a smarter aggregator cannot un-sum what low-SNR reps never separated). Temporal tasks
+(image, `outputs/frame_axis/adapter_live/temporal/*_20260627_153222/`): mamba ≈ sum on first/last/span
+(position leaks into every rep, so an order-blind sum suffices).
+
+**Reading, in the theory's terms.** The operator only wins where aggregation is genuinely the binding
+constraint AND the reps supply d′ (clean counting: extrapolation edge 0.929 vs 0.877, non-overlapping
+seeds); it ties or trails wherever supply binds (distractors ≪ oracle; per-token low-SNR reps; co-occ).
+Frozen Falcon-Mamba behaviorally underperforms the frozen transformer on 2/3 text tasks at small n.
+Nothing in the Mamba record exceeds a gate-law ceiling; the retro-audit (measured acc vs gate-law(d′)
+per run) is parked as CPU work.
+
+---
+
+## [2026-07-07b] ✅📊 TRACK B — CROSS-FAMILY ROLLOUT to InternVL2.5-8B: the fraction-reader signature, the two-site carrier anatomy, and the ZERO-PARAMETER LAW PARITY all replicate on a model sharing no weights with Qwen; readout fraction ≈ family-invariant
+
+> **Runs:** `outputs/frame_axis/internvl/baseline/` (job 118959, n=250/task),
+> `…/internvl/carrier_map/` (118962, n=300, MAXOFF=13) + `…/carrier_map_ext/` (118968, MAXOFF=20),
+> `…/internvl/parity/20260707_202109` (CPU, full parity engine, 3 seeds × 2 layers).
+> New: `experiments/internvl/{baseline_eval,carrier_map,native_axis,dose_scrub}.py` + runners.
+> Model: OpenGVLab/InternVL2_5-8B (InternLM2 LM, 32 layers, fused wqkv attention, dynamic-tile ViT,
+> 256 vis tokens/frame), 4-bit nf4, protocol identical to Qwen (single-forward digit argmax).
+> Env: +sentencepiece, +einops, +timm(--no-deps) installed with approval; torch/transformers unchanged.
+
+**1. Behavioral baseline — the fraction-reader signature replicates, exaggerated.** steps 0.124
+(majority 0.132), slope **0.08**, answers "2" for nearly everything (g2:0.90, all other golds ≤0.16);
+rooms 0.088 (majority 0.392), slope 0.10, collapsed onto 2–3. Worse than Qwen (0.21/0.09) — matches
+MMReD's own family ranking.
+
+**2. Carrier anatomy replicates — two sites, same relative depth.** Fused-wqkv message capture
+verified EXACT (reconstruction vs the model's own wo-input: cos = 1.0000, first-sample hard guard).
+Peak carrier = the ROOM token, d′ = **1.90 @ L20/32** (~62% depth; Qwen: room token 2.47 @ L16/28,
+~57%); the CHARACTER token is the secondary site (1.0 @ L12) — Qwen's room-primary/char-secondary
+structure. Sweep extended to offset 20: nothing larger beyond.
+
+**3. LAW PARITY, zero parameters, on a foreign family.** Full parity engine on the carrier cache:
+d′_w 1.69–1.96 with d′_auc agreeing (1.77–2.07 ⇒ Gaussian adequacy holds); ρ = +0.04–0.13 with the
+iid prediction fitting better than ρ-penalized (Qwen's pattern); naive d′ 0.5–1.1 ≪ whitened (the
+whitening gap); MLP ≤ ridge (sufficiency echo). **pred_iid 0.270–0.304 vs measured ridge 0.225–0.367
+— means 0.288 vs 0.292: on the diagonal.** Model emits 0.137 ≈ **47% of its probe ceiling (Qwen:
+45%)** — the readout-wall FRACTION looks family-invariant; the d′ supply difference (1.9 vs 2.5)
+alone explains the model ranking.
+
+**Methodology note.** A quick single-split ridge (alpha fixed, no protocol) had first suggested a
+parity gap (measured 0.183 vs pred 0.344) — estimator starvation, resolved by the engine. Standing
+rule for the campaign: parity verdicts only from `probe_dprime_parity.py`, never from ad-hoc decoders.
+Adaptation friction log (all fail-loud, ≤2 min each): 3 missing deps, vision-dtype mismatch,
+GenerationMixin API break (transformers ≥4.50 vs remote code) → replaced generation with the
+single-forward digit protocol; native-axis OOM under eager-attention backward → gradient graph now
+starts at the first probed layer.
+
+**4. [appended 2026-07-07 late] E5 first pass "failed" — diagnosed exactly; law closure completed.**
+Runs: `internvl/dose_scrub/` (118977), `internvl/e5_diagnose/` (119000), `internvl/multipass_bench/`
+(118996), `internvl/native_axis_N4/` (119001, L20, N=4 seqs after 3× OOM — a100-public nodes are
+**40GB**, not 80; eager-attention backward needs short seqs or H200).
+**(a) Multipass bench:** isolated-frame carrier d′ = **6.38/6.56** (L16/L20) vs joint 1.8/1.9 — the low
+joint d′ is ~all JOINT-PASS INTERFERENCE (3.5× collapse vs Qwen's 1.4×); querying exonerated
+(mass-d′ 0.68 = Qwen 0.67); perception-at-rep-level excellent. Per-frame BEHAVIORAL acc only 0.675
+(Qwen 0.96–0.99): a readout wall at N=1. InternVL's multipass supply clears the 128-crush line (6.5 ≥ 6.3).
+**(b) Why the E5 scrub was null — wrong axis (H-axis):** per-layer carrier-STATE count decode is
+IDENTICAL under scruball (0.21–0.23 both arms) — in InternVL the accumulated state's count lives off
+the message-δ̂ axis (Qwen's message-δ̂ was load-bearing; InternVL rotates message→state more).
+State-derived δ̂ scrub = the fix, parked.
+**(c) Why the dose "didn't deliver" — it DID; the instrument lied:** per-arm logit lens shows doseMid
+lifts last-token count decode **0.23 → 0.33** from L14 on (the earlier base-trained repaired head was
+off-distribution on dosed states). Emission still 0.133 ⇒ the classic readout wall, properly measured.
+**(d) The pipe exists — H-nopipe rejected:** last→carrier attention window **L8–L19, peak L13–L16**
+(mass 0.047 vs 0.005 background), closing after L19 — mirroring Qwen's ≤L17 window. dose8 (pre-peak,
+single site) delivered little; doseMid (in-window) delivered.
+**(e) MODEL-LEVEL LAW CLOSURE ON A FOREIGN FAMILY:** native axis (grad extraction, coherence 0.47,
+length-transferred from N=4) has cos(native, w*) = **0.020** and carries d′_native = **0.19**; the law
+at that d′ predicts accuracy **0.135**; the model measures **0.117–0.137**. One formula, two families,
+each model's behavior predicted from its own reading axis. Correction to §3's framing: InternVL's
+emissions are prior-like because its native axis carries almost nothing — the readout wall is nearly
+total there, and the law says exactly that.
+
+---
+
+## [2026-07-07c] 📊 InternVL "is the carrier actually read?" thread closed: dose delivers end-to-end at λ≥32 (under-dosing + off-distribution head explained the earlier null); NO single attention route into the last token is individually necessary — the count content is redundantly routed
+
+> **Runs:** `internvl/dose_ladder/` (job 119009, n=200, λ=2..64), `internvl/edge_cut/` (119010, window
+> L8–19) + `internvl/edge_cut_late/` (119011, window L20–31), both n=150.
+
+**λ-ladder (final-layer decode, per-arm heads / emitted):** base 0.163/0.120 · ×2 0.163/0.120 ·
+×4 0.188/0.120 · ×8 0.150/0.120 · ×16 0.175/0.125 · **×32 0.300/0.120 · ×64 0.375/0.115** · scrub
+0.125/0.115. Delivery threshold λ≥32 at the final layer (Qwen: λ≈4–8) — quantifying the **late-layer
+attrition** (λ16 reads 0.33 at L14–16, decays to ~0.18 by L31); still unsaturated at λ64 (0.375 vs
+Qwen's ~0.75 pipe) — a narrower, lossier pipe. At λ≥32 the model becomes perfectly g2-fixated
+(g2 = 1.00): **information more than doubles at the answer's doorstep; behavior never moves at any λ.**
+C6's dissociation on family #2. Ops lesson: dose ladders are per-model; the first-run "null" was
+Qwen-calibrated λ + a base-trained head applied off-distribution.
+
+**Edge-cut necessity, both windows (outcome = final-layer decode; emission prior-locked):** early
+window — base 0.267, cut last←carrier 0.233, cut last←question 0.217, cut last←images 0.250 (all
+within ~1 SE); late window — cut last←question 0.317, cut last←images 0.300, cut last←carrier 0.250
+(≥ base!). **No single-category cut in either window removes the last-token count content** ⇒ the
+content is redundantly routed (and/or partially pre-L8); the relay-late hypothesis also falls.
+Contrast: Qwen's frame→carrier evidence edges WERE individually necessary (cutevid 0.353→0.207).
+
+**Thread verdict.** "Is the carrier read by the last token for the answer?" — three-part answer:
+(1) for the ANSWER: effectively no — the native axis carries d′ 0.19 and the law converts that to the
+observed 0.117–0.137 (prior-locked); (2) for the deliverable CONTENT: yes causally — doses injected at
+the carrier propagate to the final state (λ-ladder), so the carrier is a genuine source; (3) by WHICH
+route: diffusely — no individually-necessary edge, unlike the concentrated Qwen anatomy upstream.
+Follow-ups parked: union cuts (car+q+img simultaneously); pre-L8 window; state-derived δ̂ scrub.
+
+---
+
 ## References (GNN / set-aggregation grounding)
 
 > External literature this work builds on. Relevance noted per entry; arXiv IDs verified 2026-06-13.

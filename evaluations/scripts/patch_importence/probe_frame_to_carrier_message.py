@@ -113,7 +113,7 @@ def probe(x, y, seeds, spec, binary=False, shuffle=False):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count", "first_occurrence"], required=True)
+    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count", "first_occurrence", "herbench_ac"], required=True)
     ap.add_argument("--data_root", default="data/mmred_images_park/seq_len_8/all_uniform")
     ap.add_argument("--limit", type=int, default=150)
     ap.add_argument("--layers", default="16,18,19")
@@ -198,19 +198,46 @@ def main() -> int:
     dec_labels: List[np.ndarray] = []  # per-sample [NF] binary positive-class labels (task-mapped)
     dec_labels_raw: List[list] = []    # per-sample [NF] raw string labels (room names / same-diff / evid)
     n = 0
-    all_dirs = list(iter_sample_dirs(Path(args.data_root)))
+    if args.task == "herbench_ac":
+        # HERBench Action-Counting samples prepped by experiments/herbench/prep_ac_frames.py:
+        # <dir>/frame_XX.jpg + meta.json (per-frame is_evidence labels; gold = visible_count)
+        all_dirs = sorted(d for d in Path(args.data_root).iterdir() if (d / "meta.json").exists())
+    else:
+        all_dirs = list(iter_sample_dirs(Path(args.data_root)))
     random.Random(args.sample_seed).shuffle(all_dirs)  # iter order is count-grouped; shuffle for a representative draw
     for sd in all_dirs:
         if n >= int(args.limit):
             break
-        try:
-            sid, frames, q0, states, a0 = load_mmred_sample(sd)
-        except Exception:
-            continue
-        chars = sorted(eval_utils.extract_characters_from_states(states))
-        if len(chars) < 2:
-            continue
-        if args.task == "first_occurrence":
+        if args.task == "herbench_ac":
+            import json as _json
+            from PIL import Image as _Image
+            try:
+                hb = _json.loads((sd / "meta.json").read_text())
+                fpaths = sorted(sd.glob("frame_*.jpg"))
+                frames = [_Image.open(p).convert("RGB") for p in fpaths]
+            except Exception:
+                continue
+            if len(frames) != len(hb["frames"]):
+                continue
+            sid = hb["question_id"]
+            gold = int(hb["visible_count"])
+            pair = hb.get("pair") or " ".join(hb.get("pair_words", []))
+            question = (f"In how many of these {len(frames)} frames is the person "
+                        f"performing the action '{pair}'?")
+            frame_targets = {i: ("evid" if fr["is_evidence"] else "noev")
+                             for i, fr in enumerate(hb["frames"])}
+            states = None
+        else:
+            try:
+                sid, frames, q0, states, a0 = load_mmred_sample(sd)
+            except Exception:
+                continue
+            chars = sorted(eval_utils.extract_characters_from_states(states))
+            if len(chars) < 2:
+                continue
+        if args.task == "herbench_ac":
+            pass
+        elif args.task == "first_occurrence":
             import re
             evid = sorted(int(i) for i in eval_utils.collect_evidence_frame_indices(q0, states))
             if not evid:
@@ -255,7 +282,13 @@ def main() -> int:
                     frame_targets[t] = "same" if r1 == r2 else "diff"
 
         try:
-            inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
+            if args.task == "herbench_ac":
+                _prompt = (f"You will be shown {len(frames)} frames sampled from an egocentric kitchen video.\n"
+                           f"Respond with a single integer from 0 to {len(frames)} (0 is allowed). "
+                           f"Output only the integer.\nQuestion: {question}\nAnswer: ")
+                inputs = tgi.move_inputs_to_model_device(tgi.build_inputs_from_prompt(frames, _prompt))
+            else:
+                inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
             ids = inputs["input_ids"][0].detach().cpu()
             fg = image_token_groups(ids, expected_num_frames=len(frames), processor=processor)
             last_img = max(int(p) for grp in fg for p in grp)
@@ -418,7 +451,7 @@ def main() -> int:
                     for o in DEC_OFF:
                         dec[L][o].append(per_dec[L][o])
                 dec_gold.append(int(gold))
-                _pos = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+                _pos = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
                 dec_labels.append(np.array([1 if (str(frame_targets.get(t)) == _pos) else 0 for t in range(NF)],
                                            dtype=np.int64))
                 dec_labels_raw.append([str(frame_targets.get(t)) for t in range(NF)])
@@ -491,7 +524,7 @@ def main() -> int:
     _classesC = sorted(set(ym.tolist()))
     _codeC = {c: i for i, c in enumerate(_classesC)}
     ym_c = np.array([_codeC[v] for v in ym.tolist()])
-    pos_lab = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+    pos_lab = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
     pos_code = _codeC.get(pos_lab)
     lines.append(f"\n(C) DECODE-THEN-COUNT — PROBE SWEEP (per-frame clf -> aggregate -> count) vs model")
     bestC = ("", -1.0)
@@ -523,7 +556,7 @@ def main() -> int:
     # (D) MESSAGE DECOMPOSITION  m_k = mu + s_k*delta + eps  on the frame->carrier messages
     # (deployed, query-conditioned analog of the frame-token sweep; per-layer d' and d'/sqrt(N)).
     import math
-    pos_lab_d = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+    pos_lab_d = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
     if pos_lab_d is not None and binary and len(ym) >= 12:
         lines.append(f"\n(D) MESSAGE DECOMPOSITION  m=mu+s*delta+eps  pos='{pos_lab_d}'  "
                      f"carrier={args.carrier}  N={NF}")
@@ -547,7 +580,7 @@ def main() -> int:
 
     # (E) PER-CARRIER-TOKEN SNR SWEEP: per-frame message SNR into each question token (offset from end),
     # per layer -> identifies WHICH question token is the evidence carrier (no cross-token pooling).
-    pos_lab_e = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+    pos_lab_e = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
 
     def _dprime_naive(ev, nv):
         delta = (ev.mean(0) - nv.mean(0)) / 2.0

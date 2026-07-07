@@ -824,6 +824,22 @@ layers cannot re-deliver it) and the model collapses into systematic undercounti
 counts ≥3 drops to ~0, it answers low almost always, MAE 1.51 → 2.47. Erase a <em>random</em> axis the
 same way: nothing (0.247, MAE 1.50 ≈ baseline). The model's emitted count transits that specific
 direction — it is just read abysmally, which is C6.</p>
+<p><b>Two upgrades with no synthetic directions anywhere</b> (overnight battery, 2026-07-06).
+<b>Real-state transplant:</b> take the carrier state from a <em>real</em> donor sample that shares the
+exact question but differs in gold by ≥2, and splice it into a recipient's forward pass. The recipient's
+answer follows the <em>donor</em> — emitted 0.04 → 0.18, repaired-read 0.05 → 0.20, rising
+<em>monotonically</em> with the blend fraction α — while a same-gold transplant is harmless (0.28,
+MAE 1.16). The count is a transferable object in the model's own state space; no fitted axis was used.
+<b>Attention-edge patching:</b> cut only the evidence-frames→carrier attention edges at L14–20 and
+accuracy falls 0.353 → 0.207 with the undercount signature; cut an equal number of random frames'
+edges — 0.380, nothing. The count travels exactly the edges the message accounting names. (Bonus:
+cutting <em>all</em> frame edges hurts less, 0.253 — no signal beats a confidently wrong one.)</p>
+<p><b>And a null that measures a mechanism:</b> scrub-then-rescue is <em>infeasible by construction</em>
+here. Re-injecting the scrubbed signal after the transfer window (L21) replicates the scrub exactly;
+re-injecting early (L15) under a continuous scrub also fails, because attention <b>re-delivers the
+messages at every layer</b> — removal must be continuous, which leaves no restoration slot. Together
+with the cut-late null in C6, the carrier→last transfer window (≤L17) is confirmed causally three
+independent ways.</p>
 
 <h2 id="c6"><span class="claim">C6</span>The readout wall and the pipe limit — the dose–response series</h2>
 <p class="rules-out">Rules out: "just deliver more count signal to the output" — delivery was never the problem.</p>
@@ -900,6 +916,28 @@ probe ceiling ~0.47; multipass ≥6.6 → the solution's 0.95+.</b>
 <p>
 ("decode-then-count" / dtc, used below and in C7 = classify each frame with a probe, then aggregate the
 per-frame decisions — the gate-before-sum readout.)</p>
+<p><b>The port, dosed (E6c) — the knob and the line.</b> Everything above measures the native axis;
+the overnight battery <em>intervened</em> on it. Injecting g-proportional signal along the native axis
+is the <b>first dose in the program that moves behavior</b>: emitted 0.240 → <b>0.300</b>, MAE 1.48 →
+<b>1.06</b> at ×2 — and it works by unlocking the high counts the base model never emits (g5: 0.00 →
+0.58), a direct partial cure of the undershoot bias. Scrubbing the native axis does the mirror image:
+emission falls to 0.196 while decodability is untouched. One token, two axes, a full double
+dissociation:</p>
+<div class="tblwrap"><table>
+<tr><th>intervention at the carrier</th><th>decode @L24 (content)</th><th>emitted (behavior)</th></tr>
+<tr><td>baseline</td><td>0.23</td><td>0.24</td></tr>
+<tr><td>dose along δ̂ (content axis), ×4–×16</td><td class="good">rises (0.65–0.75 in the C6 series)</td><td class="bad">flat / falls</td></tr>
+<tr><td>scrub δ̂ (content axis)</td><td class="bad">falls</td><td class="bad">undercount collapse</td></tr>
+<tr><td><b>dose along native axis ×2</b></td><td>0.17 (unmoved/off-manifold)</td><td class="good"><b>0.300, MAE 1.06</b></td></tr>
+<tr><td><b>scrub native axis</b></td><td class="good">0.22 (intact)</td><td class="bad">0.196</td></tr>
+<tr><td>random-axis controls (both kinds)</td><td class="good">≈ base</td><td class="good">≈ base</td></tr>
+</table></div>
+<p>And the dictation test: <em>writing a chosen count</em> along either axis fails — setg on δ̂ follows
+the written g′ at 0.068, natset on the native axis at 0.176, both at or below the 0.24 coincidence
+floor. The native port is a <b>confidence knob, not a number line</b>: you can raise the model's
+conviction in the answer it is already forming, but you cannot hand it a different one through any
+activation channel. Token space is the only graded, dictatable interface — which is why the solution's
+readout is symbolic, now by exhaustion rather than by preference.</p>
 
 <div class="story">
 <h3 style="margin-top:0">The readout problem in sixty seconds — and why the obvious fix fails</h3>
