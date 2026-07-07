@@ -1,14 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=cache_reps
-#SBATCH --partition=a100-public
+#SBATCH --job-name=attn_temp_sweep
+#SBATCH --partition=h200-shared
 #SBATCH --qos=2h_2g
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=80G
+#SBATCH --mem=90G
 #SBATCH --time=2:00:00
 #SBATCH --output=logs/%x-%j.out
 set -uo pipefail
 cd "${SLURM_SUBMIT_DIR:-/home/tal.gorbunov/projects/Transformer-Optimization}"
 [[ -f .venv/bin/activate ]] && source .venv/bin/activate
 export PYTHONUNBUFFERED=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-python -u experiments/glstm/cache_minimal_frame_reps.py --task "${TASK}" --data-root "${DATA_ROOT}" --read-layer "${READ_LAYER:-19}" --seq-len "${SEQ_LEN:-8}" --output "${OUTPUT:-$PWD/outputs/frame_axis/cache}" ${EXTRA:-}
+python -u evaluations/scripts/patch_importence/attn_temperature_sweep.py ${EXTRA:-}

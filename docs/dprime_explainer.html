@@ -1,0 +1,1583 @@
+<title>Why the Count Drowns — the d′ theory of aggregation failure</title>
+<style>
+  :root{
+    --paper:#FBFAF8; --ink:#20242C; --muted:#68706B; --rule:#E3E0D6; --soft:#F3F1EA;
+    --evid:#0E7C6B; --nonev:#B85C38; --accent:#0E7C6B; --warn:#8C3B2E;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--paper); scroll-behavior:smooth}
+  @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important} }
+  body{
+    margin:0; color:var(--ink);
+    font-family:Charter,'Bitstream Charter','Iowan Old Style',Palatino,Georgia,serif;
+    font-size:17px; line-height:1.68;
+  }
+  .wrap{max-width:47rem; margin:0 auto; padding:3.2rem 1.4rem 6rem}
+  header{border-bottom:1px solid var(--rule); padding-bottom:1.6rem; margin-bottom:1.8rem}
+  .eyebrow{font-family:system-ui,sans-serif; font-size:.72rem; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:.9rem}
+  h1{font-size:2.1rem; line-height:1.18; margin:.2rem 0 .8rem; text-wrap:balance; font-weight:700}
+  .dek{font-size:1.05rem; color:var(--muted); max-width:38rem}
+  .part{font-family:system-ui,sans-serif; font-size:.78rem; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; border-top:2px solid var(--accent); padding-top:.7rem; margin:3.6rem 0 .4rem}
+  h2{font-size:1.38rem; margin:1.6rem 0 .9rem; text-wrap:balance}
+  h2 .no{color:var(--accent); font-variant-numeric:tabular-nums; margin-right:.45rem}
+  h3{font-size:1.04rem; margin:1.8rem 0 .5rem}
+  p{margin:.85rem 0}
+  var{font-style:italic; font-family:inherit}
+  sub,sup{font-size:.72em}
+  .m{white-space:nowrap}
+  .disp{background:var(--soft); border:1px solid var(--rule); border-radius:4px;
+    padding:.85rem 1.1rem; margin:1.1rem 0; text-align:center; font-size:1.03rem; overflow-x:auto}
+  .disp .why{display:block; font-family:system-ui,sans-serif; font-size:.72rem; color:var(--muted);
+    letter-spacing:.05em; text-transform:uppercase; margin-top:.5rem}
+  details.deriv{border:1px solid var(--rule); border-left:3px solid var(--accent); border-radius:4px;
+    background:#fff; margin:1.1rem 0; padding:.2rem 1.1rem}
+  details.deriv summary{cursor:pointer; font-family:system-ui,sans-serif; font-size:.85rem; font-weight:700;
+    color:var(--accent); padding:.6rem 0; letter-spacing:.02em}
+  details.deriv summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  details.deriv[open]{padding-bottom:.7rem}
+  .fig{border:1px solid var(--rule); border-radius:4px; background:#fff; margin:1.4rem 0; padding:1rem 1rem .6rem}
+  .fig canvas{width:100%; height:auto; display:block}
+  .fig canvas.grabbable{cursor:grab; touch-action:none}
+  .fig canvas.grabbable:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .cap{font-family:system-ui,sans-serif; font-size:.8rem; color:var(--muted); line-height:1.5;
+    padding:.6rem .15rem .3rem; border-top:1px dashed var(--rule); margin-top:.7rem}
+  .cap b{color:var(--ink)}
+  .exec{background:var(--soft); border:1px solid var(--rule); border-left:4px solid var(--accent);
+    border-radius:4px; padding:1.1rem 1.4rem; margin:1.6rem 0; font-size:.95rem}
+  .exec h2{margin:.1rem 0 .6rem; font-size:1.1rem}
+  .exec ul{margin:.4rem 0 .4rem 1.1rem; padding:0}
+  .exec li{margin:.35rem 0}
+  .toc{background:#fff; border:1px solid var(--rule); border-radius:4px; padding:.9rem 1.3rem; margin:1.4rem 0;
+    font-family:system-ui,sans-serif; font-size:.84rem; column-count:2; column-gap:2rem}
+  .toc a{display:block; padding:.14rem 0; color:var(--ink); text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  .toc .t{font-weight:700; color:var(--accent); text-transform:uppercase; font-size:.7rem; letter-spacing:.1em;
+    margin-top:.5rem; break-inside:avoid}
+  nav.rail{display:none}
+  @media (min-width:1280px){
+    nav.rail{display:block; position:fixed; top:90px; left:calc(50% - 23.5rem - 15.5rem); width:13rem;
+      font-family:system-ui,sans-serif; font-size:.76rem; line-height:1.5; max-height:80vh; overflow-y:auto}
+    nav.rail a{display:block; color:var(--muted); text-decoration:none; padding:.1rem 0}
+    nav.rail a:hover{color:var(--accent)}
+    nav.rail .t{font-weight:700; color:var(--accent); text-transform:uppercase; font-size:.66rem;
+      letter-spacing:.1em; margin-top:.7rem}
+  }
+  .note{border-left:3px solid var(--accent); padding:.15rem 0 .15rem 1rem; margin:1.2rem 0}
+  .story{background:var(--soft); border:1px solid var(--rule); border-radius:4px; padding:1.2rem 1.5rem;
+    margin:1.6rem 0}
+  .story p{margin:.75rem 0}
+  .story p:first-of-type{margin-top:.2rem}
+  .note.red{border-color:var(--warn)}
+  .kv{color:var(--evid); font-weight:600}
+  .nv{color:var(--nonev); font-weight:600}
+  table{border-collapse:collapse; width:100%; font-size:.85rem; font-family:system-ui,sans-serif;
+    font-variant-numeric:tabular-nums; margin:1rem 0}
+  th{font-size:.7rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:600;
+    text-align:left; padding:.45rem .6rem; border-bottom:2px solid var(--rule)}
+  td{padding:.42rem .6rem; border-bottom:1px solid var(--rule)}
+  .tblwrap{overflow-x:auto}
+  .good{color:var(--evid); font-weight:600}
+  .bad{color:var(--warn); font-weight:600}
+  .controls{display:flex; gap:1.4rem; flex-wrap:wrap; align-items:center;
+    font-family:system-ui,sans-serif; font-size:.82rem; padding:.5rem .15rem .8rem}
+  .controls label{display:flex; align-items:center; gap:.55rem; font-weight:600; color:var(--muted)}
+  .controls input[type=range]{accent-color:var(--accent); width:140px}
+  .controls input[type=checkbox]{accent-color:var(--accent); width:1.05rem; height:1.05rem}
+  .controls output{font-variant-numeric:tabular-nums; font-weight:700; color:var(--ink); min-width:2.6em}
+  .controls button{font:inherit; font-weight:600; color:var(--ink); background:var(--soft);
+    border:1px solid var(--rule); border-radius:4px; padding:.35rem .8rem; cursor:pointer}
+  .controls button:hover{border-color:var(--accent); color:var(--accent)}
+  .controls button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  .bigacc{font-size:1.05rem; font-weight:700; color:var(--accent)}
+  .readout{display:flex; gap:2rem; font-family:system-ui,sans-serif; font-size:.95rem; padding:.3rem .15rem .5rem;
+    font-variant-numeric:tabular-nums}
+  .readout b{font-size:1.25rem}
+  .claim{font-family:system-ui,sans-serif; font-size:.72rem; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:#fff; background:var(--accent); border-radius:3px; padding:.15rem .55rem;
+    margin-right:.5rem; vertical-align:2px}
+  .rules-out{font-family:system-ui,sans-serif; font-size:.82rem; color:var(--warn); margin:.4rem 0 1rem}
+  .foot{margin-top:3.4rem; padding-top:1.2rem; border-top:1px solid var(--rule);
+    font-family:system-ui,sans-serif; font-size:.78rem; color:var(--muted)}
+  a{color:var(--accent)}
+</style>
+
+<nav class="rail" aria-label="Contents">
+  <div class="t">Theory</div>
+  <a href="#s1">1 · What breaks</a><a href="#s2">2 · The reading axis &amp; d′</a>
+  <a href="#s3">3 · Whitening</a><a href="#s4">4 · What summing does</a>
+  <a href="#s5">5 · Exact-count accuracy (interactive)</a><a href="#s6">6 · Two theorems</a>
+  <a href="#s7">7 · K channels</a><a href="#s8">8 · Norms kill magnitude codes</a>
+  <div class="t">Implementation</div><a href="#s9">9 · How we measure it</a>
+  <div class="t">Evidence</div>
+  <a href="#c1">C1 · The law holds</a><a href="#c2">C2 · Noise correlation</a>
+  <a href="#c3">C3 · Nothing post-sum</a><a href="#c4">C4 · Model adequacy</a>
+  <a href="#c5">C5 · Channel load-bearing</a><a href="#c6">C6 · The readout wall</a>
+  <a href="#c7">C7 · Transfer: co-occ + rooms</a>
+  <a href="#ledger">Numbers ledger</a>
+  <div class="t">Fixes</div><a href="#s10">10 · What would fix it</a>
+</nav>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">MMRED thesis · theory + validation report · updated 2026-07-03</div>
+  <h1>Why the count drowns: the d′ theory of aggregation failure</h1>
+  <p class="dek">Vision-language models see every frame yet cannot count across them. This page builds the
+  explanation from scratch — two Gaussian clouds and one number, d′ — derives a zero-free-parameter law
+  for the failure, and then shows the experiments that confirm it, causally, inside a frozen
+  Qwen2.5-VL-7B.</p>
+</header>
+
+<div class="exec">
+<h2>Executive summary</h2>
+<ul>
+  <li><b>The phenomenon.</b> Frozen Qwen2.5-VL answers "how many frames was character C in room R?" at
+  ~85% for 1–2 frames but ~20–30% at 8 — while a linear probe reads the per-frame evidence at 0.95+.
+  Perception is fine; combination fails.</li>
+  <li><b>The theory.</b> Each frame's message is a point in one of two Gaussian clouds
+  (evidence / non-evidence) with whitened separation <b>d′ ≈ 3.4</b>. Any linear pooling keeps the
+  per-count gap fixed while noise accumulates as √N, so the best possible readout of the pooled state is
+  <b>2Φ(d′/(2√N)) − 1</b> — two measured parameters, zero fitted ones. At N=8 that is 0.45–0.51
+  (interior-only vs uniform-mixture bounds); measured: 0.45–0.47.</li>
+  <li><b>The receipts.</b> The formula predicts the measured decode ceiling across 20+ regimes (N-sweep
+  predicted .85/.66/.58/.50 vs measured .85/.65/.59/.47), including at the deployed carrier (.375 vs
+  .363). Causal interventions confirm the channel is load-bearing (scrubbing it collapses the model into
+  undercounting; scrubbing a random axis does nothing) and locate the residual wall in the readout:
+  amplifying the count signal ×64 makes it 0.78-decodable at the output position while the frozen head
+  stays at 0.13.</li>
+  <li><b>The consequence.</b> Nothing placed after pooling can help (sufficiency — measured: MLP never
+  beats linear, 21/21 regimes). Fixes must gate <em>per frame before</em> an unnormalized sum and read
+  the tally <em>directly</em> — the DeepSets/Σσ family, which measured 0.82–1.0 with count
+  extrapolation.</li>
+</ul>
+</div>
+
+<div class="story">
+<h3 style="margin-top:0">The whole argument in sixty seconds — with exactly four lines of math</h3>
+<p><b>The picture.</b> Think of election night in a strange county. Every frame mails in a ballot.
+The mailroom (attention) has a rule: however many ballots arrive, <em>the pile must always weigh the
+same</em> — so with more ballots, each one is shrunk before it lands (softmax weights sum to 1). The
+running total isn't written down as a number; it's stored as the <em>position of an analog needle</em>
+(a direction in a 3,584-dimensional vector). Every ballot arrives slightly smudged (noise), and the
+smudges never cancel exactly. And at the end of the night, the announcer reads the needle
+<em>from the wrong angle</em>.</p>
+<p><b>The four lines.</b> Each frame's ballot is</p>
+<div class="disp"><span class="m">m<sub>k</sub> = μ + e<sub>k</sub>·δ + ε<sub>k</sub></span>
+&nbsp;&nbsp;<span style="color:var(--mut)">(shared content + "yes/no" vote along one direction + smudge)</span></div>
+<p>Pool N of them and the votes add like a ruler but the smudges add like a drunk's walk:</p>
+<div class="disp"><span class="m">S = N·μ + g·δ + Σε,&nbsp;&nbsp;&nbsp; signal step = ‖δ‖ (fixed),&nbsp; blur = σ√N (grows)</span></div>
+<p>so the ability to tell g from g+1 shrinks as</p>
+<div class="disp"><span class="m">separation = d′ / √N,&nbsp;&nbsp;&nbsp; P(exact) = 2Φ(d′ / 2√N) − 1</span></div>
+<p>— and if the mailroom <em>averages</em> instead of sums (divide by N), then "2 of 4" and "4 of 8"
+land the needle on the <em>same spot</em>, noiselessly:</p>
+<div class="disp"><span class="m">mean: gap = ‖δ‖/N → counts collide across lengths; only the fraction g/N survives</span></div>
+<p><b>The intuitive fix, in one sentence.</b> <em>Count votes; don't average opinions.</em> Read each
+ballot <b>on its own</b>, while its signal is still strong (per-frame d′ ≈ 3–7, an easy yes/no), turn
+it into a hard decision, and add the decisions as <b>integers</b> — integers don't blur, a tally of
+1+1+1 has no √N, no divisor, and no needle to misread. Everything in Part IV (the tally register) is
+this sentence made mechanical: gate per frame → add without normalizing → read the number directly.
+The reason it extrapolates to any length is that nothing in "1+1+1" changes when N grows.</p>
+</div>
+
+<div class="toc" aria-label="Table of contents">
+  <div class="t">Part I — Theory</div>
+  <a href="#s1">1 · What breaks, and what gets pooled</a>
+  <a href="#s2">2 · The reading axis and d′</a>
+  <a href="#s3">3 · Whitening — naive vs whitened axis</a>
+  <a href="#s4">4 · What summing does</a>
+  <a href="#s5">5 · From d′ to exact-count accuracy</a>
+  <a href="#s6">6 · Two theorems</a>
+  <a href="#s7">7 · Beyond two clouds: K channels</a>
+  <a href="#s8">8 · Why magnitude codes die at every norm</a>
+  <div class="t">Part II — Implementation</div>
+  <a href="#s9">9 · How we measure all of this</a>
+  <div class="t">Part III — Evidence</div>
+  <a href="#c1">C1 · The law predicts the ceiling</a>
+  <a href="#c2">C2 · Superposition is noise correlation</a>
+  <a href="#c3">C3 · Nothing after the sum helps</a>
+  <a href="#c4">C4 · The Gaussian model is checked</a>
+  <a href="#c5">C5 · The δ channel is load-bearing</a>
+  <a href="#c6">C6 · The readout wall and the pipe limit</a>
+  <a href="#c7">C7 · The theory transfers: co-occ + rooms</a>
+  <a href="#ledger">Numbers ledger</a>
+  <div class="t">Part IV — Fixes</div>
+  <a href="#s10">10 · What would actually fix it</a>
+</div>
+
+<div class="part">Part I — The theory</div>
+
+<h2 id="s1"><span class="no">1</span>What breaks, and what gets pooled</h2>
+<p>The task: 8 frames, one question — <em>"how many frames was character C in room R?"</em> (answer
+0–8). The model's accuracy collapses from ~85% at 1–2 frames to ~20–30% at 8, and the same length-collapse
+appears on two other aggregation tasks (distinct-rooms, co-occupancy). Yet a linear probe reads
+<em>"is C in R in this frame?"</em> from the model's own representations at 0.95+. Every ingredient is
+present; combining them is what fails. This page is about why — stated precisely enough to predict the
+failure's exact size. One disambiguation to carry through the whole page: <b>the law predicts the
+ceiling of what any readout could extract from the pooled representation</b> (≈0.47 at N=8) — the model
+itself does even <em>worse</em> than its own ceiling (~0.21), and the gap between the two is a second,
+separate wall (the readout, C6). Ceiling first; the model's extra deficit after.</p>
+<p>Fix one sample. Somewhere inside the model, each frame <var>k</var> contributes one vector
+<var>m<sub>k</sub></var> ∈ ℝ<sup>d</sup> (d = 3584) to the position that aggregates. For all of Part I
+you only need the informal reading: <b>m<sub>k</sub> is "what frame k tells the question"</b> — one
+vector per frame, extracted from the model's own attention traffic; the exact definition (which token
+receives it, which layer, the formula) is Part II's job. One clarification up front: there are several question tokens receiving messages, so
+<b>m<sub>k</sub> is defined per (carrier token, layer)</b> — each locus gets its own decomposition and
+its own d′. Headline numbers use the peak carrier (the room token, L16); the character token, the last
+token, and the all-question block each have their own, weaker, decomposition, and the same law holds at
+every one of them (C1). Nothing below depends on having picked "the one true" carrier. Every frame is one of two kinds — <span class="kv">evidence</span> or
+<span class="nv">non-evidence</span> — so the honest minimal model is two labeled Gaussian clouds:</p>
+<div class="disp"><span class="m"><var>m<sub>k</sub></var> = <var>μ</var> + <var>e<sub>k</sub></var>·<var>δ</var> + <var>ε<sub>k</sub></var>, &nbsp; <var>ε<sub>k</sub></var> ~ 𝒩(0, Σ), &nbsp; answer g = Σ<var>e<sub>k</sub></var></span>
+<span class="why">e<sub>k</sub> = 1 if frame k is evidence, else 0 · μ = shared "a-frame-is-here" component · δ = arrow from the non-evidence mean to the evidence mean · ε = everything else the frame encodes</span></div>
+<div class="disp"><span class="m"><var>δ</var> = <var>μ<sub>E</sub></var> − <var>μ<sub>N</sub></var> = E[<var>m</var> | evidence] − E[<var>m</var> | non-evidence]</span>
+<span class="why">the evidence direction: average evidence message minus average non-evidence message</span></div>
+<p><var>δ</var> is not mystical — it is literally the difference of the two class means. Its geometric
+meaning is the whole game: <b>adding one evidence frame moves the pooled vector by exactly one δ</b>, so
+the count is encoded as how many δ-steps the pool has taken. Two measured facts set the difficulty:
+‖δ‖ is ~1% of ‖μ‖ (the count rides far below the generic frame content), and ε is large — each frame
+also carries rooms, characters, layout. This two-cloud form is the model underneath Fisher's linear
+discriminant (1936) and sixty years of signal detection theory (Green &amp; Swets 1966), and — Part III,
+C4 — its assumptions are checked, not assumed.</p>
+<div class="tblwrap"><table>
+<tr><th colspan="2">Notation at a glance (everything Part I uses)</th></tr>
+<tr><td class="m">m<sub>k</sub></td><td>frame k's vector ("what frame k tells the question"); d = 3584</td></tr>
+<tr><td class="m">e<sub>k</sub> ∈ {0,1}</td><td>frame k's label: evidence or not · <span class="m">g = Σe<sub>k</sub></span> = the true count · N = #frames</td></tr>
+<tr><td class="m">μ, δ, ε</td><td>shared component · evidence direction (μ<sub>E</sub>−μ<sub>N</sub>) · per-frame residual "noise"</td></tr>
+<tr><td class="m">w, Δ, σ<sub>w</sub></td><td>a reading axis · the per-count score step wᵀδ · within-class spread of scores on that axis</td></tr>
+<tr><td class="m">d′, d′<sub>N</sub></td><td>gap/width per frame · after pooling N frames: d′/√N</td></tr>
+<tr><td class="m">Φ, p</td><td>normal CDF · per-frame gate error p = 1−Φ(d′/2)</td></tr>
+<tr><td class="m">ρ, K</td><td>cross-frame noise correlation · number of channels (rooms) in the multi-class case</td></tr>
+</table></div>
+<div class="tblwrap"><table>
+<tr><th colspan="2">The tasks and regimes, named once (used throughout Parts I–III)</th></tr>
+<tr><td><b>steps</b></td><td>"how many frames was character C in room R?" — the §1 task; MMRED = the benchmark family these tasks come from</td></tr>
+<tr><td><b>co-occ</b></td><td>"in how many of the 8 frames were characters A and B in the same room?"</td></tr>
+<tr><td><b>rooms</b></td><td>"how many <em>distinct</em> rooms did character C visit?" (a support-size task, §7)</td></tr>
+<tr><td><b>question-first / frames-first</b></td><td>prompt order: question before the images (frame tokens see the query) vs images before the question (the deployed layout; frame tokens are query-blind and the question tokens do the aggregating)</td></tr>
+<tr><td><b>bench / deployed</b></td><td>bench = cached frame representations from the question-first layout (fast instrumentation); deployed = the carrier messages of the frames-first pipeline, where the model actually aggregates</td></tr>
+<tr><td><b>joint / multipass ("mp-pair")</b></td><td>same samples processed in one N-frame forward (joint) vs N separate single-frame forwards (multipass) — a matched pair isolating what the shared pass costs</td></tr>
+<tr><td><b>crowded / decrowded</b></td><td>5 characters per frame vs 1 — the difficulty knob for per-frame extraction</td></tr>
+</table></div>
+<div class="fig"><canvas id="f1" width="1320" height="900"></canvas>
+<div class="cap"><b>What to look at:</b> top — the two clouds and the δ arrow between their means;
+bottom — the same frames after projection onto a reading axis, where each cloud becomes a 1-D bell curve
+and the shaded overlap is the error no cutoff can avoid. <b>Fig. 1 — frames are points; classes are
+clouds.</b></div></div>
+
+<h2 id="s2"><span class="no">2</span>A linear probe is an axis, and d′ is its one number</h2>
+<p>A linear probe is a direction <var>w</var> plus a cutoff: compute the scalar
+<span class="m"><var>p</var> = <var>w</var>ᵀ<var>m</var></span>, say "evidence" if it clears the cutoff.
+Geometrically it drops every point perpendicularly onto the line through <var>w</var> — the <b>reading
+axis</b> — and keeps only where it lands. After projection you have two 1-D Gaussians, and every symbol has a
+concrete definition:</p>
+<div class="disp"><span class="m"><var>a</var> = E[<var>w</var>ᵀ<var>m</var> | non-evid] = <var>w</var>ᵀ<var>μ</var>, &nbsp;
+<var>b</var> = E[<var>w</var>ᵀ<var>m</var> | evid] = <var>w</var>ᵀ(<var>μ</var>+<var>δ</var>), &nbsp;
+<var>σ<sub>w</sub></var> = std(<var>w</var>ᵀ<var>ε</var>) = √(<var>w</var>ᵀΣ<var>w</var>)</span>
+<span class="why">a, b = the two bump centers · σ<sub>w</sub> = the within-class spread of the projected scores along this axis (empirically: ½(std<sub>E</sub> + std<sub>N</sub>) of held-out projections)</span></div>
+<details class="deriv"><summary>What exactly is "the noise" — computed, with a five-number example</summary>
+<p>Nothing here is random in the sensor sense — the forward pass is deterministic. "Noise" means
+<b>within-class content variability</b>: a hundred evidence frames all have C in R, but everything else
+differs (where the other characters are, which rooms are occupied), and all of that is irrelevant to the
+label — so to the count-reader it <em>is</em> noise. Computation: (1) from TRAIN frames, class means
+μ̂<sub>E</sub>, μ̂<sub>N</sub>; each frame's noise vector is the residual against <em>its own class</em>,
+ε̂<sub>k</sub> = m<sub>k</sub> − μ̂<sub>class(k)</sub> — subtracting the class mean removes μ and δ, so
+what survives is by construction the label-independent content. (2) A 3584-dim residual has no single
+"size"; noise gets a scalar only relative to a reading axis: project <em>held-out</em> frames,
+p<sub>k</sub> = wᵀm<sub>k</sub>, and within one class those scalars scatter around the class's mean
+projection. <b>"std over p<sub>k</sub>" = the standard deviation of that list of scalars, one class at a
+time.</b> (3) σ<sub>w</sub> = ½(std<sub>E</sub> + std<sub>N</sub>) — the ½ is nothing deep: it is the
+plain <em>average</em> of the two classes' spreads (the pooling licensed by the equal-covariance check,
+std-ratio 0.89–0.92; population version: σ<sub>w</sub>² = wᵀΣw for unit w). Worked example: evidence
+projections 5.1, 4.2, 6.0, 4.7, 5.5 → mean 5.1, std 0.6; non-evidence 2.2, 3.4, 2.7, 3.0, 2.9 → mean
+2.8, std 0.4. Then σ<sub>w</sub> = ½(0.6+0.4) = 0.5, gap = 2.3, d′ = 4.6. Two means, two stds, one
+ratio. <b>On distributions:</b> within each class, the model says m<sub>k</sub> is Gaussian
+(μ + eδ + ε); pooled across classes m<sub>k</sub> is a two-bump <em>mixture</em>, not Gaussian — and
+note the theory only ever needs the <em>1-D projections</em> to be Gaussian (every accuracy formula acts
+on the projected scores), which is exactly what the C4 checks test. Full 3584-dim Gaussianity is neither
+required nor claimed. Finally, σ<sub>w</sub> is axis-dependent by nature: the same residuals give
+σ = 6 against a gap of 2 along δ̂ (d′ 0.33) and a far cleaner scatter along the whitened axis
+(d′ 3.4) — the noise never changed; the question asked of it did.</p></details>
+<p>σ<sub>w</sub> is <em>not</em> a property of the frame alone — it is how much the score of a frame of a
+<em>fixed class</em> jitters from frame to frame, along the chosen axis: the projection of all the
+irrelevant content (rooms, characters, layout) onto your ruler. Stretching the axis rescales
+(b − a) and σ<sub>w</sub> together, so only one number can matter:</p>
+<div class="disp"><span class="m"><var>d′</var> = (<var>b</var> − <var>a</var>) / <var>σ<sub>w</sub></var></span>
+<span class="why">how many noise-widths apart the two bumps sit, along this axis</span></div>
+<p>d′ is <em>the</em> number because, for Gaussian bumps, it exactly determines the best achievable
+performance of any decision rule: <span class="m">balanced accuracy = Φ(d′/2)</span>,
+<span class="m">AUC = Φ(d′/√2)</span> (Φ = normal CDF). Anchors: d′=1 → 69%, d′=2 → 84%, d′=3.5 → 96%,
+d′=0.33 → 57% — barely above a coin flip. The dictionary runs both ways: our per-frame probe scores
+0.96, therefore the axis it uses has d′ = 2Φ<sup>−1</sup>(0.96) ≈ 3.5. No arbitrary "SNR threshold"
+anywhere — d′ converts to accuracy by an identity.</p>
+<p class="note"><b>The terms, in words.</b> <b>Φ</b> is the standard normal CDF — the fraction of a bell
+curve lying below x (anchors: Φ(0)=0.5, Φ(1)=0.84, Φ(1.75)≈0.96; and Φ(−x)=1−Φ(x)). <b>Balanced
+accuracy</b> is the average of the two per-class accuracies — a classifier that always guesses the
+majority class scores 0.5, not high, so it is the honest accuracy for imbalanced data. <b>AUC</b> is the
+probability that a randomly drawn evidence frame scores above a randomly drawn non-evidence frame —
+pure ranking quality, no cutoff involved. The two identities are the same geometry at different moments:
+balanced accuracy asks whether <em>one</em> score clears a fixed midpoint (one noise term → d′/2 inside
+Φ); AUC compares <em>two</em> scores drawn from opposite classes (two independent noises, variances add →
+the √2). Both are exact for equal-width Gaussian score distributions — D1 below derives them. Feel the dictionary:</p>
+<div class="fig">
+  <div class="controls">
+    <label>per-frame d′ <input type="range" id="sl-d2" min="0.2" max="6" value="2.0" step="0.1"><output id="out-d2">2.0</output></label>
+    <span>balanced acc <b id="out-ba" class="bigacc">—</b></span>
+    <span>AUC <b id="out-auc" class="bigacc">—</b></span>
+    <span>per-frame error p <b id="out-p" style="color:var(--nonev)">—</b></span>
+  </div>
+  <canvas id="f2b" width="1320" height="420"></canvas>
+  <div class="cap"><b>What to look at:</b> the shaded tails ARE the errors — each class errs when noise
+  carries a score past the midpoint fence, which sits half a gap (d′/2) from each bump's center. Slide
+  d′ and watch the tails shrink; the readouts are the exact identities Φ(d′/2) and Φ(d′/√2). Note AUC is
+  always the higher number: ranking two samples against each other (full gap d′, but two noises → √2
+  wider spread) is an easier job than classifying one sample against a fixed fence (half gap, one noise).
+  <b>Interactive — the d′ dictionary.</b></div>
+</div>
+
+
+<details class="deriv"><summary>Derivation D1 — why balanced accuracy = Φ(d′/2), step by step</summary>
+<p><b>Setup.</b> After projection, the two classes' scores are two same-width Gaussians:</p>
+<div class="disp"><span class="m">p | N ~ 𝒩(a, σ²), &nbsp; p | E ~ 𝒩(b, σ²), &nbsp; b &gt; a, &nbsp; d′ = (b−a)/σ</span></div>
+<p><b>The decision rule</b> is a cutoff c: say "evidence" iff p &gt; c. Each class's error is a Gaussian
+tail area — the probability that noise carries a score across the cutoff:</p>
+<div class="disp"><span class="m">P(miss | E) = P(p &lt; c | E) = Φ((c−b)/σ), &nbsp;&nbsp;
+P(false alarm | N) = P(p &gt; c | N) = 1 − Φ((c−a)/σ)</span>
+<span class="why">this is the only place probability enters: errors ARE tail areas of the two bell curves</span></div>
+<p><b>Balanced accuracy</b> averages the two correct-rates:</p>
+<div class="disp"><span class="m">BA(c) = ½[ 1 − Φ((c−b)/σ) + Φ((c−a)/σ) ]</span></div>
+<p><b>Best cutoff.</b> Differentiate in c (Φ′ = φ, the bell density) and set to zero:</p>
+<div class="disp"><span class="m">φ((c−a)/σ) = φ((c−b)/σ) &nbsp;⇒&nbsp; (c−a)² = (c−b)² &nbsp;⇒&nbsp; c* = (a+b)/2</span>
+<span class="why">the optimum is where the two densities cross — the midpoint, by symmetry of equal widths</span></div>
+<p><b>Plug the midpoint back in.</b> At c*, each class's distance to the cutoff is half the gap:
+(c*−b)/σ = −d′/2 and (c*−a)/σ = +d′/2, so</p>
+<div class="disp"><span class="m">BA = ½[ 1 − Φ(−d′/2) + Φ(d′/2) ] = Φ(d′/2)</span>
+<span class="why">both error tails are the same area Φ(−d′/2): the chance noise exceeds half the gap. That symmetry is the whole theorem</span></div>
+<p>In words: with the fair cutoff sitting halfway between the bumps, you err exactly when a frame's
+noise pushes its score more than half the gap toward the other class — and "gap in units of noise" is
+d′, so each tail is Φ(−d′/2). <b>AUC</b> follows the same logic one step earlier (no cutoff needed):
+AUC = P(p<sub>E</sub> &gt; p<sub>N</sub>) for an independent pair; their difference is Gaussian with
+mean b−a and variance 2σ², so AUC = Φ((b−a)/σ√2) = Φ(d′/√2). One more fact worth knowing: for Gaussians
+of equal width, this midpoint-cutoff linear rule is the exact likelihood-ratio (Bayes-optimal) test —
+<em>no nonlinear rule can beat it</em>; nonlinearity only helps if the clouds aren't Gaussian, which is
+what the C4 checks rule out (and measured: per-frame MLP probes ≈ logistic).</p></details>
+
+<h2 id="s3"><span class="no">3</span>Whitening — why "SNR 0.33" and "probe 0.96" were both true</h2>
+<p>d′ depends on <em>which</em> axis you read along. The tempting choice is the arrow between the class
+means, <var>δ̂</var>. It is optimal only if the noise cloud is a perfect sphere — and real noise is
+elongated: some directions carry lots of irrelevant variance (room identity, other characters). If
+<var>δ̂</var> has any component along those, projecting onto it pours that variance into your number.
+The optimal axis <em>whitens first</em>: it tilts away from the noisy directions, trading a little
+signal for a lot less noise. Side by side:</p>
+<div class="fig"><canvas id="f2" width="1320" height="560"></canvas>
+<div class="cap"><b>What to look at:</b> identical clouds in both panels — only the reading axis differs.
+Left, the naive mean-difference axis δ̂ takes the full brunt of the elongated noise and the projection
+bumps smear together (the value our earlier analysis reported as "SNR 0.33"). Right, the whitened axis Σ⁻¹δ tilts away from the
+noisy direction and the bumps separate (d′ ≈ 3.4 — the axis a trained probe actually finds).
+<b>Fig. W — same clouds, two axes.</b></div></div>
+<div class="disp"><span class="m"><var>w</var>* ∝ Σ<sup>−1</sup><var>δ</var>, &nbsp;
+<var>d′</var><sub>max</sub> = √(<var>δ</var>ᵀΣ<sup>−1</sup><var>δ</var>)</span>
+<span class="why">whiten, then point at the means — the Mahalanobis separation (Fisher 1936)</span></div>
+<details class="deriv"><summary>Derivation D2 — why the best axis is Σ⁻¹δ (one line of calculus)</summary>
+<p>Along axis <var>w</var>, the gap is <var>w</var>ᵀδ and the noise variance is
+<var>w</var>ᵀΣ<var>w</var>, so d′(<var>w</var>)² = (<var>w</var>ᵀδ)² / <var>w</var>ᵀΣ<var>w</var> — a
+generalized Rayleigh quotient. Substitute <var>u</var> = Σ<sup>1/2</sup><var>w</var>:
+d′² = (<var>u</var>ᵀΣ<sup>−1/2</sup>δ)²/‖<var>u</var>‖², maximized when <var>u</var> is parallel to
+Σ<sup>−1/2</sup>δ (Cauchy–Schwarz), i.e. <var>w</var> ∝ Σ<sup>−1</sup>δ, with maximum
+d′² = δᵀΣ<sup>−1</sup>δ. A trained linear probe finds this axis automatically — which is why probe
+accuracy, not the δ̂-projection, is the honest measure of the code.</p></details>
+<p>The measured resolution of the old paradox: along δ̂ the separation is 0.33 (the old "SNR"); the
+whitened d′ implied by the 0.96 probe — and confirmed by direct Ledoit–Wolf Mahalanobis measurement — is
+≈ 3.4. The per-frame code is <em>strong</em>. Which sharpens the puzzle: if every frame is separable at
+d′ ≈ 3.4, why does the model fail? Because of what pooling does to that number.</p>
+<p><b>Measured d′ on the steps task</b>, for reference throughout: question-first bench (L19 frame reps)
+— naive axis 0.21–0.64, whitened <b>3.2–3.5</b> across all N-sweep and crowding regimes; deployed locus
+(room-token carrier messages) — whitened <b>2.2–2.4</b> at L14–20, character token 1.1, last token ≈ 0.4;
+frames-first query-blind frame tokens 0.57. All from the parity runs in the ledger.</p>
+
+<h2 id="s4"><span class="no">4</span>What summing does: signal adds like a ruler, noise like a drunk</h2>
+<p>Pool the frames, <span class="m"><var>S</var> = Σ<sub>k</sub> <var>m<sub>k</sub></var></span>, and
+read with any axis <var>w</var>. Projection is linear, so the score of the sum is the sum of scores:</p>
+<div class="disp"><span class="m"><var>w</var>ᵀ<var>S</var> = <var>N</var>(<var>w</var>ᵀ<var>μ</var>) + <var>g</var>·(<var>w</var>ᵀ<var>δ</var>) + Σ<sub>k</sub> <var>w</var>ᵀ<var>ε<sub>k</sub></var></span>
+<span class="why">constant &nbsp;+&nbsp; count × gap &nbsp;+&nbsp; accumulated noise</span></div>
+<p>Read it term by term. The first term is the same for every sample — N copies of the shared component,
+a constant offset a linear readout simply subtracts. The second term is the signal:
+<b><var>w</var>ᵀδ is the vector arrow δ converted into a scalar step size along your ruler</b> — call it
+Δ. Every evidence frame pushes the score up by exactly one Δ, so the score's mean is a staircase in the
+count: base + g·Δ. (Pick an axis with <var>w</var> ⊥ δ and Δ = 0 — that axis is count-blind; pick
+<var>w</var> = <var>w</var>* and Δ/σ<sub>w</sub> is maximal.) This staircase is exactly why regression
+probes find R² ≈ 0.85–0.89: the count <em>is</em> linearly present in the mean. The third term is the
+bad news, and here is precisely why it grows as √N: the <var>ε<sub>k</sub></var> are independent across
+frames, and <b>variances of independent quantities add</b>:</p>
+<div class="disp"><span class="m">Var(Σ<sub>k</sub> <var>w</var>ᵀ<var>ε<sub>k</sub></var>) = Σ<sub>k</sub> Var(<var>w</var>ᵀ<var>ε<sub>k</sub></var>) = N·σ<sub>w</sub>² &nbsp;⇒&nbsp; std = σ<sub>w</sub>·√N</span>
+<span class="why">a drunkard's N steps: forward and backward stumbles partially cancel, so distance from start grows like √N, not N</span></div>
+<p>So the signal staircase keeps a fixed step Δ while the fog around each step widens as √N. Divide one
+by the other:</p>
+<div class="disp"><span class="m">count-level discriminability &nbsp; <var>d′<sub>N</sub></var> = <var>d′</var> / √N</span></div>
+<p>At N=8: 3.4/√8 ≈ 1.2. A 96% per-frame decision became a ~73% per-boundary decision — with eight
+boundaries.</p>
+<p class="note"><b>Where softmax actually sins.</b> Attention output is
+<span class="m">Σ<sub>k</sub> α<sub>k</sub><var>v<sub>k</sub></var></span> with
+<span class="m">Σα<sub>k</sub> = 1</span> — a <em>weighted average</em>, i.e. the sum divided by
+(effectively) N. Two separate verdicts follow. <b>At fixed N, the division is innocent:</b> dividing by
+a constant shrinks the gap Δ and the noise σ<sub>w</sub>√N by the same factor, so d′<sub>N</sub> — and
+therefore the achievable accuracy — is <em>identical</em> for mean and sum. Measured: both decode at
+0.44. Anyone blaming "the softmax denominator" for the fixed-length failure is wrong, and we were, for a
+while. <b>Across varying N, the average is guilty:</b> an average can only encode the <em>fraction</em>
+g/N, never the count g — two evidence frames out of four produce the same average as four out of eight.
+Count and length are fused into one number, which is exactly the failure at lengths beyond the
+training range ("length-OOD"): swapping the mean for an unnormalized sum in a small trained adapter is
+worth +24pp on unseen counts/lengths; the model's raw answers regress toward a length-dependent middle
+value; and two causal pokes at inference time point the same way — multiplying attention outputs by a
+constant &gt; 1 ("GAIN", which breaks Σα = 1) helps at long sequences, while sharpening the softmax
+("temperature", which keeps Σα = 1) does nothing. One sentence to keep: <b>the average fails
+because it is intensive, not because it divides.</b></p>
+<div class="fig"><canvas id="f3" width="1320" height="620"></canvas>
+<div class="cap"><b>What to look at:</b> the two mean trajectories separate by exactly one gap Δ, but the
+walkers' spread grows as √N — by frame 8 the populations overlap even though every individual step was
+easy. <b>Fig. 2 — the running sum as a random walk</b> (simulated at the measured d′ = 3.4, N = 8,
+<span class="kv">g = 4</span> vs <span class="nv">g = 3</span>).</div></div>
+
+
+<h3>The whole softmax story, start to finish</h3>
+<div class="story">
+<p><b>When the counting failures first appeared, softmax was the obvious suspect.</b> Attention divides
+by its denominator; a count is a magnitude; dividing a magnitude shrinks it. The story almost writes
+itself — and it was, in fact, this project's original working theory.</p>
+<p><b>The first careful experiment acquitted it.</b> We took the same eight frame vectors from the same
+samples and decoded the count two ways — from their raw <em>sum</em>, and from their <em>mean</em> (the
+sum divided by 8: exactly the crime softmax was accused of). If division destroyed the count, the mean
+should be worse. It wasn't: <b>0.44 versus 0.44</b>, identical. Dividing by a constant shrinks the
+count's signal <em>and</em> the noise around it by the same factor, and a ratio doesn't care — a quieter
+record isn't a damaged record. Whatever breaks counting at a fixed length, it isn't the denominator; it
+is the √N fog above. The naive charge was dropped — and that acquittal is what gives the rest of this
+story its credibility.</p>
+<div class="tblwrap"><table>
+<tr><th>the 2×2 verdict</th><th>fixed length</th><th>varying length (train 1–4 → eval 5–8)</th></tr>
+<tr><td>sum (unnormalized)</td><td>0.44</td><td class="good">1.00</td></tr>
+<tr><td>mean / softmax</td><td>0.44 — <b>a perfect tie</b></td><td class="bad">0.76 — <b>the 24-point crime scene</b></td></tr>
+</table></div>
+<p><b>But softmax does commit a crime — a subtler one, visible only when the length varies.</b> An
+average can answer "what <em>fraction</em> of the frames had evidence?" but cannot, even in principle,
+answer "how <em>many</em>" — the count was divided by the very thing that changes. Two evidence frames
+of four and four of eight produce <em>literally the same</em> averaged vector: not fainter, not noisier
+— <b>the same point</b>. Remove every drop of noise and the two worlds stay indistinguishable. A
+collision, not an attenuation.</p>
+<div class="fig"><canvas id="f9" width="1320" height="330"></canvas>
+<div class="cap"><b>What to look at:</b> the same two worlds on two rulers. On the count ruler (sum),
+"2 of 4" and "4 of 8" sit apart; on the fraction ruler (mean), they land on the same point — with zero
+noise involved. <b>The collision, drawn.</b></div></div>
+<p><b>Collisions leave fingerprints, and we found four.</b> (1) Two otherwise-identical adapters, one
+summing, one averaging, trained short and tested long: they tie at any fixed length (as the acquittal
+predicts) and split by <b>24 points</b> across lengths (sum 1.00, mean/softmax 0.76, 3 seeds) — damage
+precisely and only where collisions become possible. (2) Interrogating the constraint itself: two
+inference-time pokes that both change magnitudes, of which only one breaks Σα = 1. Breaking it (GAIN)
+bought +0.20 at length 8; sharpening within it (temperature) bought less than nothing. The scale was
+never the issue; the constraint was. (3) The model's errors have the shape of a fraction-reader forced
+to name a count: its answer moves only ~0.2 counts per true count (a faithful counter moves 1.0), and it
+regresses toward a middle — <em>undershooting</em> high-answer tasks by up to 1.7 while
+<em>overshooting</em> low-answer ones by 0.8. The sign flip is the tell: attenuation drags everything
+toward zero; only a pull toward a learned middle pushes from both sides. On rooms the collapse is total
+— the model answers "3" almost regardless of truth. (4) The alibi-breaker: give the same model
+chain-of-thought, carrying the tally in <em>text</em>, outside the pooled representation — and the bias
+vanishes, ≈0 at every length. Same eyes, same frames, same weights. The disease lives in the averaged
+carrier and nowhere else.</p>
+<div class="fig"><canvas id="f10" width="1320" height="360"></canvas>
+<div class="cap"><b>What to look at:</b> both interventions change magnitudes; only the one that breaks
+Σα = 1 helps — and most at the longest length, where the collision bites hardest. <b>Fingerprint 2:
+the constraint, not the scale.</b></div></div>
+<div class="tblwrap"><table>
+<tr><th>fingerprint 3–4: the fraction-reader profile</th><th>measured</th><th>faithful counter would show</th></tr>
+<tr><td>emitted-vs-gold slope (avg over lengths)</td><td class="bad">0.19 (range 0.06–0.40)</td><td>1.0</td></tr>
+<tr><td>bias, high-answer tasks (steps/rooms, len 8)</td><td class="bad">−1.7 (undershoot)</td><td>0</td></tr>
+<tr><td>bias, low-answer task (co-occ)</td><td class="bad">+0.8 (overshoot) — <b>the sign flip = pull toward a middle</b></td><td>0</td></tr>
+<tr><td>counts the model simply never emits (steps)</td><td class="bad">5 and 6</td><td>none</td></tr>
+<tr><td>same model + chain-of-thought (tally carried in text)</td><td class="good">bias ≈ 0 at every length</td><td>—</td></tr>
+</table></div>
+<p><b>Then we found the accomplice.</b> Softmax is not the only normalizer here — RMSNorm rescales every
+token before every sublayer, keeping direction and discarding length (§8). Even a count that escapes the
+softmax as a magnitude has nowhere to live: injecting an artificially amplified count-magnitude into the
+carrier, we watched normalization first tolerate it, then saturate it, then <em>destroy</em> it
+(decodability 0.37 → 0.75 → falling at extreme doses — the exact arithmetic of dividing a vector by its
+own growing norm, predicted before the run; C6). The architecture is intensively normalized end to end;
+extensive quantities are homeless in it.</p>
+<p><b>Which supplies the ending: if normalization is the villain, un-normalized accumulation should be
+the hero — and it is.</b> Every readout built on an unnormalized tally extrapolates to lengths and
+counts it never saw (soft-OR 1.000, sum 0.996, the rooms tally 0.96–0.98 on held-out counts); every
+learned or normalized readout collapses on the same test, some to zero (C7, Part IV). The moral in one
+line: <b>normalization never hurt the count by making it small — it hurt by making different counts
+identical; and the cure is not amplification but an accumulator whose divisor is 1.</b></p>
+<div class="tblwrap"><table>
+<tr><th>the reform: readouts on unseen counts/lengths</th><th>OOD accuracy</th></tr>
+<tr><td>soft-OR over an unnormalized tally (rooms family)</td><td class="good">1.000</td></tr>
+<tr><td>plain unnormalized sum (steps family)</td><td class="good">0.996</td></tr>
+<tr><td>batch-0 rooms tally register (held-out counts)</td><td class="good">0.960–0.980</td></tr>
+<tr><td>every learned / normalized readout, same tests</td><td class="bad">0.00–0.59</td></tr>
+</table></div>
+</div>
+
+<h2 id="s5"><span class="no">5</span>From d′ to exact-count accuracy — where the "thresholds" come from</h2>
+<p>The count takes values 0…N, so the projected pooled score is drawn from one of N+1 Gaussians, evenly
+spaced Δ apart, all of width σ<sub>w</sub>√N. Be careful not to confuse these with §2's two clouds —
+they live one level up: in §2 each dot was <em>one frame</em> and there were two classes; here each dot
+is <em>one whole sample</em> (all 8 frames pooled), and there is one bump per possible count — the
+distribution of <var>w</var>ᵀ<var>S</var> over samples whose true count is g. Their centers are the §4
+staircase (base + gΔ); they all share the same width σ<sub>w</sub>√N because every sample, whatever its
+count, sums exactly N frames' worth of independent noise. The optimal decoder picks the nearest mean —
+i.e. rounds —
+and its decision thresholds are not tuned: they are <b>forced to be the midpoints between adjacent count
+means</b>. An interior count is read exactly iff the accumulated noise stays within ±Δ/2:</p>
+<div class="disp"><span class="m">P(exact | interior g) = 2Φ(<var>d′</var>/(2√N)) − 1, &nbsp;&nbsp;
+P(exact | g = 0 or N) = Φ(<var>d′</var>/(2√N))</span>
+<span class="why">boundary counts have one neighbor → one-sided error; overall accuracy = mixture over the count prior</span></div>
+<p>Unpacking that last line slowly, because it feeds every headline number: an <em>interior</em> count
+(g = 3 of 8, say) can be misread in two directions — noise pushing the score past the upper midpoint or
+the lower one — hence the two-sided 2Φ(·)−1. The <em>boundary</em> counts g = 0 and g = N have only one
+neighbor to be confused with, so only one tail can hurt them: their per-count accuracy is the higher
+one-sided Φ(·). The overall prediction is then just the weighted average of these per-count accuracies,
+weighted by how often each count actually occurs in the test set (the "count prior") — uniform in our
+balanced data, so ≈ (2·boundary + (N−1)·interior)/(N+1). Two measured parameters, zero fitted ones.
+Play with it — and toggle the gate to see the fix:</p>
+<div class="fig">
+  <div class="controls">
+    <label>per-frame d′ <input type="range" id="sl-d" min="0.2" max="6" value="3.4" step="0.1"><output id="out-d">3.4</output></label>
+    <label>N frames <input type="range" id="sl-n" min="1" max="16" value="8" step="1"><output id="out-n">8</output></label>
+    <span>predicted linear-pool accuracy: <span class="bigacc" id="out-acc">—</span></span>
+    <label><input type="checkbox" id="cb-gate"> show per-frame gate</label>
+    <label><input type="checkbox" id="cb-meas" checked> show measured N-sweep</label>
+  </div>
+  <canvas id="f4" width="1320" height="440"></canvas>
+  <canvas id="f4b" width="1320" height="470"></canvas>
+  <div class="cap"><b>What to look at:</b> top — the N+1 count Gaussians smearing together as d′ falls or
+  N grows; dashed lines are the forced midpoint thresholds. Bottom — accuracy vs N at the chosen d′:
+  the <span class="nv">linear-pool curve</span> decays as d′/√N; set d′ ≈ 3.4 and the four
+  <b>measured</b> N-sweep decodes (N=2/4/6/8: .853/.650/.593/.471) land on it with zero fitted
+  parameters. Toggle the <span class="kv">per-frame gate</span>: it decides each frame at the full d′
+  <em>before</em> noise accumulates, so its curve barely bends. <b>Interactive — the law, and the
+  fix.</b></div>
+</div>
+<details class="deriv"><summary>Derivation D3 — the worked example: d′ = 3.4, N = 8 → ≈ 0.47</summary>
+<p>d′<sub>N</sub> = 3.4/√8 = 1.20. Interior counts: P = 2Φ(1.20/2) − 1 = 2Φ(0.60) − 1 = 2(0.726) − 1 =
+0.452. Boundary counts (0 and 8): P = Φ(0.60) = 0.726. Uniform prior over nine levels:
+(7×0.452 + 2×0.726)/9 = <b>0.513</b>; the empirical count distribution and probe regularization shave a
+few points → predicted 0.46–0.52. Measured linear decode of the summed reps: <b>0.45–0.47</b>. For
+contrast, the old δ̂-axis story (d′ = 0.33) predicts 0.15 by the same arithmetic — refuted by its own
+number, which is why the whitened restatement was a correction, not a relabel.</p></details>
+
+<h2 id="s6"><span class="no">6</span>Two theorems the data echoes</h2>
+<h3>Nothing placed after the sum can help</h3>
+<p>For Gaussian classes with shared Σ, the matched-filter score <var>w</var>*ᵀ<var>S</var> is a
+<b>sufficient statistic</b>: the sum's entire information about the count is in that one scalar, so no
+function of <var>S</var> — an MLP, anything — can beat the linear readout + rounding. The intuition,
+without the formalism: conditional on the count, <var>S</var> is a Gaussian whose mean moves <em>only
+along one direction</em> as g changes. Every component of <var>S</var> orthogonal to that (whitened)
+direction has <em>exactly the same distribution for every g</em> — it is pure count-free noise. A
+nonlinear readout can only mix those count-free components back in with the matched-filter scalar, which
+adds noise and never signal. Note what this is and isn't: it is a statement about the <em>statistics of
+S under the checked model</em> (C4), not an assumption that the network "computes with Gaussians" — and
+if reality deviated from the model, an MLP could exploit the deviation. Measured: it can't — MLP never
+beats linear on the aggregate, in all 21 regimes tested (C3) — which doubles as one more adequacy check.</p>
+<details class="deriv"><summary>Derivation D4 — the sufficiency argument, honestly sketched</summary>
+<p>Conditional on g, <var>S</var> ~ 𝒩(Nμ + gδ, NΣ): a Gaussian <em>shift family</em> — only the mean
+moves with g, along the fixed direction δ. The likelihood ratio between any two counts g₁, g₂ is
+exp{(g₁−g₂)·δᵀ(NΣ)<sup>−1</sup>(S − const)} — a monotone function of the single scalar
+<var>t</var> = δᵀΣ<sup>−1</sup><var>S</var>. By the Fisher–Neyman factorization, <var>t</var> is
+sufficient for g; by sufficiency, the optimal decision based on <var>S</var> equals the optimal decision
+based on <var>t</var>, which is the matched filter + nearest-mean rule of §5. Any post-pool nonlinearity
+can at best tie it.</p></details>
+<h3>A per-frame gate escapes the √N tax</h3>
+<p>Threshold each frame first, then count the votes:</p>
+<div class="disp"><span class="m">ĝ = Σ<sub>k</sub> 𝟙[<var>w</var>ᵀ<var>m<sub>k</sub></var> &gt; c], &nbsp;
+p<sub>err</sub> = 1 − Φ(d′/2) &nbsp;(per frame — <b>no N in it</b>), &nbsp;
+ĝ − g = #FP − #FN &nbsp;⇒&nbsp; P(exact) = P(#FP = #FN)</span>
+<span class="why">compare: linear pool error is governed by d′/√N → 0; the gate's error is governed by d′ alone, and residual ±1 errors partially cancel</span></div>
+<p>Each decision is made at the full per-frame d′ (error p ≈ 4% at d′ = 3.4) <em>before</em> any noise
+can accumulate — the continuous noise is destroyed frame-by-frame at the threshold, so there is nothing
+left to add up as √N. What remains are discrete ±1 mistakes, and a false-yes cancels a false-no: the
+count is exact whenever the two kinds of error balance, which keeps the gate's curve nearly flat in N
+(toggle it in the §5 interactive). This is why sharp-gate-then-sum reaches ~1.0 where every post-hoc
+readout caps, and why DeepSets puts its nonlinearity φ <em>inside</em> the sum.</p>
+<h3>The minimum d′ to survive length N</h3>
+<p>Invert the gate's arithmetic and you get a <em>requirement curve</em>. The tally makes N independent
+decisions, each flipped with probability p = 1 − Φ(d′/2); exact match essentially needs zero flips,
+P(0) ≈ e<sup>−pN</sup> (error cancellation adds back a few points). So to hit a target accuracy at
+length N:</p>
+<div class="disp"><span class="m">p* = −ln(target)/N, &nbsp;&nbsp; d′<sub>min</sub>(N) = 2·Φ<sup>−1</sup>(1 − p*)</span>
+<span class="why">"one expected error per N decisions" is the break-even point; crushing a length means an order of magnitude better per frame</span></div>
+<div class="tblwrap"><table>
+<tr><th>N</th><th>d′ for ~50% exact (break-even)</th><th>d′ for ~90% exact ("crush")</th></tr>
+<tr><td>8</td><td>2.7</td><td>4.5</td></tr>
+<tr><td>16</td><td>3.4</td><td>5.0</td></tr>
+<tr><td>32</td><td>4.0</td><td>5.4</td></tr>
+<tr><td>64</td><td>4.6</td><td>5.9</td></tr>
+<tr><td><b>128</b></td><td><b>~5.1</b></td><td><b>~6.3</b></td></tr>
+</table></div>
+<p>Now lay the measured <em>supply</em> against this demand. Reading the model's own single-pass carrier
+messages gives d′ = 2.4–2.9 (steps, co-occ) — enough for nothing beyond N≈8, which is exactly where our
+solution experiments capped when restricted to that read; rooms' carrier gives ~5.0 — mid-table; and
+<b>reading each frame in its own separate forward pass ("multipass") gives d′ ≥ ~6.6</b> (zero probe
+errors across thousands of held-out frames — a lower bound; the estimator saturates) — the only measured
+read that clears the 128-crush line. This one table dictates the deployment strategy: any long-sequence
+claim <em>requires</em> the multipass read, because no post-processing of a d′=2.4 gate can cross its
+own requirement curve.</p>
+
+<h2 id="s7"><span class="no">7</span>Beyond two clouds: K channels and the tally vector</h2>
+<p>Counting needed one binary predicate per frame. Distinct-rooms asks for the <em>support size</em> of a
+categorical variable — which room was C in — so the model becomes K clouds, one direction
+δ<sub>r</sub> per room. Pooling then accumulates a <b>tally vector</b>: room r's channel holds
+n<sub>r</sub>·Δ<sub>r</sub> plus the same √N noise. Every task is a function of the tallies
+(n₁…n<sub>K</sub>), and the failures split into two grades: <b>linear tasks</b> (steps, co-occupancy read
+one channel) fail only <em>statistically</em>, via d′/√N; <b>set-function tasks</b> (distinct-count
+= Σ<sub>r</sub> 𝟙[n<sub>r</sub> &gt; 0]) are <em>nonlinear</em> in the tallies, so a linear readout cannot
+express them even noise-free — a structural failure stacked on the statistical one, with once-visited
+rooms (tally barely above the noise floor) dominating the errors. This predicts rooms' undercounting at
+high distinct-counts (measured: g5 collapses to 0.18) and retro-dicts the fixes: <em>sum</em> for
+additive answers, <em>soft-OR</em> (per-channel threshold, then sum) for support-size answers — exactly
+the two readouts that worked.</p>
+<div class="fig"><canvas id="f5" width="1320" height="470"></canvas>
+<div class="cap"><b>What to look at:</b> the once-visited room's tally sits barely above the noise floor —
+presence detection at d′<sub>r</sub>/√N — and the distinct count needs <em>every</em> channel called
+right. <b>Fig. 3 — the pooled representation as K noisy tally channels.</b></div></div>
+
+<h2 id="s8"><span class="no">8</span>Why magnitude codes die at every norm</h2>
+<p>One more piece of architecture completes the picture. Before every attention and MLP sublayer, the
+transformer normalizes the token it is about to read:</p>
+<div class="disp"><span class="m">RMSNorm: &nbsp; h &nbsp;→&nbsp; √d · h/‖h‖ ⊙ γ</span>
+<span class="why">the length of h is thrown away; only its direction (times a fixed learned per-dim scale γ) survives</span></div>
+<p>Now recall where the count lives after pooling: <span class="m">S = Nμ + g·δ + noise</span> — the
+count is a <em>magnitude</em>, "how far along δ the pool has traveled." Normalization keeps direction
+and discards length, so a magnitude code must smuggle itself into the <em>angle</em> of the token — and
+both extremes lose:</p>
+<p><b>Normal regime (‖μ‖ ≫ g‖δ‖ — the real model, ratio ~100:1):</b> the direction of S is dominated by
+μ; the count tilts it by an angle of order g‖δ‖/(N‖μ‖) ≈ a fraction of a percent. After normalization,
+that tiny tilt is all that remains of the count — the 1% number from §1 is not just small, it is
+<em>the entire surviving signal</em> for everything computed post-norm.</p>
+<p><b>Dosed regime (g‖δ‖ ≫ ‖μ‖ — our amplification experiments, C6):</b> the direction of S converges to
+δ̂ <em>for every g ≥ 1</em> — a count of 2 and a count of 8 normalize to nearly the same unit vector.
+The g-dependence collapses; attention keys, values, and MLP inputs all go count-blind exactly when the
+magnitude code dominates. That is why the dose ladder rises, plateaus, then <em>declines</em>: the
+rise–plateau–decline is (h + λgδ)/‖h + λgδ‖ arithmetic, observed.</p>
+<p>Pair this with softmax (a convex combination, Σα = 1 — intensive, §4's note) and the conclusion is
+architectural: <b>the network is intensively normalized end to end; extensive quantities like a count
+have nowhere native to live.</b> That is the deepest root of the whole story, and why the working fixes
+all read the tally <em>outside</em> the normalized stream.</p>
+
+<div class="part">Part II — Implementation: how we measure all of this</div>
+
+<h2 id="s9"><span class="no">9</span>From frozen model to measured clouds, in five steps</h2>
+<p><b>1 · What exactly is a "message" — and why it is the model's own computation, not a proxy.</b>
+In attention at layer L, the information moved from frame <var>f</var>'s tokens into a carrier position
+<var>c</var> is</p>
+<div class="disp"><span class="m">m<sub>f→c</sub><sup>L</sup> = o_proj( concat<sub>heads</sub>( Σ<sub>j ∈ frame f</sub> A<sup>h</sup>[c,j] · v<sup>h</sup><sub>j</sub> ) ), &nbsp;&nbsp; A<sup>h</sup>[c,·] = softmax(q<sub>c</sub>·k/√d) over ALL keys (causal-masked)</span>
+<span class="why">the softmax IS included — these are the model's true attention weights; we take frame f's slice of the already-softmaxed row</span></div>
+<p>We capture q/k/v projections and the rotary embeddings during a normal SDPA forward and recompute the
+carrier row offline — no eager attention, no model modification. One 3584-dim vector per frame, per
+carrier token, per layer. The step that makes this rigorous: once A is fixed, the attention output is
+<em>linear</em> in the A[c,j]·v<sub>j</sub> terms, so grouping by source frame is an <b>exact
+partition</b>:</p>
+<div class="disp"><span class="m">attn_out(c) = Σ<sub>frames f</sub> m<sub>f→c</sub> + m<sub>question-tokens→c</sub></span>
+<span class="why">an identity, not an approximation — S = Σ<sub>k</sub> m<sub>k</sub> is a named component of the model's own residual update at the carrier</span></div>
+<p class="note"><b>Could the information flow some other way?</b> Three lines of defense, in increasing
+strength. <em>Measurement:</em> the d′ map covers every question token, the last token, and block
+combinations — alternate carrier <em>locations</em> are enumerated, not assumed away. <em>Causal
+necessity ("E5" = our intervention suite of doses and scrubs — this is what actually closes the
+hole):</em> the scrub removes one declared
+token's δ channel at every layer of a window; if the answer reached the output by <em>any</em> route not
+transiting that channel, behavior would survive — instead it collapses, while random directions/
+subspaces, neutral tokens, <em>other information-bearing tokens</em> (char1), and late windows all leave
+behavior untouched. The dose adds the converse (only the causal carrier's dose moves behavior), and the
+mid-vs-late scrub timing matches the independently measured restoration staircase. <em>Prediction:</em>
+if the operative aggregation lived elsewhere, the accuracy ceiling computed from <em>these</em> messages
+would have no reason to predict measured decodes across twenty regimes with zero fitted parameters.
+Honest limit: scrubs prove necessity of the declared direction(s) at the carrier, not a full path
+decomposition — redundant-but-unused routes demonstrably exist (decodable ≠ used); attention-edge
+path-patching is the gold-standard upgrade, named as future work.</p>
+<p><b>2 · Which token is the carrier.</b> We do not guess: a per-token × per-layer d′ map over all
+question tokens finds where the per-frame evidence is most separable. For steps it is the queried
+<b>room token</b> at L14–20 (d′ ≈ 2.2–2.4), with the character token a weak secondary (1.1) and the last
+token weakest (0.4). The map is then validated <em>causally</em>: scrubbing the room token's δ channel
+changes behavior; scrubbing a random axis does not (C5). Question-first probe caches (frame reps at L19)
+serve as the fast instrumentation bench; all headline claims are re-derived at this deployed locus.</p>
+<p><b>3 · Fitting the decomposition — the exact recipe.</b> Split <em>samples</em> (never frames) 60/40
+into train/test, 3 seeds. Every symbol is a plain empirical statistic of the cached vectors and the
+generator's ground-truth per-frame labels:</p>
+<div class="disp"><span class="m">μ̂ = mean of all train frames · μ̂<sub>E</sub>, μ̂<sub>N</sub> = class means · δ̂ = μ̂<sub>E</sub> − μ̂<sub>N</sub> · ε̂<sub>k</sub> = m<sub>k</sub> − μ̂<sub>class(k)</sub></span>
+<span class="why">"general info" = μ̂ (shared component); "signal" = δ̂; "noise" = the residuals ε̂ after removing each frame's own class mean</span></div>
+<div class="disp"><span class="m">σ<sub>w</sub> = ½(std(wᵀm | E) + std(wᵀm | N)) on TEST frames, &nbsp;
+d′ = |mean(wᵀm|E) − mean(wᵀm|N)| / σ<sub>w</sub></span>
+<span class="why">projections of held-out frames onto the chosen axis w; train fits the axis, test measures the separation</span></div>
+<p>The whitened axis w* is shrinkage-LDA (Ledoit–Wolf — mandatory at d = 3584 ≫ n; a raw covariance
+inverse would be singular), fit on ≤4000 subsampled train frames; the naive axis is δ̂/‖δ̂‖. d′ is
+cross-checked three ways on the same held-out scores — gap/width, √2·Φ⁻¹(AUC), 2·Φ⁻¹(bal-acc) — which
+agree only if the clouds are actually Gaussian (a built-in adequacy check, C4). ρ comes from the same
+residuals: project each sample's 8 ε̂'s onto w, correlate across frame slots, average the off-diagonal.
+Nothing is fit to the thing being predicted: the axis never sees test frames, and the parity target
+(ridge-on-sum accuracy) is measured by an entirely separate fit.</p>
+<p>The measured values of every symbol on the steps task (question-first bench, L19 frame reps — the
+N-sweep regime), to fix the sense of scale:</p>
+<div class="tblwrap"><table>
+<tr><th>quantity</th><th>measured value</th><th>what it means</th></tr>
+<tr><td>‖μ‖</td><td>≈ 87</td><td>the shared "a-frame-is-here" component dominates everything</td></tr>
+<tr><td>‖δ‖</td><td>≈ 1.0 (≈ 1.1% of ‖μ‖)</td><td>one evidence frame moves the pool by a vector 100× smaller than μ</td></tr>
+<tr><td>σ along δ̂</td><td>≈ 6</td><td>per-frame noise is ~6× the signal step on the naive axis → d′<sub>naive</sub> ≈ 0.33</td></tr>
+<tr><td>whitened d′</td><td>≈ 3.4</td><td>after tilting the axis away from the noise (§3), the classes are far apart</td></tr>
+<tr><td>N = 8 ⇒ d′/√N</td><td>≈ 1.2</td><td>count-level discriminability after pooling → predicted ceiling 0.46–0.52; measured 0.45–0.47</td></tr>
+</table></div>
+<p style="font-family:system-ui,sans-serif;font-size:.8rem;color:var(--muted)">Deployed analog (room-token
+messages, L16): whitened d′ ≈ 2.4, per-frame AUROC 0.955, predicted ceiling 0.375, measured 0.363.
+Raw norms differ between the two loci (frame reps vs o_proj messages) — d′ is the scale-free quantity
+that transfers.</p>
+<p><b>4 · The parity protocol.</b> For each regime: <em>predict</em> accuracy from (d′, N) by §5's
+formula, mixed over the test count distribution — then <em>independently</em> train a ridge readout on
+the actual summed vectors and measure held-out exact-match. One scatter of predicted vs measured across
+all regimes, zero fitted parameters (C1).</p>
+<p><b>5 · Interventions.</b> Forward pre-hooks on the layers following the carrier's message layers.
+<em>Dose</em>: add (λ−1)·g·δ<sub>L</sub> to the room-token residual (oracle, uses the gold g by design —
+a mechanism experiment, not a method). <em>Scrub</em>: remove the projection of the room-token state onto
+δ̂<sub>L</sub> at every carrier layer — label-free, continuous, so later layers cannot re-deliver.
+Controls: same-magnitude random directions for both. Per arm we record the emitted answer
+(candidate-digit argmax) and cache the last-token state at L24 and at the final layer — a ridge head on
+the final-layer state is exactly what the model would emit with a repaired readout (C6).</p>
+<p class="note">Everything above runs on a frozen, 4-bit Qwen2.5-VL-7B; probes and parity are CPU
+post-processing over cached tensors. Every number on this page traces to a run directory (see the
+ledger).</p>
+
+<div class="part">Part III — The evidence, claim by claim</div>
+
+<h2 id="c1"><span class="claim">C1</span>The law predicts the ceiling — zero fitted parameters</h2>
+<p class="rules-out">Rules out: "SNR is just correlated with failure" — the closed form <em>predicts</em> the measured ceilings.</p>
+<p><b>What this section is for, in three sentences.</b> The entire theory makes exactly one falsifiable
+promise: <em>hand me two numbers — the per-frame separability d′ of whatever is being read, and the
+sequence length N — and I return the exact-count accuracy of the reader, with no free parameters.</em>
+Each row below is that promise tested once: "predicted" comes from (d′, N) and arithmetic alone;
+"measured" is an independent experiment — train a count decoder on the <em>pooled</em> features and
+score it on held-out samples. The two share nothing but the frames themselves, and the bridge between
+them (noise adds as √N, signal adds linearly in g, errors are adjacent confusions) is precisely what
+could have failed and didn't — where the theory's assumptions strain (saturated probes), the rows miss,
+which is what an honest test looks like. Rows here use a <em>controlled linear reader</em> to isolate
+the aggregation physics from the readout wall; the same formula aimed at the <em>model's own</em>
+reading axis — where "measured" is the model's free-generation accuracy — is the closure in C6.</p>
+<p>d′ is flat across the N-sweep (~3.2–3.5: the per-frame code never degrades) while accuracy collapses
+exactly as √N dictates:</p>
+<div class="tblwrap"><table>
+<tr><th>regime</th><th>N</th><th>d′ naive (old "SNR")</th><th>d′ whitened</th><th>predicted</th><th>measured acc of the pooled-read decoder</th></tr>
+<tr><td>steps N-sweep</td><td>2</td><td>0.21</td><td>3.46</td><td>0.849</td><td class="good">0.853</td></tr>
+<tr><td></td><td>4</td><td>0.24</td><td>3.21</td><td>0.662</td><td class="good">0.650</td></tr>
+<tr><td></td><td>6</td><td>0.64</td><td>3.34</td><td>0.575</td><td class="good">0.593</td></tr>
+<tr><td></td><td>8</td><td>0.47</td><td>3.35</td><td>0.504</td><td class="good">0.471</td></tr>
+<tr><td>steps joint (mp-pair)</td><td>8</td><td>0.44</td><td>3.43</td><td>0.514</td><td class="good">0.514</td></tr>
+<tr><td>co-occupancy 5-char</td><td>8</td><td>0.72</td><td>3.75</td><td>0.552</td><td class="good">0.475</td></tr>
+<tr><td>co-occ joint (mp-pair)</td><td>8</td><td>0.79</td><td>3.78</td><td>0.550</td><td class="good">0.514</td></tr>
+<tr><td>co-occ balanced</td><td>8</td><td>1.27</td><td>7.10</td><td>0.814</td><td class="good">0.798</td></tr>
+<tr><td>frames-first (query-blind)</td><td>8</td><td>0.26</td><td>0.57</td><td>0.176</td><td class="good">0.245</td></tr>
+</table></div>
+<p>(Colored cells = within ±0.08 of prediction, about one probe-noise σ at these sample sizes; the
+"overshoot by 0.1–0.2" disclaimers below refer to the grey saturated regimes visible in Fig. 4, none of
+which appear in this table.) And at the <b>deployed locus</b> — the room-token carrier messages of the
+frames-first pipeline:
+room@L14 pred .346 / meas .296; <b>room@L16 pred .375 / meas .363</b> (the peak carrier); room@L20
+.350/.396; char@L16 .212/.311. The regimes that miss (predictions overshoot 0.1–0.2) are exactly those
+where the per-frame probe saturates at 1.0 — there d′ is unmeasurable from finite data, so the
+prediction is an extrapolation. The law's domain of validity is self-diagnosing.</p>
+<div class="fig"><canvas id="f7" width="1320" height="900"></canvas>
+<div class="cap"><b>What to look at:</b> the diagonal. Filled circles = well-powered question-first
+regimes; <span style="color:#0E7C6B">◆ diamonds</span> = deployed carrier messages; grey open circles =
+saturated regimes where d′ is unmeasurable (expected overshoots). <b>Fig. 4 — the parity plot:</b>
+x = predicted from (d′, N), y = independently measured. Zero fitted parameters anywhere.</div></div>
+
+<h2 id="c2"><span class="claim">C2</span>"Superposition" is measurable noise correlation</h2>
+<p class="rules-out">Rules out: treating single-pass interference and the SNR story as two separate phenomena.</p>
+<p>The √N step assumes per-frame noises are independent. Measured: in every <em>joint</em>-pass cache the
+cross-frame residual correlation is ρ ≈ +0.09–0.13; in the matched <em>multipass</em> (isolated-frame)
+caches, ρ ≈ +0.004–0.014. Same frames, same task — the only difference is whether the model saw them in
+one forward pass. Single-pass processing is what correlates the noise; isolation removes it. This is the
+quantitative form of the "superposition" observations, and it has a name in the population-coding
+literature: information-limiting correlations (Moreno-Bote et al. 2014). Nuance: the ρ-penalized prediction replaces the accumulated noise σ√N with σ·√(N(1 + (N−1)ρ)) —
+correlated noise does not average away. Measured accuracies
+track the <em>iid</em> prediction better than that penalized version — a full-dimensional readout can
+project out the shared-direction part of correlated noise, so only the component along the matched
+filter is irreducible.</p>
+<div class="fig"><canvas id="f8" width="1320" height="380"></canvas>
+<div class="cap"><b>What to look at:</b> joint vs isolated bars per task — an order of magnitude apart.
+<b>Fig. 5 — cross-frame noise correlation ρ</b> (steps: .085 → .014; co-occ: .096 → .004; matched
+cache pairs, same samples).</div></div>
+
+<h2 id="c3"><span class="claim">C3</span>Nothing after the sum helps</h2>
+<p class="rules-out">Rules out: every "smarter readout on the pooled state" proposal, in one row of numbers.</p>
+<p>Sufficiency (D4) predicts an MLP on the aggregate cannot beat a linear readout. Measured: MLP − linear
+is negative in all 21 regimes tested (−0.04 to −0.58). Two independent echoes: ridge-then-round beats
+multinomial logistic by 10–25 points everywhere (the decoder matching the equispaced-means geometry
+wins), and MLP-after-sum scores 0.34 while the same nonlinearity applied per-frame <em>before</em> the
+sum reaches ~1.0 — position of the nonlinearity is everything.</p>
+
+<h2 id="c4"><span class="claim">C4</span>The Gaussian model is checked, not assumed</h2>
+<p class="rules-out">Rules out: "your model is an assumption" — the adequacy tests are part of the run.</p>
+<p>In every trusted regime: |skew| ≤ 0.15 and excess kurtosis ≤ 0.2 of the held-out matched-filter
+projections; class-width ratio 0.89–0.92 (equal-covariance); and the two independent d′ estimators
+(gap/width vs AUC-derived) agree within a few percent — they can only agree if the projections are
+actually Gaussian. Where adequacy strains (saturated probes, tiny n), the parity prediction degrades
+too — the failure modes are the honest ones.</p>
+
+<h2 id="c5"><span class="claim">C5</span>The δ channel is causally load-bearing</h2>
+<p class="rules-out">Rules out: "the count direction is a probe artifact the model never uses."</p>
+<p>Erase the δ̂ component of the room-token state <em>continuously at every carrier layer</em> (so later
+layers cannot re-deliver it) and the model collapses into systematic undercounting: accuracy at true
+counts ≥3 drops to ~0, it answers low almost always, MAE 1.51 → 2.47. Erase a <em>random</em> axis the
+same way: nothing (0.247, MAE 1.50 ≈ baseline). The model's emitted count transits that specific
+direction — it is just read abysmally, which is C6.</p>
+
+<h2 id="c6"><span class="claim">C6</span>The readout wall and the pipe limit — the dose–response series</h2>
+<p class="rules-out">Rules out: "just deliver more count signal to the output" — delivery was never the problem.</p>
+<p>First, what the dose is. In a clean forward pass, the pooled room-token state already contains the
+count signal Σ<sub>k</sub> e<sub>k</sub>δ = g·δ (§4). Adding <b>(λ−1)·g·δ</b> turns that component into
+<b>λ·g·δ</b> — the aggregate count signal multiplied by λ, <em>with the accumulated noise untouched</em>
+(we add only the deterministic part, which requires knowing the true g — hence "oracle": this is a
+mechanism experiment, not a method). Equivalently: every evidence frame's δ contribution scaled by λ.
+So λ=1 is a no-op, λ=0 subtracts exactly the count signal (ablation), λ≥2 amplifies it — a controlled
+d′ knob at the deployed carrier. Per arm we read three things: what the model says, what its mid-network
+state contains, and what a linear head on the <em>final</em> layer would say — i.e. the model with a
+repaired readout:</p>
+<div class="tblwrap"><table>
+<tr><th>arm</th><th>emitted answer<br>(frozen head)</th><th>decode @L24</th><th>repaired readout<br>(linear head on final layer)</th></tr>
+<tr><td>ablate (λ=0, single-site — leaky)</td><td>0.233</td><td>0.367</td><td>—</td></tr>
+<tr><td>baseline (λ=1)</td><td>0.227</td><td>0.367</td><td>0.283</td></tr>
+<tr><td>amplify ×2</td><td>0.213</td><td>0.400</td><td>—</td></tr>
+<tr><td>amplify ×4</td><td>0.200</td><td>0.533</td><td>—</td></tr>
+<tr><td>amplify ×8</td><td>0.187</td><td>0.650</td><td class="good">0.683</td></tr>
+<tr><td>amplify ×16</td><td>0.193</td><td>0.700</td><td>0.650</td></tr>
+<tr><td>amplify ×32</td><td>0.147</td><td>0.717</td><td class="good">0.700</td></tr>
+<tr><td>amplify ×64</td><td class="bad">0.133</td><td class="good">0.750</td><td class="good"><b>0.783</b></td></tr>
+<tr><td>amplify ×128</td><td>0.167</td><td>0.633</td><td>0.667</td></tr>
+<tr><td>multi-layer ×8 (4 sites)</td><td>0.193</td><td>0.650</td><td>0.667</td></tr>
+<tr><td>multi-layer ×16 (4 sites)</td><td class="bad">0.140</td><td>0.650</td><td>0.617</td></tr>
+<tr><td><b>scrub — δ̂ removed at every carrier layer</b></td><td class="bad">0.180 (MAE 2.47, undercount collapse)</td><td>0.317</td><td>0.317</td></tr>
+<tr><td>scrub of a <em>random</em> axis (control)</td><td>0.247 (MAE 1.50 ≈ baseline)</td><td>0.333</td><td>0.300</td></tr>
+<tr><td>random-direction dose ×8 (control)</td><td>0.213</td><td>0.600</td><td>0.517</td></tr>
+</table></div>
+<p style="font-family:system-ui,sans-serif;font-size:.8rem;color:var(--muted)">Why some repaired-readout
+cells are "—": the final-layer capture was added in the third script version; the λ=0/2/4 arms come from
+the first run, which cached only the L24 state. Backfilling them would cost a GPU rerun to interpolate
+between points we already have on both sides — not worth it.</p>
+<div class="fig"><canvas id="f6" width="1320" height="560"></canvas>
+<div class="cap"><b>What to look at:</b> the two solid curves dissociate — decodability rises and
+saturates ≈0.75 (the measured capacity of the frozen room→last-token hop) while the emitted answer never
+moves; the dashed curve is the repaired-readout accuracy, tracking the information, not the behavior.
+<b>Fig. 6 — the causal dose–response.</b> Peak dissociation at ×64: repaired readout 0.783 vs frozen
+head 0.133 — a 5.9× gap produced by nothing but the final unembedding.</div></div>
+<p><b>Multi-layer injection doesn't matter</b> (×8: 0.650 = 0.650 vs single-site; it only hurts behavior
+more). Three reasons, all corollaries: (i) the dose is a <em>noise-free</em> deterministic function of
+g — one copy is information-saturated, replicas add nothing (the mirror image of why summing noisy
+frames hurts); (ii) RMSNorm and linear probing are scale-insensitive — more amplitude along the same
+axis is the same 1-D signal; (iii) the binding constraint is the room→last transmission through frozen
+attention, which same-position copies cannot widen. The high-λ ladder confirmed the registered
+prediction: decode saturates at λ=16–64 and declines at ×128 as the dose crushes the token's other
+content (§8's normalization math, observed).</p>
+<p>Three table cells that need their fine print said aloud. <b>The λ=0 "ablate" row is null because it
+is leaky, not because δ doesn't matter:</b> that arm subtracted the signal at <em>one</em> layer
+boundary only, and later layers' attention re-delivers the same messages into the carrier — which is
+precisely why the load-bearing test (C5) scrubs at <em>every</em> carrier layer, and there the collapse
+is unambiguous. <b>The random-direction dose decodes at 0.600 by construction, not by leak:</b> its
+magnitude is proportional to g (that's what makes it magnitude-matched), so it literally writes the
+count onto a random axis — a supervised probe then reads it there. It is a control for
+<em>behavioral</em> specificity (behavior stays at baseline: the model exploits no novel count channel
+on any axis), not for probe decodability, where it is expected to score. And <b>the geometric wall
+itself is a measurement, not an inference:</b> the count direction at the final layer has cosine ≤ 0.01
+with all nine digit unembedding rows (regression R² 0.85 with alignment 0.008 — "the right answer in the
+wrong direction") — that near-orthogonality is why no amount of amplification moves the digit logits.
+The wall now also has a direction at the carrier itself: extracting the model's <em>native reading
+axis</em> (the gradient of the answer logit w.r.t. the room-token state, averaged over 100 samples,
+coherence 0.66) shows it is essentially orthogonal to both good axes — cos(native, w*) = 0.005,
+cos(native, δ̂) = 0.056 — and carries only <b>d′ = 0.51</b> of the 2.47 available. The closure: the §5
+law evaluated along the model's <em>own</em> axis predicts accuracy ≈ 0.17; the model measures 0.21–0.24.
+<b>One formula, three axes, the whole hierarchy: native 0.51 → the model's ~0.2; whitened 2.47 → the
+probe ceiling ~0.47; multipass ≥6.6 → the solution's 0.95+.</b>
+</p>
+<div class="tblwrap"><table>
+<tr><th>axis</th><th>how it was obtained</th><th>cos to w*</th><th>held-out d′</th><th>law → predicted acc</th><th>observed acc</th></tr>
+<tr><td><b>native</b> (the model's own reading)</td><td>gradient of the answer-digit logit at the carrier state, sign-aligned average over 100 samples (coherence 0.66)</td><td>0.005</td><td class="bad">0.51</td><td>≈ 0.17</td><td>model: 0.21–0.24</td></tr>
+<tr><td><b>whitened w*</b> (best linear read, joint pass)</td><td>shrinkage-LDA on held-out frame messages at the causal carrier (≈ Σ⁻¹δ)</td><td>1</td><td>2.47</td><td>≈ 0.47</td><td>probe pipeline: ≈ 0.47</td></tr>
+<tr><td><b>multipass whitened</b> (Tier-2 reps)</td><td>same LDA on per-frame reps from isolated passes (no cross-frame processing)</td><td>—</td><td class="good">≥ 6.6</td><td>≥ 0.95</td><td>tally solution: 0.96–0.98</td></tr>
+</table></div>
+<p>
+("decode-then-count" / dtc, used below and in C7 = classify each frame with a probe, then aggregate the
+per-frame decisions — the gate-before-sum readout.)</p>
+
+<div class="story">
+<h3 style="margin-top:0">The readout problem in sixty seconds — and why the obvious fix fails</h3>
+<p><b>The picture.</b> After all the pooling, the count that survives is written on the last-token
+state along some direction <span class="m">u</span> — think of it as a message scribbled at one
+particular angle on a crowded page. The announcer (the unembedding matrix W<sub>U</sub>) reads that
+page through <em>fixed glasses</em>: each digit token has one frozen reading direction, learned during
+pretraining for predicting digits <em>in text</em>. Nobody ever forced the writer and the reader to
+agree on an angle for "analog tally accumulated at a room token" — that situation was too rare in
+pretraining to matter. So the message and the glasses ended up nearly perpendicular.</p>
+<p><b>The three lines.</b> The emitted score for digit k is a dot product with a frozen row:</p>
+<div class="disp"><span class="m">logit(k) = w<sub>k</sub> · x,&nbsp;&nbsp;&nbsp;
+x = (count)·u + everything else</span></div>
+<p>so what reaches the answer is only the overlap between the reading rows and the count's direction:</p>
+<div class="disp"><span class="m">usable separability ≈ d′<sub>available</sub> × (overlap of reader with u)
+&nbsp;&nbsp;&nbsp; measured: cos ≈ 0.005–0.056</span></div>
+<div class="disp"><span class="m">d′ 2.47 available on the page &nbsp;→&nbsp; d′ 0.51 through the glasses
+&nbsp;→&nbsp; accuracy ~0.2 (the law, applied to 0.51)</span></div>
+<p>Same page, same ink — the reader keeps a fifth of the separability, and the same law that predicts
+everything else predicts the model's actual score from that residue. Causal proof it's the reader and
+not the page: inject the count at strength λ=64 and a correctly-angled probe reads the final state at
+<b>0.783</b> while the model emits <b>0.133</b>. And the angle is a <em>constant of the frozen
+weights</em>: the native reading direction barely moves across sequence lengths (cos 0.82–0.92
+between N=2/4/8), so the wall neither grows nor shrinks with N — it's just always there.</p>
+<p><b>Why the obvious fix fails (Garcia's trap).</b> "Just re-grind the glasses": replace the digit
+rows of W<sub>U</sub> with the correctly-aligned direction. We did (<span class="m">deploy_readout_fix</span>,
+after Garcia 2026, arXiv:2605.03258). Under constrained scoring it works — but in <em>free
+generation</em> it collapses (Garcia: to 0%), because those same rows are consulted at <em>every</em>
+token of every generation, not just the final answer: regrinding the glasses for one message breaks
+the announcer's ability to read everything else on the page. A frozen reader is load-bearing.</p>
+<p><b>The intuitive fix, in one sentence.</b> <em>Don't teach the reader a new angle — either write
+the message at the angle the reader already watches, or hand the answer over without the glasses.</em>
+Concretely, the two working routes: (a) <b>realign the writing upstream</b> — small LoRA on the
+routing (Q/V) rotates the count into the direction the frozen reader expects (Garcia: 83%); or
+(b) <b>bypass the reader entirely</b> — keep the tally outside and read it directly with an aligned
+probe, then say the number symbolically (our tally register's readout, and the reason the λ-dose
+"repaired" column works at 0.783). Both respect the same principle: the frozen readout is part of the
+model's language machinery — route around it, never rewrite it.</p>
+</div>
+<h2 id="c7"><span class="claim">C7</span>The theory transfers: co-occupancy and rooms</h2>
+<p class="rules-out">Rules out: "this is a steps_in_room artifact" — the law, the readout wall, and the causal carrier structure replicate on both other MMRED task families.</p>
+<h3>Co-occupancy — a distributed carrier, and a causal double dissociation</h3>
+<p>The per-token d′ map found no single carrier: the evidence is spread over the <b>two character-name
+tokens</b> (d′ 1.5–2.9) with "same" as a secondary. Accordingly, every single-token locus
+<em>under</em>-predicts the measured decode (the single-channel formula is a per-channel lower bound) —
+and the <b>block readout closes the gap</b>: the two-name concat at L14 has block-d′ 3.19 → predicted
+0.456 vs measured 0.484.</p>
+<div class="tblwrap"><table>
+<tr><th>locus</th><th>d′ whitened</th><th>predicted</th><th>measured</th></tr>
+<tr><td>char2 token, L16</td><td>2.82</td><td>0.412</td><td>0.497</td></tr>
+<tr><td>char1 token, L18</td><td>1.58</td><td>0.259</td><td>0.489</td></tr>
+<tr><td>"same" token, L16</td><td>2.33</td><td>0.354</td><td>0.500</td></tr>
+<tr><td><b>two-name block, L14</b></td><td><b>3.19</b></td><td><b>0.456</b></td><td class="good"><b>0.484</b></td></tr>
+<tr><td>3-carrier block, L16</td><td>2.90</td><td>0.423</td><td>0.540 (residual +0.11 — see note)</td></tr>
+</table></div>
+<p>The causal arms produced a <b>double dissociation</b>: scrubbing <b>char2</b>'s δ channel at every
+carrier layer collapses the model into undercounting (0.187 → 0.100; accuracy at counts ≥3 → ~0), while
+scrubbing <b>char1</b> — whose messages are just as much a code (d′ 1.8) — does <em>nothing</em>
+(0.193 ≈ baseline); both-names = char2 alone; random-axis scrub inert. <b>The model causally consumes
+only one of its two information-bearing carriers.</b> "Decodable ≠ used," demonstrated <em>between
+carriers of a single task</em>. The readout wall replicates too: dosing ×16 lifts last-token count
+decodability 0.350 → <b>0.767</b> while the emitted answer falls (0.187 → 0.133).
+<b>And the anatomy refines the picture (early-layer scrambles + last-token scrub):</b> char1 is causally
+needed <em>early</em> (disrupting it at L2–12 drops accuracy to 0.113 with the g4 signature collapsing)
+and inert late; char2 is inert early and load-bearing late; dosing the <em>causal</em> carrier moves
+behavior (0.187 → 0.240) where dosing the non-causal one did nothing; the last token's own δ channel is
+null. The refined law of carriers: <b>one binding site per task — the last query-completing entity
+token — where upstream slots deposit their identity early and the count evidence then accumulates and
+is consumed.</b> Note on the +0.11
+3-block residual: resolved at n=1080 — the 1-D same-axis projection of the sum matches the full-3584-dim
+ridge (0.48–0.50 vs 0.49–0.52; the ternary-channel hypothesis tested and refuted), so <b>sufficiency
+holds at the co-occ carrier too</b> and the residual was probe variance at n=600, shrinking to ~+0.07
+against the single-channel prediction.</p>
+<h3>Rooms — the structural-vs-statistical split, measured</h3>
+<p>At the carrier (the character-name token, L14) the per-room one-vs-rest discriminability is huge —
+<b>d′_r ≈ 4.5–5.9</b> per room — and three readouts of the <em>same pooled sum</em> land in exactly the
+order the K-channel theory (§7) demands:</p>
+<div class="disp"><span class="m">linear 0.400 &nbsp;&lt;&nbsp; per-channel threshold 0.650 (closed form predicts 0.51 — conservative: it assumes independent channels and midpoint thresholds) &nbsp;≪&nbsp; decode-then-count 0.988</span>
+<span class="why">same vector, three readouts: the +0.25 jump from adding one per-channel nonlinearity IS the structural failure of linear pooling for support-size</span></div>
+<p>And the sharpest confirmation — <b>the sufficiency sign-flip</b>. For counting, an MLP on the pooled
+state never beats linear (21/21 regimes — C3), because counting is linear in the tallies. For
+distinct-count the theory predicts the <em>reverse</em>, and in 6-dim tally space (project the sum onto
+the six room axes, so the MLP has no dimensionality excuse): <b>MLP beats linear by +0.21 to +0.26</b>
+(0.54–0.59 vs 0.33, 3 seeds). One task family flips the sign exactly where the algebra says it must.
+The layer gradient corroborates (d′_r 5.0→2.4 from L14→L18 drags threshold 0.65→0.41 and
+decode-then-count 0.99→0.71 in lockstep while linear stays pinned at ~0.40), and rooms shows the largest
+aggregation gap of all three tasks: decode-then-count 0.803 vs the model's own <b>0.087</b> — 10×.</p>
+<p><b>E5-rooms — the K-subspace causal verdict.</b> Scrubbing the entire span{δ<sub>room1</sub>…δ<sub>room6</sub>}
+(QR-orthonormalized) at the char token collapses the model to <b>0.053</b> with answers migrating down to
+1–2 (evidence-removed signature), while a <em>dimensionality-matched</em> random 6-dim subspace is inert
+(0.120 ≈ base 0.133). And a first: the tally dose ×16 is the only dose in the program that moved
+behavior (0.133 → 0.233) — but MAE stayed flat and by-gold shows a pure upward distribution shift: the
+frozen readout is coupled to the <em>total tally magnitude</em> (a crude scalar ≈ Σn<sub>r</sub>) while
+remaining blind to per-channel structure. Probe side as always: the dose delivers +0.22 of decodability
+(0.30 → 0.517) far beyond the behavioral response.</p>
+<p>Cross-task ladders, all at deployed carriers, rungs labeled [model's own answer &lt; best linear
+decode of the pooled state &lt; decode-then-count (gate before sum) &lt; per-frame ceiling]:
+steps 0.24 &lt; 0.36–0.40 &lt; 0.47 &lt; 1.0 · co-occ 0.155 &lt; 0.46–0.54 &lt; 0.60 &lt; 0.94 ·
+rooms 0.087 &lt; 0.40 &lt; 0.65 &lt; 0.99. Same anatomy, three tasks: the model-to-linear gap is the
+readout wall, linear-to-dtc is the pooling cap, dtc-to-ceiling is per-frame extraction. (One forward-looking
+measurement: frame <em>position</em> is ~losslessly decodable from the same carrier messages — 0.988/0.989
+— so the channel temporal tasks need already exists at this locus; being nonlinear in
+evidence × position, they are predicted to land in the rooms class.)</p>
+
+<h2 id="ledger">Numbers ledger — every quoted number, its run</h2>
+<div class="tblwrap"><table>
+<tr><th>number(s)</th><th>run / job</th></tr>
+<tr><td>base collapse 85→20–30%; per-frame probe 0.94–0.997</td><td>RESULTS.md exec summary; probe_evidence_selection_* runs</td></tr>
+<tr><td>Q-first parity, 16 regimes; d′ tables; ρ; MLP−linear; adequacy</td><td>outputs/frame_axis/probes/dprime_parity/20260703_162729 (3 seeds)</td></tr>
+<tr><td>deployed parity (room/char carriers)</td><td>outputs/frame_axis/probes/dprime_parity/20260703_170355</td></tr>
+<tr><td>deployed message cache; carrier d′ map; dtc 0.48 vs model 0.21–0.24</td><td>outputs/frame_axis/probes/carrier_message/count_msgcache (job 116866); count_per_token_* (job 115655)</td></tr>
+<tr><td>dose λ=0–4 + random control</td><td>outputs/frame_axis/probes/dprime_dose/20260703_182429 (job 116926)</td></tr>
+<tr><td>multi-layer dose, scrub, scrub-random, repaired-readout columns</td><td>…/dprime_dose/20260703_192542 (job 116943)</td></tr>
+<tr><td>high-λ ladder 16–128</td><td>…/dprime_dose/20260703_194553 (job 116945)</td></tr>
+<tr><td>mean≡sum 0.44; MLP-after-sum 0.34; gate ~1.0; S_evid 1.000</td><td>probes/message_sum/2026-06-28 runs; probe_amplification / probe_nonlinearity_ceiling</td></tr>
+<tr><td>R²≈0.85 with head alignment cos ≤ 0.01; linear 0.458 vs MLP 0.437</td><td>probes/count_readout_alignment + readout_ceiling (2026-06-26)</td></tr>
+<tr><td>Σσ / soft-OR OOD 0.82–1.0; LoRA d′ 0.4→2.7</td><td>RESULTS.md [2026-06-28…30] method comparison; lora_sft_baseline</td></tr>
+<tr><td>co-occ/rooms carrier maps; dtc 0.601 / 0.803 vs model 0.155 / 0.087</td><td>carrier_message/{cooc,rooms}_locmap (jobs 116997/116998)</td></tr>
+<tr><td>co-occ deployed parity + blocks; rooms K-channel (d′_r, 0.40/0.65/0.99)</td><td>dprime_parity/20260704_011808 + 20260704_015706; caches jobs 117005/117014</td></tr>
+<tr><td>co-occ double dissociation; dose 0.35→0.767 decode</td><td>dprime_dose_cooc (job 117015)</td></tr>
+<tr><td>rooms 6-dim tally MLP flip (+0.21…+0.26)</td><td>RESULTS.md [2026-07-04] CPU diagnostics on rooms_msgcache</td></tr>
+</table></div>
+
+<div class="part">Part IV — What would fix it</div>
+
+<h2 id="s10"><span class="no">10</span>Requirements for any cure, and the honest scorecard</h2>
+<div class="tblwrap"><table>
+<tr><th></th><th>Requirement</th><th>Why (from the theory)</th></tr>
+<tr><td><b>R1</b></td><td>A per-element nonlinearity <em>before</em> pooling</td><td>decisions must be made at per-frame d′, before noise accumulates (§6); post-pool functions are futile (sufficiency, C3)</td></tr>
+<tr><td><b>R2</b></td><td>An <em>extensive</em> (unnormalized) reduction</td><td>convex combinations are intensive — they encode fractions, confounding count with length across N (§8)</td></tr>
+<tr><td><b>R3</b></td><td>A <em>direct</em> readout of the reduction</td><td>the frozen head is misaligned (cos ≤ 0.01) and ignores even a ×64-amplified, 0.78-decodable signal (C6)</td></tr>
+</table></div>
+<p><b>Retrain the backbone (LoRA)?</b> Works by raising per-frame d′ (measured 0.4 → 2.3–2.7 —
+δ̂-axis numbers from the June decomposition, comparable within the row but not to the whitened 3.4;
+accuracy follows) — causal proof that d′ is the lever, but per-task, model-specific, and R3 stays unsolved
+(0.99 IID / 0.035 count-OOD: the head caps). <b>Serial decomposition (CoT / per-frame passes)?</b>
+Task- and model-agnostic, satisfies R1 by making N=1 everywhere; costs N× compute; the zero-training
+baseline any fix must beat (oracle-CoT → 0.94–1.0). <b>An adapter on the frozen model — read →
+query-conditioned gate → fixed extensive reduction (sum / soft-OR) → direct read?</b> The only shape
+hitting R1+R2+R3 at once while staying frozen and task-family-agnostic; instantiated twice already
+(isolation-mask + Σσ: 0.95–1.0 with count extrapolation; frame-axis DeepSets adapter). The honest open
+costs: per-frame supervision (or a self-supervised look-again signal) for the gate, and the per-frame
+extraction ceiling under crowding becomes the new binding constraint.</p>
+<p class="note red">What the theory says <em>cannot</em> work, so stop spending on it: any smarter
+readout placed after the existing pooled state (C3); attention re-weighting that keeps Σα = 1 (still
+intensive — measured: temperature null, GAIN&gt;1 modest); better aggregators over frozen low-d′ inputs
+(mamba over frozen reps: capped, as measured); and pumping more signal into the carrier without touching
+the readout (C6 — the 5.9× gap).</p>
+<h3>The clean solution, designed from the diagnosis alone: a query-conditioned tally register</h3>
+<p>If one knew only the theory and none of the project's prior methods, the requirements force a single
+architecture — five components, each answering one measured failure:</p>
+<div class="tblwrap"><table>
+<tr><th>component</th><th>what it does</th><th>which finding forces it</th></tr>
+<tr><td><b>1 · Locate</b></td><td>per-token × layer d′ map (~400 samples) finds the carrier — empirically the last query-completing entity token — then a 15-min scrub verifies it causally</td><td>carriers are task-dependent; the model consumes a single binding site (C7 anatomy)</td></tr>
+<tr><td><b>2 · Decide</b></td><td>per-frame, per-channel gate σ(w<sub>c</sub>·m<sub>k</sub>) on the carrier messages, trained by <b>look-again distillation</b> — the frozen model labels single frames at 0.96–0.99, teaching its own gate; no human labels</td><td>decisions must happen at full per-frame d′, before √N accumulation (§6) — and only where d′ suffices (measured on two sibling 9-channel tasks: at per-channel d′ ≈ 1.1–1.5 hard
+thresholds collapse and soft pooling wins — the gate has a crossover)</td></tr>
+<tr><td><b>3 · Accumulate</b></td><td>an integer-ish tally vector n̂ = Σ<sub>k</sub> gates, held in a side register <em>outside the residual stream</em> — never divided, never normalized</td><td>softmax is intensive (§4) and RMSNorm kills magnitude codes (§8): extensive quantities cannot live in the normalized stream</td></tr>
+<tr><td><b>4 · Reduce</b></td><td>a tiny <em>fixed</em> algebra chosen by the question type: Σ (count) · Σ𝟙[n&gt;0] (support size) · position-ops (temporal — the position channel exists at the carrier, 0.99 decodable)</td><td>near-zero learned parameters here is what buys count/length extrapolation — nothing to memorize a training range into</td></tr>
+<tr><td><b>5 · Read out symbolically</b></td><td>write the tally back as <em>text tokens</em> ("frames 2, 5, 7 → 3") and let the frozen model read it — internal CoT, computed in one pass</td><td>the readout wall is geometric (count axis ⊥ digit rows; ×64 amplification useless — C6); text re-entry converts a geometry problem into a reading problem the model solves (oracle-list → 0.88–1.0)</td></tr>
+</table></div>
+<p>The honest coda: components 2–4 reconstruct the DeepSets/Σσ shape the project's empirical search had
+already converged on — which is the point, not an anticlimax: <b>the theory leaves no other shape
+available</b>. What the from-scratch design adds: self-supervised gate labels, the out-of-stream
+register, the symbolic re-entry readout, and the d′-sufficiency condition on when to gate at all.
+The deepest version is architectural: transformers lack an <em>extensive register</em> as a primitive;
+everything above is a prosthesis for that missing part.</p>
+
+<div class="foot">Source of record: <span class="m">docs/dprime_explainer.html</span> in the thesis repo ·
+companion to RESULTS.md [2026-07-03b–f] and STORY.md §2–3 · definitions: Fisher 1936 · Green &amp; Swets
+1966 · Macmillan &amp; Creelman · Averbeck, Latham &amp; Pouget 2006 · Moreno-Bote et al. 2014 · figures
+are simulations of the stated model at the measured parameter values; all result tables trace to the
+numbers ledger.</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+// ---------- utilities ----------
+function rng(seed){ let s=seed>>>0; return function(){ s|=0; s=(s+0x6D2B79F5)|0;
+  let t=Math.imul(s^(s>>>15),1|s); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; };}
+function gauss(r){ let u=0,v=0; while(u===0)u=r(); while(v===0)v=r();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function erf(x){ const s=x<0?-1:1; x=Math.abs(x);
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const t=1/(1+p*x), y=1-((((a5*t+a4)*t+a3)*t+a2)*t+a1)*t*Math.exp(-x*x); return s*y; }
+function Phi(x){ return 0.5*(1+erf(x/Math.SQRT2)); }
+function binom(n,k){ let r=1; for(let i=0;i<k;i++) r=r*(n-i)/(i+1); return r; }
+const EV="#0E7C6B", NV="#B85C38", INK="#20242C", MUT="#8A8F88", RULE="#E3E0D6";
+function setup(id){ const c=document.getElementById(id); if(!c) return null;
+  return {c,ctx:c.getContext("2d"),W:c.width,H:c.height}; }
+
+// closed-form accuracies
+function accLinear(d,N){ const dn=d/Math.sqrt(N), pI=Math.max(2*Phi(dn/2)-1,0), pB=Phi(dn/2);
+  return (2*pB+Math.max(N-1,0)*pI)/(N+1); }
+function accGate(d,N){ const p=1-Phi(d/2); let tot=0;
+  for(let g=0;g<=N;g++){ let pg=0;
+    for(let j=0;j<=Math.min(g,N-g);j++)
+      pg+=binom(g,j)*Math.pow(p,j)*Math.pow(1-p,g-j)*binom(N-g,j)*Math.pow(p,j)*Math.pow(1-p,N-g-j);
+    tot+=pg; }
+  return tot/(N+1); }
+
+// ---------- Fig 1: two clouds + projection ----------
+(function(){
+  const S=setup("f1"); if(!S) return; const {ctx,W,H}=S; const r=rng(7);
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const cx=W/2;
+  const muN=[cx-170, 290], muE=[cx+170, 250], s=95;
+  function cloud(mu,color,n){ ctx.fillStyle=color;
+    for(let i=0;i<n;i++){ const x=mu[0]+gauss(r)*s, y=mu[1]+gauss(r)*s*0.75;
+      ctx.globalAlpha=0.5; ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fill(); } ctx.globalAlpha=1; }
+  cloud(muN,NV,120); cloud(muE,EV,120);
+  function dot(p,c){ ctx.fillStyle=c; ctx.beginPath(); ctx.arc(p[0],p[1],9,0,7); ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.lineWidth=2.5; ctx.stroke(); }
+  ctx.strokeStyle=INK; ctx.lineWidth=3.5;
+  ctx.beginPath(); ctx.moveTo(muN[0],muN[1]); ctx.lineTo(muE[0]-14,muE[1]+2); ctx.stroke();
+  const ang=Math.atan2(muE[1]-muN[1],muE[0]-muN[0]);
+  ctx.beginPath(); ctx.moveTo(muE[0]-6,muE[1]);
+  ctx.lineTo(muE[0]-6-16*Math.cos(ang-0.42),muE[1]-16*Math.sin(ang-0.42));
+  ctx.lineTo(muE[0]-6-16*Math.cos(ang+0.42),muE[1]-16*Math.sin(ang+0.42));
+  ctx.closePath(); ctx.fillStyle=INK; ctx.fill();
+  dot(muN,NV); dot(muE,EV);
+  ctx.font="italic 30px Georgia"; ctx.fillStyle=INK;
+  ctx.fillText("δ",(muN[0]+muE[0])/2-8,(muN[1]+muE[1])/2-18);
+  ctx.font="26px system-ui"; ctx.fillStyle=NV; ctx.fillText("non-evidence frames",muN[0]-190,muN[1]+150);
+  ctx.fillStyle=EV; ctx.fillText("evidence frames",muE[0]+10,muE[1]-130);
+  ctx.strokeStyle=MUT; ctx.setLineDash([7,6]); ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(120,muN[1]+((120-muN[0])/(muE[0]-muN[0]))*(muE[1]-muN[1]));
+  ctx.lineTo(W-120,muN[1]+((W-120-muN[0])/(muE[0]-muN[0]))*(muE[1]-muN[1])); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=MUT; ctx.font="24px system-ui"; ctx.fillText("reading axis w",W-360,muE[1]-60);
+  const base=H-70, ph=200;
+  ctx.strokeStyle=RULE; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(90,base); ctx.lineTo(W-90,base); ctx.stroke();
+  const pm=(v)=>cx+(v)*3.1;
+  function bump(mu,sig,color){
+    ctx.beginPath();
+    for(let x=90;x<=W-90;x+=2){ const z=((x-pm(mu))/(sig*3.1));
+      const y=base-ph*Math.exp(-0.5*z*z); if(x===90)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.strokeStyle=color; ctx.lineWidth=4; ctx.stroke();
+    ctx.lineTo(W-90,base); ctx.lineTo(90,base); ctx.closePath();
+    ctx.fillStyle=color; ctx.globalAlpha=0.10; ctx.fill(); ctx.globalAlpha=1;
+  }
+  bump(-55,32,NV); bump(55,32,EV);
+  ctx.save(); ctx.beginPath();
+  for(let x=90;x<=W-90;x+=2){ const zN=((x-pm(-55))/(32*3.1)), zE=((x-pm(55))/(32*3.1));
+    const y=base-ph*Math.min(Math.exp(-0.5*zN*zN),Math.exp(-0.5*zE*zE));
+    if(x===90)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+  ctx.lineTo(W-90,base); ctx.lineTo(90,base); ctx.closePath();
+  ctx.fillStyle="#8C3B2E"; ctx.globalAlpha=0.28; ctx.fill(); ctx.restore(); ctx.globalAlpha=1;
+  ctx.fillStyle=MUT; ctx.font="24px system-ui";
+  ctx.fillText("projections onto w — the unavoidable overlap is the error", 90, base+44);
+  ctx.strokeStyle=INK; ctx.lineWidth=2.5;
+  const yb=base-ph-26;
+  ctx.beginPath(); ctx.moveTo(pm(-55),yb); ctx.lineTo(pm(55),yb); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pm(-55),yb-8); ctx.lineTo(pm(-55),yb+8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pm(55),yb-8); ctx.lineTo(pm(55),yb+8); ctx.stroke();
+  ctx.font="italic 26px Georgia"; ctx.fillStyle=INK;
+  ctx.fillText("gap = d′ noise-widths", cx-120, yb-14);
+})();
+
+// ---------- Interactive: d' dictionary (f2b) ----------
+(function(){
+  const S=setup("f2b"); if(!S) return; const {ctx,W,H}=S;
+  const sl=document.getElementById("sl-d2");
+  function draw(){
+    const d=parseFloat(sl.value);
+    document.getElementById("out-d2").value=d.toFixed(1);
+    document.getElementById("out-ba").textContent=Phi(d/2).toFixed(3);
+    document.getElementById("out-auc").textContent=Phi(d/Math.SQRT2).toFixed(3);
+    document.getElementById("out-p").textContent=(1-Phi(d/2)).toFixed(3);
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    const base=H-60, ph=H-140, x0=80, x1=W-80;
+    const span=d+7;                                  // sigma units shown
+    const px=v=>x0+(x1-x0)*(v+3.5)/span;             // class N at 0, class E at d
+    const mid=d/2;
+    function bump(mu,col,shadeSide){
+      ctx.beginPath();
+      for(let x=x0;x<=x1;x+=2){ const v=(x-x0)/(x1-x0)*span-3.5, z=v-mu;
+        const y=base-ph*Math.exp(-0.5*z*z); if(x===x0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+      ctx.strokeStyle=col; ctx.lineWidth=4; ctx.stroke();
+      ctx.save(); ctx.beginPath();
+      if(shadeSide>0){ ctx.moveTo(px(mid),base);
+        for(let x=px(mid);x<=x1;x+=2){ const v=(x-x0)/(x1-x0)*span-3.5, z=v-mu;
+          ctx.lineTo(x,base-ph*Math.exp(-0.5*z*z)); } ctx.lineTo(x1,base); }
+      else { ctx.moveTo(x0,base);
+        for(let x=x0;x<=px(mid);x+=2){ const v=(x-x0)/(x1-x0)*span-3.5, z=v-mu;
+          ctx.lineTo(x,base-ph*Math.exp(-0.5*z*z)); } ctx.lineTo(px(mid),base); }
+      ctx.closePath(); ctx.fillStyle=col; ctx.globalAlpha=0.25; ctx.fill(); ctx.restore();
+      ctx.globalAlpha=1;
+    }
+    ctx.strokeStyle=RULE; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x0,base); ctx.lineTo(x1,base); ctx.stroke();
+    bump(0,NV,+1);      // N errs above the fence
+    bump(d,EV,-1);      // E errs below the fence
+    ctx.strokeStyle=INK; ctx.setLineDash([7,6]); ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(px(mid),base); ctx.lineTo(px(mid),base-ph-14); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=INK; ctx.font="22px system-ui";
+    ctx.fillText("midpoint fence",px(mid)+10,base-ph-2);
+    ctx.font="italic 24px Georgia";
+    ctx.fillText("d\u2032/2",(px(0)+px(mid))/2-16,base+40);
+    ctx.fillText("d\u2032/2",(px(mid)+px(d))/2-16,base+40);
+    ctx.strokeStyle=INK; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(px(0),base+18); ctx.lineTo(px(mid),base+18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(px(mid),base+18); ctx.lineTo(px(d),base+18); ctx.stroke();
+  }
+  sl.addEventListener("input",draw); draw();
+})();
+
+// ---------- Fig W (f2): naive vs whitened axis, side by side ----------
+(function(){
+  const S=setup("f2"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const pw=W/2-60;
+  const sLong=110, sShort=16, dvec=[70,0];
+  function drawPanel(x0,useWhiten,title){
+    const r=rng(13);
+    const cx=x0+pw/2, cy=210;
+    const muN=[cx-dvec[0],cy+8], muE=[cx+dvec[0],cy-8];
+    const c=Math.SQRT1_2;
+    function samp(mu){ const a=gauss(r)*sLong, b=gauss(r)*sShort;
+      return [mu[0]+a*c-b*c, mu[1]+a*c+b*c]; }
+    let w;
+    if(!useWhiten){ w=[muE[0]-muN[0],muE[1]-muN[1]]; }
+    else { const u=[c,c], v=[-c,c], d=[muE[0]-muN[0],muE[1]-muN[1]];
+      const du=d[0]*u[0]+d[1]*u[1], dv=d[0]*v[0]+d[1]*v[1];
+      const wu=du/(sLong*sLong), wv=dv/(sShort*sShort);
+      w=[wu*u[0]+wv*v[0], wu*u[1]+wv*v[1]]; }
+    const nw=Math.hypot(w[0],w[1]); w=[w[0]/nw,w[1]/nw];
+    const projsN=[],projsE=[];
+    for(let i=0;i<110;i++){ const p=samp(muN); ctx.fillStyle=NV; ctx.globalAlpha=0.45;
+      ctx.beginPath(); ctx.arc(p[0],p[1],4.5,0,7); ctx.fill();
+      projsN.push((p[0]-cx)*w[0]+(p[1]-cy)*w[1]); }
+    for(let i=0;i<110;i++){ const p=samp(muE); ctx.fillStyle=EV;
+      ctx.beginPath(); ctx.arc(p[0],p[1],4.5,0,7); ctx.fill();
+      projsE.push((p[0]-cx)*w[0]+(p[1]-cy)*w[1]); }
+    ctx.globalAlpha=1;
+    ctx.strokeStyle=INK; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(cx-w[0]*230,cy-w[1]*230); ctx.lineTo(cx+w[0]*230,cy+w[1]*230); ctx.stroke();
+    const base=H-64, ph=110;
+    const mN=projsN.reduce((a,b)=>a+b,0)/projsN.length, mE=projsE.reduce((a,b)=>a+b,0)/projsE.length;
+    const sd=(arr,m)=>Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
+    const sN=sd(projsN,mN), sE=sd(projsE,mE), sp=(sN+sE)/2;
+    const scale=pw/2/(Math.max(Math.abs(mN),Math.abs(mE))+3*sp);
+    function bump(mu,sig,color){ ctx.beginPath();
+      for(let px2=x0;px2<=x0+pw;px2+=2){ const val=(px2-(x0+pw/2))/scale, z=(val-mu)/sig;
+        const y=base-ph*Math.exp(-0.5*z*z); if(px2===x0)ctx.moveTo(px2,y); else ctx.lineTo(px2,y); }
+      ctx.strokeStyle=color; ctx.lineWidth=3.5; ctx.stroke(); }
+    ctx.strokeStyle=RULE; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(x0,base); ctx.lineTo(x0+pw,base); ctx.stroke();
+    bump(mN,sN,NV); bump(mE,sE,EV);
+    ctx.fillStyle=INK; ctx.font="600 23px system-ui";
+    ctx.fillText(title,x0+6,44);
+  }
+  drawPanel(30,false,"naive axis δ̂  →  bumps overlap (d′ = 0.33)");
+  drawPanel(W/2+30,true,"whitened axis Σ⁻¹δ  →  bumps separate (d′ = 3.4)");
+  ctx.strokeStyle=RULE; ctx.beginPath(); ctx.moveTo(W/2,20); ctx.lineTo(W/2,H-20); ctx.stroke();
+})();
+
+// ---------- Fig 2 (f3): random walk ----------
+(function(){
+  const S=setup("f3"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const N=8, d=3.4;
+  const x0=110,x1=W-70,y0=H-80,y1=50;
+  const xs=k=>x0+(x1-x0)*k/N;
+  const vmax=6.5, vmin=-3.5;
+  const ys=v=>y0-(y0-y1)*(v-vmin)/(vmax-vmin);
+  ctx.strokeStyle=RULE; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y0); ctx.stroke();
+  ctx.fillStyle=MUT; ctx.font="24px system-ui";
+  for(let k=0;k<=N;k++){ ctx.fillText(String(k),xs(k)-6,y0+38);
+    ctx.strokeStyle="#F0EEE6"; ctx.beginPath(); ctx.moveTo(xs(k),y0); ctx.lineTo(xs(k),y1); ctx.stroke(); }
+  ctx.fillText("frames pooled →",x1-210,y0+72);
+  function traj(evF,color,seed){
+    const r=rng(seed);
+    ctx.strokeStyle=color; ctx.globalAlpha=0.33; ctx.lineWidth=2;
+    for(let t=0;t<26;t++){ let v=0; ctx.beginPath(); ctx.moveTo(xs(0),ys(0));
+      for(let k=1;k<=N;k++){ v+=(evF.includes(k)?1:0)+gauss(r)*(1/d)*1.35;
+        ctx.lineTo(xs(k),ys(v)); }
+      ctx.stroke(); }
+    ctx.globalAlpha=1;
+  }
+  traj([1,3,5,7],EV,3); traj([1,4,7],NV,9);
+  function meanline(evF,color){ ctx.strokeStyle=color; ctx.lineWidth=5; ctx.beginPath();
+    let v=0; ctx.moveTo(xs(0),ys(0));
+    for(let k=1;k<=N;k++){ v+=(evF.includes(k)?1:0); ctx.lineTo(xs(k),ys(v)); } ctx.stroke(); }
+  meanline([1,3,5,7],EV); meanline([1,4,7],NV);
+  ctx.font="600 25px system-ui";
+  ctx.fillStyle=EV; ctx.fillText("g = 4",x1-52,ys(4)-14);
+  ctx.fillStyle=NV; ctx.fillText("g = 3",x1-52,ys(3)+34);
+  ctx.strokeStyle=INK; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(x1+12,ys(4)); ctx.lineTo(x1+12,ys(3)); ctx.stroke();
+  ctx.save(); ctx.translate(x1+40,(ys(3)+ys(4))/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle=INK; ctx.font="italic 23px Georgia"; ctx.fillText("Δ",-8,8); ctx.restore();
+  ctx.fillStyle=MUT; ctx.font="24px system-ui";
+  ctx.fillText("spread grows ∝ √N — the drunkard's walk of accumulated ε",x0+30,y1+16);
+})();
+
+// ---------- Interactive: count gaussians + acc-vs-N ----------
+(function(){
+  const SA=setup("f4"), SB=setup("f4b"); if(!SA||!SB) return;
+  const slD=document.getElementById("sl-d"), slN=document.getElementById("sl-n");
+  const outD=document.getElementById("out-d"), outN=document.getElementById("out-n"),
+        outA=document.getElementById("out-acc");
+  const cbG=document.getElementById("cb-gate"), cbM=document.getElementById("cb-meas");
+  const MEAS=[[2,.853],[4,.650],[6,.593],[8,.471]];
+  function drawTop(){
+    const {ctx,W,H}=SA;
+    const d=parseFloat(slD.value), N=parseInt(slN.value,10);
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    const x0=60,x1=W-60, base=H-56, ph=H-140;
+    const dn=d/Math.sqrt(N), sd=1/Math.max(dn,1e-6);
+    const vmin=-2.5*sd, vmax=N+2.5*sd;
+    const px=v=>x0+(x1-x0)*(v-vmin)/(vmax-vmin);
+    ctx.strokeStyle=RULE; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x0,base); ctx.lineTo(x1,base); ctx.stroke();
+    ctx.strokeStyle=MUT; ctx.setLineDash([6,6]); ctx.lineWidth=1.6;
+    for(let g=0;g<N;g++){ const x=px(g+0.5);
+      ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base-ph); ctx.stroke(); }
+    ctx.setLineDash([]);
+    for(let g=0;g<=N;g++){
+      const col=g%2? EV:NV;
+      ctx.beginPath();
+      for(let x=x0;x<=x1;x+=2){ const v=vmin+(x-x0)/(x1-x0)*(vmax-vmin);
+        const z=(v-g)/sd; const y=base-ph*Math.exp(-0.5*z*z)*0.92;
+        if(x===x0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+      ctx.strokeStyle=col; ctx.globalAlpha=0.85; ctx.lineWidth=3; ctx.stroke(); ctx.globalAlpha=1;
+      if(N<=12||g%2===0){ ctx.fillStyle=INK; ctx.font="22px system-ui";
+        ctx.fillText(String(g),px(g)-6,base+32); }
+    }
+    ctx.fillStyle=MUT; ctx.font="22px system-ui";
+    ctx.fillText("score wᵀS — count means spaced Δ apart, widths σ√N, dashed = forced midpoint thresholds",x0,28);
+  }
+  function drawBottom(){
+    const {ctx,W,H}=SB;
+    const d=parseFloat(slD.value), Ncur=parseInt(slN.value,10);
+    ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+    const x0=110,y0=H-70,x1=W-260,y1=44;
+    const NMAX=16;
+    const px=n=>x0+(x1-x0)*(n-1)/(NMAX-1), py=v=>y0-(y0-y1)*v;
+    ctx.strokeStyle="#F0EEE6"; ctx.font="21px system-ui"; ctx.fillStyle=MUT;
+    for(let v=0;v<=1.001;v+=0.2){ ctx.beginPath(); ctx.moveTo(x0,py(v)); ctx.lineTo(x1,py(v)); ctx.stroke();
+      ctx.fillText(v.toFixed(1),x0-48,py(v)+7); }
+    ctx.strokeStyle=RULE; ctx.lineWidth=2; ctx.strokeRect(x0,y1,x1-x0,y0-y1);
+    for(let n=2;n<=NMAX;n+=2){ ctx.fillStyle=MUT; ctx.fillText(String(n),px(n)-7,y0+32); }
+    ctx.fillStyle=MUT; ctx.fillText("N frames →",x1-110,y0+60);
+    function curve(fn,col,dash){ ctx.strokeStyle=col; ctx.lineWidth=4; ctx.setLineDash(dash||[]);
+      ctx.beginPath();
+      for(let n=1;n<=NMAX;n++){ const v=fn(d,n); n===1?ctx.moveTo(px(n),py(v)):ctx.lineTo(px(n),py(v)); }
+      ctx.stroke(); ctx.setLineDash([]); }
+    curve(accLinear,NV);
+    if(cbG.checked) curve(accGate,EV,[9,7]);
+    if(cbM.checked){ MEAS.forEach(([n,v])=>{ ctx.fillStyle=INK;
+      ctx.beginPath(); ctx.arc(px(n),py(v),9,0,7); ctx.fill();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke(); }); }
+    // marker at current N on linear curve
+    ctx.strokeStyle=NV; ctx.lineWidth=2; ctx.setLineDash([4,5]);
+    ctx.beginPath(); ctx.moveTo(px(Ncur),y0); ctx.lineTo(px(Ncur),py(accLinear(d,Ncur))); ctx.stroke(); ctx.setLineDash([]);
+    ctx.font="600 22px system-ui";
+    ctx.fillStyle=NV; ctx.fillText("linear pool  2Φ(d′/(2√N))−1",x1+12,py(accLinear(d,NMAX))+4);
+    if(cbG.checked){ ctx.fillStyle=EV; ctx.fillText("per-frame gate",x1+12,py(accGate(d,NMAX))+4); }
+    if(cbM.checked){ ctx.fillStyle=INK; ctx.font="21px system-ui";
+      ctx.fillText("● measured N-sweep",x1+12,y1+26);
+      ctx.fillText("(set d′ ≈ 3.4)",x1+12,y1+52); }
+  }
+  function draw(){
+    outD.value=parseFloat(slD.value).toFixed(1); outN.value=slN.value;
+    outA.textContent=accLinear(parseFloat(slD.value),parseInt(slN.value,10)).toFixed(3);
+    drawTop(); drawBottom();
+  }
+  [slD,slN].forEach(el=>el.addEventListener("input",draw));
+  [cbG,cbM].forEach(el=>el.addEventListener("change",draw));
+  draw();
+})();
+
+// ---------- Story fig f9: the collision ----------
+(function(){
+  const S=setup("f9"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const x0=180, x1=W-120;
+  function ruler(y, label){ ctx.strokeStyle=RULE; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke();
+    ctx.fillStyle=INK; ctx.font="600 23px system-ui"; ctx.fillText(label,40,y-28); }
+  const yA=110;
+  ruler(yA,"count ruler (unnormalized sum)");
+  ctx.fillStyle=MUT; ctx.font="20px system-ui";
+  for(let g=0;g<=8;g++){ const x=x0+(x1-x0)*g/8;
+    ctx.fillText(String(g),x-5,yA+30);
+    ctx.strokeStyle=RULE; ctx.beginPath(); ctx.moveTo(x,yA-5); ctx.lineTo(x,yA+5); ctx.stroke(); }
+  function dot(x,y,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,11,0,7); ctx.fill();
+    ctx.strokeStyle="#fff"; ctx.lineWidth=2.5; ctx.stroke(); }
+  const xg2=x0+(x1-x0)*2/8, xg4=x0+(x1-x0)*4/8;
+  dot(xg2,yA,NV); dot(xg4,yA,EV);
+  ctx.fillStyle=NV; ctx.font="600 21px system-ui"; ctx.fillText("2 of 4",xg2-28,yA-22);
+  ctx.fillStyle=EV; ctx.fillText("4 of 8",xg4-28,yA-22);
+  const yB=250;
+  ruler(yB,"fraction ruler (mean / softmax)");
+  ctx.fillStyle=MUT; ctx.font="20px system-ui";
+  for(let t=0;t<=4;t++){ const x=x0+(x1-x0)*t/4;
+    ctx.fillText((t/4).toFixed(2),x-16,yB+30);
+    ctx.strokeStyle=RULE; ctx.beginPath(); ctx.moveTo(x,yB-5); ctx.lineTo(x,yB+5); ctx.stroke(); }
+  const xh=x0+(x1-x0)*0.5;
+  ctx.strokeStyle=MUT; ctx.setLineDash([6,6]); ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(xg2,yA+14); ctx.lineTo(xh-8,yB-16); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(xg4,yA+14); ctx.lineTo(xh+8,yB-16); ctx.stroke(); ctx.setLineDash([]);
+  dot(xh-7,yB,NV); dot(xh+7,yB,EV);
+  ctx.fillStyle="#8C3B2E"; ctx.font="600 22px system-ui";
+  ctx.fillText("both land on 0.50 — identical, noiselessly",xh+30,yB-14);
+})();
+
+// ---------- Story fig f10: GAIN vs temperature ----------
+(function(){
+  const S=setup("f10"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const base=H-70, top=44;
+  const groups=[["all lengths",[["baseline",.342,MUT],["temp \u00d72 (keeps \u03a3\u03b1=1)",.258,NV],["GAIN \u00d72 (breaks \u03a3\u03b1=1)",.421,EV]]],
+                ["length 8 only",[["baseline",.130,MUT],["GAIN \u00d72",.330,EV]]]];
+  const scale=(base-top)/0.5;
+  let x=140;
+  ctx.font="20px system-ui";
+  [0,.1,.2,.3,.4,.5].forEach(v=>{ ctx.strokeStyle="#F0EEE6";
+    ctx.beginPath(); ctx.moveTo(80,base-v*scale); ctx.lineTo(W-80,base-v*scale); ctx.stroke();
+    ctx.fillStyle=MUT; ctx.fillText(v.toFixed(1),84,base-v*scale-6); });
+  groups.forEach(([gname,bars])=>{
+    const gx=x;
+    bars.forEach(([nm,v,col])=>{
+      ctx.fillStyle=col; ctx.globalAlpha=0.85;
+      ctx.fillRect(x,base-v*scale,120,v*scale); ctx.globalAlpha=1;
+      ctx.fillStyle=INK; ctx.font="600 21px system-ui";
+      ctx.fillText(v.toFixed(3),x+28,base-v*scale-10);
+      ctx.save(); ctx.translate(x+66,base-14); ctx.rotate(-Math.PI/2);
+      ctx.fillStyle="#fff"; ctx.font="600 15px system-ui"; ctx.fillText(nm,6,5); ctx.restore();
+      x+=150;
+    });
+    ctx.fillStyle=MUT; ctx.font="600 22px system-ui";
+    ctx.fillText(gname,gx,H-20);
+    x+=110;
+  });
+})();
+
+// ---------- Fig 3 (f5): K tally channels ----------
+(function(){
+  const S=setup("f5"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const rooms=[{name:"kitchen",n:3},{name:"garden",n:2},{name:"attic",n:1},{name:"study",n:0},{name:"cellar",n:0}];
+  const x0=140, bw=150, gap=70, base=H-90, unit=76, noise=42;
+  ctx.fillStyle="#8C3B2E"; ctx.globalAlpha=0.07;
+  ctx.fillRect(60,base-noise,W-120,noise); ctx.globalAlpha=1;
+  ctx.strokeStyle=RULE; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(60,base); ctx.lineTo(W-60,base); ctx.stroke();
+  ctx.strokeStyle=MUT; ctx.setLineDash([7,6]);
+  ctx.beginPath(); ctx.moveTo(60,base-unit*0.5); ctx.lineTo(W-60,base-unit*0.5); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=MUT; ctx.font="22px system-ui";
+  ctx.fillText("presence threshold (Δ/2)",W-370,base-unit*0.5-12);
+  ctx.fillText("noise floor ± σ√N",76,base-noise-10);
+  rooms.forEach((rm,i)=>{
+    const x=x0+i*(bw+gap), h=rm.n*unit;
+    const col= rm.n>0? EV : NV;
+    ctx.fillStyle=col; ctx.globalAlpha=rm.n>0?0.75:0.4;
+    ctx.fillRect(x,base-h,bw,h); ctx.globalAlpha=1;
+    ctx.strokeStyle=INK; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(x+bw/2,base-h-noise); ctx.lineTo(x+bw/2,base-h+noise); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+bw/2-16,base-h-noise); ctx.lineTo(x+bw/2+16,base-h-noise); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+bw/2-16,base-h+noise); ctx.lineTo(x+bw/2+16,base-h+noise); ctx.stroke();
+    ctx.fillStyle=INK; ctx.font="600 23px system-ui";
+    ctx.fillText(rm.name,x+bw/2-ctx.measureText(rm.name).width/2,base+36);
+    ctx.fillStyle=MUT; ctx.font="21px system-ui";
+    const lbl="n="+rm.n;
+    ctx.fillText(lbl,x+bw/2-ctx.measureText(lbl).width/2,base+66);
+  });
+  const ax=x0+2*(bw+gap)+bw/2;
+  ctx.fillStyle="#8C3B2E"; ctx.font="600 22px system-ui";
+  ctx.fillText("once-visited: tally ≈ noise → the hard detection",ax-140,base-unit-noise-18);
+  ctx.fillStyle=INK; ctx.font="600 24px system-ui";
+  ctx.fillText("distinct-count = channels above threshold  (soft-OR, not sum)",x0,44);
+})();
+
+// ---------- Fig 4 (f7): parity scatter ----------
+(function(){
+  const S=setup("f7"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const x0=110,y0=H-90,x1=W-60,y1=50;
+  const px=v=>x0+(x1-x0)*v, py=v=>y0-(y0-y1)*v;
+  ctx.strokeStyle="#F0EEE6"; ctx.lineWidth=1.5; ctx.font="22px system-ui"; ctx.fillStyle=MUT;
+  for(let t=0;t<=10;t+=2){ const v=t/10;
+    ctx.beginPath(); ctx.moveTo(px(v),y0); ctx.lineTo(px(v),y1); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0,py(v)); ctx.lineTo(x1,py(v)); ctx.stroke();
+    ctx.fillText(v.toFixed(1),px(v)-16,y0+34); ctx.fillText(v.toFixed(1),x0-52,py(v)+8); }
+  ctx.strokeStyle=RULE; ctx.lineWidth=2;
+  ctx.strokeRect(x0,y1,x1-x0,y0-y1);
+  ctx.strokeStyle=INK; ctx.setLineDash([8,7]); ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(px(0),py(0)); ctx.lineTo(px(1),py(1)); ctx.stroke(); ctx.setLineDash([]);
+  const qf=[["ns2 (N=2)",.849,.853],["ns4",.662,.650],["ns6",.575,.593],["crowd8",.504,.471],
+            ["decrowd8",.507,.461],["cooc5",.552,.475],["stepsJoint",.514,.514],["coocJoint",.550,.514],
+            ["coocBal",.814,.798],["ff8",.176,.245]];
+  const sat=[["char1",.788,.591],["coocCr",.760,.506],["coocDe",1.0,.970],["stepsMulti",.917,.745],
+             ["coocMulti",.981,.894],["stepsBal",.990,.956]];
+  const dep=[["room L14",.346,.296],["room L16",.375,.363],["room L18",.257,.342],
+             ["room L20",.350,.396],["char L16",.212,.311]];
+  ctx.font="19px system-ui";
+  sat.forEach(([nm,p,m])=>{ ctx.strokeStyle="#B9BDB4"; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(px(p),py(m),9,0,7); ctx.stroke(); });
+  qf.forEach(([nm,p,m])=>{ ctx.fillStyle=EV;
+    ctx.beginPath(); ctx.arc(px(p),py(m),10,0,7); ctx.fill();
+    ctx.fillStyle=MUT; ctx.fillText(nm,px(p)+13,py(m)+5); });
+  dep.forEach(([nm,p,m])=>{ ctx.strokeStyle="#0E7C6B"; ctx.lineWidth=3.5; const X=px(p),Y=py(m);
+    ctx.beginPath(); ctx.moveTo(X,Y-11); ctx.lineTo(X+11,Y); ctx.lineTo(X,Y+11); ctx.lineTo(X-11,Y);
+    ctx.closePath(); ctx.stroke();
+    ctx.fillStyle=MUT; ctx.fillText(nm,X+14,Y-6); });
+  ctx.fillStyle=INK; ctx.font="600 24px system-ui";
+  ctx.fillText("measured (linear decode of the sum, held out)",x0-90,y1-16);
+  ctx.fillText("predicted from (d′, N) — zero fitted parameters",W/2-230,H-24);
+})();
+
+// ---------- Fig 5 (f8): rho bars ----------
+(function(){
+  const S=setup("f8"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const bars=[["steps · joint",.085,NV],["steps · isolated",.014,EV],
+              ["co-occ · joint",.096,NV],["co-occ · isolated",.004,EV]];
+  const x0=180, bw=180, gap=90, base=H-80, scale=2600;
+  ctx.strokeStyle=RULE; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(80,base); ctx.lineTo(W-80,base); ctx.stroke();
+  ctx.font="21px system-ui";
+  [0,.05,.10].forEach(v=>{ ctx.strokeStyle="#F0EEE6";
+    ctx.beginPath(); ctx.moveTo(80,base-v*scale); ctx.lineTo(W-80,base-v*scale); ctx.stroke();
+    ctx.fillStyle=MUT; ctx.fillText("ρ="+v.toFixed(2),84,base-v*scale-8); });
+  bars.forEach(([nm,v,col],i)=>{
+    const x=x0+i*(bw+gap);
+    ctx.fillStyle=col; ctx.globalAlpha=0.8;
+    ctx.fillRect(x,base-v*scale,bw,v*scale); ctx.globalAlpha=1;
+    ctx.fillStyle=INK; ctx.font="600 24px system-ui";
+    ctx.fillText(v.toFixed(3),x+bw/2-34,base-v*scale-12);
+    ctx.fillStyle=MUT; ctx.font="21px system-ui";
+    ctx.fillText(nm,x+bw/2-ctx.measureText(nm).width/2,base+34);
+  });
+})();
+
+// ---------- Fig 6 (f6): dose-response ----------
+(function(){
+  const S=setup("f6"); if(!S) return; const {ctx,W,H}=S;
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,W,H);
+  const x0=120,y0=H-90,x1=W-330,y1=60;
+  const lams=[0,1,2,4,8,16,32,64,128];
+  const px=i=>x0+(x1-x0)*i/(lams.length-1), py=v=>y0-(y0-y1)*(v-0.1)/(0.85-0.1);
+  ctx.strokeStyle="#F0EEE6"; ctx.font="22px system-ui"; ctx.fillStyle=MUT;
+  for(let v=0.1;v<=0.81;v+=0.1){ ctx.beginPath(); ctx.moveTo(x0,py(v)); ctx.lineTo(x1,py(v)); ctx.stroke();
+    ctx.fillText(v.toFixed(1),x0-52,py(v)+8); }
+  ctx.strokeStyle=RULE; ctx.lineWidth=2; ctx.strokeRect(x0,y1,x1-x0,y0-y1);
+  lams.forEach((l,i)=>{ ctx.fillStyle=MUT; ctx.fillText("λ="+l,px(i)-24,y0+36); });
+  function line(vals,color,dash){ ctx.strokeStyle=color; ctx.lineWidth=4.5; ctx.setLineDash(dash||[]);
+    ctx.beginPath(); vals.forEach((v,i)=>{ i?ctx.lineTo(px(i),py(v)):ctx.moveTo(px(0),py(v)); }); ctx.stroke();
+    ctx.setLineDash([]);
+    vals.forEach((v,i)=>{ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(px(i),py(v),9,0,7); ctx.fill(); }); }
+  line([.367,.367,.400,.533,.650,.700,.717,.750,.633],EV);
+  line([.233,.227,.213,.200,.187,.193,.147,.133,.167],NV);
+  ctx.strokeStyle=EV; ctx.lineWidth=3.5; ctx.setLineDash([9,7]);
+  const fin=[[1,.283],[4,.683],[5,.650],[6,.700],[7,.783],[8,.667]];
+  ctx.beginPath(); fin.forEach(([i,v],k)=>{ k?ctx.lineTo(px(i),py(v)):ctx.moveTo(px(i),py(v)); });
+  ctx.stroke(); ctx.setLineDash([]);
+  fin.forEach(([i,v])=>{ ctx.fillStyle="#fff"; ctx.strokeStyle=EV; ctx.lineWidth=3.5;
+    ctx.beginPath(); ctx.arc(px(i),py(v),8,0,7); ctx.fill(); ctx.stroke(); });
+  ctx.strokeStyle=NV; ctx.lineWidth=4;
+  const sx=x0-46;
+  ctx.beginPath(); ctx.moveTo(sx-9,py(.180)-9); ctx.lineTo(sx+9,py(.180)+9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx-9,py(.180)+9); ctx.lineTo(sx+9,py(.180)-9); ctx.stroke();
+  ctx.strokeStyle=EV;
+  ctx.beginPath(); ctx.moveTo(sx-9,py(.317)-9); ctx.lineTo(sx+9,py(.317)+9); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(sx-9,py(.317)+9); ctx.lineTo(sx+9,py(.317)-9); ctx.stroke();
+  ctx.fillStyle=MUT; ctx.font="19px system-ui"; ctx.fillText("scrub",sx-24,y0+36);
+  ctx.font="600 23px system-ui";
+  ctx.fillStyle=EV; ctx.fillText("decodable @L24 (solid)",x1+14,py(.75));
+  ctx.fillText("repaired readout (dashed)",x1+14,py(.66));
+  ctx.fillStyle=NV; ctx.fillText("model's emitted answer",x1+14,py(.16)+6);
+  ctx.fillStyle=MUT; ctx.font="20px system-ui";
+  ctx.fillText("✕ = full-depth δ̂ scrub:",x1+14,py(.50));
+  ctx.fillText("emitted 0.18, MAE 2.47;",x1+14,py(.45));
+  ctx.fillText("random-axis scrub ≈ baseline",x1+14,py(.40));
+  ctx.fillStyle=INK; ctx.font="600 24px system-ui";
+  ctx.fillText("oracle dose (λ−1)·g·δ at the room token — decode saturates ≈0.75 (pipe limit); head never follows",x0+10,y1-18);
+})();
+})();
+</script>

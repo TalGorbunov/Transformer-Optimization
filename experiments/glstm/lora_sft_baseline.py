@@ -23,12 +23,13 @@ from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
 
 from evaluations.scripts import eval_mmred_qwen25_vl_accuracy as base
 from evaluations.scripts import eval_mmred_text_frames_acc as tf
-import experiments.glstm.frame_axis_aggregator_adapter as fa  # declare_splits, make_example
+import experiments.glstm.frame_axis_aggregator_adapter as fa
+from experiments.glstm.cache_minimal_frame_reps import frame_labels  # declare_splits, make_example
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="Plain-LoRA SFT baseline on a minimal-crowding counting task.")
-    p.add_argument("--task", required=True, choices=["steps_in_room", "rooms_visited", "co_occupancy"])
+    p.add_argument("--task", required=True, choices=["steps_in_room","rooms_visited","co_occupancy","distinct_visitors","distinct_companions"])
     p.add_argument("--data-root", type=Path, required=True)
     p.add_argument("--model-name", default="Qwen/Qwen2.5-VL-7B-Instruct")
     p.add_argument("--split", default="all_uniform")
@@ -42,6 +43,19 @@ def parse_args():
     p.add_argument("--grad-accum", type=int, default=8)
     p.add_argument("--lora-r", type=int, default=16)
     p.add_argument("--lora-alpha", type=int, default=32)
+    p.add_argument("--target", choices=["mlp", "attn", "both"], default="both",
+                   help="LoRA module isolation: mlp=gate/up/down (per-frame nonlinearity), attn=q/k/v/o (linear re-route), both")
+    p.add_argument("--lora-layers", default="",
+                   help="restrict LoRA to a layer band, e.g. '8-18' (empty = all layers)")
+    p.add_argument("--decompose", action="store_true",
+                   help="after training, run the aggregation decomposition with adapter OFF vs ON (paired before/after)")
+    p.add_argument("--decomp-layer", type=int, default=19)
+    p.add_argument("--frame-sup-weight", type=float, default=0.0,
+                   help="V2: aux BCE on a per-frame head over L_decomp reps vs per-frame evidence labels "
+                        "(shapes the reps to be evidence-separable -> the per-frame gate). 0=off.")
+    p.add_argument("--frame-isolation", action="store_true",
+                   help="apply block-diagonal frame-isolation attention mask during all forwards "
+                        "(clean per-frame extraction in one forward; the in-model structural solution)")
     p.add_argument("--device", default="cuda")
     p.add_argument("--dtype", default="bfloat16")
     p.add_argument("--load-in-4bit", action=argparse.BooleanOptionalAction, default=True)
@@ -82,9 +96,16 @@ def main() -> int:
     emit("model loaded; setting up LoRA")
     if bool(args.load_in_4bit):
         model = prepare_model_for_kbit_training(model)
+    tmods = {"mlp": ["gate_proj", "up_proj", "down_proj"],
+             "attn": ["q_proj", "k_proj", "v_proj", "o_proj"],
+             "both": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]}[args.target]
+    ltt = None
+    if args.lora_layers:
+        a, b = (int(x) for x in args.lora_layers.split("-"))
+        ltt = list(range(a, b + 1))
     lcfg = LoraConfig(r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=0.05, bias="none",
-                      task_type="CAUSAL_LM",
-                      target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"])
+                      task_type="CAUSAL_LM", target_modules=tmods, layers_to_transform=ltt)
+    emit(f"LoRA target={args.target} modules={tmods} layers={args.lora_layers or 'all'}")
     model = get_peft_model(model, lcfg)
     model.print_trainable_parameters()
     tok = processor.tokenizer
@@ -101,7 +122,49 @@ def main() -> int:
          f"val={len(splits['val'])} test_iid={len(splits['test_iid'])} test_ood={len(splits['test_ood'])}")
     (run_dir / "splits.json").write_text(json.dumps({k: [d for d, _ in v] for k, v in splits.items()}), encoding="utf-8")
 
-    def train_loss(frames, question, gold):
+    # ---- V2: per-frame supervision (aux BCE head over L_decomp frame reps) ----
+    import torch.nn as nn, torch.nn.functional as F
+    from models.model import get_layers, image_token_groups as _itg
+    fr_head, st_fr = None, {"spans": None, "reps": None}
+    if args.frame_sup_weight > 0:
+        hidden = int(model.config.text_config.hidden_size) if hasattr(model.config, "text_config") else int(model.config.hidden_size)
+        fr_head = nn.Linear(hidden, 1).to(device).to(torch.float32)
+        base_m = model.get_base_model() if hasattr(model, "get_base_model") else model
+
+        def fr_pre_hook(module, hargs, hkwargs):
+            def cap(hs):
+                if st_fr["spans"] is not None and hs.shape[1] > max(max(s) for s in st_fr["spans"]):
+                    st_fr["reps"] = torch.stack([hs[0, idx, :].float().mean(0) for idx in st_fr["spans"]], 0)  # [N,H] keep grad
+                return hs
+            if len(hargs) >= 1:
+                return (cap(hargs[0]),) + tuple(hargs[1:]), hkwargs
+            hkwargs = dict(hkwargs); hkwargs["hidden_states"] = cap(hkwargs["hidden_states"]); return hargs, hkwargs
+        get_layers(base_m)[args.frame_sup_layer if hasattr(args, "frame_sup_layer") else args.decomp_layer].register_forward_pre_hook(fr_pre_hook, with_kwargs=True)
+        emit(f"per-frame supervision ON: weight={args.frame_sup_weight} @L{args.decomp_layer}")
+
+    # ---- frame-isolation mask (the in-model structural solution): block-diagonal over frames ----
+    iso_on = bool(args.frame_isolation)
+    if iso_on:
+        from experiments.glstm.frame_isolation_diagnostic import (custom_attention as _ISO_ATTN,
+                                                                   STATE as _ISO_STATE, build_iso as _ISO_BUILD)
+        from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS as _AAF
+        _AAF["sdpa"] = _ISO_ATTN
+        emit("frame-isolation mask ON (each frame attends only to itself + the question)")
+
+    def set_iso(input_ids, n_frames):
+        if not iso_on:
+            return
+        sp = _itg(input_ids[0].detach().cpu(), n_frames, processor=processor)
+        if len(sp) == n_frames:
+            _ISO_STATE["iso"] = _ISO_BUILD(int(input_ids.shape[1]), sp); _ISO_STATE["active"] = True
+        else:
+            _ISO_STATE["active"] = False
+
+    def clear_iso():
+        if iso_on:
+            _ISO_STATE["active"] = False; _ISO_STATE["iso"] = None
+
+    def train_loss(frames, question, gold, pf=None):
         msgs = build_messages(frames, question)
         full = processor.apply_chat_template(msgs + [{"role": "assistant", "content": [{"type": "text", "text": str(gold)}]}],
                                              add_generation_prompt=False, tokenize=True, return_dict=True, return_tensors="pt")
@@ -109,14 +172,28 @@ def main() -> int:
         full = base.move_inputs_to_device(dict(full), device)
         bnd = int(prompt["input_ids"].shape[1])
         labels = full["input_ids"].clone(); labels[:, :bnd] = -100
-        return model(**full, labels=labels).loss
+        if fr_head is not None and pf is not None:
+            sp = _itg(full["input_ids"][0].detach().cpu(), len(frames), processor=processor)
+            st_fr["spans"] = sp if len(sp) == len(frames) else None
+            st_fr["reps"] = None
+        set_iso(full["input_ids"], len(frames))
+        loss = model(**full, labels=labels).loss
+        clear_iso()
+        if fr_head is not None and st_fr["reps"] is not None and pf is not None and st_fr["reps"].shape[0] == len(pf):
+            lg = fr_head(st_fr["reps"]).squeeze(-1)
+            loss = loss + args.frame_sup_weight * F.binary_cross_entropy_with_logits(
+                lg, torch.tensor(pf, device=device, dtype=lg.dtype))
+        st_fr["spans"] = None
+        return loss
 
     @torch.inference_mode()
     def predict(frames, question):
         msgs = build_messages(frames, question, cot=args.cot)
         inp = processor.apply_chat_template(msgs, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
         inp = base.move_inputs_to_device(dict(inp), device)
+        set_iso(inp["input_ids"], len(frames))
         out = model.generate(**inp, max_new_tokens=(256 if args.cot else 5), do_sample=False)
+        clear_iso()
         txt = tok.decode(out[0, inp["input_ids"].shape[1]:], skip_special_tokens=True)
         if args.cot:  # prefer the 'Answer: N' line; else fall back to the last integer in the reasoning
             mm = re.search(r"[Aa]nswer\s*:?\s*(-?\d+)", txt)
@@ -142,7 +219,8 @@ def main() -> int:
                 records.append((args.task, split_name, int(sl), int(gold), int(pred)))
         return (ok / max(1, n), (ps - gs) / max(1, n), gs / max(1, n), ps / max(1, n), n)
 
-    opt = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=args.lr)
+    _trainable = [p for p in model.parameters() if p.requires_grad] + (list(fr_head.parameters()) if fr_head is not None else [])
+    opt = torch.optim.AdamW(_trainable, lr=args.lr)
     best_val, best_state, best_epoch = -1.0, None, -1
     vrows = ["epoch,val_acc,val_bias,n"]
     for epoch in range(args.epochs):
@@ -153,9 +231,17 @@ def main() -> int:
             ex = fa.make_example(Path(dstr), args.task, shared_rng, eval_mode=False)
             if ex is None:
                 continue
-            frames, question, gold, nf, _ = ex
+            frames, question, gold, nf, states = ex
+            pf = None
+            if fr_head is not None:
+                try:
+                    meta = json.loads((Path(dstr) / "metadata.json").read_text(encoding="utf-8"))
+                    fl = frame_labels(args.task, states, meta)
+                    pf = [float(x) for x in fl] if fl is not None else None
+                except Exception:
+                    pf = None
             try:
-                loss = train_loss(frames, question, gold)
+                loss = train_loss(frames, question, gold, pf)
             except Exception as exc:
                 emit(f"  train skip {Path(dstr).name}: {exc}"); continue
             (loss / args.grad_accum).backward()
@@ -191,6 +277,27 @@ def main() -> int:
     (run_dir / "predictions.csv").write_text(
         "\n".join(["task,split,seq_len,gold,pred"] + [f"{t},{s},{sl},{g},{p}" for (t, s, sl, g, p) in records]) + "\n",
         encoding="utf-8")
+
+    # ---- paired before/after decomposition (does the fix work THROUGH the mechanism?) ----
+    if args.decompose:
+        from models.model import get_layers
+        import experiments.glstm.decompose_reps as dr
+        base_m = model.get_base_model() if hasattr(model, "get_base_model") else model
+        tgt = get_layers(base_m)[args.decomp_layer]
+        items = splits["test_iid"]
+        model.eval()
+        emit("decomposition: extracting reps with adapter ON ...")
+        ca = dr.extract_reps(model, processor, tgt, items, args.decomp_layer, args.task, device, build_messages)
+        emit("decomposition: extracting reps with adapter OFF (frozen base) ...")
+        with model.disable_adapter():
+            cb = dr.extract_reps(model, processor, tgt, items, args.decomp_layer, args.task, device, build_messages)
+        mb, ma = dr.decompose(cb), dr.decompose(ca)
+        (run_dir / "decomp_before.json").write_text(json.dumps(mb, indent=2))
+        (run_dir / "decomp_after.json").write_text(json.dumps(ma, indent=2))
+        emit(f"DECOMP @L{args.decomp_layer}  (before=adapter OFF | after=adapter ON):")
+        for k in ("delta_over_mu", "perframe_snr", "corr_Sall_g", "S_all_linear_acc", "S_all_R2",
+                  "sigmoid_then_sum_acc", "last_tok_acc"):
+            emit(f"  {k:22s}: {mb.get(k)} -> {ma.get(k)}")
     log.close(); return 0
 
 

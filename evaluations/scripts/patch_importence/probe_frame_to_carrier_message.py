@@ -14,7 +14,7 @@ Two experiments, each per layer (default 16,18,19), linear AND MLP, with PCA (p>
 Eager attention (output_attentions). 7B. --limit 150 default (small but enough for the concat dim).
 """
 from __future__ import annotations
-import argparse, sys
+import argparse, random, sys
 from pathlib import Path
 from collections import Counter
 from itertools import combinations
@@ -113,7 +113,7 @@ def probe(x, y, seeds, spec, binary=False, shuffle=False):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count"], required=True)
+    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count", "first_occurrence"], required=True)
     ap.add_argument("--data_root", default="data/mmred_images_park/seq_len_8/all_uniform")
     ap.add_argument("--limit", type=int, default=150)
     ap.add_argument("--layers", default="16,18,19")
@@ -121,12 +121,48 @@ def main() -> int:
     ap.add_argument("--seeds", default="0,1,2,3,4")
     ap.add_argument("--n-frames", type=int, default=8)
     ap.add_argument("--output", default="outputs/probe_frame_to_carrier_message")
+    ap.add_argument("--carrier", choices=["all_question", "last", "per_token"], default="all_question",
+                    help="which carrier position(s) receive the message: mean over all question tokens, "
+                         "just the last/answer token (deployed readout), or per_token = compute the message "
+                         "into EACH question token separately and sweep SNR by offset-from-end (no pooling)")
+    ap.add_argument("--max-offset", type=int, default=11, help="per_token: how many question tokens back to sweep")
+    ap.add_argument("--decode-offsets", default="", help="per_token: comma offsets to store per-frame messages "
+                    "and run count-decode (F/G), e.g. 9,12,13,14 (room + char region)")
+    ap.add_argument("--sample-seed", type=int, default=0, help="shuffle seed for a representative count draw")
+    ap.add_argument("--fence-cross-frame", action="store_true",
+                    help="single-pass multipass emulation: block visual tokens from attending to OTHER "
+                         "frames' visual tokens (4D additive mask) in layers 0..fence-upto-1; read layers "
+                         "stay full-attention so the message definition is unchanged")
+    ap.add_argument("--fence-upto", type=int, default=0,
+                    help="fence layers [0, K); 0 = min(probe layers)")
+    ap.add_argument("--save-messages", action="store_true",
+                    help="per_token+decode-offsets: torch.save the per-frame carrier messages "
+                         "(messages_cache.pt) so d'-parity / decomposition analyses run on CPU later")
     args = ap.parse_args()
 
     gri.configure_runtime(args.model_name)  # SDPA (codebase forbids eager/output_attentions)
     model = gri._model(); processor = gri._processor()
     layers = get_layers(model)
     probe_layers = [int(x) for x in str(args.layers).replace(",", " ").split()]
+    fence_holder = {"mask": None}
+    if args.fence_cross_frame:
+        fence_K = int(args.fence_upto) or min(probe_layers)
+        assert fence_K <= min(probe_layers), "fence must end below the first read layer"
+
+        def _fence_pre(_m, hargs, hkwargs):
+            if fence_holder["mask"] is not None:
+                hs = hargs[0] if hargs else hkwargs.get("hidden_states")
+                mk = fence_holder["mask"]
+                if hs is not None and mk.dtype != hs.dtype:   # match runtime compute dtype exactly
+                    mk = mk.to(hs.dtype); fence_holder["mask"] = mk
+                if len(hargs) >= 2:                      # attention_mask passed positionally
+                    hargs = (hargs[0], mk) + tuple(hargs[2:])
+                else:
+                    hkwargs["attention_mask"] = mk
+            return hargs, hkwargs
+        for _L in range(fence_K):
+            layers[_L].register_forward_pre_hook(_fence_pre, with_kwargs=True)
+        print(f"[fence] cross-frame visual attention BLOCKED in layers 0..{fence_K-1} (mask dtype set at runtime)")
     seeds = [int(s) for s in str(args.seeds).replace(",", " ").split()]
     cfg = model.config.text_config if hasattr(model.config, "text_config") else model.config
     n_heads = int(cfg.num_attention_heads)
@@ -153,8 +189,18 @@ def main() -> int:
     sum_feat: Dict[int, List[np.ndarray]] = {L: [] for L in probe_layers}     # sum of frame msgs
     cnt_lab: List[int] = []
     model_correct: List[int] = []
+    MAXOFF = int(args.max_offset)  # sweep the last MAXOFF+1 question tokens (offset 0 = last/answer token)
+    DEC_OFF = [int(x) for x in str(args.decode_offsets).replace(",", " ").split()] if args.decode_offsets else []
+    pt: Dict[int, Dict[int, Dict[str, list]]] = {L: {} for L in probe_layers}  # pt[L][offset]={x:[],y:[]}
+    pt_tok: Dict[int, Counter] = {}                                            # pt_tok[offset]=Counter(text)
+    dec: Dict[int, Dict[int, list]] = {L: {o: [] for o in DEC_OFF} for L in probe_layers}  # dec[L][o]=[ [NF,H] ]
+    dec_gold: List[int] = []
+    dec_labels: List[np.ndarray] = []  # per-sample [NF] binary positive-class labels (task-mapped)
+    dec_labels_raw: List[list] = []    # per-sample [NF] raw string labels (room names / same-diff / evid)
     n = 0
-    for sd in iter_sample_dirs(Path(args.data_root)):
+    all_dirs = list(iter_sample_dirs(Path(args.data_root)))
+    random.Random(args.sample_seed).shuffle(all_dirs)  # iter order is count-grouped; shuffle for a representative draw
+    for sd in all_dirs:
         if n >= int(args.limit):
             break
         try:
@@ -164,7 +210,20 @@ def main() -> int:
         chars = sorted(eval_utils.extract_characters_from_states(states))
         if len(chars) < 2:
             continue
-        if args.task == "count":
+        if args.task == "first_occurrence":
+            import re
+            evid = sorted(int(i) for i in eval_utils.collect_evidence_frame_indices(q0, states))
+            if not evid:
+                continue
+            gold = int(evid[0]) + 1                     # 1-based first frame index
+            m_ = re.search(r"did (\w+) spend in the (\w+)", q0)
+            if not m_:
+                continue
+            Cn, Rn = m_.group(1), m_.group(2)
+            question = (f"In which frame, numbered 1 to {len(frames)}, was {Cn} in the {Rn} "
+                        f"for the first time?")
+            frame_targets = {t: ("evid" if t in set(evid) else "noev") for t in range(len(frames))}
+        elif args.task == "count":
             # original counting task: question/answer from qa, evidence = matching frames
             try:
                 gold = int(str(a0).strip())
@@ -201,8 +260,9 @@ def main() -> int:
             fg = image_token_groups(ids, expected_num_frames=len(frames), processor=processor)
             last_img = max(int(p) for grp in fg for p in grp)
             seq = int(ids.shape[0])
-            carrier = list(range(last_img + 1, seq))  # all question tokens (span after images)
-            if not carrier or len(fg) < NF:
+            q_span = list(range(last_img + 1, seq))  # all question tokens (span after images)
+            carrier = [seq - 1] if args.carrier == "last" else q_span
+            if not q_span or len(fg) < NF:
                 continue
             # SANCTIONED capture: model stays SDPA. Grab pre-rotary q/k/v proj outputs + the
             # position embeddings (cos,sin), then recompute the carrier-row softmax offline.
@@ -223,8 +283,33 @@ def main() -> int:
                     if pe is not None and "cos" not in posemb:
                         posemb["cos"], posemb["sin"] = pe[0].detach(), pe[1].detach()
                 handles.append(layers[probe_layers[0]].self_attn.register_forward_pre_hook(mk_pe, with_kwargs=True))
+            if args.fence_cross_frame:
+                MIN = -65504.0  # fp16-representable; safe under cast to bf16/fp16 in the hook
+                fm = torch.zeros(seq, seq, dtype=torch.float32)
+                fm.masked_fill_(torch.triu(torch.ones(seq, seq, dtype=torch.bool), 1), MIN)
+                allv = sorted({int(p) for grp in fg for p in grp})
+                allv_t = torch.tensor(allv, dtype=torch.long)
+                for grp in fg:
+                    rows = torch.tensor(sorted(int(p) for p in grp), dtype=torch.long)
+                    own = set(int(p) for p in grp)
+                    forb = torch.tensor([p for p in allv if p not in own], dtype=torch.long)
+                    if forb.numel():
+                        fm[rows.unsqueeze(1), forb.unsqueeze(0)] = MIN
+                fmask = fm.view(1, 1, seq, seq).to(next(model.parameters()).device)
+                if n == 0:  # self-check: fence must change the read-layer inputs
+                    with torch.no_grad():
+                        model(**inputs, use_cache=False)
+                    v_ref = qkv[probe_layers[0]]["v_proj"].clone()
+                    fence_holder["mask"] = fmask
+                    with torch.no_grad():
+                        model(**inputs, use_cache=False)
+                    dd = (qkv[probe_layers[0]]["v_proj"] - v_ref).abs().max().item()
+                    print(f"[fence] self-check: max |Δv@L{probe_layers[0]}| = {dd:.4f}")
+                    assert dd > 1e-3, "fence mask had NO effect — kwarg not applied?"
+                fence_holder["mask"] = fmask
             with torch.no_grad():
                 outp = model(**inputs, use_cache=False)
+            fence_holder["mask"] = None
             for h in handles:
                 h.remove()
             # proper count prediction: argmax over candidate digit tokens only
@@ -234,6 +319,10 @@ def main() -> int:
                 raise RuntimeError("position_embeddings not captured")
         except Exception as exc:
             print(f"{sid} capture failed: {type(exc).__name__}: {exc}")
+            fail_count = globals().get("_fail_count", 0) + 1
+            globals()["_fail_count"] = fail_count
+            if fail_count >= 25 and n == 0:
+                raise RuntimeError(f"{fail_count} consecutive capture failures with 0 successes — aborting")
             continue
 
         carrier_t = torch.tensor(carrier, dtype=torch.long)
@@ -270,6 +359,22 @@ def main() -> int:
                 out = oproj(ctx.reshape(1, -1).to(device=dev, dtype=torch.bfloat16))
             return out[0].float().cpu().numpy().astype(np.float32)
 
+        def msg_per_carrier(pos_list, L):
+            # per-frame message into EACH carrier token separately (no cross-token pooling):
+            # msg_{f->c} = o_proj(concat_h sum_{j in f} A[c,j] v_j), one row per carrier token.
+            pos = torch.tensor([p for p in pos_list if p < seq], dtype=torch.long)
+            if pos.numel() == 0:
+                return np.zeros((len(carrier), int(cfg.hidden_size)), dtype=np.float32)
+            Asel = attnA[L][:, :, pos]                            # [H,|C|,|f|]
+            vsel = vrep[L][:, pos, :]                             # [H,|f|,hd]
+            ctx = torch.einsum("hcj,hjd->hcd", Asel, vsel)        # [H,|C|,hd] per carrier, no division
+            ctx = ctx.permute(1, 0, 2).reshape(len(carrier), -1)  # [|C|, H*hd]
+            oproj = layers[L].self_attn.o_proj
+            dev = next(oproj.parameters()).device
+            with torch.no_grad():
+                out = oproj(ctx.to(device=dev, dtype=torch.bfloat16))
+            return out.float().cpu().numpy().astype(np.float32)   # [|C|, hidden]
+
         hidden = int(cfg.hidden_size)
         per_layer_frames = {L: [] for L in probe_layers}
         for t in range(NF):
@@ -286,6 +391,37 @@ def main() -> int:
             stk = np.stack(per_layer_frames[L])           # [NF, hidden]
             concat_feat[L].append(stk.reshape(-1))         # [NF*hidden]
             sum_feat[L].append(stk.sum(0))                 # [hidden]
+        if args.carrier == "per_token":
+            off_to_ci = {(len(carrier) - 1) - ci: ci for ci in range(len(carrier))}  # offset-from-end -> carrier idx
+            per_dec = {L: {o: np.zeros((NF, int(cfg.hidden_size)), dtype=np.float16) for o in DEC_OFF}
+                       for L in probe_layers}
+            for t in range(NF):
+                posl = [int(p) for p in fg[t]]
+                lab = frame_targets.get(t)
+                for L in probe_layers:
+                    mm = msg_per_carrier(posl, L)          # [|C|, hidden]
+                    if lab is not None:                    # SNR needs the evidence label (all frames labeled for count)
+                        for off, ci in off_to_ci.items():
+                            if off <= MAXOFF:
+                                d = pt[L].setdefault(off, {"x": [], "y": []})
+                                d["x"].append(mm[ci]); d["y"].append(str(lab))
+                    for o in DEC_OFF:                       # decode storage: ALL frames (need every frame to sum)
+                        ci = off_to_ci.get(o)
+                        if ci is not None:
+                            per_dec[L][o][t] = mm[ci].astype(np.float16)
+            for off, ci in off_to_ci.items():
+                if off <= MAXOFF:
+                    txt = tok.decode([int(ids[carrier[ci]])]).strip()
+                    pt_tok.setdefault(off, Counter())[txt] += 1
+            if DEC_OFF:
+                for L in probe_layers:
+                    for o in DEC_OFF:
+                        dec[L][o].append(per_dec[L][o])
+                dec_gold.append(int(gold))
+                _pos = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+                dec_labels.append(np.array([1 if (str(frame_targets.get(t)) == _pos) else 0 for t in range(NF)],
+                                           dtype=np.int64))
+                dec_labels_raw.append([str(frame_targets.get(t)) for t in range(NF)])
         cnt_lab.append(int(gold))
         model_correct.append(int(pred == gold))
         n += 1
@@ -293,7 +429,20 @@ def main() -> int:
             print(f"  scanned {n}: {len(pf_lab)} frame-msg, {len(cnt_lab)} count examples")
 
     lines = [f"=== FRAME->CARRIER MESSAGE PROBES ({args.task}, 7B) n_samples={len(cnt_lab)} "
-             f"layers={probe_layers} carriers=all_question_tokens ==="]
+             f"layers={probe_layers} carriers={args.carrier} ==="]
+    if getattr(args, "save_messages", False) and DEC_OFF and dec_gold:
+        cache_obj = {"msgs": {L: {o: np.stack(dec[L][o]) for o in DEC_OFF} for L in probe_layers},
+                     "gold": np.array(dec_gold, dtype=np.int64),
+                     "labels": np.stack(dec_labels),
+                     "labels_raw": dec_labels_raw,
+                     "model_correct": np.array(model_correct, dtype=np.int64),
+                     "layers": probe_layers, "offsets": DEC_OFF, "task": args.task,
+                     "data_root": str(args.data_root), "sample_seed": int(args.sample_seed),
+                     "carrier": args.carrier, "n_frames": NF}
+        torch.save(cache_obj, out / "messages_cache.pt")
+        print(f"saved per-frame carrier messages -> {out/'messages_cache.pt'} "
+              f"({len(dec_gold)} samples x {NF} frames, layers {probe_layers}, offsets {DEC_OFF})")
+
     if model_correct:
         lines.append(f"model own-answer accuracy (candidate-digit argmax): {np.mean(model_correct):.3f}")
     rows = ["experiment,layer,clf,n,acc,acc_std,majority,lift,auroc,shuffle_acc"]
@@ -342,7 +491,7 @@ def main() -> int:
     _classesC = sorted(set(ym.tolist()))
     _codeC = {c: i for i, c in enumerate(_classesC)}
     ym_c = np.array([_codeC[v] for v in ym.tolist()])
-    pos_lab = {"co_occupancy": "same", "count": "evid"}.get(args.task)
+    pos_lab = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
     pos_code = _codeC.get(pos_lab)
     lines.append(f"\n(C) DECODE-THEN-COUNT — PROBE SWEEP (per-frame clf -> aggregate -> count) vs model")
     bestC = ("", -1.0)
@@ -370,6 +519,160 @@ def main() -> int:
             if dca > bestC[1]:
                 bestC = (f"{fname}/{spec['name']} = {dca:.3f} (model {np.mean(modelaccs):.3f}, maj {np.mean(majs):.3f})", dca)
     lines.append(f"  >> BEST decode-then-count: {bestC[0]}")
+
+    # (D) MESSAGE DECOMPOSITION  m_k = mu + s_k*delta + eps  on the frame->carrier messages
+    # (deployed, query-conditioned analog of the frame-token sweep; per-layer d' and d'/sqrt(N)).
+    import math
+    pos_lab_d = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+    if pos_lab_d is not None and binary and len(ym) >= 12:
+        lines.append(f"\n(D) MESSAGE DECOMPOSITION  m=mu+s*delta+eps  pos='{pos_lab_d}'  "
+                     f"carrier={args.carrier}  N={NF}")
+        lines.append(f"  {'layer':>5} {'|mu|':>9} {'|delta|':>8} {'sigma':>9} "
+                     f"{'|d|/|mu|':>9} {'nE':>5} {'nN':>5} {'SNR':>7} {'SNR/sqrtN':>10}")
+        for L in probe_layers:
+            X = np.stack(pf_feat[L]); msk = ym == pos_lab_d
+            ev, nv = X[msk], X[~msk]
+            if len(ev) < 2 or len(nv) < 2:
+                continue
+            mu_all = X.mean(0); delta = (ev.mean(0) - nv.mean(0)) / 2.0
+            dhat = delta / (np.linalg.norm(delta) + 1e-9)
+            sig = 0.5 * ((ev @ dhat).std() + (nv @ dhat).std())
+            snr = abs((ev.mean(0) - nv.mean(0)) @ dhat) / (sig + 1e-9)
+            ratio = np.linalg.norm(delta) / (np.linalg.norm(mu_all) + 1e-9)
+            lines.append(f"  {L:>5} {np.linalg.norm(mu_all):>9.2f} {np.linalg.norm(delta):>8.3f} "
+                         f"{sig:>9.3f} {ratio:>9.4f} {len(ev):>5} {len(nv):>5} {snr:>7.3f} "
+                         f"{snr/math.sqrt(NF):>10.3f}")
+            rows.append(f"msg_decomp,{L},snr,{len(ym)},{snr:.4f},nan,{ratio:.4f},"
+                        f"{snr/math.sqrt(NF):.4f},nan,nan")
+
+    # (E) PER-CARRIER-TOKEN SNR SWEEP: per-frame message SNR into each question token (offset from end),
+    # per layer -> identifies WHICH question token is the evidence carrier (no cross-token pooling).
+    pos_lab_e = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid"}.get(args.task)
+
+    def _dprime_naive(ev, nv):
+        delta = (ev.mean(0) - nv.mean(0)) / 2.0
+        dh = delta / (np.linalg.norm(delta) + 1e-9)
+        sig = 0.5 * ((ev @ dh).std() + (nv @ dh).std())
+        return abs((ev.mean(0) - nv.mean(0)) @ dh) / (sig + 1e-9)
+
+    def _token_snr(x, y):
+        """binary tasks: d' of pos-vs-rest; multiclass (rooms): mean one-vs-rest d' over classes."""
+        if pos_lab_e is not None:
+            ev, nv = x[y == pos_lab_e], x[y != pos_lab_e]
+            if len(ev) < 5 or len(nv) < 5:
+                return None
+            return _dprime_naive(ev, nv)
+        vals = []
+        for c in sorted(set(y.tolist())):
+            ev, nv = x[y == c], x[y != c]
+            if len(ev) >= 5 and len(nv) >= 5:
+                vals.append(_dprime_naive(ev, nv))
+        return float(np.mean(vals)) if vals else None
+
+    if args.carrier == "per_token":
+        offs = sorted({o for L in probe_layers for o in pt[L]})
+        lines.append(f"\n(E) PER-CARRIER-TOKEN SNR SWEEP  pos='{pos_lab_e or 'mean one-vs-rest (multiclass)'}'"
+                     f"  [offset 0 = last/answer token]")
+        lines.append("  carrier token by offset-from-end (most common decoded):")
+        for o in offs:
+            lines.append(f"    off -{o:<2}: {pt_tok.get(o, Counter()).most_common(3)}")
+        lines.append("  per-frame message SNR  [rows=layer, cols=offset-from-end]:")
+        lines.append("  layer " + " ".join(f"-{o:>5}" for o in offs))
+        for L in probe_layers:
+            cells = []
+            for o in offs:
+                d = pt[L].get(o)
+                if d is None or len(d["y"]) < 20:
+                    cells.append("     .")
+                    continue
+                snr = _token_snr(np.stack(d["x"]), np.array(d["y"]))
+                if snr is None:
+                    cells.append("     .")
+                    continue
+                cells.append(f"{snr:>6.3f}")
+                rows.append(f"per_carrier_snr,L{L}_off{o},snr,{len(d['y'])},{snr:.4f},nan,nan,nan,nan,nan")
+            lines.append(f"  {L:>5} " + " ".join(cells))
+
+    # (F)/(G) COUNT DECODE AT IDENTIFIED CARRIERS (shared carrier ranking).
+    if args.carrier == "per_token" and DEC_OFF and len(dec_gold) >= 40:
+        ys = np.array(dec_gold)
+        maj = Counter(ys.tolist()).most_common(1)[0][1] / len(ys)
+
+        def peak_snr(o):
+            best = 0.0
+            for L in probe_layers:
+                d = pt[L].get(o)
+                if not d or len(d["y"]) < 20:
+                    continue
+                snr = _token_snr(np.stack(d["x"]), np.array(d["y"]))
+                if snr is not None:
+                    best = max(best, snr)
+            return best
+
+        tok_of = lambda o: (pt_tok.get(o, Counter()).most_common(1) or [("?", 0)])[0][0]
+        ranked = sorted(DEC_OFF, key=peak_snr, reverse=True)
+        top2 = ranked[:2]
+
+        # (F) DIRECT COUNT DECODE: sum vs concat over frames, per carrier + top-2 combined.
+        #   sum=model's aggregation; concat=oracle sees all frames; concat>>sum => aggregation bottleneck.
+        lines.append(f"\n(F) DIRECT COUNT DECODE  model={np.mean(model_correct):.3f}  majority={maj:.3f}  n={len(ys)}")
+        lines.append("    carriers ranked by peak SNR: "
+                     + ", ".join(f"-{o}(snr {peak_snr(o):.2f},'{tok_of(o)}')" for o in ranked))
+        spec = {"name": "mlp512x256", "kind": "mlp", "arch": (512, 256), "pca": 256}
+        for L in probe_layers:
+            feats = {}
+            for o in DEC_OFF:
+                st = dec[L][o]
+                feats[f"off{o}({tok_of(o)})_sum"] = np.stack([s.astype(np.float32).sum(0) for s in st])
+                feats[f"off{o}({tok_of(o)})_concat"] = np.stack([s.astype(np.float32).reshape(-1) for s in st])
+            if len(top2) >= 2:
+                a, b = top2
+                combo = [np.concatenate([dec[L][a][i].astype(np.float32), dec[L][b][i].astype(np.float32)], axis=1)
+                         for i in range(len(dec_gold))]
+                feats["top2(room+char)_sum"] = np.stack([c.sum(0) for c in combo])
+                feats["top2(room+char)_concat"] = np.stack([c.reshape(-1) for c in combo])
+            for nm, X in feats.items():
+                acc, std, base, _ = probe(X, ys, seeds, spec)
+                lines.append(f"  L{L} {nm:<26s}: acc={acc:.3f}±{std:.3f} (maj {base:.3f})")
+                rows.append(f"count_decode,{nm},L{L},{len(ys)},{acc:.4f},{std:.4f},{base:.4f},"
+                            f"{acc-float(np.mean(model_correct)):.4f},nan,nan")
+
+        # (G) DECODE-THEN-COUNT: per-frame evidence clf (well-powered) -> sum predictions -> count.
+        #   dtc>>model => aggregation-limited; dtc~=model => extraction/SNR-limited.
+        from sklearn.model_selection import GroupShuffleSplit
+        csets = [([ranked[0]], tok_of(ranked[0]))]
+        if len(ranked) >= 2:
+            csets.append((ranked[:2], f"{tok_of(ranked[0])}+{tok_of(ranked[1])}"))
+        clf_spec = {"name": "logistic", "kind": "logistic", "pca": 128}
+        lines.append(f"\n(G) DECODE-THEN-COUNT (per-frame clf -> sum -> count)   model_acc={np.mean(model_correct):.3f}")
+        lines.append(f"  {'layer':>5} {'carriers':>14} {'dtc_acc':>8} {'dtc_MAE':>8} {'model_acc':>10}")
+        for L in probe_layers:
+            for cset, cname in csets:
+                X = []; yf = []; grp = []
+                for i in range(len(dec_gold)):
+                    for t in range(NF):
+                        X.append(np.concatenate([dec[L][o][i][t].astype(np.float32) for o in cset]))
+                        yf.append(int(dec_labels[i][t])); grp.append(i)
+                X = np.stack(X); yf = np.array(yf); grp = np.array(grp)
+                if len(set(yf.tolist())) < 2:
+                    lines.append(f"  {L:>5} {cname:>14}   (skipped: single-class binary labels for this task)")
+                    continue
+                accs = []; maes = []; m_accs = []
+                for s in seeds:
+                    tr, te = next(GroupShuffleSplit(n_splits=1, test_size=0.35, random_state=s).split(X, yf, grp))
+                    clf = make_clf(clf_spec, len(tr)); clf.fit(X[tr], yf[tr])
+                    pf = clf.predict(X[te])
+                    per = {}
+                    for idx, p in zip(te, pf):
+                        per.setdefault(int(grp[idx]), []).append(int(p))
+                    sids = sorted(per)
+                    pred = {si: sum(per[si]) for si in sids}
+                    accs.append(np.mean([pred[si] == int(ys[si]) for si in sids]))
+                    maes.append(np.mean([abs(pred[si] - int(ys[si])) for si in sids]))
+                    m_accs.append(np.mean([model_correct[si] for si in sids]))
+                lines.append(f"  {L:>5} {cname:>14} {np.mean(accs):>8.3f} {np.mean(maes):>8.3f} {np.mean(m_accs):>10.3f}")
+                rows.append(f"decode_then_count,{cname},L{L},{len(ys)},{np.mean(accs):.4f},{np.std(accs):.4f},"
+                            f"{np.mean(maes):.4f},{np.mean(accs)-np.mean(m_accs):.4f},nan,nan")
 
     report = "\n".join(lines) + "\n"
     print(report)

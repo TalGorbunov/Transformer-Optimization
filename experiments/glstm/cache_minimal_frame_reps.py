@@ -26,7 +26,7 @@ from models.model import image_token_groups
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument("--task", required=True, choices=["steps_in_room", "rooms_visited", "co_occupancy"])
+    p.add_argument("--task", required=True, choices=["steps_in_room","rooms_visited","co_occupancy","distinct_visitors","distinct_companions"])
     p.add_argument("--data-root", type=Path, required=True)
     p.add_argument("--split", default="all_uniform")
     p.add_argument("--seq-len", type=int, default=8)
@@ -37,6 +37,9 @@ def parse_args():
     p.add_argument("--load-in-4bit", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--split-seed", type=int, default=12345)
     p.add_argument("--limit", type=int, default=0, help="0 = all dirs")
+    p.add_argument("--multipass", action="store_true",
+                   help="cache per-frame reps from N focused SINGLE-frame forwards (relieves vision crowding) "
+                        "instead of one joint forward")
     p.add_argument("--output", type=Path, default=PROJECT_ROOT / "outputs" / "frame_axis" / "cache")
     return p.parse_args()
 
@@ -49,6 +52,18 @@ def frame_labels(task, states, meta):
     if task == "rooms_visited":
         C = meta.get("query_character")
         return [tf.room_of(s, C) for s in states] if C else None
+    if task == "distinct_visitors":  # per-frame: chars present in the queried room R
+        R = meta.get("query_room") or meta.get("target_room")
+        return [sorted(s["rooms"].get(R, [])) for s in states] if R else None
+    if task == "distinct_companions":  # per-frame: other chars in C's room
+        C = meta.get("query_character") or meta.get("target_character")
+        if not C:
+            return None
+        out = []
+        for s in states:
+            cr = tf.room_of(s, C)
+            out.append(sorted(x for x in (s["rooms"].get(cr, []) if cr != "not present" else []) if x != C))
+        return out
     qp = meta.get("query_pair")
     if qp and len(qp) == 2:
         C, D = qp
@@ -60,7 +75,7 @@ def main():
     args = parse_args()
     device = base.resolve_device(args.device); dtype = base.resolve_dtype(args.dtype, device)
     args.output.mkdir(parents=True, exist_ok=True)
-    out_path = args.output / f"minimal_L{args.read_layer}_{args.task}.pt"
+    out_path = args.output / f"minimal_L{args.read_layer}_{args.task}{'_multipass' if getattr(args,'multipass',False) else ''}.pt"
     print(f"loading {args.model_name} ...", flush=True)
     model, processor = base.load_model_and_processor(args.model_name, device, dtype, bool(args.load_in_4bit))
     for p_ in model.parameters():
@@ -100,17 +115,36 @@ def main():
             meta = json.loads((d / "metadata.json").read_text(encoding="utf-8"))
         except Exception:
             meta = {}
-        inputs = fa.build_inputs(processor, frames, question, device)
-        ids = inputs["input_ids"]
-        spans = image_token_groups(ids[0].detach().cpu(), len(frames), processor=processor)
-        if len(spans) != len(frames):
-            continue
-        st["spans"] = spans; st["cur_pos"] = int(ids.shape[1]) - 1
-        st["frame_reps"] = None
-        with torch.inference_mode():
-            model(**inputs, use_cache=False)
-        if st["frame_reps"] is None:
-            continue
+        if getattr(args, "multipass", False):
+            # MULTI-PASS: one focused single-frame forward per frame (query + that frame alone) ->
+            # clean per-frame rep (~0.99, the model resolves entities); relieves the joint-pass crowding.
+            fr_reps = []; qrep = None; ok = True
+            for fi in range(len(frames)):
+                si = fa.build_inputs(processor, [frames[fi]], question, device)
+                sp = image_token_groups(si["input_ids"][0].detach().cpu(), 1, processor=processor)
+                if len(sp) != 1:
+                    ok = False; break
+                st["spans"] = sp; st["cur_pos"] = int(si["input_ids"].shape[1]) - 1; st["frame_reps"] = None
+                with torch.inference_mode():
+                    model(**si, use_cache=False)
+                if st["frame_reps"] is None:
+                    ok = False; break
+                fr_reps.append(st["frame_reps"][0]); qrep = qrep if qrep is not None else st["query_rep"]
+            if not ok:
+                continue
+            st["frame_reps"] = torch.stack(fr_reps, 0); st["query_rep"] = qrep
+        else:
+            inputs = fa.build_inputs(processor, frames, question, device)
+            ids = inputs["input_ids"]
+            spans = image_token_groups(ids[0].detach().cpu(), len(frames), processor=processor)
+            if len(spans) != len(frames):
+                continue
+            st["spans"] = spans; st["cur_pos"] = int(ids.shape[1]) - 1
+            st["frame_reps"] = None
+            with torch.inference_mode():
+                model(**inputs, use_cache=False)
+            if st["frame_reps"] is None:
+                continue
         cache[d.name] = {"reps": st["frame_reps"].half(), "query_rep": st["query_rep"].half(),
                          "gold": int(gold), "frame_labels": frame_labels(args.task, states, meta),
                          "task": args.task, "seq_len": int(nf)}

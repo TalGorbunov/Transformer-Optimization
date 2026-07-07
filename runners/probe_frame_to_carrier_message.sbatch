@@ -16,4 +16,7 @@ python -u evaluations/scripts/patch_importence/probe_frame_to_carrier_message.py
   --task "${TASK:-rooms_visited}" --model Qwen/Qwen2.5-VL-7B-Instruct \
   --data_root "${DATA_ROOT:-data/mmred_images_park/seq_len_8/all_uniform}" \
   --limit "${LIMIT:-150}" --layers "${LAYERS:-8,12,14,16,18,19,20,22,24}" \
+  --carrier "${CARRIER:-all_question}" --n-frames "${N_FRAMES:-8}" \
+  --max-offset "${MAXOFF:-11}" --decode-offsets "${DECODE_OFFSETS:-}" \
+  --sample-seed "${SAMPLE_SEED:-0}" ${SAVE_MESSAGES:+--save-messages} ${FENCE:+--fence-cross-frame} \
   --output "${OUTPUT:-outputs/probe_frame_to_carrier_message}"

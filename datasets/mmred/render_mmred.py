@@ -41,6 +41,11 @@ CHAR_COLORS: Dict[str, Tuple[int, int, int]] = {
     "Michael": (52, 152, 219),   # blue-ish
     "John": (155, 89, 182),      # purple-ish
     "Daniel": (241, 196, 15),    # yellow-ish
+    # added 2026-06-24 for distinct-over-character tasks (need >5 distinct, visually separable colors)
+    "Laura": (26, 188, 156),     # teal
+    "Peter": (230, 126, 34),     # orange
+    "Emma": (149, 165, 166),     # gray-blue
+    "Noah": (211, 84, 0),        # dark-orange
 }
 
 IMG_SIZE = 512

@@ -25,7 +25,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # for render_mmred
 import render_mmred as R
 
 PARK_ROOMS = ["Kitchen", "Bathroom", "Garden", "Office", "Bedroom", "Park"]
-CHARACTERS = ["Sandra", "Mary", "Michael", "John", "Daniel"]
+# 9 visually-distinct (colored) characters — extended 2026-06-24 for distinct-over-character tasks
+CHARACTERS = ["Sandra", "Mary", "Michael", "John", "Daniel", "Laura", "Peter", "Emma", "Noah"]
 
 
 def states_rooms_visited(rng, seq_len, target, K, rooms, chars):
@@ -77,6 +78,40 @@ def states_co_occupancy(rng, seq_len, C, D, K, rooms, chars):
     return states
 
 
+def states_distinct_visitors(rng, seq_len, R, K, rooms, roster):
+    """Exactly K distinct characters EVER appear in room R (gold = K). Non-visitors never enter R."""
+    visitors = rng.sample(roster, K); nonvis = [c for c in roster if c not in visitors]
+    other_rooms = [r for r in rooms if r != R]
+    vframes = {v: set(rng.sample(range(seq_len), rng.randint(1, seq_len))) for v in visitors}
+    states = []
+    for i in range(seq_len):
+        occ = {r: [] for r in rooms}
+        for v in visitors:
+            occ[R if i in vframes[v] else rng.choice(other_rooms)].append(v)
+        for o in nonvis:
+            occ[rng.choice(other_rooms)].append(o)  # never in R
+        states.append({"step_id": i + 1, "rooms": {r: sorted(occ[r]) for r in rooms}})
+    return states
+
+
+def states_distinct_companions(rng, seq_len, C, K, rooms, roster):
+    """Exactly K distinct OTHER characters share C's room at some frame (gold = K)."""
+    others = [c for c in roster if c != C]
+    companions = rng.sample(others, K); noncomp = [c for c in others if c not in companions]
+    c_rooms = [rng.choice(rooms) for _ in range(seq_len)]
+    cframes = {comp: set(rng.sample(range(seq_len), rng.randint(1, seq_len))) for comp in companions}
+    states = []
+    for i in range(seq_len):
+        occ = {r: [] for r in rooms}; occ[c_rooms[i]].append(C)
+        notc = [r for r in rooms if r != c_rooms[i]]
+        for comp in companions:
+            occ[c_rooms[i] if i in cframes[comp] else rng.choice(notc)].append(comp)
+        for nc in noncomp:
+            occ[rng.choice(notc)].append(nc)  # never share C's room
+        states.append({"step_id": i + 1, "rooms": {r: sorted(occ[r]) for r in rooms}})
+    return states
+
+
 def write_sample(out_dir, sample_id, task, states, gold, query, rooms, render):
     out_dir.mkdir(parents=True, exist_ok=True)
     seq_len = len(states)
@@ -87,6 +122,12 @@ def write_sample(out_dir, sample_id, task, states, gold, query, rooms, render):
     elif task == "steps_in_room":
         C, RT = query; nlq = f"How many steps did {C} spend in the {RT}?"
         meta_extra = {"target_character": C, "target_room": RT}
+    elif task == "distinct_visitors":
+        RT = query; nlq = f"How many distinct characters appeared in the {RT} across the {seq_len} frames?"
+        meta_extra = {"query_room": RT, "target_room": RT}
+    elif task == "distinct_companions":
+        C = query; nlq = f"How many distinct other characters shared a room with {C} across the {seq_len} frames?"
+        meta_extra = {"query_character": C, "target_character": C}
     else:
         C, D = query; nlq = f"In how many of the {seq_len} frames were {C} and {D} in the same room?"
         meta_extra = {"query_pair": [C, D], "target_character": C}
@@ -107,7 +148,8 @@ def write_sample(out_dir, sample_id, task, states, gold, query, rooms, render):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "steps_in_room"], required=True)
+    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "steps_in_room",
+                                       "distinct_visitors", "distinct_companions"], required=True)
     ap.add_argument("--seq-len", type=int, default=8)
     ap.add_argument("--per-count", type=int, default=120)
     ap.add_argument("--n-chars", type=int, default=len(CHARACTERS),
@@ -124,7 +166,14 @@ def main() -> int:
     R.ROOMS = ROOMS_USE  # renderer reads module-global ROOMS for the grid/normalization
     rng = random.Random(args.seed)
     N = args.seq_len
-    counts = list(range(1, min(len(ROOMS_USE), N) + 1)) if args.task == "rooms_visited" else list(range(0, N + 1))
+    if args.task == "rooms_visited":
+        counts = list(range(1, min(len(ROOMS_USE), N) + 1))
+    elif args.task == "distinct_visitors":
+        counts = list(range(0, min(len(CHARACTERS), N) + 1))        # 0..min(roster,N) distinct chars in R
+    elif args.task == "distinct_companions":
+        counts = list(range(0, min(len(CHARACTERS) - 1, N) + 1))    # 0..min(roster-1,N) distinct companions
+    else:
+        counts = list(range(0, N + 1))
     base = args.out_root / f"seq_len_{N}" / args.split
     from evaluations.scripts import eval_mmred_rooms_visited_baseline as rv
     n_made = 0
@@ -145,6 +194,24 @@ def main() -> int:
                 C = rng.choice(CHARACTERS)
                 states = states_rooms_visited(rng, N, C, K, ROOMS_USE, chars_with([C]))
                 assert rv.rooms_visited(states, C) == K, f"rooms gold {rv.rooms_visited(states,C)} != {K}"
+                write_sample(base / sid, sid, args.task, states, K, C, ROOMS_USE, not args.no_render)
+            elif args.task == "distinct_visitors":
+                RT = rng.choice(ROOMS_USE)
+                states = states_distinct_visitors(rng, N, RT, K, ROOMS_USE, CHARACTERS)
+                g = len({c for st in states for c in st["rooms"][RT]})
+                assert g == K, f"distinct_visitors gold {g} != {K}"
+                write_sample(base / sid, sid, args.task, states, K, RT, ROOMS_USE, not args.no_render)
+            elif args.task == "distinct_companions":
+                C = rng.choice(CHARACTERS)
+                def comp_count(states, C):
+                    s = set()
+                    for st in states:
+                        cr = next((r for r in ROOMS_USE if C in st["rooms"][r]), None)
+                        if cr is not None: s.update(x for x in st["rooms"][cr] if x != C)
+                    return len(s)
+                states = states_distinct_companions(rng, N, C, K, ROOMS_USE, CHARACTERS)
+                g = comp_count(states, C)
+                assert g == K, f"distinct_companions gold {g} != {K}"
                 write_sample(base / sid, sid, args.task, states, K, C, ROOMS_USE, not args.no_render)
             else:
                 C, D = rng.sample(CHARACTERS, 2)

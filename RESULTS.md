@@ -1197,7 +1197,948 @@ non-overlapping ranges. The other tasks remain single-seed.*
 
 ---
 
+## 2026-06-27 session — temporal tasks, causal dispersion test, extraction re-check, per-frame-sup reconciliation
+
+> A diagnosis-tightening session. Net: we **causally ruled out** two candidate bottlenecks (attention
+> dispersion; aggregator choice), **corrected** a wrong "extraction is the wall" claim, and **walked back**
+> an over-stated "per-frame supervision → ~1.0" claim. The surviving mechanism is the one in the Executive
+> Summary: attention is a **normalized mean (not a sum)** + **over-squashing during consolidation**.
+
+**Findings (why each matters):**
+1. **Temporal MMRED tasks added** (`first/last/span_in_room`, gold = frame index; in
+   `evaluations/scripts/eval_mmred_text_frames_acc.py`). **mamba ≈ sum on all three, IID *and* OOD** — no
+   order-modelling advantage. Cause: **frame position leaks into every per-frame rep** (positional encoding
+   + a visible step marker), so an order-blind sum recovers first/last/span without sequential modelling.
+   ⇒ MMRED temporal does **not** motivate mamba over sum.
+2. **Position-leakage probe.** Frame-index is linearly decodable from *one* L19 rep at **1.000** (joint).
+   Removing the step marker collapses *multipass* (single-frame) decodability to **0.145 ≈ chance** but
+   **joint stays 1.000** ⇒ in a normal forward, position comes from the **positional encoding**, not just the
+   marker. No clean MMRED setup makes order-modelling *necessary* (sum always has position).
+3. **Extraction is NOT the rooms/co-occ bottleneck (corrects earlier claim).** The adapter's built-in
+   `extraction_p`≈0.558 is a **buggy metric** — it labels a *random* pair while the question conditions on the
+   *queried* pair. A correct probe (queried pair) gives **co-occ 0.98 / rooms 0.98 (joint) → ~1.0 (multipass)**.
+   Per-frame info is clean; low task acc is downstream (readout/training), not perception.
+4. **★ Softmax dispersion is causally NOT the bottleneck.** Rescaling attention temperature — globally **and**
+   surgically on just the (question→frame) block — is **null**: β=1 baseline is best, sharpening hurts, and the
+   seq8 collapse (~0.0–0.12) is **immune** to temperature. Reason: temperature changes attention *sharpness*,
+   but counting fails because softmax is *normalized* (a convex **mean**, not a **sum**) — no temperature turns a
+   mean into a sum, and sharpening attends to *fewer* frames (opposite of summing all). ⇒ **no zero-shot
+   attention-temperature fix exists**; the fix must be an external *extensive* aggregator that bypasses the
+   normalized, over-squashing consolidation.
+5. **Per-frame supervision: real but modest — earlier "→~1.0" over-stated.** Correct pairing is the
+   **additive (Σσ) readout** (a CE pairing was a mis-test that *hurt*). With additive: co-occ add
+   **0.154→0.346**, steps add **0.154→0.216** (lm 0.333→0.463) — fsw helps consistently but **does not reach
+   ~1.0** in this **seq8-only** (max-crowding) regime, and the **steps positive control did not reproduce** the
+   SPEC's 0.52→0.996. ⇒ that 0.996 is **regime-specific** (easier seq-lens / multipass), not robust at high N.
+
+**Lit sweep (4 parallel agents; arXiv ids verified by the agents, re-verify before thesis):** two 2026 papers
+match our phenomenon. **Garcia, "The Right Answer, the Wrong Direction"** ([arXiv:2605.03258](https://arxiv.org/abs/2605.03258)):
+count linearly decodable (R²>0.99) but ~orthogonal to the digit unembedding (|cos|≤0.032); readout-only patch
+→ **0% in free generation**, LoRA Q/V → **83%** ⇒ must realign *upstream routing*, not just readout (validates the
+adapter direction; explains our +0.1 digit-fix ceiling). **Liu** ([arXiv:2605.05715](https://arxiv.org/abs/2605.05715)):
+**decodable ≠ correctable** — fixed residual steering gives Δ≈0 (error dir 85–88% overlaps task computation) ⇒
+**zero-shot steering cannot set a precise count**. Working zero-shot path: **decompose-and-aggregate** (per-frame
+query → external reduce; **System-2 Counting** [arXiv:2601.02989](https://arxiv.org/abs/2601.02989)). Most promising
+*no-per-frame-label* lever: **additivity / subset-sum self-supervision** (`count(A∪B)=count(A)+count(B)`; MATT
+[arXiv:2003.00164](https://arxiv.org/abs/2003.00164), Noroozi [arXiv:1708.06734](https://arxiv.org/abs/1708.06734)) — a literature gap.
+
+| Date | Output dir | Method / change | Key config | Metric | Status | Notes |
+|------|------------|-----------------|------------|--------|--------|-------|
+| 2026-06-27 | `outputs/frame_axis/adapter_live/temporal/{first,last,span}_in_room_{mamba,sum}_20260627_153222/` | **temporal tasks: mamba vs sum** (first/last/span, gold=frame index) | 7B nf4, frame-pool mean, LM-CE, train seq5–8, IID + OOD seq4, marked data (mmred_images_park) | macro-acc IID/OOD: first .71/.91(m) ≈ .70/.96(s); last .75/.81(m) ≈ .78/.75(s); span .54/.63(m) ≈ .55/.60(s) | ✅ | mamba≈sum on all 3 (no order edge); both ≫ majority floor. Position leaks via PE+marker ⇒ sum suffices. raw-acc inflated by prior skew (first~.48@1, last~.50@8) → macro reported. |
+| 2026-06-27 | `outputs/frame_axis/cache_{mp_compare,nosm}/` (`position_leakage_probe.py`) | **position-leakage probe** (frame-index from one rep) | linear probe, seq8, steps reps, joint vs multipass | marked: joint 1.000 / mp 0.999; **no-marker: joint 1.000 / mp 0.145** | 📊 | Position is in the rep via PE (joint) regardless of marker; marker only load-bearing for single-frame/multipass. |
+| 2026-06-27 | `outputs/frame_axis/cache_mp_compare/` (`mp_extraction_rooms_cooc.py`) | **per-frame extraction re-check** (queried pair) | linear probe, seq8 | co-occ 0.983/AUC.998 (joint)→0.998 (mp); rooms 0.976→1.000 | 📊 | **Corrects** adapter's buggy `extraction_p`=0.558 (it labels a *random* pair). Extraction clean ⇒ NOT the bottleneck. |
+| 2026-06-27 | `logs/attn_temp_sweep-109314.out`, `logs/attn_temp_frame-109332.out` | **★ attention-temperature causal test (dispersion)** | frozen 7B, digit-logit readout, β∈{0.5,1,2,3,4}, blunt(all-attn) + targeted(q→frame), seq1–8 | **null**: β=1 best (blunt .325 / targeted .205); seq8 ~0.0–0.12 for all β | ✅ | Sharpening (global *or* just q→frame) does NOT recover aggregation ⇒ dispersion not causal. Root = normalized-mean + over-squashing. Also gives native digit-readout ceiling (~.33 overall, ~.12@seq8). |
+| 2026-06-27 | `outputs/frame_axis/adapter_live/framesup_additive/{co_occupancy,steps_in_room}_add_fsw{0,1}_*/` | **per-frame supervision (additive readout)** | 7B nf4, sum agg, additive Σσ readout, seq8-only IID, balanced data | add acc: co-occ 0.154→**0.346**; steps 0.154→0.216 (lm .333→.463) | ⚠️ | fsw helps consistently but **modest**; does NOT reach SPEC's ~1.0; steps control failed to reproduce ⇒ 0.996 is regime-specific. Earlier **CE-pairing** mis-test (`adapter_live/cooc_framesup/*`, 109163/164) *hurt* (0.52→0.38) — wrong readout, discard. |
+
 ---
+
+## 2026-06-28 session — message-sum decodability (Stage 1): evidence↔non-evidence interference and normalization are *each* sufficient to squash the count
+
+> **Setup.** We construct the aggregate *ourselves* (S = Σ per-frame messages) over cached **L19** per-frame
+> reps (joint pass, `steps_in_room`, seq8), so this is independent of the model's attention routing
+> (that's the Stage-2 flow diagnostic). Two datasets: **crowded** = `mmred_images_park` (4–5 char/frame),
+> **decrowded** = `mmred_steps_balanced` (1 char/frame); 800 ex each, gold ≈ uniform 0–8. Linear probe =
+> StandardScaler→Ridge, round-to-int acc + R² (5-seed CV). Script: `experiments/glstm/probe_message_sum_decodability.py`;
+> caches: `outputs/frame_axis/probes/message_sum/cache_{crowded,decrowded}/minimal_L19_steps_in_room.pt`.
+>
+> **Headline.** (1) Sum of **evidence-only** frames decodes the count **perfectly** (1.000), sum of
+> **non-evidence-only** frames decodes *its* count **perfectly** (1.000), but the **mixed** sum of all 8
+> collapses to **0.45** — the two count-subspaces are not linearly separable once superposed in one channel.
+> (2) **SUM** of evidence frames decodes count 1.000 vs **MEAN** 0.42 — normalization (÷count) destroys the
+> extensive signal; the count lives in the **magnitude**. Both crowded≈decrowded → at L19, per-frame
+> crowding is *not* the sum-decodability limiter. The model's U-shaped *answer* accuracy did **not**
+> reproduce in linear sum-decodability (S_all per-count is flat ~0.4–0.55) → U-shape is a downstream
+> readout/boundary effect, not sum interference. *Caveat:* S_evid=1.000 is partly the DeepSets extensive-count
+> property (sum of homogeneous evidence vectors → ‖·‖∝g); the informative result is S_all's collapse.
+
+| date | path | experiment | config | result | flag | notes |
+|---|---|---|---|---|---|---|
+| 2026-06-28 | `outputs/frame_axis/probes/message_sum/20260628_193258/` (`probe_message_sum_decodability.py`) | **Exp1 prefix superposition curve** (running count from Σ first j frames) | L19 reps, j=1..8, crowded+decrowded | round-acc **0.99→0.45** (j 1→8); **R² flat ~0.88**; MAE 0.13→0.67; crowded≈decrowded | 📊 | Count stays *linearly present* (R² const); only discretization precision degrades (~0.08 MAE/frame). |
+| 2026-06-28 | same run | **Exp2a evidence/non-evidence interference** (decode gold g, seq8) | S_all vs S_evid vs S_nonev (sum) | crowd: S_all **0.448** / S_evid **1.000** / S_nonev→(8−g) **1.000**; decrowd 0.465 / 1.000 / 1.000 | 📊 | Each population's count is perfect in its *own* sum; superposing them in one channel destroys separability. The mixing bottleneck, measured. |
+| 2026-06-28 | same run | **Exp2b normalization test** (decode g, g≥1) | SUM_evid vs MEAN_evid | crowd SUM **1.000** / MEAN **0.422**; decrowd 1.000 / 0.425 | 📊 | Dividing by the (per-ex varying) count squashes the extensive signal → softmax-style average is *sufficient* to lose "how many". |
+| 2026-06-28 | same run | **per-count U-shape** (S_all, S_evid by true g) | seq8 | S_all per-g **flat ~0.40–0.55** (no U); S_evid **1.00** all g | 📊 | Model's U-shaped accuracy is **not** explained by linear sum interference → downstream readout/boundary effect. |
+| 2026-06-28 | same run | **reference: real last-token L19 rep → gold** | StandardScaler→Ridge | crowd acc **0.30** / R² 0.78; decrowd 0.33 / 0.80 | 📊 | Count present in graded form (R²~0.8) but poorly discretized — mirrors the model's own weak accuracy. |
+
+---
+
+---
+## 2026-06-28b — CORRECTED mechanism: the count is read off a ~1%-magnitude direction; **fixed set-size + per-frame noise + normalization** are three stacked causes (refines the "interference" framing above)
+
+> The [2026-06-28] entry called S_all's collapse evidence/non-evidence "interference". Follow-ups
+> (`probe_message_sum_mechanism.py`, `probe_nonlinearity_ceiling.py`, `probe_aggregation_decomposition.py`,
+> + the Garcia readout-alignment and the now-bug-fixed GAIN causal test) **correct and sharpen** it.
+
+**Decomposition** (L19 crowded; per-frame rep mₖ = μ_all + sₖ·δ + εₖ, sₖ=+1 evidence/−1 not; `probe_aggregation_decomposition.py`):
+
+| ‖μ_all‖ | ‖δ‖ | ‖δ‖/‖μ_all‖ | σ_within (count axis) | per-frame SNR | corr(‖S_evid‖,g) | corr(‖S_all‖,g) | corr(proj_δ S_all,g) | pred S_all SNR/count |
+|---|---|---|---|---|---|---|---|---|
+| 87.0 | 1.0 | **0.011** | 6.0 | **0.33** | **+1.000** | **−0.14** | +0.80 | **0.12** |
+
+**The one correct story.** Two ways to read a count: (1) **magnitude** — ‖Σ of g near-identical frame vectors‖ ∝ g (what S_evid uses; corr +1.000; huge SNR); (2) a **tiny direction δ** (1.1% of the shared mean). The real task sums a **fixed 8 frames**, pinning the magnitude (corr ‖S_all‖,g = **−0.14**, blind to g) → the count is forced onto δ: S_all = 8μ_all + **(2g−8)·δ** + Σεₖ. That term is clean & linear (corr 0.80, R² 0.89) but SNR 0.12 (δ=1 vs σ=6 over 8 frames) → can't round → acc 0.45. **Distractors do NOT cancel** (the −δ gives clean (2g−8)δ); test A (add a *fixed* m distractors → acc stays **1.000**) proves distractors are harmless — only **fixing the set size** (constant magnitude) hurts. Three stacked causes: (i) fixed cardinality kills the magnitude readout; (ii) per-frame noise σ≫δ kills the direction's SNR; (iii) the model's *mean* (Σα=1) further divides δ by N — but even a perfect *sum* only reaches 0.45, so normalization is **one of three**, not the whole.
+
+| date | experiment | result | flag | notes |
+|---|---|---|---|---|
+| 2026-06-28 | **nonlinearity ceiling** (`probe_nonlinearity_ceiling.py`) | per-frame **sigmoid-then-sum 0.73** vs linear-on-S_all 0.45 vs **MLP-after-sum 0.34** vs last-token 0.30 | ✅📊 | fix = per-frame nonlinearity **before** the sum (restores count-as-magnitude); after summing, per-frame identity is gone (MLP can't recover). |
+| 2026-06-28 | **K-hub / distractor dilution** (`probe_message_sum_mechanism.py`) | dilution acc **1.000** for m=0..6; K-hub flat (K8 0.44, p≫n confound) | 📊 | adding fixed distractors harmless → confirms fixed-set-size, not conflict, is the cut. |
+| 2026-06-28 | **layer sweep** (`probe_message_sum_layersweep.py`) | S_all R² peaks **L19 0.89**, **L27 0.86**; last-token R² peaks L21 0.82, **always below the sum** through L27 | 📊 | model's aggregate never forms as clean a count as a plain sum → normalization+dilution gap, not incomplete-aggregation. |
+| 2026-06-28 | **Garcia readout-alignment** (image, n150; `probe_count_readout_alignment.py`) | reg_r2 L19 **0.85** but align_max **0.008** (~orthogonal to digit rows); realign ceiling cls 0.37 | ✅📊 | "right answer, wrong direction" reproduced on our task; readout misaligned AND SNR-capped (two stacked problems). |
+| 2026-06-28 | **GAIN causal test** (`denom_gain_vs_temp.py`, frames-first; earlier crash was a bug) | baseline 0.65→0.25 (sl2→8); **gain×N → 0.00 at sl6/8**; temp only hurts; dilution slope ~0.4 | ✅ | un-normalizing attention (×N) does NOT fix counting and hurts at high N → no in-place attention fix; need external extensive aggregator. |
+
+---
+
+## 2026-06-28c — N-sweep over-squashing curve, δ rotates across depth, and TWO corrections (decrowded-mislabel; frames-first relocates the bottleneck to the carrier)
+
+**N-sweep (S_all decode vs N, crowded L19):** acc **0.85 / 0.63 / 0.58 / 0.45** for N=2/4/6/8, R² flat **~0.85** throughout; the model's own last-token tracks it (0.75/0.53/0.42/0.30). Over-squashing as a measured curve — signal stays present (R²), precision degrades with N. (`probe_message_sum_decodability.py` on `cache_ns_seq{2,4,6}`.)
+
+**δ rotates across depth (`probe_delta_stability.py`, layersweep cache):** the count axis is NOT fixed — L19↔L21 cos 0.80 but **L13↔L27 cos 0.12** (≈orthogonal). ‖δ‖/‖μ_all‖ and per-frame SNR **peak at L19–21 (0.33)** and *decline* to L27 (0.18) → deep layers make the count *less* accessible; inject/read at **L19–21**.
+
+**⚠️ Correction 1 — "decrowded" was never decrowded.** `mmred_steps_balanced` is **5 chars/frame**, same as `mmred_images_park` (`probe_sigma_vs_crowding.py`: both show crowding=5 only). So **crowded≈decrowded in every Stage-1 result because both are 5-char** — Stage 1 **never varied crowding**, and "crowding isn't the limiter" is unsupported by our data. A real 1-char cache (`mmred_steps_1char`) is needed.
+
+**⚠️ Correction 2 — frames-first (deployed) relocates the bottleneck to the carrier.** Re-extracting reps in the deployed frames-first layout (`cache_frames_first_reps.py`):
+
+| metric | question-first (Stage 1) | frames-first (deployed) |
+|---|---|---|
+| corr(‖S_all‖,g) | −0.14 | −0.20 (magnitude-blind **replicates**) |
+| ‖δ‖/‖μ_all‖ | 0.011 | 0.007 (tiny **replicates**) |
+| MEAN_evid vs S_evid | 0.42 vs 1.0 | 0.22 vs 1.0 (normalization **replicates**) |
+| sigmoid-then-sum (per-frame) | **0.73** | **0.20** |
+| model last-token acc | 0.30 | **0.46** |
+
+The over-squashing mechanism (magnitude-blind, tiny-δ, normalization) **replicates** on frame-token reps. BUT in frames-first the frame tokens precede the question → **query-blind**, so per-frame extraction from frame tokens collapses (0.73→0.20), while the **last token is better** (0.46) because query→frame binding + aggregation happen at/after the question. **⇒ in the deployed model, aggregation is at the CARRIER (question tokens after the frames), not the frame-token reps Stage 1 probed.** Stage-1's "clean 0.96 per-frame extraction, aggregation is the wall" is **specific to the query-conditioned (question-first) probing layout**; the carrier aggregation in deployment is not yet characterized (next: carrier-message decomposition in frames-first).
+
+---
+
+## 2026-06-30 — the fix is a SHARP per-frame gate + a frame-isolation mask; "÷N suppresses count" was wrong; one masked forward ≈ multipass
+
+**Amplification experiment** (`probe_amplification.py`, crowded L19, fixed N=8) — corrects the normalization story:
+| read | acc | takeaway |
+|---|---|---|
+| sum_all → count | 0.439 | — |
+| **mean_all → count** | **0.439** | **≡ sum** → dividing by N is **benign at fixed N** (the earlier "0.42" was MEAN_evid=÷g, a different case) |
+| linear amp along evidence dir (→mean) | 0.44→**0.52** (λ=4..20) | linear "louder" plateaus — can't beat the noise |
+| **nonlinear gate** Σσ(κ·score), κ=0→20 | 0.09 → **1.00** | sharp per-frame commitment is THE lever; **SUM≡MEAN×N at every κ** |
+
+- **At fixed N the bottleneck is per-frame SNR, NOT normalization.** mean≡sum; the softmax mean is fine. ÷N only hurts for *varying* N (length-OOD), where it conflates count with length.
+- **Sign vs magnitude resolves the "0.96 per-frame but 0.33 SNR" paradox:** per-frame *classification* needs only the SIGN (reliable, 0.96); the linear SUM uses the noisy *magnitudes* (SNR 0.33) → fails. The sigmoid threshold converts magnitude→sign before summing, and **per-frame errors cancel in the sum** (a sharp gate beats the soft one; κ=20 → ~1.0 on the 800-cache).
+- **Why sigmoid (not MLP / not linear):** per-frame evidence is *linearly separable* (0.96), so a linear score + a fixed threshold suffices (MLP = overkill); a linear probe (no threshold) caps at 0.45. The sigmoid is the *operation*; the model's MLP is the *machinery* for it.
+
+**Frame-isolation mask** (`frame_isolation_diagnostic.py`, crowded, question-first; block-diagonal so each frame attends only to itself + the question, monkeypatched SDPA) — the structural extraction fix, **ONE forward, no training**:
+| 1 forward (n=300) | per-frame extraction | sum-count |
+|---|---|---|
+| joint (normal attn) | 0.942 | 0.657 |
+| **masked (isolated)** | **0.995** | **0.952** |
+
+Cross-frame attention *was* contaminating per-frame reps; isolating frames recovers **multipass quality (≈0.93) in a single forward**. Per-frame extraction → 0.995. So "look at each frame by itself → sum" is structurally validated; the mask cleans the per-frame *signs*, the sum reads the count.
+
+| date | experiment | result | flag | notes |
+|---|---|---|---|---|
+| 2026-06-29 | **LoRA fix** (mlp/attn/both/V2, L8-18, question-first; `lora_sft_baseline.py`) | **1-char: all arms → TEST 1.000** (flat per-count). crowded val: attn 0.98 / both 0.98 / **V2(mlp+BCE) 0.97** / **pure-mlp 0.77** | ⚠️ | decrowded counting solved; crowded high but **val=1.0-after-1-epoch ⇒ memorization-suspect** (no OOD run). attn≥mlp (recruits frozen MLPs by routing); per-frame BCE rescues mlp (0.77→0.97). |
+| 2026-06-29 | **OOD count-holdout** (train ≤4 / test 5-8) | **cancelled externally before results** | — | expectation: native answer-CE head caps → ~0 OOD (learned readout can't emit unseen counts). Re-run needed. |
+| 2026-06-30 | **in-model solution** = isolation mask + MLP-LoRA + per-frame BCE (`lora_sft_baseline.py --frame-isolation`) | smoke (1-char, 2 ep): **TEST 0.125** (undertrained, n=76); **proper crowded 5-ep run + no-mask control RUNNING** | ▶ | mask makes the frozen downstream off-distribution → native verbalization is the hard part; structural mask+Σσ already gives 0.95 without training. |
+
+**TWO validated solutions (both confirm the per-frame-gate mechanism causally):**
+
+| solution | IID | OOD (train ≤4 / test 5–8) | training | notes |
+|---|---|---|---|---|
+| **frozen + isolation mask + soft Σσ readout** (`probe_mask_sigma_ood.py`) | **1-char 1.00 / crowded 0.95** | **1-char 1.00 / crowded 0.82** | tiny head only | **1-char: perfect count AND perfect OOD extrapolation** (masked per-frame=1.000, count=1.000); learned linear-sum collapses OOD (1-char 0.21 / crowded 0.11). crowded 0.82-OOD gap = extraction ceiling (5-char superposition), not aggregation. masked≫joint. |
+| **native LoRA: MLP+BCE, no mask** (`lora_sft_baseline.py`, crowded, 5ep) | **0.993** | (untested) | LoRA 14M | model **verbalizes natively**; decomposition off→on: SNR **0.40→2.26**, sigmoid-then-sum **0.56→0.98**, last-token count **0.21→0.99** → won *through* the per-frame gate, not a black box. |
+
+- **The isolation mask HELPS the frozen+probe path but HURTS the native LoRA** (crowded 0.993 no-mask → 0.889 with mask; the mask makes the frozen downstream off-distribution, so the LoRA sharpens less: SNR →1.02 vs →2.26). ⇒ mask for the probe path; no mask for native.
+- **Per-frame BCE is load-bearing for native:** pure-mlp (answer-CE) lagged 0.77; +BCE → 0.99, and the decomposition shows it sharpened the gate (causal confirmation of the whole decomposition story).
+- **Open:** native-LoRA OOD (the gate it learns is extensive, but the verbalization head may cap). Frozen+Σσ already extrapolates (0.82); the native-OOD path if it caps is an **iterated/scratchpad decode**.
+
+---
+
+## 2026-06-30 — Method comparison: per-frame SNR vs count accuracy (the consolidated table)
+
+> per-frame SNR = Fisher/d′ of evidence-vs-non-evidence frame reps along the count axis (`probe_aggregation_decomposition.py`);
+> for LoRA rows it's adapter-OFF→ON. "native" acc = the model generating the answer; "readout" acc = a head on
+> frozen reps. ⚠️ regimes differ (crowded 5-char vs clean 1-char/filler) — compare *within* a regime; SNR is "—"
+> where a method reads frozen reps without changing them. **Jacobian control:** per-frame ∂(gold-logit)/∂(frame)
+> is uniform ~1/8 and >0 for every frame (`frame_jacobian_sensitivity.py`) → info propagates; the wall is SNR, not over-squashing.
+
+| method | regime | per-frame SNR | count acc IID | OOD (unseen counts) | mechanism |
+|---|---|---|---|---|---|
+| **frozen base (native readout)** | crowded 5ch | **0.33** | ~0.30 | caps | the failure |
+| frozen base (native) | clean 1ch | **0.74** | 0.58 | — | decrowding ≈ 2× SNR |
+| *— readouts on frozen reps —* | | | | | |
+| linear sum (Ridge) | crowded | 0.33 | 0.45 | 0.11 | can't threshold |
+| sigmoid-then-sum (gate) | crowded | 0.33 | 0.73 | — | per-frame nonlinearity |
+| sum aggregator | filler-count | — | 0.98 | 0.88 (len) | extensive |
+| **mamba aggregator** | filler-count | — | **0.99** | **0.93 (len)** | extensive, order-robust |
+| mamba (w/ distractors) | selection | — | 0.65 | — | selection-limited |
+| **DeepSets Σσ (per-frame-sup)** | clean | — | 0.95 | **0.996 / 1.000 / 0.974** | the extrapolating fix (steps/rooms/cooc) |
+| **frozen + mask + Σσ** | crowded | 0.99 extract | **0.95** | **0.82** | structural, 1 forward |
+| frozen + mask + Σσ | clean 1ch | 1.0 extract | **1.00** | **1.00** | — |
+| *— LoRA on the model (native verbalize) —* | | | | | |
+| LoRA attn | crowded | 0.41→**2.70** | 0.96 | caps | recruits frozen MLPs |
+| LoRA mlp (answer-CE) | crowded | 0.40→2.1–2.4 | 0.87–0.96 | caps | |
+| **LoRA mlp + per-frame BCE** | crowded | 0.40→**2.26** | **0.993** | **0.035** | native fix; mechanism-confirmed (last-tok count 0.21→0.99) |
+| LoRA mlp + BCE + mask | crowded | 0.40→1.02 | 0.89 | — | mask hurts native verbalization |
+
+**Reading:** (1) every working fix **raises per-frame SNR ~6–7×** (0.4→~2.7) — SNR is the lever, and both MLP and attn LoRA reach it (attn by routing through frozen MLPs). (2) **IID and OOD dissociate at the readout:** native LoRA gets 0.99 IID but **0.035 OOD** (capped head), while a fixed extensive Σσ read gets 0.82–1.0 OOD. (3) **decrowding (0.33→0.74 SNR) and the isolation mask** both lift the frozen-readout count without touching weights. (4) mamba/sum extrapolate on *clean filler-counting* but collapse with distractors (selection, not aggregation).
+
+---
+
+## 2026-07-01 — Consolidated formal account: the decomposition, the SNR, and why no post-sum readout recovers the count
+
+> This is the write-up of the **mechanism math** behind the numbers above (the "why", not new runs). Every
+> empirical value cited traces to a run already in this log: the decomposition/SNR to `probe_aggregation_decomposition.py`
+> (2026-06-28), the SNR-vs-acc rows to the 2026-06-30 method-comparison table, the SNR/√N collapse to
+> `probe_snr_collapse.py`, the Jacobian control to `frame_jacobian_sensitivity.py`, and the Phase-2 co-occ/rooms
+> generalization below to the LoRA sweep (`lora_sft_baseline.py --task {co_occupancy,rooms_visited}`, 5-char balanced).
+
+**The decomposition (standard LDA / signal-detection form).** For frame `k` with rep `m_k ∈ R^d` (mean-pooled
+visual tokens, L19) and evidence indicator `e_k ∈ {0,1}`:
+`m_k = μ + e_k·δ + ε_k`, where `μ` = shared "a-frame" component, `δ = μ_E − μ_N` = evidence-direction (difference
+of class means), `ε_k` = zero-mean within-class noise. The answer is the count `g = Σ_k e_k`. This is the
+class-conditional Gaussian model underlying **Fisher LDA (1936)** and **signal-detection d′ (Green & Swets 1966)** —
+the *form* is textbook; what is ours is the *measurement* that `μ` dominates (‖μ‖≈87) while `δ` is tiny (‖δ‖≈1,
+≈1% of ‖μ‖) with per-frame spread σ≈6.
+
+**SNR, defined + measured.** Along the unit separating direction `û = δ/‖δ‖`, project each frame `p_k = m_kᵀû`:
+`SNR = ‖δ‖/σ = |μ_Eᵀû − μ_Nᵀû| / [½(std(p_k|e=1)+std(p_k|e=0))]` = distance between the two class means ÷
+within-class std, along the axis that separates them. This is exactly Cohen's d / d′ / √(1-D Fisher ratio).
+Measured (steps, crowded 5ch, L19): **SNR ≈ 0.33** — evidence and non-evidence frames overlap by ~⅔σ.
+
+**Why a linear sum/mean fails (the SNR/√N law).** The model reads the count from an aggregate with a linear
+read-out. Linearity distributes: `wᵀ(Σ_k m_k) = Σ_k wᵀm_k`, so a linear read-out of a sum is *forced* to be a sum
+of per-frame scores. Substituting the decomposition: `wᵀS = N·(wᵀμ) + g·(wᵀδ) + Σ_k wᵀε_k`. The conditional mean
+is affine in `g` (count is linearly *present* → R²≈0.85), but the noise is a sum of N independent terms → std
+grows as σ_w·√N. Signal-per-count = ‖δ‖, noise = σ√N, so **SNR_per_count = ‖δ‖/(σ√N) = SNR/√N ≈ 0.33/√8 ≈ 0.12**.
+Reliable integer rounding needs ≳2 (P(correct round) ≈ erf(½·SNR_per_count/√2)); at 0.12 it is near chance →
+count acc 0.45. `probe_snr_collapse.py` confirms acc collapses onto one curve vs **SNR/√N** (not raw SNR). The
+**mean is not different**: mean = S/N, a constant rescale at fixed N → identical SNR_per_count (measured mean≡sum
+= 0.44) — normalization is *not* the fixed-N cause; ÷N only hurts across *varying* N (length-OOD).
+
+**Why 1–2 frames don't feel it.** (i) No √N: a single frame needs one decision, made from the *full* d-dim rep
+(classifier 0.96), not the 1-D δ axis; the δ-SNR only binds once you sum. (ii) Fewer levels: N=2 has 3 possible
+counts → high acc even at low SNR. Measured: count acc 0.85 (N=2) → 0.45 (N=8).
+
+**Why evidence-only ≫ with distractors (magnitude vs direction).** `‖S_evid‖ ≈ g·‖μ‖` (g near-identical big
+vectors) → count = **length of the sum**, huge SNR (corr(‖S_evid‖,g) = **+1.00**). `‖S_all‖ ≈ N·‖μ‖ = constant`
+(N fixed at 8) → length carries no count (corr = **−0.14**); the count is forced onto the tiny δ residual
+`S_all = 8μ + (2g−8)·δ + Σε` (clean, corr 0.80, but SNR 0.12). Distractors are *not* adversarial: adding a *fixed*
+m of them keeps acc 1.000 (length still ∝ g+const); only **fixing the total set size** (constant magnitude) hurts.
+
+**Why no post-sum readout recovers it (data-processing inequality).** Any read-out is a function `f(S)` of the
+aggregate `S = Σ_k m_k`; by the data-processing inequality `I(g; f(S)) ≤ I(g; S)`, and `I(g; S)` is small because
+summing (a) superimposes each frame's signal and its own noise into the *same* scalar (no coordinate left to
+separate them) and (b) erases *which* frames contributed — exactly what counting needs. So a nonlinear MLP placed
+*after* the sum cannot help: measured **MLP-on-sum = 0.34**, vs the same nonlinearity placed *per-frame before* the
+sum `ĝ = Σ_k σ(wᵀm_k)` = 0.73 (soft) → ~1.0 (sharp). This is the **Deep Sets** requirement (Zaheer 2017): a
+permutation-invariant set-function must be `ρ(Σ_k φ(m_k))` with a *per-element* nonlinearity `φ` **before** the
+sum; a plain sum is φ=id and represents only linearly-separable set-functions. Wagstaff (2019): exact sum/count
+needs latent width ≥ set size.
+
+**Corollary — retrain the compressor, not the decompressor.** You *can* fix this by retraining, but only
+*upstream* of the sum (raise per-frame SNR): LoRA on the MLP/attention that *produces* the reps moves
+**SNR 0.40→2.26 (mlp+BCE) / 0.41→2.70 (attn)** → acc 0.99/0.96. Retraining a read-out on the frozen sum cannot
+(MLP-on-sum 0.34). A **mamba** aggregator over *frozen* low-SNR reps is likewise limited (co-occ 0.34, rooms 0.51) —
+a smarter aggregator can't un-sum information the low-SNR reps never separated.
+
+**Control — this is aggregation-SNR, not classical over-squashing.** `frame_jacobian_sensitivity.py`: per-frame
+∂(gold-logit)/∂(frame-input) is uniform ~1/8 and >0 for every frame → information *propagates* fine; the wall is
+the readability of the sum (SNR), not connectivity/Jacobian attenuation.
+
+**Generalization (Phase-2, 5-char "crowded" = 5 chars/frame; `mmred_{cooc,rooms}_balanced`).** The SNR bottleneck
+and the LoRA fix reproduce on both other task families:
+
+| task | frozen SNR (5ch) | frozen count-sum acc | LoRA mlp+BCE | LoRA attn | LoRA both |
+|---|---|---|---|---|---|
+| co-occupancy | **0.66** | 0.487 | 0.975 (SNR 0.46→**4.10**) | 0.982 (SNR 0.46→**4.55**) | 0.982 (SNR not logged) |
+| rooms-visited | **0.41** (per-room avg) | 0.366 | 0.982 | 0.898 | 0.991 |
+
+mamba over frozen reps: co-occ lm 0.34, rooms lm 0.51 (limited by frozen SNR, as predicted). **Takeaway:** frozen
+5-char SNR is low on all three tasks; LoRA raises it ~9× on co-occ (0.46→4.1) → 0.90–0.99; "fix the reps (LoRA)
+beats a better aggregator on noisy reps (mamba)"; attn ≥ mlp again.
+
+**One-paragraph summary.** The model perceives each frame (0.96) but reads the count from a linear sum, which is
+algebraically forced to add per-frame scores whose signal (δ) is ~1% of the per-frame noise (σ) and is further
+attenuated by √N → SNR_per_count ≈ 0.12 (need ~2). It is not the softmax mean (mean≡sum at fixed N) and not
+propagation (Jacobian uniform). Evidence-only is easy because there the count is the *length* of the sum; the full
+set pins the length at 8, hiding the count in a tiny direction. No post-sum readout can recover it (data-processing
+inequality; MLP-on-sum 0.34); the fix must act per-frame *before* the sum — a threshold `Σσ(w·m)`, or LoRA that
+raises the per-frame SNR (0.4→2.3–2.7 → 0.96–0.99).
+
+---
+
+## [2026-07-03] Deployed frames-first carrier localization — the evidence carrier is the ROOM token; the deployed bottleneck is aggregation-limited (decode-then-count 2× the model) on top of a *moderate* carrier-extraction ceiling
+
+> **Closes the biggest hole in the SNR story:** the decomposition/SNR (0.33, [2026-06-28]) was measured
+> **question-first on frame-token reps**, but the deployed model is **frames-first and aggregates at the
+> carrier** (the [2026-06-28c] correction). This session measures the decomposition *where the model
+> actually aggregates*. Scripts: `experiments/glstm/cache_message_sum_layersweep.py --frames-first`
+> (frame-token sweep) + `experiments/glstm/probe_delta_stability.py` (extended: prints ‖μ‖,‖δ‖,σ,SNR);
+> `evaluations/scripts/patch_importence/probe_frame_to_carrier_message.py` (extended: `--carrier
+> {last,all_question,per_token}`, `--max-offset`, `--decode-offsets`, `--sample-seed`; new sections
+> **(D)** message-decomposition, **(E)** per-carrier-token SNR sweep, **(F)** direct count-decode, **(G)**
+> decode-then-count). Data: `mmred_images_park/seq_len_8/all_uniform` (steps_in_room, crowded 5-char), 7B nf4.
+
+**1. Frame-token FF decomposition sweep (L0–27, mean-pooled; `outputs/frame_axis/probes/message_sum/cache_layersweep_ff_early/` + `…_ff_crowded/`, job 115572).**
+Per-frame SNR is **low everywhere in the deployed layout — 0.10–0.18 across mid/late layers, peak only 0.175 @L19** — about **half** the question-first 0.33. ‖δ‖/‖μ‖ stays ~0.5–0.9% (the tiny-direction claim replicates). Frame tokens are **query-blind** frames-first, so their "evidence direction" is only a query-independent confound (L0 spikes to 0.67 with tiny σ — a visual shortcut, control still pending). ⇒ **the frame-token reps are NOT the deployed aggregation locus; move to the carrier.**
+
+| layer | 0 | 8 | 12 | 16 | **19** | 20 | 24 | 27 |
+|---|---|---|---|---|---|---|---|---|
+| per-frame SNR | 0.67⚠ | 0.11 | 0.14 | 0.13 | **0.175** | 0.17 | 0.10 | 0.10 |
+
+**2. Frame→carrier message decomposition (`outputs/frame_axis/probes/carrier_message/count_last`, `…/count_allq`; jobs 115579/115580).**
+The per-frame *message* into the carrier (`msg_{f→c}=o_proj(Σ_{j∈f} A[c,j]v_j)`) is far more separable than the frame tokens. carrier=**last** peaks **0.42 @L20**; carrier=**all_question** peaks **0.79 @L14–16** (averaging over question tokens *denoises* → evidence is distributed across several tokens). But even the best SNR/√N ≈ 0.28 ≪ 2, and the count from the message-sum sits at majority ⇒ aggregation bottleneck reproduces **at the carrier**. Per-frame evidence itself is decodable from messages (AUROC 0.73–0.90).
+
+**3. Per-carrier-token SNR sweep (E), MAXOFF=20 (`…/count_per_token_wide/`, job 115639).**
+**The carrier is the queried ROOM token** (offset −9): per-frame SNR **1.46 / 1.58 / 1.43 @L14/16/20** — 3–7× the last token and every other question token. The **character token** (offset −13) is a **weak secondary** (~0.51); `?` (−8) and `<|im_start|>` (−2) are deep-layer sinks. Reading the single room token beats both the all-question mean (0.79) and the last token (0.42). Question decodes as *"How many steps did &lt;Char&gt; spend in the &lt;Room&gt;?"*
+
+**4. ⚠️ Sampling bug caught + fixed.** `iter_sample_dirs` returns samples **count-grouped**; taking the first `--limit` **unshuffled** gave a degenerate **{0,1}-only** count subset (majority 0.67), which invalidated the first count-decode (its "0.70" was a majority artifact, not signal). Fixed with a seeded shuffle (`--sample-seed`) → **balanced 0–8** (majority 0.13). All numbers below are post-fix.
+
+**5. Balanced n=400 count-decode (`…/count_per_token_balanced/`, job 115655).** model own-answer **0.207**, per-frame evidence AUROC **0.955**. Room SNR is **1.16** (honest; the skewed {0,1} subset had inflated it to 1.58); char SNR **0.67**.
+- **(F) direct decode:** room-token `_sum` decodes the count **0.28–0.30 @L16–20** (>2× majority 0.13; > model 0.21) — the count *is* present in the summed room messages. ⚠ `sum > concat` everywhere is a **probe-capacity artifact** (concat is 8× the dim, underpowered @n=400), **not** an information difference — do not read the sum-vs-concat contrast here.
+- **(G) decode-then-count** (per-frame classifier at the room carrier → sum predictions; well-powered, ~3200 per-frame examples):
+
+| layer | 8 | 12 | 14 | **16** | 18 | 20 | 22 | 24 |
+|---|---|---|---|---|---|---|---|---|
+| dtc_acc (room) | 0.331 | 0.281 | 0.366 | **0.480** | 0.271 | 0.419 | 0.307 | 0.247 |
+| dtc_MAE | 1.11 | 1.23 | 1.02 | **0.65** | 1.16 | 0.79 | 1.14 | 1.32 |
+
+  **dtc @L16 = 0.480 (MAE 0.65) vs model 0.207 — more than 2×.** room+char ≈ room (0.476) → the **room token carries essentially all the count-relevant evidence**; the char adds ~0 to *counting* despite its 0.67 SNR (char matters for per-frame evidence *presence*, not for the count).
+
+**Synthesis — a two-part ceiling at the room carrier (stronger than the pure-aggregation story).**
+- **Aggregation headroom (model 0.21 → dtc 0.48):** a trivial "classify each frame at the room carrier, then sum" **doubles** the model's accuracy *on the model's own internal messages* ⇒ a **real aggregation gap** the model fails to close. This is the thesis, now localized to the deployed room carrier @L16–20.
+- **Extraction ceiling (dtc 0.48 → 1.0):** dtc peaks at 0.48, not ~1.0, because the room-carrier per-frame SNR is only **moderate** (d′≈1.16 → per-frame AUC ~0.80). So the deployed bottleneck is **aggregation-limited AND extraction-moderate**, not "evidence perfect, only aggregation fails."
+- **Read/inject site = the room token, L16–20** (where both SNR and dtc peak).
+
+**Methodological corrections logged.** (i) The question-first frame-token SNR **0.33 is not the deployed number** — frame tokens are query-blind frames-first; the deployed carrier SNR is **1.16 (room token)**. (ii) The first count-decode was a **sampling-skew artifact** (shuffle fix). (iii) `all_question > last` is real but reflects **denoising** (signal distributed across question tokens), not that the mean is faithful — the single room token is the true carrier.
+
+**Caveats.** dtc's per-frame classifier is *supervised* (upper bound on linearly-extractable-then-summed count); sum-vs-concat is dim-confounded; 5 seeds @ n=400; L0-confound control and a **sigmoid-gate dtc** (how much of 0.48→1.0 is extraction vs a sharper per-frame readout) not yet run; measured on crowded 5-char steps_in_room only (co-occupancy / rooms_visited frames-first not yet done). Formal decomposition/SNR definitions: see the [2026-07-01] entry (Fisher 1936 / Green & Swets 1966 / Cohen 1988 / DeepSets–Wagstaff).
+
+**Runs.** frame-token FF sweep `outputs/frame_axis/probes/message_sum/cache_layersweep_ff_early/` (job 115572); carrier messages `outputs/frame_axis/probes/carrier_message/{count_last,count_allq,count_per_token,count_per_token_wide,count_per_token_balanced}/` (jobs 115579/115580/115581/115639/**115655** canonical).
+
+---
+
+## [2026-07-03b] ⚠️📊 Restatement of the formal account: ad-hoc "SNR" → signal-detection d′ (derivation only, NO new runs)
+
+> Supersedes the *framing* of [2026-07-01] (every number logged there remains valid as measured; what
+> changes is which quantity is operative and how the accuracy law is obtained). Motivation — three flaws
+> in the SNR story as written: **(a)** SNR was measured along the naive difference-of-means axis δ̂
+> (Cohen's d), which *understates* what a linear readout can do — a linear readout is free to whiten
+> (Fisher 1936), and the earlier caveat claiming "the sum is restricted to the δ̂ axis" was simply wrong;
+> **(b)** the accuracy law was a *fitted* monotone collapse curve gated by an arbitrary "SNR ≳ 2"
+> threshold; **(c)** the old account is quantitatively inconsistent with its own numbers: SNR/√N = 0.12
+> predicts ~0.15 S_all accuracy (interior 2Φ(0.06)−1 ≈ 0.05, boundary-mixed ≈ 0.15), 3× below the
+> measured 0.45 — the discrepancy was papered over by the fitted curve.
+
+**The correction.** Operative per-frame quantity = the whitened (Fisher/Mahalanobis) discriminability
+**d′ = √(δᵀΣ⁻¹δ)** — what a trained linear probe actually attains — implied by the measured per-frame
+probe: bal-acc 0.94–0.96 ⇒ d′ = 2Φ⁻¹(acc) ≈ **3.1–3.5** (vs the δ̂-axis 0.33). Under the already-stated
+class-conditional Gaussian model (`m_k = μ + e_k·δ + ε_k`, `ε_k ~ N(0,Σ)` iid over frames), the best
+possible readout of any pooled linear statistic is the matched filter `w ∝ Σ⁻¹δ` + nearest-integer, with
+closed-form exact-match accuracy **`2Φ(d′/2√N) − 1`** for interior counts (boundary counts one-sided;
+overall = mixture over the count prior). Two measured parameters (d′, N); zero fitted parameters, no
+threshold. Because the matched filter is a **sufficient statistic** of the sum for this family, *no*
+post-sum nonlinearity can beat it — a theorem under the model, upgrading the [2026-07-01] DPI hand-wave,
+and retro-dicting two logged results: MLP ≈ linear on the aggregate (0.437 vs 0.458, readout_ceiling
+[2026-06-26]) and MLP-after-sum 0.34 vs per-frame-gate ~1.0 (probe_nonlinearity_ceiling).
+
+**Zero-free-parameter checks against already-logged numbers (derivations — ⚠ pending dedicated runs, E1):**
+
+| check | predicted (d′ from per-frame probe) | measured (logged) | measurement source |
+|---|---|---|---|
+| Q-first S_all N-sweep, N=2/4/6/8 | 0.86 / 0.62–0.69 / 0.53–0.59 / 0.46–0.52 | 0.85 / 0.63 / 0.58 / 0.45 | `probe_message_sum_decodability` cache_ns (row 6, claim table) |
+| deployed dtc @ room carrier L16 (AUROC 0.955 ⇒ p_err ≈ 0.115; iid ±1 errors, cancellation) | ≈ 0.47 | 0.480 | [2026-07-03] §(G), job 115655 |
+| deployed optimal-linear-on-summed-messages @ room carrier | ≈ 0.40 | 0.28–0.30 | [2026-07-03] §(F) — **MISS**: suggests correlated cross-frame noise (ρ>0, breaks iid √N) and/or n=400 probe power → E2 |
+
+⚠ Regime/layer matching between the per-frame probe and the N-sweep was not verified when deriving row 1
+— E1 must recompute d′ and the sum-decode **on the same cache**. Prediction ranges reflect per-frame
+acc 0.94–0.96 and interior-only vs uniform-count-mixture bounds.
+
+**Layout caveat made explicit.** The headline decomposition numbers (0.33 δ̂-SNR, 0.96 per-frame,
+S_all N-sweep) are **question-first** and not the deployed pipeline; the deployed frames-first locus is
+the **room-token carrier, L14–20** ([2026-07-03]). The theory is layout-agnostic — what changes is where
+d′ is measured (frame reps vs carrier messages) and its value; the deployed preliminary checks (rows 2–3)
+are the reason to believe the law transfers, and E1 runs the parity test at the deployed locus.
+
+**Lit anchoring (kills the "SNR is arbitrary/unseen in lit" objection).** The machinery is standard:
+d′/signal detection (Green & Swets 1966; Macmillan & Creelman), Fisher LDA / Mahalanobis (Fisher 1936),
+and **linear Fisher information for population decoding** in computational neuroscience (Averbeck, Latham
+& Pouget 2006, Nat Rev Neurosci; Moreno-Bote et al. 2014, Nat Neurosci — information-limiting correlated
+noise = the ρ>0 refinement of √N). Our contribution is applying it to frozen-VLM aggregation and
+**predicting** the measured ceiling with no fitted parameters.
+
+**Planned validation (all CPU on existing caches unless noted):**
+- **E1 — parity plot (the law test):** per regime (task × crowding × layer × carrier token × N), measure
+  d′ = Mahalanobis with Ledoit–Wolf shrinkage on cached per-frame messages, predict `2Φ(d′/2√N)−1`
+  (count-prior-mixed), independently measure linear-probe-on-sum accuracy on the same cache; one
+  predicted-vs-observed scatter. Include weighted-attention refinement (effective N from attention
+  weights). Primary locus: deployed room-carrier messages; secondary: question-first frame reps
+  (layout-invariance claim).
+- **E2 — cross-frame noise correlation ρ:** residuals after class-mean removal, mean pairwise cross-frame
+  correlation along w; joint vs isolation-mask caches (does masking shrink ρ? unifies the "single-pass
+  superposition" story with the law); refit parity with √(N(1+(N−1)ρ)).
+- **E3 — sufficiency check, well-powered:** linear vs MLP probe head-to-head on summed carrier messages;
+  prediction: no MLP headroom.
+- **E4 — model adequacy:** QQ plots of matched-filter projections per class (Gaussianity), per-class
+  variance equality.
+- **E5 — causal d′ intervention (GPU, small n):** scale the δ component of room-token messages by λ
+  during real forward passes; probe-accuracy should track `2Φ(λd′/2√N)−1`; the model's *emitted* answer
+  should lag until the readout is realigned — cleanly separating the aggregation wall from the
+  readout-misalignment wall in one experiment.
+
+---
+
+## [2026-07-03c] ✅📊 d′-parity validation RUNS — the law holds (16 question-first regimes AND the deployed room-carrier locus); "superposition" is measurable noise correlation
+
+> Executes E1–E4 of [2026-07-03b]. **Script:** `experiments/glstm/probe_dprime_parity.py` (new; CPU-only
+> on existing caches; 60/40 sample-disjoint split × 3 seeds; d′ = gap/width of held-out projections onto a
+> shrinkage-LDA (Ledoit–Wolf) direction, cross-checked by √2·Φ⁻¹(AUC); prediction = count-prior-mixed
+> `2Φ(d′/2√N)−1` with one-sided boundary counts; measured = held-out RidgeCV-on-sum → round).
+> **Runs:** `outputs/frame_axis/probes/dprime_parity/20260703_162729/` (16 Q-first regimes, parity.png)
+> and `…/20260703_170355/` (deployed carrier). **Deployed message cache:** job **116866** (31 min, L40S)
+> → `outputs/frame_axis/probes/carrier_message/count_msgcache/count/messages_cache.pt` (n=600 balanced,
+> L14/16/18/20, offsets 9=room / 13=char; `probe_frame_to_carrier_message.py` gained `--save-messages`).
+
+**E1 — the parity law holds wherever d′ is measurable.** Zero fitted parameters throughout.
+Question-first steps N-sweep (d′ constant ≈3.2–3.5 while accuracy collapses exactly as √N dictates):
+
+| regime | N | d′ naive (old "SNR") | d′ whitened | predicted | measured (ridge±std) |
+|---|---|---|---|---|---|
+| ns2 | 2 | 0.21 | 3.46 | 0.849 | **0.853** ±.037 |
+| ns4 | 4 | 0.24 | 3.21 | 0.662 | **0.650** ±.016 |
+| ns6 | 6 | 0.64 | 3.34 | 0.575 | **0.593** ±.018 |
+| crowd8 | 8 | 0.47 | 3.35 | 0.504 | **0.471** ±.023 |
+
+Task-general: co-occ 5char pred 0.552 / meas 0.475; co-occ balanced 0.814 / 0.798; steps joint (mp-pair)
+0.514 / 0.514; frames-first query-blind frame tokens (weak code, d′_w=0.57) pred 0.176 / meas 0.245.
+**Deployed locus** (room-token carrier messages, frames-first): room@L14 pred .346/meas .296;
+**room@L16 pred .375 / meas .363** (peak carrier — the law lands within ~1pt); room@L20 .350/.396;
+char@L16 .212/.311. This **resolves the [2026-07-03b] "MISS"** (0.40-vs-0.28): it was naive-axis d′ +
+n=400 probe power, not the law. Full deployed ladder now measured in one place: **model 0.236 <
+linear-on-sum 0.36–0.40 (≈ predicted d′/√N ceiling) < decode-then-count 0.47 (report.txt, job 116866) <
+1.0** — readout-misalignment wall, then √N aggregation tax, then extraction bound.
+
+**E2 — cross-frame noise correlation: the superposition story IS the noise story.** ρ along the readout
+direction: **joint-pass caches ρ ≈ +0.085…+0.13 in every regime; matched multipass (isolated-frame)
+caches ρ ≈ +0.004…+0.014** (steps: .085→.014; co-occ: .096→.004; cache_mp_compare pairs). Single-pass
+processing measurably correlates per-frame noise; isolation removes it — the quantitative form of the
+[2026-06-20b] "single-pass superposition" finding ("information-limiting correlations", Moreno-Bote 2014).
+Subtlety: measured accs track the **iid** prediction better than the ρ-penalized one — a full-dim readout
+can project out shared-direction correlated noise, so only the matched-filter component is irreducible;
+refine ρ measurement along the sum-probe's own direction before using the ρ-corrected law.
+
+**E3 — sufficiency: confirmed 21/21 regimes.** MLP-on-sum never beats linear (Δ = −0.04…−0.58).
+Bonus: ridge→round beats multinomial logistic by 10–25pts everywhere — the decoder matching the
+equispaced-means geometry wins, as the model demands.
+
+**E4 — model adequacy: good exactly where the law fits.** Trusted regimes: |skew| ≤ 0.15, excess kurtosis
+≤ 0.2, class-std ratio 0.89–0.92, d′_gap ≈ d′_AUC (±few %). **Known failure mode:** regimes with per-frame
+probe saturated at ~1.0 (char1, cooc de/crowded small-n, multipass) — there d′ is unmeasurable from finite
+data (AUC→d′ pegs at its 6.72 cap), predictions are extrapolations and overshoot by 0.1–0.2. The law's
+domain of validity is self-diagnosing: quote it only where the per-frame probe is off ceiling.
+
+**Caveats.** Single probe family (ridge/logistic/MLP); Q-first crowd8 vs decrowd8 showed no d′ difference
+(both ≈3.3 — at odds with the earlier naive-SNR crowding story; recheck what cache_decrowded actually
+contains before citing a crowding contrast from this run); deployed L18/char measured > predicted →
+count information in auxiliary channels beyond the single evidence axis (the prediction is a
+single-channel account, so measured ≥ predicted flags extra channels, not refutation).
+
+---
+
+## [2026-07-03d] ✅📊 E5 causal dose-response — the readout-misalignment wall shown CAUSALLY: an amplified, last-token-decodable count signal leaves the emitted answer unchanged
+
+> **Script:** `evaluations/scripts/patch_importence/dprime_dose_response.py` (new) + `runners/dprime_dose_response.sbatch`.
+> **Run:** `outputs/frame_axis/probes/dprime_dose/20260703_182429/` (job **116926**, A100, 13 min, n=150).
+> Intervention: during real frames-first forwards, add `(λ−1)·g·δ` to the residual at the **room-token**
+> position entering **L17** (δ = measured evidence direction of the L16 room-carrier messages, ‖δ‖=1.41);
+> arms λ=0 (ablate) / 1 (baseline) / 2 / 4 + same-magnitude **random-direction** control (λ=4). Emitted
+> answer = candidate-digit argmax; last-token L24 rep cached per arm and probed post-hoc (ridge, 60/40).
+
+| arm | emitted acc | last-token L24 count decode |
+|---|---|---|
+| oracle λ=0 (ablate) | 0.233 | 0.367 |
+| oracle λ=1 (baseline) | 0.227 | 0.367 |
+| oracle λ=2 | 0.213 | 0.400 |
+| oracle λ=4 | 0.200 | **0.533** |
+| random λ=4 (control) | 0.200 | 0.400 |
+
+**Readings.** (1) **The readout wall is causal and severe:** the λ=4 dose propagates room-token → last
+token along the δ channel specifically (decode 0.367→**0.533**, +17pts; random control ≈ baseline) —
+count information amplified, delivered, and *linearly readable at the last token* — yet the frozen
+model's emitted answer does not move (0.23→0.20, within noise at n=150). "Decodable ≠ used" (Elazar
+amnesic-probing; Garcia right-answer-wrong-direction), now shown **causally at the deployed locus**: no
+amount of aggregation-side signal rescues the answer while the readout is misaligned — fixes must
+include R3 (direct/realigned readout), exactly as the [2026-07-03b] framework requires.
+(2) **The λ=0 ablation is a leaky null, not evidence the channel is unused:** downstream decodability was
+unchanged (0.367) because later-layer messages (L18/20 attention) re-deliver the evidence — a single-site
+subtraction can't scrub a channel that is re-written at every layer. A conclusive "load-bearing" test
+needs a **multi-layer projection scrub** (remove the δ̂ component of the room-token state at L14–21
+continuously, LEACE-style) — logged as the E5b follow-up, not yet run.
+(3) Dose–response on the probe side is attenuated by the carrier→last hop (0.53 ≪ the ~1.0 an
+uncorrupted injected signal would support), consistent with the weak last-token message path (SNR 0.42,
+[2026-07-03]). **Caveats:** n=150 (±~0.07 emitted, ±~0.09 probe); single site/layer; oracle-dosed (uses g)
+— a mechanism experiment, not a method.
+
+---
+
+## [2026-07-03e] ✅📊 E5b multi-layer dose + continuous scrub — the δ channel IS load-bearing (scrub ⇒ undercount collapse), yet amplifying it ×16 makes the count 0.70-decodable at the last token with ZERO behavioral gain
+
+> **Run:** `outputs/frame_axis/probes/dprime_dose/20260703_185555/` (job **116938**, A100, 19 min, n=150;
+> job 116937 died on an argparse flag collision — runner fixed). Same script, v2: multi-layer arms use
+> each layer's own δ_L (L14/16/18/20, dose enters L+1); **scrub** = label-free removal of the δ̂_L
+> component of the room-token state at every carrier layer (continuous, so later layers cannot
+> re-deliver — closes the [2026-07-03d] leaky-ablation hole); single-site ladder extended to λ=8/16;
+> random-direction multi control at λ=8. Last-token L24 reps probed post-hoc (ridge, 60/40).
+
+| arm | emitted acc | MAE | last-token count decode |
+|---|---|---|---|
+| base | 0.227 | 1.51 | 0.367 |
+| single λ=8 / λ=16 | 0.187 / 0.193 | 1.90 / 2.07 | 0.650 / **0.700** |
+| multi λ=2 / 4 / 8 / 16 | 0.213 / 0.207 / 0.193 / 0.140 | 1.56→2.19 | 0.433 / 0.517 / 0.650 / 0.650 |
+| **scrub (all layers, label-free)** | **0.180** | **2.47** | 0.317 |
+| random-dir multi λ=8 (control) | 0.213 | 1.96 | 0.600 (see caveat) |
+
+**Readings.**
+1. **The δ channel is load-bearing — scrub verdict.** Continuous removal of the room-token δ̂ component
+   collapses the answer distribution into systematic **undercounting**: g≥3 accuracy → ~0 (g3 0.42→0.00,
+   g4 0.33→0.04), "g0 accuracy" jumps to 0.86 because the model now always answers low; MAE 1.51→2.47.
+   The model behaves as if the evidence mass is gone ⇒ its emitted count **does** transit the room-token
+   δ channel. Resolves [2026-07-03d]'s open question: the channel is USED — just read very badly.
+2. **The readout wall widens with dose.** Emitted accuracy is flat-to-falling across every dose arm while
+   last-token decodability climbs 0.367→0.533→0.650→**0.700** (λ=4→8→16). At high λ behavior *degrades*
+   (multi λ=16: 0.140; by-gold mass collapses toward middle/low bins, g7/g8→0) — large doses push the
+   carrier off-distribution for the frozen downstream. So the answer to "can we push decodability higher?"
+   is yes (0.70 and still rising slowly), and it buys **zero** emitted accuracy — the cleanest possible
+   statement of "the remaining wall is the readout."
+3. **Multi-layer ≈ single-site at matched λ for decodability** (0.650 both at λ=8) — the last hop, not
+   accumulation depth, limits what reaches the last token; multi hurts *behavior* more (bigger drift).
+4. **Even a random-axis g-signal is decodable-but-unused:** the λ=8 random control carries g by
+   construction (magnitude ∝ g ⇒ probe reads it at 0.600) yet behavior stays at baseline (0.213) — the
+   frozen model exploits **no** novel linear g-channel, on any axis, without retraining. (This also means
+   the random arm controls direction-specificity of *behavior*, not of decodability.)
+
+**Caveats.** No random-direction **scrub** control yet (scrubbing a random axis should be behaviorally
+inert — cheap follow-up); the scrub also removes the constant μ·δ̂ offset (operating-point shift can't be
+fully excluded, though the g-dependent collapse pattern is exactly the evidence-removal signature);
+n=150; high-λ arms are off-distribution by design.
+
+---
+
+## [2026-07-03f] ✅📊 E5c — random-scrub control (load-bearing verdict now airtight) + the "repaired readout" column: dosed count survives all 28 layers and dies at the unembedding
+
+> **Run:** `outputs/frame_axis/probes/dprime_dose/20260703_192542/` (job **116943**, A100, 19 min, n=150).
+> Script v3 additions: `--scrub-random` control (remove a random unit axis instead of δ̂ at every carrier
+> layer) and **final-layer last-token capture** (`reps_final`, post-L27, one linear map from the digit
+> logits) — a ridge head on it = the accuracy the model would emit with a **repaired (realigned) readout**.
+> ⚠ The intended λ=16/32/64/128 ladder did not run in this job — `sbatch --export` splits on commas, so
+> `LAMS_SINGLE="8,16,…"` silently became `8` (lesson: export env vars through the shell, never inline
+> comma-valued `--export`). High-λ ladder re-submitted as job **116945** (▶ running); append on landing.
+
+| arm | emitted acc (MAE) | decode@L24 | **decode@FINAL = repaired-readout acc** |
+|---|---|---|---|
+| base | 0.227 (1.51) | 0.367 | 0.283 |
+| single dose λ=8 | 0.187 (1.90) | 0.650 | **0.683** |
+| multi dose λ=8 | 0.193 (1.99) | 0.650 | 0.667 |
+| multi dose λ=16 | 0.140 (2.19) | 0.650 | 0.617 |
+| **scrub δ̂ (all layers)** | **0.180 (2.47)** | 0.317 | 0.317 |
+| **scrub random axis (control)** | **0.247 (1.50)** | 0.333 | 0.300 |
+| random-dir dose λ=8 | 0.213 (1.96) | 0.600 | 0.517 |
+
+**Readings.**
+1. **Load-bearing verdict airtight.** Random-axis scrub ≈ baseline (0.247, MAE 1.50 vs 0.227/1.51);
+   δ̂-scrub collapses into undercounting (0.180, MAE 2.47, g≥3 ≈ 0). It is *that specific direction*,
+   not projection-removal per se, that carries the model's count.
+2. **The dosed count survives to the unembedding's doorstep and dies there.** decode@FINAL ≈ decode@L24
+   at every dose (λ=8: 0.683 vs 0.650) — no attenuation across the remaining 20+ layers; the frozen head
+   then emits 0.187. **With a linear count head the λ=8 model would score 0.68 — a 3.6× gap located
+   entirely in the readout.** At base the repaired head is worth only +0.06 (0.283 vs 0.227, ≈ the
+   un-dosed linear ceiling) — head-repair alone is modest; dose+repair reveals how much signal the head
+   discards.
+3. **Multi-site injection adds nothing to decodability (0.650 = 0.650 at λ=8) while hurting behavior
+   more** (0.140 at multi-16). Why, in theory terms: (i) the dose is a *noise-free* deterministic
+   function of g — one copy is information-saturated, replicas add zero; (ii) RMSNorm + linear probing
+   are scale-insensitive — more amplitude along the same axis is the same 1-D signal; (iii) the binding
+   constraint is the room→last-token transmission through frozen attention (the SNR-0.42 hop), which
+   same-position copies don't widen. Each extra site only pays a fresh off-distribution penalty.
+   **Prediction registered in advance for job 116945:** decode saturates across λ=16→128 (pipe full)
+   while emitted accuracy keeps degrading.
+
+**Caveats.** n=150 (decode columns n_test=60, ±~0.09); repaired-readout head is fit per-arm on 90
+samples (upper-bound flavor, not a deployed artifact); μ·δ̂-offset caveat from [2026-07-03e] still
+applies to the scrub arm.
+
+**High-λ ladder landed (job 116945, run `…/dprime_dose/20260703_194553/`, 21 min) — the registered
+prediction confirmed.** Single-site λ = 16/32/64/128:
+
+| λ | emitted (MAE) | decode@L24 | repaired readout (@FINAL) |
+|---|---|---|---|
+| 16 | 0.193 (2.07) | 0.700 | 0.650 |
+| 32 | 0.147 (2.25) | 0.717 | 0.700 |
+| 64 | 0.133 (2.31) | 0.750 | **0.783** |
+| 128 | 0.167 (2.28) | 0.633 | 0.667 |
+
+(1) **Saturation as predicted in advance:** decode plateaus at ~0.70–0.78 across λ=16–64 — a 127×
+amplified, noise-free count signal cannot push past ~0.78 at the output position. The plateau *is* the
+measured transmission capacity of the frozen room→last-token attention hop (the SNR-0.42 path) — the
+pipe, not the payload, is the limit. At λ=128 decode *declines* (0.633/0.667): the dose is so large it
+crushes the token's remaining content and drifts the whole forward further off-distribution.
+(2) **Emitted accuracy degrades monotonically to 0.133** (by-gold mass collapses onto g≈4; g≥5 → 0) —
+the frozen head never benefits at any dose. Peak dissociation at λ=64: repaired readout **0.783** vs
+emitted **0.133 — a 5.9× gap, entirely in the unembedding.** (3) The behavioral degradation pattern
+(regress-to-middle) matches the carrier going off-distribution, not information loss (decode stays high).
+
+---
+
+## [2026-07-04] ✅📊 d′-theory rollout to CO-OCCUPANCY and ROOMS — distributed carrier found & causally mapped (double dissociation); rooms' structural-vs-statistical split measured; the law + readout wall replicate on both tasks
+
+> Overnight autonomous rollout of the [2026-07-03b–f] program to the two other MMReD tasks, on the
+> balanced 5-char datasets. All runs single-GPU (l40s), ~2.2 h total.
+> **Jobs:** localization 116997 (cooc, 18 min) / 116998 (rooms, 30 min); message caches 117005 (cooc,
+> 616 MB) / 117014 (rooms, 411 MB — first attempt 117006 lost 40 min to a section-(G) single-class crash;
+> probe now guards it AND saves the cache *before* any analysis); E5-cooc + H3 117015 (12 min).
+> **Script upgrades:** probe gained a multiclass (mean one-vs-rest) per-token d′ map + raw-label saving;
+> `probe_dprime_parity.py` gained the **K-channel mode**; dose script v4 (multi-offset scrub sets, --task).
+
+**1 · Carrier localization (per-token × layer d′ maps, n=400).**
+- **co-occupancy: the carrier is DISTRIBUTED over the two character-name tokens** — char1 (off−15)
+  d′ 1.49@L14, char2 (off−13) 1.29@L14/1.23@L16, "and" between them 1.33@L18, "same" (off−10) 1.15@L16;
+  no single dominant token. Model own-answer **0.155**; per-frame same/diff from messages AUROC **0.982**;
+  decode-then-count **0.601** (3.6× model). `carrier_message/cooc_locmap/`.
+- **rooms-visited: the carrier is the character-name token** (off−10, 1.19@L14/1.22@L16; "visit" 0.82–0.96
+  secondary; deep-layer sinks only at L20). Model own-answer **0.087**; per-frame room decode (multiclass)
+  **0.947**; decode-then-count **0.803** (**10× model** — the biggest aggregation gap of the three tasks).
+  `carrier_message/rooms_locmap/`.
+
+**2 · Deployed parity, co-occupancy (`dprime_parity/20260704_011808/`, 3 seeds).** Single-token loci
+UNDER-predict everywhere (char2@L16 pred .412/meas .497; char1@L18 pred .259/meas .489; same@L16 pred
+.354/meas .500) — the distributed-carrier signature. **The block readout closes it: two-name concat @L14
+has block-d′ 3.19 → pred 0.456 vs meas 0.484** (3-carrier block @L16: d′ 2.90, pred .423/meas .540 —
+residual ~+.11, probe-power on the 10.7k-dim concat suspected, flagged). d′_w ≈ d′_auc everywhere
+(adequacy ✓), ρ ≈ 0–.05, MLP ≤ linear in all 7 loci (sufficiency ✓). Ladder: model .155 < single-carrier
+linear .46–.53 ≈ block .48–.54 < dtc .601 < per-frame .937.
+
+**3 · Rooms K-channel parity (`dprime_parity/20260704_015706/`, 3 seeds) — the structural split, measured.**
+Per-room one-vs-rest d′_r at the char-token carrier: **4.5–5.9 (mean 5.0) @L14**, decaying 4.0@L16 →
+2.4@L18. At L14, on the SAME pooled sum: **linear readout 0.400 < per-channel-threshold readout 0.650
+(closed-form prediction 0.51) ≪ decode-then-count 0.988** (per-frame room decisions are ~perfect at
+d′≈5, then union). Readings: (i) **structural failure demonstrated** — a per-channel nonlinearity on the
+*same* pooled vector beats the best linear readout by +0.25 (support-size is nonlinear in the tallies;
+no linear functional can express it); (ii) **the √N statistical tax on presence detection is real** —
+per-frame decisions 0.99 collapse to 0.65 when forced through the pooled state; (iii) layer gradient
+tracks the theory (d′_r 5.0→2.4 drives hard .65→.41 and dtc .99→.71 in lockstep, linear flat at its
+~.40 ceiling). Closed-form is conservative (+.14 low vs measured threshold readout — independence +
+midpoint-threshold approximations); MLP-on-sum (0.34) failed to beat linear — underpowered at n_tr=360,
+NOT a theory pass/fail (the hard-threshold column is the structural test and it passed). Full ladder:
+model .087 < linear .40 < Σ-threshold .65 < dtc .99.
+
+**4 · E5-cooc + H3 causal carrier map (`dprime_dose_cooc/`, job 117015, n=150) — DOUBLE DISSOCIATION.**
+
+| arm | emitted acc (MAE) | L24 decode | final decode |
+|---|---|---|---|
+| base | 0.187 (2.03) | 0.350 | 0.317 |
+| dose char1 ×4 / ×16 (multi-layer) | 0.193 / 0.133 | 0.383 / **0.767** | 0.350 / 0.683 |
+| **scrub char1 (off15)** | **0.193 — NULL** | 0.317 | 0.350 |
+| **scrub char2 (off13)** | **0.100, collapse** (g2→1.00, g4→0.03) | 0.317 | 0.283 |
+| scrub "same" (off10) | 0.127, partial collapse | 0.367 | 0.367 |
+| scrub char1+char2 | 0.100 (= char2 alone) | 0.350 | 0.250 |
+| scrub random axis (control) | 0.187 ≈ base | 0.333 | 0.317 |
+
+Readings: (i) **the model's co-occ count causally transits char2 (the second-mentioned name) and
+partially "same" — NOT char1**, despite char1's messages being decodable (d′ 1.8): decodable ≠ consumed,
+now shown *between carriers* of one task. The d′ map's argmax (char2, 2.8) = the causal carrier → **H3
+validates the map's peak as a cheap causal proxy** (but secondary d′ loci are not necessarily used).
+(ii) **The readout wall replicates on co-occ:** dosing char1 ×16 delivers +0.42 of last-token
+decodability (0.35→0.767) while emitted *falls* (0.187→0.133). (iii) Scrubs crush behavior without
+denting probe decodability (0.32–0.37) — the model consumes one channel; probes read them all.
+
+**Cross-task synthesis.** All three tasks now show, at their deployed carriers: (a) the parity law
+(exact at steps' single carrier; lower-bound-per-channel + block-closure at co-occ's distributed
+carrier; conservative-but-ordered at rooms' K channels); (b) per-frame evidence strong (d′ 2.4–5.9) with
+the pooled linear readout capped as predicted; (c) an enormous causal readout wall (model 0.09–0.24 vs
+information present 0.5–0.99); (d) scrub-identified load-bearing carriers with inert random controls.
+Task-dependent structure discovered along the way: steps = one carrier (room token); co-occ = two
+distributed name-carriers, only one causally consumed; rooms = K channels through one name-carrier
+with structural linear-failure on top.
+
+**Caveats.** E5-cooc gold distribution is skewed (pick_pair maximizes co-occurrence → g≥2, model's
+by-gold shows total failure at g≥5 regardless of arm); n=150 single seed for E5; rooms closed-form
+under-predicts its own threshold readout by ~.14 (approximations listed above — refine before quoting
+as "the" rooms prediction); cooc 3-block residual +.11 unexplained; E5-rooms (subspace scrub over
+span{δ_r}) designed but NOT run — do after the K-channel model is accepted; MLP-on-sum for rooms needs
+n≥1500 to be a fair structural test. Everything on balanced 5-char datasets, 7B nf4.
+
+**Addendum (same day, CPU diagnostics on the existing caches):**
+- **Rooms structural sign-flip CONFIRMED in tally space.** Fair test (project the pooled sum onto the 6
+  per-room whitened axes → 6-dim features, no dimensionality excuse for the MLP): **linear 0.325–0.329
+  vs MLP(32) 0.537–0.588, MLP−linear = +0.21…+0.26** (3 seeds). Counting: MLP never beats linear
+  (21/21, sufficiency). Distinct-count: MLP must and does — the sign flips exactly where the algebra
+  says support-size is nonlinear in the tallies. This supersedes the underpowered raw-3584-dim MLP null.
+- **Cooc 3-block residual is NOT d′-estimation error:** probe-accuracy-based block d′ (2.94–2.96, from
+  CV bal-acc 0.929–0.930) agrees with the LDA-projection estimate (2.90–3.19). New leading hypothesis:
+  co-occ per-frame labels are truly **ternary** (same / diff / not-both-present); the binary two-cloud
+  model lumps {diff, absent}, undercounting available channels (the "both-present" channel correlates
+  with the count via pick_pair's construction). To be tested on the n=1500 multi-offset cache (job 117102).
+- **In flight:** E5-rooms subspace-scrub/tally-dose (job 117100: scrub span{δ_r} at char token, QR-orthonormal,
+  random-subspace control); rooms n=1500 cache (117101, raw-MLP rerun); cooc n=1500 6-offset cache (117102).
+
+---
+
+## [2026-07-04b] ✅📊 E5-rooms: the K-subspace is load-bearing (dimensionality-matched control inert) + the FIRST dose that moves behavior (a crude magnitude coupling); cooc ternary hypothesis refuted; big-cache replications
+
+> **Runs:** E5-rooms `outputs/frame_axis/probes/dprime_dose_rooms/` (job **117100**, 14 min, n=150);
+> big caches job **117101** (rooms — dataset exhausted at **n=720**, not 1500) and **117102** (cooc,
+> n=1080, 6 offsets ×L14/16, 1.1 GB); CPU analyses appended to `dprime_parity/20260704_015706/`.
+
+**E5-rooms (char-token carrier; scrub = remove the whole span{δ_room1…6}, QR-orthonormal, L15–21):**
+
+| arm | emitted acc (MAE) | L24 decode | final decode |
+|---|---|---|---|
+| base | 0.133 (1.45) — model answers "3" almost always | 0.300 | 0.433 |
+| tally dose ×4 / ×16 (multi-layer) | 0.133 / **0.233** | 0.367 / **0.517** | 0.417 / 0.467 |
+| **scrub span{δ_r} @ char token** | **0.053 (2.29)** — answers collapse to 1–2 | 0.267 | 0.333 |
+| scrub span{δ_r} @ "visit" token | 0.073 (1.81) | 0.433 | 0.433 |
+| scrub random 6-dim subspace (control) | 0.120 ≈ base | 0.333 | 0.417 |
+
+Readings: (i) **the K-channel subspace at the char token is causally load-bearing** — scrubbing it
+collapses the model into low answers (the evidence-removed signature), while a *dimensionality-matched*
+random subspace is inert. The rooms causal story now matches steps and co-occ. (ii) **First
+behavior-moving dose in the program:** tally dose ×16 lifts emitted 0.133→0.233 — but MAE is flat
+(1.45→1.43) and by-gold shows a pure **upward distribution shift** (g3-answers migrate to 4): the
+readout is coupled to the **total tally magnitude** (≈ Σ n_r, a crude scalar) and gains no per-sample
+discrimination. A magnitude-coupled-but-structure-blind readout — consistent with everything else.
+(iii) Probe side as always: dose ×16 delivers +0.22 of decodability (0.30→0.517) far beyond the
+behavioral response.
+
+**Cooc ternary-channel hypothesis: REFUTED** (big cache, char2@L16, n=1080, 2 seeds): the 1-D same-axis
+projection of the sum decodes 0.477–0.500 ≈ full-3584-dim ridge 0.491–0.523; adding the both-present
+axis adds nothing (0.481–0.488). So (a) **sufficiency holds at the deployed cooc carrier** — one matched
+filter carries all linearly-readable count; (b) the n=600 3-block "+0.11 residual" was probe variance,
+now largely closed at n=1080 (residual vs single-channel prediction shrinks to ~+0.07); (c) the
+[2026-07-04] "ternary channels" caveat is retired.
+
+**Rooms replication at full dataset (n=720 — the balanced set is exhausted; "n=1500" impossible):**
+d′_r ≈ 5.1, linear 0.375–0.420 < hard-threshold 0.656–0.688 (pred 0.52) ≪ dtc 0.993–1.000 — all
+[2026-07-04] numbers replicate. Raw-3584-dim MLP-on-sum still ≈ linear (0.375–0.382) even at n=720 —
+**permanently underpowered at this dataset size; the 6-dim tally-space test (+0.21…+0.26) is the
+definitive structural evidence**, not the raw-dim null.
+
+**Also measured (temporal-readiness probe):** frame POSITION is ~losslessly decodable from the per-frame
+carrier messages (steps room@L16: 0.988; cooc char2@L16: 0.989; within-1: 0.999) — the positional
+channel temporal tasks need exists at the deployed locus; temporal answers being nonlinear in
+(evidence × position) puts them in the rooms (structural) class — prediction registered for a future
+temporal rollout.
+
+---
+
+## [2026-07-04c] ✅📊 Carrier anatomy: char1 matters EARLY, char2 matters LATE (relay-then-bind confirmed); dose at the causal carrier moves behavior; last-token δ-channel null; distinct_* reveals the gate's low-d′ regime
+
+> **Run:** `outputs/frame_axis/probes/dprime_dose_cooc_anatomy/` (job **117213**, 21 min, n=150; job 117197
+> died on an unbound-var bug in the scramble guard — fixed; 117198 was a mis-parameterized resubmit,
+> cancelled at 0 cost). New intervention: **token scramble** = add a fixed matched-norm direction to one
+> token's state at L2–12 (δ-free early-layer disruption) + neutral-token control. distinct_* analysis on
+> the June caches appended to `dprime_parity/20260704_015706/` console log.
+
+| arm (co-occ) | emitted acc (MAE) | by-gold signature |
+|---|---|---|
+| base | 0.187 (2.03) | g2:.79 g4:.52 |
+| dose ×4 / ×16 at **char2 = the causal carrier** (L14+16) | **0.240 (1.68)** / 0.220 (**1.50**) | mass shifts up: ×16 → g4:.94, g2:.07 |
+| scrub last-token δ̂ (off0) | 0.187 (2.07) — **null** | unchanged |
+| scrub char1 δ̂ @L14–16 (replication) | 0.200 — null | unchanged |
+| **scramble char1 EARLY (L2–12)** | **0.113 (2.45)** | g4 .52→**.12**, pushed low |
+| scramble char2 early | 0.180 ≈ base | mild redistribution |
+| scramble 'the' early (control) | 0.167 | mild nonspecific (g4 .39) |
+
+**Readings.**
+1. **Relay-then-bind confirmed — a double dissociation across DEPTH:** char1 is causally needed EARLY
+   (L2–12 scramble → 0.113, g4 collapses to 0.12; specific margin vs the neutral-token control ~.05–.07
+   in acc but far sharper in the by-gold signature) and inert LATE (δ̂-scrub null, twice); char2 is inert
+   early (0.180) and load-bearing late ([2026-07-04] scrub → 0.100). The [2026-07-04] "char1 ignored"
+   reading is CORRECTED: char1's identity is consumed during early question self-attention and relayed
+   into the binding site; by L14 its token is causally spent. **The refined single-carrier picture: one
+   BINDING SITE per task — the last query-completing entity token — where upstream slots deposit their
+   identity early and the mid-layer count evidence then accumulates and is consumed.**
+2. **Dose–response is carrier-specific:** dosing char1 did nothing ([2026-07-04]); dosing char2 — the
+   causal carrier — moves behavior (0.187→0.240 at ×4; MAE 2.03→1.50 at ×16 with the same crude upward
+   magnitude-shift as rooms, g2→g4 overshoot). The dose arm now doubles as a carrier-identification test.
+3. **Last-token δ̂ channel is null:** the count does not ride the last token's own δ-content through the
+   mid layers — it is read off the carrier by late attention. Consistent with the stage staircase
+   (carrier peaks L14–16, last token only L18–26) and with why last-token d′ was always weak (0.4).
+4. **distinct_visitors / distinct_companions (June caches, K=9 char channels, CPU):** per-channel
+   d′_c only 1.07–1.46 at the Q-first locus ⇒ the hard per-channel threshold readout **collapses**
+   (0.13–0.14) while linear-on-sum gets 0.51–0.52 — the exact mirror of rooms (d′_r≈5 ⇒ threshold wins
+   +0.25). **The gate has a d′-crossover, and the theory contains it:** per-channel thresholds beat soft
+   pooling only when per-channel decisions are reliable; at d′_c/√N ≈ 0.4, premature hard decisions
+   destroy graded information. Prescription refined: "gate before sum, IF d′ suffices — else raise d′
+   first." (Caveat: deployed carriers for distinct_* not yet localized; a better locus likely has
+   higher d′_c.)
+
+**Caveats.** Scramble is a fixed-direction, matched-norm perturbation — a robustness probe, not a
+surgical ablation (the model may partially absorb a shared offset; char2's early-scramble null could
+partly reflect this); n=150 single seed; the early-char1 specific margin over the control is modest in
+raw accuracy (0.113 vs 0.167) and rests mainly on the by-gold signature; last-token null is specific to
+the δ̂ axis of its own messages at L15/17 entry, not a full last-token ablation.
+
+---
+
+## [2026-07-04d] ✅📊 Anatomy at n=400 (all claims replicate; carrier→last transfer completes by ~L17) · first temporal task localized · BATCH-0 of the tally-register solution: rooms 1.00/0.97-OOD, cooc 0.75, steps capped at its carrier d′ exactly as predicted
+
+> **Runs:** steps anatomy `dprime_dose_steps_anatomy/` (job 117351, n=400); cooc anatomy replication
+> `dprime_dose_cooc_anatomy400/` (job 117352, n=400); first_occurrence localization
+> `carrier_message/firstocc_locmap/` (job 117354, A100); batch-0 solution
+> `outputs/frame_axis/probes/tally_solution/20260704_150209/` + v2-fix console (logistic block gates).
+> New: `experiments/glstm/tally_register_solution.py`; `first_occurrence` task added to the carrier probe.
+
+**1 · Anatomy, now at n=400 with clean controls.**
+- **The carrier→last transfer completes by ~L17 (steps):** mid-window scrub of the room token (L14–16)
+  collapses the count (undercount signature, g≥3→~0) while the **late-window scrub (L18–20) is exactly
+  null** (0.242 vs base 0.235). Combined with the restoration staircase: aggregate at carrier L14–16 →
+  hand-off ≈L17 → last token carries it L18–26 → head. The last token is the *prediction* hub, never the
+  *aggregation* site — [2026-07-04c]'s picture, now time-stamped by intervention.
+- Steps also shows **relay-then-bind** (early char scramble 0.113 vs neutral control 0.255; early room
+  scramble collapses onto the prior, g4=0.91) and a **partial secondary carrier** (char-token mid scrub
+  0.170 — steps' binding is more shared than cooc's).
+- **Cooc: all four anatomy claims replicate at n=400** — char2 scrub 0.085 (base 0.155); char1-early
+  scramble 0.100 vs control 0.142; char2-early null (0.155); dose at the causal carrier +0.065 (0.220);
+  random-axis scrub 0.160 ≈ base.
+- Steps dose (multi ×4 @room) is null (0.230) — unlike rooms (+0.10) and cooc (+0.065): the
+  magnitude-coupling of the frozen readout is task-dependent.
+
+**2 · First temporal task (first_occurrence) localized.** Model own-answer **0.432 — below the majority
+baseline 0.513** (worse than always answering "frame 1"). Carrier map: peak d′ 1.27 @L16 (off−13
+region), per-frame evidence AUROC 0.948. ⚠ the report's dtc row (0.090) is meaningless — the probe's
+sum-reduction is the wrong algebra for argmin-over-positions; correct temporal reduction needs the
+message cache (not yet saved for this task).
+
+**3 · BATCH-0 of the tally-register solution (deployed carrier messages; gate→tally→task algebra; the
+tally IS the answer — no frozen head).** v1 = LDA gates on the single peak carrier; v2 = balanced
+logistic gates on multi-token/layer block features:
+
+| task | model | v1 IID | **v2 IID** | v2/v1 count-OOD | distill-proxy (v1) |
+|---|---|---|---|---|---|
+| **rooms** (multiclass gate → union) | 0.087 | **0.993–1.000** | — | **0.960–0.980** | not measured (flag) |
+| cooc (2-token × 2-layer block) | 0.155 | 0.632–0.664 | **0.736–0.766** | 0.439–0.469 (v2; v1 0.35) | 0.514–0.537 |
+| steps (room, 4-layer block) | 0.207 | 0.475–0.525 | 0.517–0.521 | 0.118–0.175 | ≈ gt |
+
+**Readings.** (i) **rooms: 11× the model with near-perfect count-OOD** — gate at d′_r≈5 + parameter-free
+union = the flagship demonstration of the architecture. (ii) **cooc: 4.8× the model** (block gate 0.75);
+distributed carrier handled by the block read. (iii) **steps is the theory grading its own solution:**
+0.52 is what the closed form predicts for a gate at the deployed carrier's d′=2.44 (p_err≈0.11 →
+P(cancel)≈0.5); the 4-layer block added nothing (layers are correlated copies, not independent
+channels). Raising steps needs a better read locus (query-conditioned/isolation-mask reads measured at
+0.94–0.99 per-frame in June — the known remedy), not a better aggregator. (iv) **steps count-OOD failure
+is NOT just prior calibration** — class-balanced gates didn't fix it (0.12–0.18); systematic undercount
+(MAE≈1.9) persists. Hypothesis for batch-1: frame-content distribution shift between low- and high-count
+samples (queried-room crowding co-varies with count) — a generator-confound-flavored issue; test by
+auditing per-frame gate error vs gold. (v) distill-proxy: steps unaffected (flip 1.3%); cooc drops
+0.66→0.53 (flip 9.1%) — look-again quality is the deployability bottleneck for cooc, as the gate-quality
+theory says.
+
+**Per-count audit (`tally_solution/20260704_150209/percount_audit.{png,json}`).** (i) The IID gate's
+per-count accuracy tracks the cancellation formula (dotted curve) through g=1–6 and dips under it at
+g=7–8; (ii) **the tally bias is the predicted straight line** bias(g) ≈ N·FP − g·(FN+FP): steps runs
++1.0 at g=1 → −1.4 at g=8 (slope ≈ −(FN+FP) = −0.28 as predicted from FN=.143/FP=.132); (iii) the
+OOD-trained gate's failure is quantified as **FN inflation**: training on gold≤4 doubles-to-triples the
+false-negative rate (steps .143→.308, cooc .075→.220) with FP unchanged — threshold drift against
+positives, stacking on the structural one-sidedness at high counts (bias −3.6 at g=8).
+**Bias-correction null:** the closed-form adjusted count k̂′=(k̂−N·FP)/(1−FN−FP) with train-estimated
+rates does NOT rescue exact-match (IID it *hurts*: rescaling amplifies noise 1/(1−FN−FP)≈1.4× — rounding
+loses more to variance than it gains from de-biasing; OOD it under-corrects because the error rates
+themselves shift with the count distribution — train-side calibration can't see it). Conclusion stands:
+**the fix for steps/cooc exact-match and OOD is d′ at the read locus (Tier-2 reads), not post-hoc
+calibration.**
+
+**Batch-0 verdict for the 24-task campaign:** the architecture works end-to-end and extrapolates where
+per-frame d′ suffices (rooms), the block-read handles distributed carriers (cooc), and the failure modes
+are exactly the theory's own predictions with known remedies (steps: read locus; cooc: look-again
+quality; OOD: audit the generator confound). Pipeline is campaign-ready; the two carried caveats go into
+the agent's stop-and-ask list.
+
+---
+
+## [2026-07-04e] 📊 ρ is axis-dependent: two distinct sources of cross-frame correlation dissociated (content vs processing); δ̂ and w* are nearly orthogonal
+
+> CPU, mp_compare caches, console (steps/cooc, joint vs multipass, n=1080 each). Native-axis (E6)
+> gradient job 117789 submitted (grad of answer-logit margin at the room token, L17/L21 entries) —
+> ρ along the model's own readout axis + cos comparisons to follow.
+
+| cache | ρ along naive δ̂ | ρ along whitened w* | cos(δ̂, w*) |
+|---|---|---|---|
+| steps joint | +0.054 | +0.104 | +0.07 |
+| steps multipass | **+0.303** | +0.016 | +0.13 |
+| cooc joint | −0.034 | +0.099 | +0.07 |
+| cooc multipass | +0.013 | +0.017 | +0.11 |
+
+**Readings.** (1) The whitened-axis ρ isolates **shared-forward-pass interference** (joint ~0.10 → multipass
+~0.016, both tasks — the [2026-07-04] finding, now shown axis-specific). (2) The naive-axis ρ measures
+something else entirely: **shared-scene content correlation** — steps-multipass frames correlate at +0.30
+along δ̂ despite fully independent forwards (impossible for processing noise; the frames share a video's
+scene statistics, and δ̂ is entangled with them). The whitened axis has projected that content away —
+which is *why* it is the good axis. (3) **cos(δ̂, w*) ≈ 0.07–0.13**: the mean-difference direction and the
+optimal discriminant are nearly orthogonal — an extreme-anisotropy statement that retroactively explains
+the size of the 0.33-vs-3.4 gap. Open puzzle (flagged, not explained): joint processing *suppresses* the
+δ̂-content correlation (0.054 vs 0.303) — candidate mechanisms: cross-frame attention homogenization, or
+zero-sum attention competition anti-correlating frame representations; untested.
+
+---
+
+## [2026-07-05] ✅📊 E6 — the model's NATIVE reading axis extracted: nearly orthogonal to both good axes (cos ≈ 0.01–0.06), d′ = 0.51 along it — and the law evaluated on the model's own axis predicts the model's own accuracy
+
+> **Runs:** `outputs/frame_axis/probes/native_axis/20260705_153147/` (job **117809**, rtx6k, 6 min, n=100:
+> gradient of the answer-digit logit margin w.r.t. the room-token residual entering L17/L21; unit grads
+> sign-aligned and averaged) + CPU comparison vs the count_msgcache room messages. New:
+> `native_axis_probe.py` + runner. Ops note: multi-partition submission (`-p l40s,rtx6k,a100,l40s-public`)
+> started instantly on a saturated cluster where single-partition queued indefinitely — adopt as default.
+
+| layer | grad coherence | cos(native, δ̂) | cos(native, w*) | d′ along native (δ̂ / w* for ref) | ρ along native |
+|---|---|---|---|---|---|
+| L16 | 0.658 | +0.056 | **+0.005** | **0.51** (1.12 / 2.47) | +0.052 |
+| L20 | 0.437 | +0.016 | +0.033 | 0.17 (0.79 / 2.26) | **+0.400** |
+
+**Readings.**
+1. **The readout wall now has a direction and a number.** The model's effective reading axis at the peak
+   carrier is essentially orthogonal to the whitened discriminant (cos 0.005) AND to the naive axis
+   (0.056), and carries only d′ = 0.51 — ~20% of the available separation, worse than even δ̂. "Right
+   token, wrong axis," measured.
+2. **Behavioral closure of the law (headline):** the closed form evaluated along the model's own axis —
+   d′ 0.51, N=8, prior-mixed — predicts **≈ 0.17**; the model's measured own-answer accuracy is
+   **0.21–0.24**. One law, three axes, three regimes: native 0.51 → model ~0.2; whitened 2.47 → probe
+   ceiling ~0.47 (parity); multipass ≥ ~6.6 → solution 0.95+. The entire accuracy hierarchy of this
+   project is one formula evaluated at three read qualities.
+3. **L20's native axis is noise- and correlation-dominated:** d′ 0.17 with ρ = +0.40 along it — the
+   late-layer reading direction sits in a strongly cross-frame-correlated subspace (sink-like), carrying
+   almost no evidence signal. Consistent with deep-layer sinks in the carrier maps.
+**Caveats.** The gradient axis is a first-order (locally linear) summary of a nonlinear readout —
+coherence 0.658 says one direction captures much but not all of it; the behavioral-closure match
+(0.17 vs 0.21) is therefore corroboration, not exact accounting; n=100, single task (steps), messages
+space vs residual space treated as the shared 3584-dim basis (exact for o_proj contributions).
+
+**Addendum — d′ estimator convergence (CPU, console).** Held-out d′ vs n_train frames (shrinkage-LDA):
+steps bench L19: 2.15 (n=250) → 2.94 (1k) → 3.20 (3k) → 3.34 (3.8k, max); deployed room L16: 1.74 (250)
+→ 2.14 (1k) → 2.47 (2.9k, max). **Still rising at max n on both loci** ⇒ every quoted d′ is a
+*converging lower bound*; increment decay suggests asymptotes ≈3.5–3.7 (bench) / ≈2.6–2.8 (deployed) —
+we sit ~5–10% below truth. Parity was unaffected because both sides share the finite-data handicap (the
+sum-side ridge had the same samples). Direction of the bias is conservative for all Tier-2/threshold
+claims; steps' single-pass verdict unchanged (even 2.8 ≪ 4.8). If an asymptote is ever needed: fit
+d′(n)=d∞−c/n, or cache more frames (128-length samples donate 16× frames each).
+
+---
+
 ## References (GNN / set-aggregation grounding)
 
 > External literature this work builds on. Relevance noted per entry; arXiv IDs verified 2026-06-13.

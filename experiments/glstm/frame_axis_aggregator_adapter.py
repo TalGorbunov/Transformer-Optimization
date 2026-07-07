@@ -52,7 +52,8 @@ from evaluations.scripts import probe_evidence_selection_linear as pr  # text-fr
 from models.model import get_layers, image_token_groups
 
 TASKS = ["steps_in_room", "rooms_visited", "co_occupancy",
-         "room_busy", "char_accompanied", "char_alone"]  # last 3 = added Cat-1 tasks (sum-of-indicator)
+         "room_busy", "char_accompanied", "char_alone",  # Cat-1 tasks (sum-of-indicator)
+         "first_in_room", "last_in_room", "span_in_room"]  # TEMPORAL/order-dependent (sum cannot answer)
 
 
 def parse_args() -> argparse.Namespace:
@@ -63,8 +64,16 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--text", action="store_true",
                    help="feed frames as TEXT (per-frame state token spans) instead of rendered images")
     p.add_argument("--phi", choices=["linear", "codebook"], default="linear")
-    p.add_argument("--frame-pool", choices=["mean", "attn", "target"], default="mean",
-                   help="pool each frame: mean, query-conditioned attention, or the queried-entity token (text only)")
+    p.add_argument("--frame-pool", choices=["mean", "attn", "target", "slot", "none"], default="mean",
+                   help="pool each frame: mean, query-conditioned attention, queried-entity token (text), "
+                        "slot-attention (K query-free entity slots), or none=feed ALL frame tokens to the "
+                        "aggregator (use with --aggregator mamba: per-token selective scan, extraction+aggregation in one)")
+    p.add_argument("--num-slots", type=int, default=8, help="K for frame-pool=slot")
+    p.add_argument("--mamba-readout", choices=["sum", "last"], default="sum",
+                   help="sum=Σ outputs (counting-biased, extrapolates); last=final state (TASK-AGNOSTIC: the SSM "
+                        "state encodes whatever reduction it learned — count/distinct/order — no additive bias)")
+    p.add_argument("--pertoken-maxtok", type=int, default=64,
+                   help="frame-pool=none: subsample each frame to this many tokens (0=all; >~64 is slow due to the python-loop scan)")
     p.add_argument("--balanced-loss", action="store_true", help="inverse-frequency count weighting per example")
     p.add_argument("--model-name", default="Qwen/Qwen2.5-VL-7B-Instruct")
     p.add_argument("--data-root", type=Path, default=PROJECT_ROOT / "data" / "mmred_images_park")
@@ -83,6 +92,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--d-mem", type=int, default=256)
     p.add_argument("--read-layer", type=int, default=19, help="0-indexed decoder layer; pre-hook reads/injects here")
     p.add_argument("--aux-weight", type=float, default=0.5)
+    p.add_argument("--frame-sup-weight", type=float, default=0.0,
+                   help="BCE on per-frame count_scorer logits vs per-frame evidence labels (steps, per-frame pool). "
+                        "Calibrates the additive readout -> soft-sum stops compounding (readout_benchmark: 0.52->0.996)")
     p.add_argument("--count-readout", choices=["ce", "additive"], default="ce",
                    help="ce=9-way classifier aux head (caps at top trained label); "
                         "additive=Σ sigmoid(per-frame score), extensive -> extrapolates to unseen counts")
@@ -100,18 +112,56 @@ def parse_args() -> argparse.Namespace:
 
 
 # ----------------------------- adapter -----------------------------
+class SlotAttention(nn.Module):
+    """Locatello 2020 slot attention: K query-free entity slots via competitive (softmax-over-slots)
+    attention + GRU update. Separates superposed entities so crowding doesn't dilute them."""
+    def __init__(self, num_slots: int, dim: int, iters: int = 3, eps: float = 1e-8):
+        super().__init__()
+        self.num_slots, self.iters, self.eps, self.scale = num_slots, iters, eps, dim ** -0.5
+        self.slots_mu = nn.Parameter(torch.randn(1, dim) * 0.02)
+        self.slots_logsigma = nn.Parameter(torch.zeros(1, dim))
+        self.to_q = nn.Linear(dim, dim); self.to_k = nn.Linear(dim, dim); self.to_v = nn.Linear(dim, dim)
+        self.gru = nn.GRUCell(dim, dim)
+        self.mlp = nn.Sequential(nn.Linear(dim, 2 * dim), nn.GELU(), nn.Linear(2 * dim, dim))
+        self.norm_in = nn.LayerNorm(dim); self.norm_slots = nn.LayerNorm(dim); self.norm_mlp = nn.LayerNorm(dim)
+
+    def forward(self, inputs: torch.Tensor) -> torch.Tensor:        # inputs [T,dim] -> slots [K,dim]
+        inputs = self.norm_in(inputs)
+        k, v = self.to_k(inputs), self.to_v(inputs)
+        mu = self.slots_mu.expand(self.num_slots, -1)
+        slots = mu + self.slots_logsigma.exp().expand(self.num_slots, -1) * torch.randn_like(mu)
+        for _ in range(self.iters):
+            prev = slots
+            q = self.to_q(self.norm_slots(slots))                  # [K,dim]
+            attn = torch.softmax((k @ q.t()) * self.scale, dim=1) + self.eps   # [T,K] compete over slots
+            attn = attn / attn.sum(0, keepdim=True)                # weighted mean per slot
+            updates = attn.t() @ v                                 # [K,dim]
+            slots = self.gru(updates, prev)
+            slots = slots + self.mlp(self.norm_mlp(slots))
+        return slots
+
+
 class FrameAggregatorAdapter(nn.Module):
     def __init__(self, hidden: int, d_mem: int, aggregator: str, max_frames: int = 16, n_counts: int = 9,
-                 phi_mode: str = "linear", frame_pool: str = "mean"):
+                 phi_mode: str = "linear", frame_pool: str = "mean", num_slots: int = 8,
+                 pertoken_maxtok: int = 64, mamba_readout: str = "sum"):
         super().__init__()
         self.aggregator = aggregator
         self.phi_mode = phi_mode
         self.frame_pool = frame_pool
+        self.pertoken_maxtok = pertoken_maxtok
+        self.mamba_readout = mamba_readout
         if frame_pool == "attn":
             # query-conditioned attention pool over each frame's vision tokens: query from the
             # question-encoding position -> focus on the queried char/room instead of mean-diluting.
             self.q_proj = nn.Linear(hidden, d_mem)
             self.k_proj = nn.Linear(hidden, d_mem)
+        if frame_pool == "slot":
+            # K query-FREE entity slots per frame (task-agnostic), then query-select the relevant slot.
+            self.slot_in = nn.Linear(hidden, d_mem)
+            self.slot = SlotAttention(num_slots=num_slots, dim=d_mem)
+            self.slot_q = nn.Linear(hidden, d_mem)
+            self.slot_out = nn.Linear(d_mem, hidden)
         if phi_mode == "codebook":
             # project each frame onto a learned codebook; softmax -> near one-hot, so the max-channel
             # does soft set-union (the right structure for distinct-count / dedup).
@@ -157,11 +207,16 @@ class FrameAggregatorAdapter(nn.Module):
         self.cur_pos: int = -1
         self.cur_hagg: Optional[torch.Tensor] = None
         self.cur_chat: Optional[torch.Tensor] = None
+        self.cur_frame_logits: Optional[torch.Tensor] = None
 
     def pool_frame(self, frame_tokens: torch.Tensor, query_rep: torch.Tensor) -> torch.Tensor:
         """frame_tokens [Tf,H] -> [H]. mean, or query-conditioned attention over the frame's tokens."""
         if self.frame_pool == "mean":
             return frame_tokens.mean(0)
+        if self.frame_pool == "slot":
+            slots = self.slot(self.slot_in(frame_tokens))           # [K,d] query-free entity slots
+            a = torch.softmax((slots @ self.slot_q(query_rep)) / (slots.shape[-1] ** 0.5), dim=0)  # [K]
+            return self.slot_out((a.unsqueeze(-1) * slots).sum(0))  # [H] query-select relevant slot
         q = self.q_proj(query_rep)                                   # [d]
         k = self.k_proj(frame_tokens)                               # [Tf,d]
         attn = torch.softmax((k @ q) / (k.shape[-1] ** 0.5), dim=0)  # [Tf]
@@ -206,23 +261,36 @@ class FrameAggregatorAdapter(nn.Module):
             for t in range(int(m.shape[0])):
                 h = torch.exp(delta[t] * a) * h + delta[t] * b[t] * x[t]
                 ys.append(c[t] * h)
-            return self.to_hagg(torch.stack(ys, 0).sum(0))             # sum readout (counting-friendly)
+            agg = ys[-1] if self.mamba_readout == "last" else torch.stack(ys, 0).sum(0)  # last=agnostic, sum=count-biased
+            return self.to_hagg(agg)
         feats = torch.cat([m.sum(0), m.mean(0), m.max(0).values], dim=-1)  # deepsets
         return self.to_hagg(feats)
 
     def apply_to(self, hs: torch.Tensor) -> torch.Tensor:
         query_rep = hs[0, self.cur_pos, :].detach().float()  # question-encoding position
-        tgt = getattr(self, "cur_target_tok", None)
-        reps = []
-        for fi, span in enumerate(self.cur_spans):
-            if self.frame_pool == "target" and tgt is not None and tgt[fi] is not None:
-                reps.append(hs[0, int(tgt[fi]), :].detach().float())  # queried-entity token (text)
-                continue
-            idx = torch.tensor(span, device=hs.device)
-            ft = hs[0, idx, :].detach().float()              # [Tf,H] this frame's vision tokens
-            reps.append(self.pool_frame(ft, query_rep))
-        m = self.encode(torch.stack(reps, dim=0))
-        self.cur_chat = torch.sigmoid(self.count_scorer(m)).sum()  # extensive count = Σ per-frame prob
+        if self.frame_pool == "none":
+            # Exp-2: feed ALL frame tokens (frames in order) to the aggregator -> per-token selective
+            # scan does extraction (gate separates entities) + aggregation in one. Query prepended.
+            toks = []
+            for span in self.cur_spans:
+                ft = hs[0, torch.tensor(span, device=hs.device), :].detach().float()   # [Tf,H]
+                if self.pertoken_maxtok and ft.shape[0] > self.pertoken_maxtok:
+                    ft = ft[torch.linspace(0, ft.shape[0] - 1, self.pertoken_maxtok, device=ft.device).long()]
+                toks.append(ft)
+            m = torch.cat([self.encode(query_rep.unsqueeze(0)), self.encode(torch.cat(toks, 0))], dim=0)  # [1+ΣT, d]
+        else:
+            tgt = getattr(self, "cur_target_tok", None)
+            reps = []
+            for fi, span in enumerate(self.cur_spans):
+                if self.frame_pool == "target" and tgt is not None and tgt[fi] is not None:
+                    reps.append(hs[0, int(tgt[fi]), :].detach().float())  # queried-entity token (text)
+                    continue
+                idx = torch.tensor(span, device=hs.device)
+                ft = hs[0, idx, :].detach().float()              # [Tf,H] this frame's vision tokens
+                reps.append(self.pool_frame(ft, query_rep))
+            m = self.encode(torch.stack(reps, dim=0))
+        self.cur_frame_logits = self.count_scorer(m).squeeze(-1)   # per-(frame|token) score (for per-frame supervision)
+        self.cur_chat = torch.sigmoid(self.cur_frame_logits).sum()  # extensive count = Σ per-(frame|token) prob
         hagg = self.aggregate(m)
         self.cur_hagg = hagg
         upd = self.rho(hagg).to(hs.dtype) * self.gate.to(hs.dtype)
@@ -384,7 +452,9 @@ def main() -> int:
     hidden = int(model.config.text_config.hidden_size) if hasattr(model.config, "text_config") \
         else int(model.config.hidden_size)
     adapter = FrameAggregatorAdapter(hidden, args.d_mem, args.aggregator, phi_mode=args.phi,
-                                     frame_pool=args.frame_pool).to(device).float()
+                                     frame_pool=args.frame_pool, num_slots=args.num_slots,
+                                     pertoken_maxtok=args.pertoken_maxtok,
+                                     mamba_readout=args.mamba_readout).to(device).float()
     if args.init_from:
         adapter.load_state_dict(torch.load(args.init_from, map_location=device))
         emit(f"resumed adapter from {args.init_from}")
@@ -516,7 +586,27 @@ def main() -> int:
             else:
                 aux_term = ce(adapter.aux_head(hagg).unsqueeze(0), torch.tensor([max(0, min(gold, 8))], device=device))
             w = count_w.get(gold, 1.0) if count_w is not None else 1.0
-            (w * (loss_lm + args.aux_weight * aux_term) / args.grad_accum).backward()
+            frame_sup = torch.tensor(0.0, device=device)
+            if (args.frame_sup_weight > 0 and task in ("steps_in_room", "co_occupancy")
+                    and args.frame_pool != "none"
+                    and adapter.cur_frame_logits is not None
+                    and adapter.cur_frame_logits.numel() == len(states)):
+                md = json.loads((Path(dstr) / "metadata.json").read_text(encoding="utf-8"))
+                pf_list = None
+                if task == "steps_in_room":
+                    C_, R_ = md.get("target_character"), md.get("target_room")
+                    if C_ and R_:
+                        pf_list = [float(tf.room_of(s, C_) == R_) for s in states]
+                else:  # co_occupancy: binary per-frame predicate (queried pair in the same room)
+                    qp = md.get("query_pair")
+                    if qp and len(qp) == 2:
+                        C_, D_ = qp
+                        pf_list = [float(tf.room_of(s, C_) == tf.room_of(s, D_)
+                                         and tf.room_of(s, C_) != "not present") for s in states]
+                if pf_list is not None:
+                    pf = torch.tensor(pf_list, device=device, dtype=adapter.cur_frame_logits.dtype)
+                    frame_sup = torch.nn.functional.binary_cross_entropy_with_logits(adapter.cur_frame_logits, pf)
+            (w * (loss_lm + args.aux_weight * aux_term + args.frame_sup_weight * frame_sup) / args.grad_accum).backward()
             run_loss += float(loss_lm.detach()); seen += 1; step += 1
             if step % args.grad_accum == 0:
                 torch.nn.utils.clip_grad_norm_(adapter.parameters(), 1.0); opt.step(); opt.zero_grad()

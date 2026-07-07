@@ -203,6 +203,59 @@ def question_and_gold(task: str, d: Path, states: List[Dict[str, Any]],
             return None
         ev, question, oracle = res
         return question, int(sum(ev)), oracle
+    if task in ("distinct_visitors", "distinct_companions"):
+        meta = {}
+        mp = d / "metadata.json"
+        if mp.is_file():
+            try:
+                meta = json.loads(mp.read_text(encoding="utf-8"))
+            except Exception:
+                meta = {}
+        if task == "distinct_visitors":
+            R = meta.get("query_room") or meta.get("target_room")
+            if not R:
+                return None
+            gold = len({c for st in states for c in _occ(st, R)})
+            return (f"How many distinct characters appeared in the {R} across the {n} frames?", gold,
+                    "Per-frame occupants of " + R + ":\n" + "\n".join(
+                        f"frame {i+1}: {', '.join(_occ(s, R)) or '(none)'}" for i, s in enumerate(states)))
+        C = meta.get("query_character") or meta.get("target_character")
+        if not C:
+            return None
+        seen = set()
+        for st in states:
+            cr = room_of(st, C)
+            if cr != "not present":
+                seen.update(x for x in _occ(st, cr) if x != C)
+        return (f"How many distinct other characters shared a room with {C} across the {n} frames?", len(seen),
+                "Per-frame companions of " + C + ":\n" + "\n".join(
+                    f"frame {i+1}: {', '.join(x for x in _occ(s, room_of(s, C)) if x != C) if room_of(s, C)!='not present' else ''}"
+                    for i, s in enumerate(states)))
+    if task in ("first_in_room", "last_in_room", "span_in_room"):
+        # TEMPORAL / order-dependent (a permutation-invariant sum provably CANNOT answer these).
+        meta = {}
+        mp = d / "metadata.json"
+        if mp.is_file():
+            try:
+                meta = json.loads(mp.read_text(encoding="utf-8"))
+            except Exception:
+                meta = {}
+        C, R = meta.get("target_character"), meta.get("target_room")
+        if not C or not R:
+            return None
+        ev_idx = [i + 1 for i, st in enumerate(states) if room_of(st, C) == R]  # 1-based frames where C in R
+        seq = [room_of(st, C) for st in states]
+        oracle = f"{C} was in these rooms across the {n} frames (in order): {', '.join(seq)}."
+        if task == "first_in_room":
+            gold = ev_idx[0] if ev_idx else 0
+            q = f"In which frame (1 to {n}) did {C} first appear in the {R}? Answer 0 if never."
+        elif task == "last_in_room":
+            gold = ev_idx[-1] if ev_idx else 0
+            q = f"In which frame (1 to {n}) was {C} last in the {R}? Answer 0 if never."
+        else:  # span_in_room: frames from first to last appearance, inclusive
+            gold = (ev_idx[-1] - ev_idx[0] + 1) if ev_idx else 0
+            q = f"From {C}'s first to last appearance in the {R}, how many frames does that span cover (inclusive)? Answer 0 if never."
+        return q, int(gold), oracle
     if task == "steps_in_room":
         lines = (d / "qa.txt").read_text(encoding="utf-8").splitlines()
         ai = next((i for i, l in enumerate(lines) if l.strip() == "answer:"), -1)
