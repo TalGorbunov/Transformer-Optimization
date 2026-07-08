@@ -2331,6 +2331,109 @@ Follow-ups parked: union cuts (car+q+img simultaneously); pre-L8 window; state-d
 
 ---
 
+## [2026-07-07d] ✅📊 REAL-BENCHMARK TRANSFER — HERBench Action Counting (HD-EPIC video): the undercount wall + carrier architecture + ladder ordering REPLICATE on data we didn't generate; adequacy correctly REJECTS the Gaussian closed form (graded-evidence regime); frame-isolation d′ gain is NULL on real video
+
+> First test of the d′ framework outside MMRED. **Task:** HERBench-lite Action Counting
+> ([arXiv:2512.14870](https://arxiv.org/abs/2512.14870); 144 questions / 28 HD-EPIC egocentric kitchen
+> videos, 5-way MCQ "how many times does action-object pair X occur", `required_timestamps` = one
+> timestamp per occurrence ⇒ exact per-frame evidence gold, verified `len(ts)==true_count` on all rows).
+> **Prep** (`experiments/herbench/prep_ac_frames.py` → `data/herbench_ac/`, 448px frames): **armA**
+> evidence-only (N=true_count, every frame an occurrence; retrieval AND selection removed); **armB**
+> k evidence + same-video fillers ≥5 s from any occurrence, N=16, count ≤12 (n=134). Videos fetched by
+> walking the HF tar-part headers with HTTP ranges (22.7 GB of 161; login-scratch only; re-fetch script
+> in session scratchpad). PyAV wheel unpacked to `~/.local/pyav-py39` (no pip, .venv untouched).
+> **Jobs (all 2026-07-07, 7B nf4, 1 GPU):** own-answer **119014**; locmap **119013** (probe gained
+> `--task herbench_ac`); message caches **119017** (joint) / **119018** (fenced) + CPU analyses (console).
+
+**1 · Evidence-only counting collapses — the MMRED wall, verbatim, on real video (armA, n=144,
+`outputs/herbench/own_answer/armA_20260707_213726/`).** Exact-match **0.049**, bias **−3.5**; by-gold:
+g1 0.47, **g≥2 = 0.00 everywhere**, mean_pred saturates at ~2–3 whether 4 or 10 occurrences are shown.
+Frozen Qwen cannot accumulate >~2–3 evidence items even with retrieval and selection removed — the
+carrier-saturation signature from MMRED (model 0.21 / rooms "answers 3") on video we did not generate.
+MCQ-mapped 0.27 (chance 0.20) — inside HERBench's own 31–42% SOTA band, and oracle frames don't fix it
+⇒ their "fusion deficit" is our aggregation+readout wall, now with a mechanistic account. armB EM 0.17
+(gold-2 collapse), bias −2.5.
+
+**2 · Carrier architecture transfers (locmap, n=134, `outputs/herbench/probes/ac_locmap/20260707_213723/`).**
+Per-token×layer map finds the carrier at the **quoted action-pair tokens** (offsets −9/−10, L12–16,
+naive SNR 0.86) — the real-video analogue of the room token: frame evidence again flows into the
+query's key content tokens. Model digit-argmax own-answer 0.082.
+
+**3 · The honest divergence: extraction is weak at the source, and the Gaussian model is REJECTED.**
+Per-frame evidence at the carrier: AUROC ≈ 0.80, held-out whitened **d′_AUC ≈ 0.98–1.10** (vs MMRED
+deployed 2.4–2.8). **E4 adequacy fails decisively** (joint cache, CPU): skew → +3.5, excess kurtosis
+**+2.6…+35** (MMRED threshold 0.2), class-std ratio 1.4–2.2, d′_gap vs d′_AUC disagree 20–40% —
+the class-conditional Gaussian is the wrong model here. Mechanism: **graded evidence** — real actions
+range from unmistakable to marginal mid-action/occluded frames ⇒ a mixture along the evidence axis
+(binary-by-construction MMRED never had this). Pooled sum partially re-Gaussianizes (residual exkurt
++4.7) and **corr(sum-projection, gold) = 0.73** — the count information is present but graded.
+
+**4 · Frame-isolation (fence) d′ gain is NULL on real video (`ac_msgcache_fenced/`, fence verified
+Δv@L12 = 5.75).** Fenced d′ 0.86–1.09 ≈ joint 0.98–1.10 — no recovery, vs MMRED's 3.1→5.2 from the
+same mask. Cross-frame superposition is NOT the binding constraint on HD-EPIC at 448px; the per-frame
+signal itself is. Revises the supply-side story: querying/interference dominates in the synthetic
+regime; on real video the extraction ceiling moves to the pixels/encoder side.
+
+**5 · Ladder + law (armB, N=16; registered before the runs).**
+model **0.082** < law-predicted linear ceiling **0.158** (d′_AUC 0.98, prior-mixed, zero fitted params)
+≈ measured linear-on-sum **0.196±0.041** (maj 0.191) ≤ dtc **0.226** (maj 0.217).
+Scorecard: (a) ladder ordering ✓ (compressed exactly as d′≈1 dictates); (b) prediction within ~1σ ✓
+but the regime is weakly discriminating (prediction ≈ prior) AND adequacy fails → quote as
+**ordering + magnitude**, not exact parity; (c) fence raises d′ ✗ NULL (the informative surprise);
+(d) evidence-only undercount ✓✓.
+
+**Two-regime synthesis (the thesis-level claim).** MMRED: binary evidence, extraction-strong
+(d′ 2.4–5+), Gaussian adequacy passes ⇒ law exact; bottleneck = aggregation + readout; isolation lifts
+d′. Real video: graded evidence (mixture), extraction-weak (d′≈1), isolation null ⇒ everything
+downstream compressed toward the prior; the E4 battery correctly refuses the closed form. Same
+instruments diagnose both regimes — the framework identifies *which* regime a task is in, which is a
+stronger generality result than the law holding everywhere.
+
+**Caveats.** 448px frames (native 1408) — resolution follow-up pending; evidence labels binary while
+content is graded (label noise biases d′ down = conservative); fillers may contain related actions
+(same direction of bias); n=134 single seed for caches; MCQ mapping via nearest-choice; armA variable-N
+prevents message caching (behavioral only); videos are session-scratch, frames in `data/herbench_ac/`
+are the durable artifact. RLPC (148 people-counting rows, same lite set) untouched — pipeline ready.
+Index: `outputs/herbench/INDEX.md`.
+
+---
+
+## [2026-07-07e] ✅📊 HERBench follow-ups: forced-binary curation QUANTIFIES the graded-evidence mixture (~1/4 of real evidence is binary-groundable, d′ 0.98→2.1 on it); resolution 448→896 is a NULL (judge +0.03 AUROC, carrier d′ flat, fence-null replicates) — the extraction ceiling is intrinsic perception, not pixels or interference
+
+> **Jobs:** look-again 448 **119020** (7 min; `experiments/herbench/lookagain_frames.py`, new — per-frame
+> single-image yes/no judge, P(yes) from yes/no logits); 896px re-prep (login CPU, `data/herbench_ac_hi/`,
+> 343 MB); hi-res caches **119027** (joint) / **119028** (fenced, self-check Δv@L12=7.4) ×
+> look-again-hi **119029**. CPU analyses on console; curation is by the look-again judge, NEVER the
+> probe axis (no selection on the measured direction; held-out probe throughout).
+
+**1 · Forced-binary curation (448 cache × judge, thresholds P(yes)≥0.7 evidence / ≤0.3 filler).**
+Judge itself: AUROC **0.832**, median P(yes) on TRUE occurrences only **0.40** (fillers 0.01) — the
+model cannot verify ~3/4 of annotated occurrences even one frame at a time. Curation keeps **26% of
+evidence frames** (85% of fillers); on the surviving subset **d′_AUC 0.98 → 2.10**, evidence-class
+kurtosis +25 → +3.3. Reading: real-video evidence ≈ **1/4 crisp (MMRED-regime, d′≈2.1 ≈ deployed
+steps 2.4) + 3/4 marginal** (the mixture that broke E4). The graded-evidence account is now measured,
+not hypothesized. (Std-ratio worsens on the small survivor set; stricter thresholds run out of data —
+"regime shift", not "Gaussianity restored".)
+
+**2 · Resolution 448→896 (4× visual tokens): NULL on every channel.** Judge 0.832→**0.860**; joint
+carrier d′ 0.98–1.10 → **0.90–1.07**; fenced-hi 1.01–1.16 ≈ joint (isolation null replicates at high
+res); curated-hi keeps 32%, d′ 1.64 (≈ 448-curated within small-n error); model own-answer 0.052,
+dtc 0.200 (maj 0.217) — unchanged. **The per-frame perception ceiling on egocentric video is intrinsic
+(motion/occlusion/ambiguity of mid-action frames), not resolution and not cross-frame interference.**
+Consistency: judge 0.83–0.86 (single-frame path) ≈ carrier-message per-frame AUROC 0.80 (attention
+path) — two independent readout routes hit the same extraction cap.
+
+**Synthesis addendum.** The real-video regime is now fully characterized: supply-capped at d′≈1 by
+intrinsic perception, with a binary-groundable quarter where the synthetic regime's numbers reappear.
+Prescription order for real video inverts MMRED's: raise per-frame evidence quality FIRST (better
+perception / multi-frame-per-occurrence looks / stronger encoder), then the aggregation+readout fixes
+apply on top. **Caveats:** curation judge = same model (measures "frames the model can perceive" —
+the intended question, but not an external ground truth); survivor-set d′ has wide error bars
+(n_ev ≈ 110); single seed; 896 < native 1408 (a native-res run would close the resolution question
+completely, ~4× cost).
+
+---
+
 ## References (GNN / set-aggregation grounding)
 
 > External literature this work builds on. Relevance noted per entry; arXiv IDs verified 2026-06-13.
