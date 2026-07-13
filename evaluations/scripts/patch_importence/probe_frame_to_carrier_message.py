@@ -53,6 +53,96 @@ def pick_pair(states, chars):
     return best, best_gold
 
 
+def build_text_inputs_and_groups(states, question, processor, hi, blocks=None, style="rooms"):
+    """Text frames (A1/A2): render each frame as a text block, frames-first, and return
+    (inputs, groups) where groups[t] = token positions of frame t's block — the text analogue of
+    image_token_groups. states -> MMRED room->occupants rendering (same wording as
+    evaluations/scripts/eval_mmred_text_frames_acc.py); blocks -> pre-rendered frame strings
+    (text-CWE and other synthetic rungs). style='compact' (A1-fu2 minimal pair) renders each
+    frame as one line of character@room pairs — the character->room binding is in the surface
+    form instead of the room->occupants grouping.
+    """
+    if blocks is not None:
+        body_parts = list(blocks)
+    elif style == "compact":
+        body_parts = []
+        for i, st in enumerate(states, start=1):
+            pairs = sorted((ch, room) for room, occ in st["rooms"].items() for ch in occ)
+            body_parts.append(f"Frame {i}: " + ", ".join(f"{ch}@{room}" for ch, room in pairs) + ".")
+    else:
+        body_parts = []
+        for i, st in enumerate(states, start=1):
+            blk = [f"Frame {i}:"]
+            for room, occ in st["rooms"].items():
+                who = ", ".join(occ) if occ else "(empty)"
+                blk.append(f"  {room}: {who}")
+            body_parts.append("\n".join(blk))
+    desc = "describing steps in a house, " if blocks is None else ""
+    prompt = (f"You are given {len(body_parts)} frames {desc}as text.\n"
+              + "\n".join(body_parts) + "\n\n"
+              + f"Respond with a single integer from 0 to {hi} (0 is allowed). Output only the integer.\n"
+              + f"Question: {question}\n"
+              + "Answer: ")
+    messages = [{"role": "user", "content": [{"type": "text", "text": prompt}]}]
+    text = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
+    # the runtime processor may carry a SLOW tokenizer (no offsets support): use a fast twin for
+    # the offset mapping and self-check its ids against the runtime chat-template tokenization.
+    ftok = getattr(build_text_inputs_and_groups, "_fast_tok", None)
+    if ftok is None:
+        from transformers import AutoTokenizer
+        name = getattr(processor.tokenizer, "name_or_path", None) or "Qwen/Qwen2.5-VL-7B-Instruct"
+        ftok = AutoTokenizer.from_pretrained(name, use_fast=True)
+        assert ftok.is_fast, "could not load a fast tokenizer for offset mapping"
+        build_text_inputs_and_groups._fast_tok = ftok
+    enc = ftok(text, return_offsets_mapping=True, return_tensors="pt", add_special_tokens=False)
+    if not getattr(build_text_inputs_and_groups, "_checked", False):
+        ref = processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=True,
+                                            return_dict=True, return_tensors="pt")
+        assert torch.equal(enc["input_ids"], ref["input_ids"]), \
+            "fast-tokenizer ids != runtime chat-template ids"
+        build_text_inputs_and_groups._checked = True
+        print("[text-frames] tokenization self-check passed (fast ids == chat-template ids)")
+    offmap = enc["offset_mapping"][0].tolist()
+    groups, cursor = [], 0
+    for blk in body_parts:
+        start = text.index(blk, cursor)
+        end = start + len(blk)
+        cursor = end
+        toks = [ti for ti, (a, b) in enumerate(offmap) if a >= start and b <= end and b > a]
+        if not toks:
+            raise RuntimeError("empty token group for a text frame block")
+        groups.append(toks)
+    inputs = {"input_ids": enc["input_ids"], "attention_mask": enc["attention_mask"]}
+    return inputs, groups
+
+
+# A2 text-CWE rung: word-in-frame counting, extraction perfect by construction (exact word match).
+# targets verified single-token inside quotes (fixed carrier offset: the quoted word = off 11)
+CWE_TARGETS = ["apple", "table", "river", "music", "window", "doctor", "bridge", "castle",
+               "flower", "water", "house", "stone"]
+CWE_FILLERS = ["chair", "cloud", "stone", "paper", "bottle", "street", "forest", "candle",
+               "mirror", "basket", "ladder", "engine", "market", "island", "pillow", "hammer",
+               "jacket", "kitten", "lantern", "meadow", "needle", "orange", "puzzle", "rocket",
+               "saddle", "temple", "valley", "wagon", "yarn", "zebra", "anchor", "barrel",
+               "cabin", "desert", "eagle", "fabric", "goblet", "harbor", "iron", "jungle"]
+
+
+def gen_cwe_sample(seed: int, nf: int):
+    """One synthetic CWE sample: nf frames, each 'Frame i: <word>'; gold = #frames containing the
+    target word (0..min(8,nf) uniform). Returns (sid, blocks, question, gold, frame_targets)."""
+    import random as _random
+    rng = _random.Random(10_000 + int(seed))
+    gold = rng.randint(0, min(8, nf))
+    target = rng.choice(CWE_TARGETS)
+    fillers = [w for w in CWE_FILLERS if w != target]
+    evid_idx = set(rng.sample(range(nf), gold))
+    words = [target if t in evid_idx else rng.choice(fillers) for t in range(nf)]
+    blocks = [f"Frame {i+1}: {w}" for i, w in enumerate(words)]
+    question = f'In how many of the {nf} frames does the word "{target}" appear?'
+    frame_targets = {t: ("evid" if t in evid_idx else "noev") for t in range(nf)}
+    return f"cwe_{seed}", blocks, question, gold, frame_targets
+
+
 def make_clf(spec, n_train):
     from sklearn.linear_model import LogisticRegression
     from sklearn.neural_network import MLPClassifier
@@ -113,13 +203,23 @@ def probe(x, y, seeds, spec, binary=False, shuffle=False):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count", "first_occurrence", "herbench_ac"], required=True)
+    ap.add_argument("--task", choices=["rooms_visited", "co_occupancy", "count", "first_occurrence", "herbench_ac", "text_cwe"], required=True)
     ap.add_argument("--data_root", default="data/mmred_images_park/seq_len_8/all_uniform")
     ap.add_argument("--limit", type=int, default=150)
     ap.add_argument("--layers", default="16,18,19")
     ap.add_argument("--model_name", "--model", dest="model_name", default="Qwen/Qwen2.5-VL-7B-Instruct")
     ap.add_argument("--seeds", default="0,1,2,3,4")
     ap.add_argument("--n-frames", type=int, default=8)
+    ap.add_argument("--resize", type=int, default=0,
+                    help="resize each frame to <resize>x<resize> px before the processor "
+                         "(0 = native); processor rounds to 28px patches, tokens/frame=(px/28)^2")
+    ap.add_argument("--text-frames", action="store_true",
+                    help="A1 text-MMRED: feed frames as TEXT blocks (states rendered as words, "
+                         "same wording as eval_mmred_text_frames_acc); frame token groups = the "
+                         "text-block token spans. No images touch the model.")
+    ap.add_argument("--text-style", choices=["rooms", "compact"], default="rooms",
+                    help="text-frames rendering: 'rooms' = room->occupants block (default); "
+                         "'compact' = one 'Char@Room, ...' line per frame (binding in surface form)")
     ap.add_argument("--output", default="outputs/probe_frame_to_carrier_message")
     ap.add_argument("--carrier", choices=["all_question", "last", "per_token"], default="all_question",
                     help="which carrier position(s) receive the message: mean over all question tokens, "
@@ -194,6 +294,7 @@ def main() -> int:
     pt: Dict[int, Dict[int, Dict[str, list]]] = {L: {} for L in probe_layers}  # pt[L][offset]={x:[],y:[]}
     pt_tok: Dict[int, Counter] = {}                                            # pt_tok[offset]=Counter(text)
     dec: Dict[int, Dict[int, list]] = {L: {o: [] for o in DEC_OFF} for L in probe_layers}  # dec[L][o]=[ [NF,H] ]
+    dec_mass: Dict[int, Dict[int, list]] = {L: {o: [] for o in DEC_OFF} for L in probe_layers}  # [NF] frame mass
     dec_gold: List[int] = []
     dec_labels: List[np.ndarray] = []  # per-sample [NF] binary positive-class labels (task-mapped)
     dec_labels_raw: List[list] = []    # per-sample [NF] raw string labels (room names / same-diff / evid)
@@ -202,13 +303,19 @@ def main() -> int:
         # HERBench Action-Counting samples prepped by experiments/herbench/prep_ac_frames.py:
         # <dir>/frame_XX.jpg + meta.json (per-frame is_evidence labels; gold = visible_count)
         all_dirs = sorted(d for d in Path(args.data_root).iterdir() if (d / "meta.json").exists())
+    elif args.task == "text_cwe":
+        assert args.text_frames, "text_cwe requires --text-frames"
+        all_dirs = list(range(int(args.limit) * 3))  # synthetic seeds, no data_root
     else:
         all_dirs = list(iter_sample_dirs(Path(args.data_root)))
     random.Random(args.sample_seed).shuffle(all_dirs)  # iter order is count-grouped; shuffle for a representative draw
     for sd in all_dirs:
         if n >= int(args.limit):
             break
-        if args.task == "herbench_ac":
+        if args.task == "text_cwe":
+            sid, cwe_blocks, question, gold, frame_targets = gen_cwe_sample(int(sd), NF)
+            states, frames = None, []
+        elif args.task == "herbench_ac":
             import json as _json
             from PIL import Image as _Image
             try:
@@ -221,21 +328,47 @@ def main() -> int:
                 continue
             sid = hb["question_id"]
             gold = int(hb["visible_count"])
-            pair = hb.get("pair") or " ".join(hb.get("pair_words", []))
-            question = (f"In how many of these {len(frames)} frames is the person "
-                        f"performing the action '{pair}'?")
+            if hb.get("question"):          # mmred_natural / generic meta carries its own question
+                question = hb["question"]
+            else:
+                pair = hb.get("pair") or " ".join(hb.get("pair_words", []))
+                question = (f"In how many of these {len(frames)} frames is the person "
+                            f"performing the action '{pair}'?")
             frame_targets = {i: ("evid" if fr["is_evidence"] else "noev")
                              for i, fr in enumerate(hb["frames"])}
             states = None
         else:
             try:
                 sid, frames, q0, states, a0 = load_mmred_sample(sd)
+            except FileNotFoundError:
+                if not getattr(args, "text_frames", False):
+                    continue
+                try:  # states-only sample (generated --no-render): fine for the text pipeline
+                    import ast as _ast
+                    lines_qa = (sd / "qa.txt").read_text(encoding="utf-8").splitlines()
+                    qi = next(i for i, ln in enumerate(lines_qa) if ln.strip() == "question:")
+                    ai = next(i for i, ln in enumerate(lines_qa) if ln.strip() == "answer:")
+                    states, q0 = [], None
+                    for ln in lines_qa[qi + 1:ai]:
+                        s = ln.strip()
+                        if s.startswith("{") and s.endswith("}"):
+                            states.append(_ast.literal_eval(s))
+                        elif s:
+                            q0 = s; break
+                    a0 = next(ln.strip() for ln in lines_qa[ai + 1:] if ln.strip())
+                    sid, frames = sd.name, []
+                    if q0 is None or not states:
+                        continue
+                except Exception:
+                    continue
             except Exception:
                 continue
             chars = sorted(eval_utils.extract_characters_from_states(states))
             if len(chars) < 2:
                 continue
-        if args.task == "herbench_ac":
+        if int(args.resize) > 0:
+            frames = [f.resize((int(args.resize), int(args.resize))) for f in frames]
+        if args.task in ("herbench_ac", "text_cwe"):
             pass
         elif args.task == "first_occurrence":
             import re
@@ -247,9 +380,9 @@ def main() -> int:
             if not m_:
                 continue
             Cn, Rn = m_.group(1), m_.group(2)
-            question = (f"In which frame, numbered 1 to {len(frames)}, was {Cn} in the {Rn} "
+            question = (f"In which frame, numbered 1 to {len(states)}, was {Cn} in the {Rn} "
                         f"for the first time?")
-            frame_targets = {t: ("evid" if t in set(evid) else "noev") for t in range(len(frames))}
+            frame_targets = {t: ("evid" if t in set(evid) else "noev") for t in range(len(states))}
         elif args.task == "count":
             # original counting task: question/answer from qa, evidence = matching frames
             try:
@@ -260,7 +393,7 @@ def main() -> int:
             if not evid:
                 continue
             question = q0
-            frame_targets = {t: ("evid" if t in evid else "noev") for t in range(len(frames))}
+            frame_targets = {t: ("evid" if t in evid else "noev") for t in range(len(states))}
         elif args.task == "rooms_visited":
             present = lambda c: [t for t in range(len(states)) if char_room_at(states, t, c)]
             char = max(chars, key=lambda c: (len(present(c)), c))
@@ -274,7 +407,7 @@ def main() -> int:
             (c1, c2), gold = pick_pair(states, chars)
             if gold < 1:
                 continue
-            question = f"In how many of the {len(frames)} frames were {c1} and {c2} in the same room?"
+            question = f"In how many of the {len(states)} frames were {c1} and {c2} in the same room?"
             frame_targets = {}
             for t in range(len(states)):
                 r1, r2 = char_room_at(states, t, c1), char_room_at(states, t, c2)
@@ -282,15 +415,31 @@ def main() -> int:
                     frame_targets[t] = "same" if r1 == r2 else "diff"
 
         try:
-            if args.task == "herbench_ac":
-                _prompt = (f"You will be shown {len(frames)} frames sampled from an egocentric kitchen video.\n"
-                           f"Respond with a single integer from 0 to {len(frames)} (0 is allowed). "
+            if getattr(args, "text_frames", False):
+                if args.task == "text_cwe":
+                    t_inputs, fg = build_text_inputs_and_groups(None, question, processor,
+                                                                hi=NF, blocks=cwe_blocks)
+                elif states is None:
+                    raise RuntimeError("--text-frames requires MMRED states")
+                else:
+                    t_inputs, fg = build_text_inputs_and_groups(states, question, processor,
+                                                                hi=len(states), style=args.text_style)
+                if n == 0:
+                    print(f"[text-frames] frame token groups: "
+                          f"{[len(g) for g in fg]} tokens/frame, seq={t_inputs['input_ids'].shape[1]}")
+                inputs = tgi.move_inputs_to_model_device(t_inputs)
+            elif args.task == "herbench_ac":
+                _head = ("You will be shown {n} frames.\n" if hb.get("question") else
+                         "You will be shown {n} frames sampled from an egocentric kitchen video.\n")
+                _prompt = (_head.format(n=len(frames))
+                           + f"Respond with a single integer from 0 to {len(frames)} (0 is allowed). "
                            f"Output only the integer.\nQuestion: {question}\nAnswer: ")
                 inputs = tgi.move_inputs_to_model_device(tgi.build_inputs_from_prompt(frames, _prompt))
             else:
                 inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, question))
             ids = inputs["input_ids"][0].detach().cpu()
-            fg = image_token_groups(ids, expected_num_frames=len(frames), processor=processor)
+            if not getattr(args, "text_frames", False):
+                fg = image_token_groups(ids, expected_num_frames=len(frames), processor=processor)
             last_img = max(int(p) for grp in fg for p in grp)
             seq = int(ids.shape[0])
             q_span = list(range(last_img + 1, seq))  # all question tokens (span after images)
@@ -395,18 +544,22 @@ def main() -> int:
         def msg_per_carrier(pos_list, L):
             # per-frame message into EACH carrier token separately (no cross-token pooling):
             # msg_{f->c} = o_proj(concat_h sum_{j in f} A[c,j] v_j), one row per carrier token.
+            # Also returns the per-carrier attention MASS sum_{j in f} A[c,j] (head-mean) —
+            # B2's mass-normalized gate input needs it (msg_f / mass_f is N-invariant).
             pos = torch.tensor([p for p in pos_list if p < seq], dtype=torch.long)
             if pos.numel() == 0:
-                return np.zeros((len(carrier), int(cfg.hidden_size)), dtype=np.float32)
+                return (np.zeros((len(carrier), int(cfg.hidden_size)), dtype=np.float32),
+                        np.zeros(len(carrier), dtype=np.float32))
             Asel = attnA[L][:, :, pos]                            # [H,|C|,|f|]
             vsel = vrep[L][:, pos, :]                             # [H,|f|,hd]
+            mass = Asel.sum(-1).mean(0).float().cpu().numpy()     # [|C|] head-mean frame mass
             ctx = torch.einsum("hcj,hjd->hcd", Asel, vsel)        # [H,|C|,hd] per carrier, no division
             ctx = ctx.permute(1, 0, 2).reshape(len(carrier), -1)  # [|C|, H*hd]
             oproj = layers[L].self_attn.o_proj
             dev = next(oproj.parameters()).device
             with torch.no_grad():
                 out = oproj(ctx.to(device=dev, dtype=torch.bfloat16))
-            return out.float().cpu().numpy().astype(np.float32)   # [|C|, hidden]
+            return out.float().cpu().numpy().astype(np.float32), mass  # [|C|,hidden], [|C|]
 
         hidden = int(cfg.hidden_size)
         per_layer_frames = {L: [] for L in probe_layers}
@@ -428,11 +581,13 @@ def main() -> int:
             off_to_ci = {(len(carrier) - 1) - ci: ci for ci in range(len(carrier))}  # offset-from-end -> carrier idx
             per_dec = {L: {o: np.zeros((NF, int(cfg.hidden_size)), dtype=np.float16) for o in DEC_OFF}
                        for L in probe_layers}
+            per_mass = {L: {o: np.zeros(NF, dtype=np.float32) for o in DEC_OFF}
+                        for L in probe_layers}
             for t in range(NF):
                 posl = [int(p) for p in fg[t]]
                 lab = frame_targets.get(t)
                 for L in probe_layers:
-                    mm = msg_per_carrier(posl, L)          # [|C|, hidden]
+                    mm, mass = msg_per_carrier(posl, L)    # [|C|, hidden], [|C|]
                     if lab is not None:                    # SNR needs the evidence label (all frames labeled for count)
                         for off, ci in off_to_ci.items():
                             if off <= MAXOFF:
@@ -442,6 +597,7 @@ def main() -> int:
                         ci = off_to_ci.get(o)
                         if ci is not None:
                             per_dec[L][o][t] = mm[ci].astype(np.float16)
+                            per_mass[L][o][t] = mass[ci]
             for off, ci in off_to_ci.items():
                 if off <= MAXOFF:
                     txt = tok.decode([int(ids[carrier[ci]])]).strip()
@@ -450,8 +606,9 @@ def main() -> int:
                 for L in probe_layers:
                     for o in DEC_OFF:
                         dec[L][o].append(per_dec[L][o])
+                        dec_mass[L][o].append(per_mass[L][o])
                 dec_gold.append(int(gold))
-                _pos = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
+                _pos = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid", "text_cwe": "evid"}.get(args.task)
                 dec_labels.append(np.array([1 if (str(frame_targets.get(t)) == _pos) else 0 for t in range(NF)],
                                            dtype=np.int64))
                 dec_labels_raw.append([str(frame_targets.get(t)) for t in range(NF)])
@@ -465,6 +622,7 @@ def main() -> int:
              f"layers={probe_layers} carriers={args.carrier} ==="]
     if getattr(args, "save_messages", False) and DEC_OFF and dec_gold:
         cache_obj = {"msgs": {L: {o: np.stack(dec[L][o]) for o in DEC_OFF} for L in probe_layers},
+                     "mass": {L: {o: np.stack(dec_mass[L][o]) for o in DEC_OFF} for L in probe_layers},
                      "gold": np.array(dec_gold, dtype=np.int64),
                      "labels": np.stack(dec_labels),
                      "labels_raw": dec_labels_raw,
@@ -524,7 +682,7 @@ def main() -> int:
     _classesC = sorted(set(ym.tolist()))
     _codeC = {c: i for i, c in enumerate(_classesC)}
     ym_c = np.array([_codeC[v] for v in ym.tolist()])
-    pos_lab = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
+    pos_lab = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid", "text_cwe": "evid"}.get(args.task)
     pos_code = _codeC.get(pos_lab)
     lines.append(f"\n(C) DECODE-THEN-COUNT — PROBE SWEEP (per-frame clf -> aggregate -> count) vs model")
     bestC = ("", -1.0)
@@ -556,7 +714,7 @@ def main() -> int:
     # (D) MESSAGE DECOMPOSITION  m_k = mu + s_k*delta + eps  on the frame->carrier messages
     # (deployed, query-conditioned analog of the frame-token sweep; per-layer d' and d'/sqrt(N)).
     import math
-    pos_lab_d = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
+    pos_lab_d = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid", "text_cwe": "evid"}.get(args.task)
     if pos_lab_d is not None and binary and len(ym) >= 12:
         lines.append(f"\n(D) MESSAGE DECOMPOSITION  m=mu+s*delta+eps  pos='{pos_lab_d}'  "
                      f"carrier={args.carrier}  N={NF}")
@@ -580,7 +738,7 @@ def main() -> int:
 
     # (E) PER-CARRIER-TOKEN SNR SWEEP: per-frame message SNR into each question token (offset from end),
     # per layer -> identifies WHICH question token is the evidence carrier (no cross-token pooling).
-    pos_lab_e = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid"}.get(args.task)
+    pos_lab_e = {"co_occupancy": "same", "count": "evid", "first_occurrence": "evid", "herbench_ac": "evid", "text_cwe": "evid"}.get(args.task)
 
     def _dprime_naive(ev, nv):
         delta = (ev.mean(0) - nv.mean(0)) / 2.0

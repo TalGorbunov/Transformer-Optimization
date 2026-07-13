@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH --job-name=nat_judge
+#SBATCH --partition=l40s-shared
+#SBATCH --qos=2h_2g
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=48G
+#SBATCH --time=01:55:00
+#SBATCH --output=logs/%x-%j.out
+# mmred_natural pilot gate: per-frame look-again judge accuracy must be >=0.95 before full build.
+set -uo pipefail
+cd "${SLURM_SUBMIT_DIR:-/home/tal.gorbunov/projects/Transformer-Optimization}"
+[[ -f .venv/bin/activate ]] && source .venv/bin/activate
+export PYTHONUNBUFFERED=1
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+python -u experiments/natural/lookagain_natural.py --data-root data/mmred_natural ${LIMIT:+--limit "$LIMIT"}

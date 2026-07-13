@@ -32,6 +32,13 @@ def main() -> int:
     ap.add_argument("--model_name", "--model", dest="model_name", default="Qwen/Qwen2.5-VL-7B-Instruct")
     ap.add_argument("--limit", type=int, default=100)
     ap.add_argument("--sample-seed", type=int, default=0)
+    ap.add_argument("--text-frames", action="store_true",
+                    help="A1 text-MMRED: frames as text blocks (same builder as the carrier probe)")
+    ap.add_argument("--task", choices=["count", "text_cwe"], default="count",
+                    help="text_cwe = synthetic word-count rung (implies --text-frames)")
+    ap.add_argument("--n-frames", type=int, default=8)
+    ap.add_argument("--resize", type=int, default=0,
+                    help="resize frames to <resize>px before the processor (0 = native)")
     ap.add_argument("--output", default="outputs/frame_axis/probes/native_axis")
     args = ap.parse_args()
     out = Path(args.output) / time.strftime("%Y%m%d_%H%M%S")
@@ -40,6 +47,9 @@ def main() -> int:
 
     gri.configure_runtime(args.model_name)
     model = gri._model(); processor = gri._processor()
+    n_rg = sum(1 for p in model.parameters() if p.requires_grad)
+    model.requires_grad_(False)   # any grad-enabled float param builds the graph from layer 0
+    print(f"[freeze] {n_rg} params had requires_grad=True -> all frozen")
     layers = get_layers(model)
     tok = processor.tokenizer
     cand = {d: tok.encode(str(d), add_special_tokens=False)[0] for d in range(9)
@@ -47,18 +57,46 @@ def main() -> int:
 
     captured = {}
 
+    # memory fix (2026-07-11 OOM at N>=32): build the autograd graph ONLY from the first probed
+    # layer upward — a pre-hook on layers[min(Ls)+1] detaches the incoming hidden state and
+    # re-enables grad (leaf), so layers 0..min(Ls) run graph-free. Halves activation memory.
+    GRAD_FROM = min(Ls) + 1
+
+    def graph_start_hook(_m, hargs, hkwargs):
+        hs = hkwargs.get("hidden_states", hargs[0] if hargs else None)
+        if not captured.get("_dbg"):
+            captured["_dbg"] = True
+            print(f"[graph-start] hook fired: hs={'None' if hs is None else tuple(hs.shape)} "
+                  f"req_grad={getattr(hs,'requires_grad',None)} in_kwargs={'hidden_states' in hkwargs} "
+                  f"n_args={len(hargs)} grad_enabled={torch.is_grad_enabled()}", flush=True)
+        if hs is not None and not hs.requires_grad and torch.is_grad_enabled():
+            hs2 = hs.detach().requires_grad_(True)
+            captured["_start"] = hs2
+            if "hidden_states" in hkwargs:
+                hkwargs["hidden_states"] = hs2
+            else:
+                hargs = (hs2,) + tuple(hargs[1:])
+        return hargs, hkwargs
+    layers[GRAD_FROM].register_forward_pre_hook(graph_start_hook, with_kwargs=True)
+
     def mk_pre(L):
         def pre_hook(_m, hargs, hkwargs):
             hs = hkwargs.get("hidden_states", hargs[0] if hargs else None)
             if hs is not None and hs.requires_grad:
-                hs.retain_grad()
+                if not hs.is_leaf:
+                    hs.retain_grad()
                 captured[L] = hs
             return hargs, hkwargs
         return pre_hook
     for L in Ls:
         layers[L + 1].register_forward_pre_hook(mk_pre(L), with_kwargs=True)
 
-    all_dirs = list(iter_sample_dirs(Path(args.data_root)))
+    from evaluations.scripts.patch_importence.probe_frame_to_carrier_message import (
+        build_text_inputs_and_groups, gen_cwe_sample)
+    if args.task == "text_cwe":
+        all_dirs = list(range(int(args.limit) * 3))
+    else:
+        all_dirs = list(iter_sample_dirs(Path(args.data_root)))
     random.Random(args.sample_seed).shuffle(all_dirs)
     grads = {L: [] for L in Ls}
     golds = []
@@ -67,24 +105,41 @@ def main() -> int:
         if n >= args.limit:
             break
         try:
-            sid, frames, q0, states, a0 = load_mmred_sample(sd)
-            gold = int(str(a0).strip())
-            if gold not in cand:
-                continue
-            inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, q0))
+            if args.task == "text_cwe":
+                sid, blocks, q0, gold, _ft = gen_cwe_sample(int(sd), int(args.n_frames))
+                if gold not in cand:
+                    continue
+                t_inputs, _fg = build_text_inputs_and_groups(None, q0, processor,
+                                                             hi=int(args.n_frames), blocks=blocks)
+                inputs = tgi.move_inputs_to_model_device(t_inputs)
+            else:
+                sid, frames, q0, states, a0 = load_mmred_sample(sd)
+                gold = int(str(a0).strip())
+                if gold not in cand:
+                    continue
+                if int(args.resize) > 0 and frames:
+                    frames = [f.resize((int(args.resize), int(args.resize))) for f in frames]
+                if args.text_frames:
+                    t_inputs, _fg = build_text_inputs_and_groups(states, q0, processor,
+                                                                 hi=len(states))
+                    inputs = tgi.move_inputs_to_model_device(t_inputs)
+                else:
+                    inputs = tgi.move_inputs_to_model_device(tgi.build_inputs(frames, q0))
             seq = int(inputs["input_ids"].shape[1])
             pos = seq - 1 - args.offset
             captured.clear()
-            # embeddings need grad so hidden states carry requires_grad through the stack
-            emb = model.get_input_embeddings()
-            ids = inputs.pop("input_ids")
-            iem = emb(ids).detach().requires_grad_(True)
-            outp = model(inputs_embeds=iem, **{k: v for k, v in inputs.items()}, use_cache=False)
+            # graph starts at GRAD_FROM via the pre-hook; layers below run graph-free.
+            # last-position logits only (num_logits_to_keep) when the HF version supports it.
+            try:
+                outp = model(**inputs, use_cache=False, num_logits_to_keep=1)
+            except TypeError:
+                outp = model(**inputs, use_cache=False)
             logits = outp.logits[0, -1].float()
             others = torch.stack([logits[cand[d]] for d in cand if d != gold])
             loss = logits[cand[gold]] - torch.logsumexp(others, 0)
             model.zero_grad(set_to_none=True)
             loss.backward()
+            del outp, logits, loss
             ok = True
             for L in Ls:
                 hs = captured.get(L)
@@ -98,7 +153,8 @@ def main() -> int:
                 golds.append(gold); n += 1
                 if n % 10 == 0:
                     print(f"  {n}/{args.limit}", flush=True)
-            iem.grad = None
+            if n % 10 == 0:
+                torch.cuda.empty_cache()
         except Exception as exc:
             print(f"{sd}: {type(exc).__name__}: {exc}")
             continue

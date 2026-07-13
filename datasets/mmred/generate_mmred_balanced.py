@@ -160,6 +160,9 @@ def main() -> int:
     ap.add_argument("--split", default="all_uniform")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-render", action="store_true", help="skip PNGs (text-only / format check)")
+    ap.add_argument("--counts", default="",
+                    help="explicit comma-separated gold-count values (default: the task's full "
+                         "range). Long-N convention: low band 0-8 + spread points <= N.")
     args = ap.parse_args()
 
     ROOMS_USE = [r.strip() for r in str(args.rooms).split(",") if r.strip()]
@@ -174,6 +177,9 @@ def main() -> int:
         counts = list(range(0, min(len(CHARACTERS) - 1, N) + 1))    # 0..min(roster-1,N) distinct companions
     else:
         counts = list(range(0, N + 1))
+    if args.counts:
+        counts = sorted({int(x) for x in str(args.counts).replace(",", " ").split()})
+        assert all(0 <= k <= N for k in counts), f"--counts values must be in [0,{N}]"
     base = args.out_root / f"seq_len_{N}" / args.split
     from evaluations.scripts import eval_mmred_rooms_visited_baseline as rv
     n_made = 0

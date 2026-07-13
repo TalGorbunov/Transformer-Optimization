@@ -1,0 +1,1143 @@
+<title>d′ Theory — Mathematical Background</title>
+<style>
+  :root{
+    --paper:#faf8f4; --card:#ffffff; --card2:#f2efe8; --ink:#1d1a14; --muted:#6b6353;
+    --line:#e5dfd2; --line2:#d3cbba;
+    --acc:#4c56c0; --acc-soft:#4c56c01f;
+    --evid:#4c56c0; --noise:#b07d2e;
+    --ok:#3d7d4f; --warn:#a5731f; --bad:#b3483f;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --serif:Charter,"Bitstream Charter",Cambria,Georgia,serif;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#12141a; --card:#191c24; --card2:#1f232e; --ink:#e9e7e0; --muted:#9a948a;
+    --line:#2a2e3a; --line2:#3a3f4e;
+    --acc:#98a0ff; --acc-soft:#98a0ff22; --evid:#98a0ff; --noise:#d9a75e;
+    --ok:#6fbb84; --warn:#d9a54a; --bad:#e07b70;
+  }}
+  :root[data-theme="light"]{
+    --paper:#faf8f4; --card:#ffffff; --card2:#f2efe8; --ink:#1d1a14; --muted:#6b6353;
+    --line:#e5dfd2; --line2:#d3cbba; --acc:#4c56c0; --acc-soft:#4c56c01f;
+    --evid:#4c56c0; --noise:#b07d2e; --ok:#3d7d4f; --warn:#a5731f; --bad:#b3483f;
+  }
+  :root[data-theme="dark"]{
+    --paper:#12141a; --card:#191c24; --card2:#1f232e; --ink:#e9e7e0; --muted:#9a948a;
+    --line:#2a2e3a; --line2:#3a3f4e; --acc:#98a0ff; --acc-soft:#98a0ff22;
+    --evid:#98a0ff; --noise:#d9a75e; --ok:#6fbb84; --warn:#d9a54a; --bad:#e07b70;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+    font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:0 26px}
+  h1,h2,h3{line-height:1.16;text-wrap:balance;margin:0;letter-spacing:-.012em}
+  a{color:var(--acc)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--acc);font-weight:600}
+  .m{font-family:var(--mono);font-size:.92em;font-variant-numeric:tabular-nums}
+  em.d{font-style:italic}
+  header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
+  header h1{font-size:34px;font-weight:700;margin:10px 0 12px}
+  header p{color:var(--muted);max-width:60ch;margin:0}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .toc a{font-family:var(--mono);font-size:12px;text-decoration:none;color:var(--muted);
+    border:1px solid var(--line2);border-radius:999px;padding:4px 12px}
+  .toc a:hover{color:var(--acc);border-color:var(--acc)}
+  section{padding:36px 0 8px}
+  section>h2{font-size:24px;font-weight:700;margin-bottom:6px}
+  section>h2 .no{color:var(--acc);font-family:var(--mono);font-size:16px;margin-right:10px;font-weight:600}
+  section>p.lead{color:var(--muted);margin:6px 0 18px;max-width:64ch}
+  p{margin:0 0 14px;max-width:68ch}
+  .def,.thm{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--acc);
+    border-radius:0 12px 12px 0;padding:18px 22px;margin:0 0 18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .thm{border-left-color:var(--noise)}
+  .def .tag,.thm .tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:700;color:var(--acc);display:block;margin-bottom:6px}
+  .thm .tag{color:var(--noise)}
+  .def h3,.thm h3{font-size:17.5px;font-weight:700;margin-bottom:8px}
+  .math{font-family:var(--mono);font-size:14.5px;background:var(--card2);border:1px solid var(--line);
+    border-radius:8px;padding:10px 16px;margin:10px 0;overflow-x:auto;white-space:nowrap}
+  .data{background:var(--acc-soft);border-radius:8px;padding:10px 16px;margin:12px 0 2px;font-size:15px}
+  ul.comp{list-style:none;margin:12px 0;padding:0;display:grid;gap:8px}
+  ul.comp li{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 14px;
+    font-size:15px;max-width:none}
+  ul.comp .sym{font-family:var(--mono);font-weight:700;color:var(--acc)}
+  ul.comp .eq{font-family:var(--mono);font-size:13px;display:block;margin-top:4px;color:var(--muted);
+    overflow-x:auto;white-space:nowrap}
+  .data b{font-family:var(--mono);font-size:13.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+  figure{margin:22px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:18px 18px 12px}
+  figcaption{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:8px;
+    text-align:center;font-variant-numeric:tabular-nums;line-height:1.5}
+  svg{width:100%;height:auto;display:block}
+  figure canvas{width:100%;height:auto;display:block}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:14px 0}
+  .scroll.full{width:min(100vw - 36px,1500px);position:relative;left:50%;transform:translateX(-50%)}
+  table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{background:var(--card2);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  td.n,th.n{font-family:var(--mono);text-align:right;font-size:13px}
+  tbody tr:last-child td{border-bottom:none}
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;
+    padding:2px 8px;border-radius:999px}
+  .p-ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+  .p-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 15%,transparent)}
+  .p-bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+  .walls{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+  @media(max-width:700px){.walls{grid-template-columns:1fr}}
+  .wall{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .wall .no{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--acc)}
+  .wall h3{font-size:15.5px;margin:6px 0 8px}
+  .wall p{font-size:14px;color:var(--muted);margin:0}
+  .wall .fix{font-family:var(--mono);font-size:12px;color:var(--ok);margin-top:10px;display:block}
+  ol.checks{padding-left:0;list-style:none;counter-reset:chk;max-width:none}
+  ol.checks li{counter-increment:chk;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:14px 18px 14px 54px;margin:0 0 10px;position:relative;font-size:15.5px}
+  ol.checks li::before{content:counter(chk);position:absolute;left:16px;top:14px;width:26px;height:26px;
+    border-radius:50%;background:var(--acc-soft);color:var(--acc);font-family:var(--mono);font-weight:700;
+    font-size:13px;display:flex;align-items:center;justify-content:center}
+  footer{border-top:1px solid var(--line);margin-top:44px;padding:24px 0 70px;
+    font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.9}
+  .toggle{position:fixed;top:14px;right:14px;z-index:10;font-family:var(--mono);font-size:12px;
+    background:var(--card);border:1px solid var(--line2);color:var(--muted);
+    border-radius:999px;padding:6px 12px;cursor:pointer}
+  .toggle:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11.5px;
+    color:var(--muted);justify-content:center;margin-top:4px}
+  .legend i{width:12px;height:3px;border-radius:2px;display:inline-block;vertical-align:middle;margin-right:5px}
+  figure table{width:auto;margin:10px auto 2px}
+  ul.res{list-style:none;padding:0;margin:14px 0;display:grid;gap:10px}
+  ul.res li{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:12px 16px;font-size:15.5px;max-width:none}
+  ul.res .cat{font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--acc);background:var(--acc-soft);border-radius:999px;
+    padding:2px 9px;margin-right:8px}
+  ul.res .src{font-family:var(--mono);font-size:11.5px;color:var(--muted);display:block;margin-top:5px}
+  .snaps{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin:10px 0 2px}
+  .snaps button{font-family:var(--mono);font-size:12px;background:var(--card2);border:1px solid var(--line2);
+    color:var(--ink);border-radius:999px;padding:5px 14px;cursor:pointer}
+  .snaps button:hover,.snaps button:focus-visible{border-color:var(--acc);color:var(--acc)}
+  .snaps .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  #projfig{touch-action:none;cursor:crosshair}
+</style>
+
+<button class="toggle" id="themeBtn" aria-label="Toggle color theme">◐ theme</button>
+
+<header>
+  <div class="wrap">
+    <span class="eyebrow">Background · definitions &amp; theorems</span>
+    <h1>The d′ theory of aggregation, from first principles</h1>
+    <p>Every mathematical object the MMRED aggregation theory uses, defined simply and anchored to the
+      measured numbers. The form a thesis background chapter takes — here as a reference page.</p>
+    <nav class="toc">
+      <a href="#obj">1 · The messages</a><a href="#defs">2 · From ruler to d′</a>
+      <a href="#thms">3 · Theorems</a><a href="#sumlaw">4 · The √N tax</a>
+      <a href="#e4">5 · The E4 battery</a><a href="#results">6 · Results &amp; insights</a>
+      <a href="#parity">7 · Parity table</a><a href="#ladder">8 · The ladder</a>
+      <a href="#softmax">9 · Softmax</a><a href="#walls">10 · Three walls</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ============ 1 THE OBJECT ============ -->
+<section id="obj">
+  <h2><span class="no">1</span>The object of study: attention messages</h2>
+  <p class="lead">Everything in the theory is a statement about one measurable vector quantity inside
+    the frozen model's forward pass.</p>
+
+  <p>At layer L, the <em class="d">carrier</em> token c (the queried "Park" token) attends over the whole
+  context. Attention output is exactly a weighted sum of value vectors, so it splits exactly by frame:</p>
+  <div class="math">msg<sub>f→c</sub> = o_proj( Σ<sub>j ∈ frame f</sub> A[c,j] · v<sub>j</sub> )</div>
+  <p><span class="m">A[c,j]</span> is the attention weight from carrier to source token j,
+  <span class="m">v<sub>j</sub></span> its value vector, and <strong>o_proj</strong> is the attention
+  block's output projection — the linear matrix W<sub>O</sub> that maps concatenated head outputs back
+  into residual-stream coordinates. Because o_proj is linear, the per-frame split survives it: the
+  carrier's total attention update is <em class="d">exactly</em> Σ<sub>f</sub> msg<sub>f</sub>. No
+  probing, no approximation — arithmetic on the forward pass.</p>
+
+  <div class="def"><span class="tag">Decomposition</span>
+    <h3>Two clouds first — then one equation</h3>
+    <p style="max-width:none">Split the frames by their ground-truth label and each message is just its
+    class mean plus scatter:</p>
+    <div class="math">evidence frame:&nbsp; m<sub>k</sub> = μ + δ + ε<sub>k</sub>
+      &nbsp;&nbsp;·&nbsp;&nbsp; non-evidence frame:&nbsp; m<sub>k</sub> = μ + ε<sub>k</sub></div>
+    <p style="max-width:none">Writing the label as a bit e<sub>k</sub> folds both cases into one line —
+    the form we keep, because summing over frames turns Σe<sub>k</sub> into
+    <em class="d">the count</em> (§3):</p>
+    <div class="math"><b>m<sub>k</sub> = μ + e<sub>k</sub>·δ + ε<sub>k</sub></b></div>
+    <ul class="comp">
+      <li><span class="sym">μ</span> — the baseline: the mean message of the non-evidence frames — what
+        every frame writes just for being a frame of this scene.
+        <span class="eq">μ = mean{ m<sub>k</sub> : e<sub>k</sub> = 0 }</span></li>
+      <li><span class="sym">δ</span> — the signal: the difference of the two class means — the one
+        direction that says "the character was there."
+        <span class="eq">δ = mean{ m<sub>k</sub> : e<sub>k</sub> = 1 } − mean{ m<sub>k</sub> : e<sub>k</sub> = 0 }</span></li>
+      <li><span class="sym">e<sub>k</sub> ∈ {0,1}</span> — the frame's ground-truth label (was the
+        character in the room?) — given by the dataset, never estimated.</li>
+      <li><span class="sym">ε<sub>k</sub></span> — the noise: the residual — everything left after
+        removing the class mean (layout, other characters, poses).
+        <span class="eq">ε<sub>k</sub> = m<sub>k</sub> − μ − e<sub>k</sub>·δ</span></li>
+    </ul>
+    <p style="max-width:none">μ and δ are plain class averages and ε the leftover — nothing is fitted.
+    The only modeling <em class="d">assumption</em> is ε's distribution (Gaussian, same covariance in
+    both classes) — a hypothesis about the data, not a fact, and §5 tests it per dataset: it passes on
+    MMRED (image, text, and natural-image variants) and fails <em class="d">informatively</em> on real
+    video, where the theory retreats to ordering claims.</p>
+    <div class="data"><b>measured</b> &nbsp;‖μ‖ ≈ 87 · ‖δ‖ ≈ 1 (≈1% of μ) · noise spread along the naive
+    axis σ ≈ 6 — the signal is 1% of the message and ⅙ of the noise.</div>
+  </div>
+</section>
+
+<!-- ============ 2 DEFINITIONS ============ -->
+<section id="defs">
+  <h2><span class="no">2</span>Reading the clouds — from ruler to d′</h2>
+  <p class="lead">Every linear readout — a probe, a next-layer weight, anything — is an axis: it turns
+  each message into one number. So "how separable are the clouds?" really asks "how separated are the
+  two histograms on the best axis?" — and answering that needs the right notion of distance. The obvious
+  one lies.</p>
+
+  <div class="def"><span class="tag">Step 1 · the object</span>
+    <h3>A readout is an axis — and every axis gets one number</h3>
+    <p style="max-width:none">Pick a direction w and project: every message m becomes the single number
+    wᵀm. Now project §1's decomposition <em class="d">term by term</em> — and the whole
+    3584-dimensional model collapses into a one-dimensional one:</p>
+    <div class="math">wᵀm = wᵀμ + e·(wᵀδ) + wᵀε</div>
+    <p style="max-width:none">On the axis, the two classes are two histograms with two centers and a
+    shared width (E[·&thinsp;|&thinsp;class] = the average over that class's frames):</p>
+    <div class="math">a = E[wᵀm | non-evid] = wᵀμ&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;b = E[wᵀm | evid] = wᵀ(μ+δ)&nbsp;&nbsp;&nbsp;·&nbsp;&nbsp;&nbsp;σ<sub>w</sub> = std(wᵀε) = √( wᵀ Σ w )</div>
+    <div class="math">d′(w) = (b − a) / σ<sub>w</sub> = wᵀδ / √( wᵀ Σ w )</div>
+    <p style="max-width:none">Here <span class="m">Σ</span> is the <em class="d">covariance of the
+    noise ε</em> — the matrix recording the noise cloud's shape
+    (<span class="m">Σ = mean over frames of ε<sub>k</sub>ε<sub>k</sub>ᵀ</span>: diagonal = each
+    direction's noise variance, off-diagonal = how directions co-vary), and its one job is the identity
+    <span class="m">wᵀΣw = Var(wᵀε)</span> — the noise variance you inherit by reading along w. So
+    d′(w) is the bump-center gap counted in bump widths: the z-score idea — never count a gap in raw
+    units, count it in noise units <em class="d">along the direction you are reading</em>. Threshold at
+    the midpoint of a and b and the balanced accuracy is Φ(d′(w)/2). The whole section is now one
+    question: <em class="d">which axis maximizes this ratio?</em></p>
+  </div>
+
+  <figure>
+    <canvas id="figAxis" width="1320" height="900" role="img" aria-label="Two message clouds with the class-mean gap and a reading axis; below, the two projection bumps with their overlap shaded"></canvas>
+    <figcaption>The formula, drawn. Top: the two clouds, the class-mean gap δ, and a reading axis w.
+    Bottom: the projections onto w — two bumps with centers a = wᵀμ and b = wᵀ(μ+δ) and width σ_w;
+    the center gap counted in widths is d′(w), and the shaded overlap is the unavoidable error of the
+    best threshold (the midpoint fence between a and b). Simulation of the stated model.</figcaption>
+  </figure>
+
+  <div class="def"><span class="tag">Step 2 · the derivation</span>
+    <h3>The best axis, in four annotated lines</h3>
+    <p style="max-width:none">The obvious axis — <span class="m">δ̂ = δ/‖δ‖</span>, point from one
+    cloud center at the other — is measurably bad: held out at the deployed room-token carrier it
+    reads <span class="m">d′(δ̂) = 1.12</span> where the best axis reads <span class="m">2.47</span>
+    from the same vectors (0.33 vs 3.35 in the question-first frame-reps regime). The reason: the noise
+    is <em class="d">anisotropic</em> — loud in some directions, nearly silent in others — and loudest
+    almost exactly where δ̂ points. A big gap in raw units is worthless if the noise there is bigger.
+    So maximize properly:</p>
+    <div class="math">maximize over w:&nbsp;&nbsp;d′(w) = (b−a)/σ<sub>w</sub> = |wᵀδ| / √( wᵀ Σ w )&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— scale-free: only w's direction matters</span></div>
+    <div class="math">substitute u = Σ<sup>1/2</sup>w:&nbsp;&nbsp;d′ = | u · (Σ<sup>−1/2</sup>δ) | / |u|&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— the denominator collapses: this substitution IS whitening</span></div>
+    <div class="math">Cauchy–Schwarz:&nbsp;&nbsp;maximum when u ∝ Σ<sup>−1/2</sup>δ&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— a dot product is largest when the vectors are parallel</span></div>
+    <div class="math">map back:&nbsp;&nbsp;<b>w* = Σ⁻¹δ</b>,&nbsp;&nbsp;max value = √( δᵀ Σ⁻¹ δ )&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— the Mahalanobis distance between the class means ≡ d′</span></div>
+    <p style="max-width:none">Read the middle step slowly — it is the whole idea. In u-coordinates
+    (<span class="m">u = Σ<sup>1/2</sup>w</span>, equivalently data z = Σ<sup>−1/2</sup>m) the noise
+    cloud is a <em class="d">unit sphere</em>: no direction is louder than any other, so the best axis
+    is trivially "point at the other cloud's mean." The formula w* = Σ⁻¹δ is that trivial answer
+    translated back into the original, tilted coordinates. And the maximum value earns Mahalanobis
+    (1936) its name: the gap between the class means counted in noise-standard-deviations — in one
+    dimension it is literally the z-score |a−b|/σ.</p>
+    <p style="max-width:none"><strong>Why Σ⁻¹ instead of pointing at the gap:</strong> a component of δ
+    lying along a loud noise direction buys numerator but costs <em class="d">more</em> denominator —
+    a bad trade. Σ⁻¹ reweights every direction by 1/variance, so w* leans toward directions where the
+    gap is cheap in noise. That is why w* can be nearly orthogonal to δ̂ (measured cos ≈ 0.03 at the
+    deployed carrier): almost all of δ's raw length lies in loud directions, and w* abandons it to
+    harvest the small clean component.</p>
+    <div class="data"><b>sanity checks</b> &nbsp;spherical noise (Σ = σ²·I) → w* ∝ δ̂, d′ = ‖δ‖/σ ·
+    one dimension → |a−b|/σ, the z-score · d′ from a balanced classifier: d′ = 2Φ⁻¹(accuracy).</div>
+  </div>
+
+  <figure>
+    <canvas id="figW" width="1320" height="560" role="img" aria-label="Same two clouds read along the naive axis and along the whitened axis, with the projection bumps overlapping on the left and separating on the right"></canvas>
+    <figcaption>Same clouds, two axes. Left: the naive axis δ̂ — the projection bumps overlap almost
+    completely (d′ = 0.33). Right: the whitened axis Σ⁻¹δ tilts away from the loud noise direction and
+    the same clouds separate (d′ ≈ 3.4). Values shown are the question-first frame-reps regime;
+    at the deployed carrier the same move reads 1.12 → 2.47. Simulation at the measured parameters.</figcaption>
+  </figure>
+
+  <div class="def"><span class="tag">Payoff</span>
+    <h3>d′ — one number, and it is the Mahalanobis distance</h3>
+    <div class="math">d′ = max over axes of gap/width = √( δᵀ Σ⁻¹ δ ) = D_M(μ_E, μ_N)</div>
+    <p style="max-width:none">Two definitions, one number: the best achievable histogram separation and
+    the noise-unit distance between the class centers coincide — that is what the derivation proved.
+    It resolves the paradox this project tripped on: the naive axis measured the gap in raw units along
+    the loudest direction (0.33 in the frame-reps regime, 1.12 at the deployed carrier); a trained
+    linear probe is free to whiten and reads the Mahalanobis value (3.35 / 2.47). Both numbers were
+    always true — they answer different questions. d′ is a <em class="d">descriptive</em> quantity,
+    valid with or without Gaussian classes; only means and covariances enter it.</p>
+    <p style="max-width:none"><strong>Do sklearn probes find w*?</strong> LDA
+    (<span class="m">LinearDiscriminantAnalysis</span>) estimates Σ⁻¹δ <em class="d">by construction</em>
+    (we use Ledoit–Wolf shrinkage for stability in 3584-d). Logistic regression and ridge converge to
+    essentially the same direction for near-Gaussian classes given enough data. That is why any trained
+    linear probe reads the whitened value where the raw mean-difference reads the naive one.</p>
+    <div class="data"><b>measured</b> &nbsp;frame reps: naive 0.33 → whitened 3.35 · deployed carrier:
+    naive 1.12 → whitened 2.47, cos(δ̂,w*) 0.03 · text 2.45 (block) · isolated forwards 6.4–6.6.</div>
+  </div>
+
+  <div class="def"><span class="tag">d′ → accuracy</span>
+    <h3>Balanced accuracy Φ(d′/2) — the first place the Gaussian shape earns its keep</h3>
+    <p style="max-width:none">Everything so far needed no distribution. But once E4 (§5) has checked
+    that the two projected bumps really are equal-width Gaussians, d′ converts to an accuracy in closed
+    form. Put the threshold at the <em class="d">midpoint fence</em> between a and b — each center sits
+    d′/2 noise-widths from it. A frame is misclassified exactly when its noise pushes it across the
+    fence, i.e. past d′/2 in the wrong direction:</p>
+    <div class="math">P(error) = 1 − Φ(d′/2)&nbsp;&nbsp;(same for both classes)&nbsp;&nbsp;&nbsp;⇒&nbsp;&nbsp;&nbsp;balanced accuracy = Φ(d′/2)&nbsp;&nbsp;·&nbsp;&nbsp;inverse: d′ = 2Φ⁻¹(acc)</div>
+    <p style="max-width:none">Under Theorem 1 (§3) this is not just the best <em class="d">threshold</em> —
+    it is the ceiling of <em class="d">any</em> decision rule at this locus. The identity runs both ways:
+    measure a held-out probe's balanced accuracy and you have measured d′; measure d′ and you have
+    bounded every possible per-frame detector. (Per-frame only — what happens when N frames are
+    <em class="d">summed</em> is §4.) The project's own values, translated:</p>
+    <div class="data"><b>dictionary</b>&nbsp; d′ 0.51 (native axis) → 0.60 · 1.12 (naive, deployed) →
+    0.71 · 2.47 (w*, deployed) → 0.89 · 3.35 (frame reps) → 0.95 · 6.5 (isolated forwards) → 0.999.</div>
+  </div>
+
+  <div class="thm"><span class="tag">One law, two axes</span>
+    <h3>w* is what could be read; the native axis is what the model reads</h3>
+    <p style="max-width:none">w* is <em class="d">normative</em> — the best possible reading direction,
+    computed from the data geometry. The <em class="d">native axis</em> is <em class="d">descriptive</em> —
+    the direction the frozen model's own readout effectively uses at the same locus, extracted from its
+    behavior (E6, [2026-07-05]). Measured relationship: <span class="m">cos(native, w*) ≈ 0.005</span> —
+    essentially orthogonal — carrying d′ 0.51 of the available 2.47. The same law prices both:
+    plug w*'s d′ into 2Φ(d′/2√N)−1 and you predict what a probe can extract (0.375; measured 0.363);
+    plug the native axis's d′ into the <em class="d">same formula</em> and you predict what the model
+    actually scores (0.17; measured 0.21–0.24). One equation, two directions, two correctly predicted
+    accuracies — the model-vs-probe gap is not a mystery, it is a measured angle (Wall Ⅲ, §10).
+    Replicated on InternVL (native 0.19 → pred 0.135, meas 0.117–0.137) and text-MMRED (0.80 → 0.163,
+    meas 0.165).</p>
+  </div>
+
+  <div class="def"><span class="tag">Boundary marker</span>
+    <h3>What has NOT been assumed yet</h3>
+    <p style="max-width:none">Everything above used only means and covariances — no distribution was
+    assumed anywhere: the formula d′(w), the derivation, w*, the Mahalanobis identity are all
+    distribution-free. The shape of the clouds — <em class="d">Gaussian, equal covariance</em> — enters
+    only at the next step, when a measured d′ is converted into probabilities: the Φ(d′/2) accuracy,
+    the optimality theorems, and the counting law of §3–§4. That shape is a hypothesis about the data,
+    and §5 tests it per dataset before any closed-form number is quoted.</p>
+  </div>
+
+  <figure>
+    <svg id="projfig" viewBox="0 0 760 470" role="img" aria-label="Two anisotropic clouds with a draggable reading axis and live projection histograms"></svg>
+    <div class="snaps">
+      <span class="hint">drag the axis — or snap to:</span>
+      <button id="snapNaive" type="button">δ̂ · naive</button>
+      <button id="snapStar" type="button">w* · whitened</button>
+    </div>
+    <figcaption>The histograms are what a linear readout actually sees: the clouds projected onto the
+    axis. Drag — they merge and split, and d′(w) = gap/width updates live. Toy 2-D geometry tuned to the
+    measured contrast (3584-d values: δ̂ 0.33, w* 3.35). Note w* is nearly perpendicular to the line
+    joining the cloud centers: it escapes the loud noise direction instead of chasing the raw gap.</figcaption>
+  </figure>
+
+  <div class="def"><span class="tag">Refinement</span>
+    <h3>ρ — cross-frame noise correlation</h3>
+    <p style="max-width:none">ρ = the average correlation between two <em class="d">different frames'</em>
+    noise projections in the same sample: <span class="m">ρ = corr(w·ε<sub>i</sub>, w·ε<sub>j</sub>)</span>,
+    i ≠ j. If frames are processed independently, ρ ≈ 0 and summed noise grows as √N. If one forward pass
+    lets frames contaminate each other, ρ &gt; 0 and the summed noise variance becomes
+    <span class="m">σ²·N·(1+(N−1)ρ)</span> — correlated noise never averages away
+    (ρ = 0.1 at N = 128 inflates variance ≈ 13.7×).</p>
+    <div class="data"><b>measured</b> &nbsp;joint pass ρ ≈ +0.09…+0.13 · isolated forwards ρ ≈ +0.01 —
+    "single-pass superposition," quantified.</div>
+  </div>
+</section>
+
+<!-- ============ 3 THEOREMS ============ -->
+<section id="thms">
+  <h2><span class="no">3</span>Theorems the theory stands on</h2>
+  <p class="lead">Four classical results; each stated in one breath, with what it buys us.</p>
+
+  <div class="thm"><span class="tag">Theorem 1 · Fisher 1936</span>
+    <h3>For two equal-covariance Gaussians, the best possible classifier is linear</h3>
+    <p style="max-width:none">The <em class="d">Bayes boundary</em> is the decision surface of the rule that
+    minimizes error: "answer the class with higher posterior probability." In general it can be any shape.
+    For two Gaussians with the <em class="d">same</em> Σ, the log-likelihood-ratio's quadratic terms cancel,
+    leaving a linear function of m — so the optimal boundary is the hyperplane perpendicular to w*, and
+    the best achievable accuracy of <em class="d">any</em> rule, linear or not, is
+    <span class="m">Φ(d′/2)</span>.</p>
+    <p style="max-width:none"><strong>Unequal variances?</strong> The quadratic terms no longer cancel: the
+    optimal rule becomes quadratic (QDA), a linear rule is no longer optimal, and Φ(d′/2) stops being the
+    ceiling — a readout can exploit the quieter class. This is not a breakdown of the framework, only of the
+    closed form; E4's std-ratio check (§5) tells you when you are in this regime (text-CWE is: its filler
+    class is near-deterministic, std-ratio 1.2→10.8 with N, and the linear law duly under-predicts).</p>
+  </div>
+
+  <div class="thm"><span class="tag">Theorem 2 · sufficiency</span>
+    <h3>The matched filter w*ᵀS carries everything the sum knows about the count</h3>
+    <p style="max-width:none">Let S = Σ<sub>k</sub> m<sub>k</sub> be the pooled sum with g evidence frames.
+    Under the model, S ~ N(Nμ + g·δ, NΣ): the count g moves the mean of S <em class="d">only along δ</em>.
+    Writing out the Gaussian density and factoring (Fisher–Neyman), every g-dependent term touches S only
+    through the single scalar <span class="m">t = w*ᵀS</span>. So t is a <em class="d">sufficient
+    statistic</em>: any function of S — an MLP, anything — can be no more informative about g than the best
+    function of t. Consequence: <strong>no post-sum nonlinearity can beat the matched filter.</strong></p>
+    <div class="data"><b>measured</b> &nbsp;MLP-on-sum never beats linear, 21/21 regimes (Δ −0.04…−0.58).</div>
+  </div>
+
+  <div class="thm"><span class="tag">Theorem 3 · the counting law</span>
+    <h3>Exact-count accuracy of the best readout of the sum</h3>
+    <div class="math">P(exact | interior g) = 2Φ( d′ / 2√N ) − 1&nbsp;&nbsp;&nbsp;(boundary counts one-sided; mix over the count prior)</div>
+    <p style="max-width:none">Sketch: along w*, each unit of count moves t by ‖δ‖ while the summed noise
+    has width σ<sub>w</sub>√N — so consecutive counts are <span class="m">d′/√N</span> apart in noise units,
+    and nearest-integer rounding succeeds when the noise stays within half a step. Two measured inputs
+    (d′, N), zero fitted parameters. This is the number every "law pred" column in §7 contains.</p>
+  </div>
+
+  <div class="thm"><span class="tag">Theorem 4 · DeepSets (Zaheer 2017) + Wagstaff 2019</span>
+    <h3>Where the nonlinearity must sit</h3>
+    <p style="max-width:none">Any permutation-invariant set function has the form
+    <span class="m">ρ(Σ<sub>k</sub> φ(m<sub>k</sub>))</span> — a per-element map φ <em class="d">before</em>
+    the sum, then any readout ρ after. A plain sum is φ = id and can only realize linearly-separable set
+    functions. DeepSets was written for set-learning architectures, not transformers — it applies here
+    because the carrier's aggregate <em class="d">is</em> a sum over the frame-set, so the theorem dictates
+    where fixing it is even possible: per-frame, pre-sum. Combined with Theorem 2 (post-sum is capped), the
+    two theorems bracket the design space from both sides. Wagstaff adds: representing counts up to N needs
+    latent width ≥ N (our d_mem knee at exactly 8).</p>
+    <p style="max-width:none"><strong>Soft vs sharp gate.</strong> The working per-frame φ is a threshold
+    <span class="m">σ(κ·(w·m<sub>k</sub>))</span>. κ is the steepness: <em class="d">soft</em> (small κ)
+    outputs graded values like 0.4/0.7 and lets magnitude noise leak into the sum;
+    <em class="d">sharp</em> (large κ, ≈ a step) commits each frame to 0/1, converting noise into occasional
+    bit-errors that partially cancel. Measured: κ = 0 (linear) 0.09 → soft 0.73 → sharp (κ=20) 1.00.</p>
+  </div>
+
+  <div class="def"><span class="tag">Extension · multiclass (rooms)</span>
+    <h3>K-channel form for per-frame labels beyond binary</h3>
+    <p style="max-width:none">If the per-frame label has K values (which room, 1…6), run the same machinery
+    per channel: e<sub>k</sub><sup>r</sup> = 1[frame k shows room r], each with its own δ<sub>r</sub> and
+    d′<sub>r</sub> (measured 4.5–5.9 at L14). Pooled tallies t<sub>r</sub> = Σ<sub>k</sub> e<sup>r</sup>
+    then feed the task's reduction. For rooms-visited the reduction is <em class="d">support size</em>
+    #{r : t<sub>r</sub> &gt; 0} — provably nonlinear in the tallies, so no linear readout can express it:
+    measured linear 0.40 &lt; per-channel threshold 0.65 ≪ decode-then-count 0.99 on the <em class="d">same
+    pooled vector</em>. The binary theory is the K = 2 case, not a limitation of the framework.</p>
+  </div>
+</section>
+
+<!-- ============ 4 THE SUM ============ -->
+<section id="sumlaw">
+  <h2><span class="no">4</span>What summing does — signal adds like a ruler, noise like a drunk</h2>
+  <p class="lead">§1 showed the carrier's aggregate <em class="d">is</em> a sum over frames. Project it
+  onto any reading axis and the failure mode falls out in three short lines.</p>
+
+  <div class="def"><span class="tag">the sum, projected</span>
+    <h3>The score of the sum is the sum of scores</h3>
+    <p style="max-width:none">Pool the frames, S = Σ<sub>k</sub> m<sub>k</sub>, with g evidence frames
+    among N, and read with any axis w — projection is linear, so:</p>
+    <div class="math">wᵀS = N(wᵀμ) + g·(wᵀδ) + Σ<sub>k</sub> wᵀε<sub>k</sub>&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— constant&nbsp; + &nbsp;count × gap&nbsp; + &nbsp;accumulated noise</span></div>
+    <p style="max-width:none">Term by term. The first is identical for every sample — a constant offset
+    any readout subtracts. The second is the signal: <span class="m">wᵀδ</span> is the arrow δ converted
+    into a scalar step size Δ along the ruler; every evidence frame pushes the score up by exactly one Δ,
+    so the score's mean is a <em class="d">staircase in the count</em> — the count is linearly present.
+    The third term is the bad news.</p>
+  </div>
+
+  <div class="def"><span class="tag">the noise term</span>
+    <h3>Independent noises add in variance — the √N fog</h3>
+    <div class="math">Var(Σ<sub>k</sub> wᵀε<sub>k</sub>) = Σ<sub>k</sub> Var(wᵀε<sub>k</sub>) = N·σ<sub>w</sub>²&nbsp;&nbsp;⇒&nbsp;&nbsp;std = σ<sub>w</sub>·√N</div>
+    <p style="max-width:none">A drunkard's N steps: forward and backward stumbles partially cancel, so
+    the distance from the start grows like √N, not N. So the staircase keeps its fixed step Δ while the
+    fog around each step widens as √N. (Cross-frame independence is measured, not assumed — that is the
+    ρ card, §2; with ρ &gt; 0 the variance inflates to N(1+(N−1)ρ)·σ<sub>w</sub>², strictly worse.)</p>
+  </div>
+
+  <div class="def"><span class="tag">the ratio</span>
+    <h3>Count-level discriminability</h3>
+    <div class="math">d′<sub>N</sub> = d′ / √N</div>
+    <p style="max-width:none">Adjacent counts sit Δ apart in mean under σ<sub>w</sub>√N of noise —
+    gap/width once more. At N = 8: 3.4/√8 ≈ 1.2 — a 96% per-frame decision became a ~73% per-boundary
+    decision, with eight boundaries to get right. This is the whole over-squashing tax in one line:
+    every added frame costs √N even when per-frame supply stays perfectly flat, exactly the measured
+    pattern in §7's N-sweeps (d′ ~2.0 for all N while the model collapses).</p>
+  </div>
+
+  <div class="thm"><span class="tag">the predictor</span>
+    <h3>Under the audited Gaussian shape: the zero-parameter accuracy formula</h3>
+    <p style="max-width:none">The best readout of the sum rounds the matched-filter score to the nearest
+    count step (Theorems 1–2, §3). It errs exactly when the accumulated noise crosses half a step —
+    d′/2√N in noise units:</p>
+    <div class="math">P(exact | interior g) = 2Φ( d′ / 2√N ) − 1&nbsp;&nbsp;·&nbsp;&nbsp;boundary g ∈ {0, N}: Φ( d′ / 2√N )&nbsp;&nbsp;·&nbsp;&nbsp;overall: mix over the count prior</div>
+    <p style="max-width:none">Two measured inputs (d′, N), nothing fitted — this is Theorem 3 of §3 in
+    its working form, and every "predicted" column in §7's parity table is this formula evaluated at a
+    measured d′.</p>
+  </div>
+</section>
+
+<!-- ============ 5 E4 ============ -->
+<section id="e4">
+  <h2><span class="no">5</span>The E4 adequacy battery</h2>
+  <p class="lead">Theorems 1–3 assume "two equal-width Gaussian classes." E4 is the pre-flight check:
+  it asks the data whether that description fits, <em class="d">before</em> any closed-form number is
+  quoted. All four checks run on one object — the held-out projections of messages onto the fitted axis
+  (two histograms, one per class):</p>
+  <div class="math">p<sub>k</sub> = wᵀm<sub>k</sub> (held-out frames)&nbsp;&nbsp;·&nbsp;&nbsp;per class c ∈ {E, N}: standardize&nbsp; z<sub>k</sub> = (p<sub>k</sub> − mean<sub>c</sub>) / std<sub>c</sub></div>
+
+  <ol class="checks">
+    <li><strong>Skewness ≈ 0</strong> (threshold |skew| ≤ 0.15). Skewness measures lopsidedness: a
+      symmetric bell has skew 0; a distribution with a long tail on one side doesn't. A skewed evidence
+      class means some evidence frames carry systematically weaker signal — the first hint of a mixture.
+      <span class="m" style="display:block;margin-top:5px">skew<sub>c</sub> = mean( z<sub>k</sub>³ )</span></li>
+    <li><strong>Excess kurtosis ≈ 0</strong> (threshold ≤ 0.2). Kurtosis measures tail weight relative to
+      a Gaussian (which is defined as 0). Positive = heavy tails: more extreme values than a bell allows.
+      Heavy tails are the fingerprint of a <em class="d">mixture</em> — e.g. crisp + marginal evidence
+      lumped in one class. The law integrates Gaussian tails, so wrong tails = wrong prediction.
+      <span class="m" style="display:block;margin-top:5px">kurt<sub>c</sub> = mean( z<sub>k</sub>⁴ ) − 3</span></li>
+    <li><strong>Class std ratio ≈ 1</strong> (accept ~0.85–1.2). Directly tests Theorem 1's
+      equal-covariance premise along the readout axis. If one class is much tighter than the other, the
+      Bayes rule is quadratic and Φ(d′/2) is not the ceiling.
+      <span class="m" style="display:block;margin-top:5px">ratio = std<sub>E</sub>(p) / std<sub>N</sub>(p)</span></li>
+    <li><strong>d′<sub>gap</sub> ≈ d′<sub>AUC</sub></strong> (within a few %). The self-consistency check:
+      the gap/width estimate and the rank-based AUC estimate are two different functionals that coincide
+      exactly for Gaussians and drift apart otherwise. Agreement is positive evidence of Gaussianity, not
+      just absence of a red flag.
+      <span class="m" style="display:block;margin-top:5px">d′<sub>gap</sub> = |mean<sub>E</sub>(p) − mean<sub>N</sub>(p)| / ( ½(std<sub>E</sub> + std<sub>N</sub>) )&nbsp;&nbsp;vs&nbsp;&nbsp;d′<sub>AUC</sub> = √2·Φ⁻¹( AUC(p) )</span></li>
+  </ol>
+
+  <div class="def"><span class="tag">The instrument behind check 4</span>
+    <h3>AUC — threshold-free separability</h3>
+    <p style="max-width:none">Area under the ROC curve = the probability that a randomly drawn evidence
+    frame scores higher than a randomly drawn non-evidence frame. 0.5 = chance, 1.0 = perfect. It only uses
+    the <em class="d">ranking</em> of scores, so it needs no Gaussian assumption. For two equal-width
+    Gaussians it maps exactly to d′: <span class="m">AUC = Φ(d′/√2)</span>, i.e.
+    <span class="m">d′<sub>AUC</sub> = √2·Φ⁻¹(AUC)</span>. Comparing d′ measured from the gap vs from the
+    AUC is a built-in Gaussianity test — they must agree if the model is right (check 4 above).</p>
+  </div>
+
+  <p><strong>What passing buys:</strong> the license to use the closed form — to convert a measured d′ into
+  a predicted accuracy with zero fitted parameters, and to call the matched filter a true ceiling. Failing
+  costs only that: d′ remains a valid separability measure, ordering claims survive, but the exact
+  prediction must be caveated.</p>
+
+  <p>The per-regime verdict map — every dataset the battery has been run on, with which alarm
+  fires where — lives with the parity record: §7, directly above Table 2.</p>
+</section>
+
+<!-- ============ 5 RESULTS & INSIGHTS ============ -->
+<section id="results">
+  <h2><span class="no">6</span>Results &amp; insights</h2>
+  <p class="lead">Everything the theory produced, predicted, or explained — one line each, every number
+  traceable to a run. Compact index for now; items expand into subsections as needed.</p>
+
+  <ul class="res">
+    <li><span class="cat">law</span><strong>The √N collapse, predicted exactly.</strong> Per-frame d′
+      stays flat (~3.2–3.5) while sum-readout accuracy falls 0.85 → 0.47 as N goes 2 → 8 — on the
+      zero-parameter schedule 2Φ(d′/2√N)−1. The failure is pooling, not supply.
+      <span class="src">E1 N-sweep · probe_dprime_parity · §7 rows 1–4</span></li>
+    <li><span class="cat">law</span><strong>One law, 16+ regimes.</strong> The same closed form lands on
+      image-MMRED, text-MMRED, natural COCO photos, a foreign model family (InternVL), distributed
+      carriers, and long-N collapse — nothing tuned anywhere. Full record: the parity table, §7.
+      <span class="src">E1 + follow-ups · §7</span></li>
+    <li><span class="cat">law</span><strong>Behavioral closure — the law predicts the model itself.</strong>
+      Evaluate the law at the d′ of the model's own reading axis (0.51) and it predicts the model's
+      emitted accuracy (pred 0.17, meas 0.21–0.24); replicated on InternVL (0.135 / 0.117–0.137) and
+      text (0.163 / 0.165). One equation prices probe ceiling and model behavior alike.
+      <span class="src">E6 native axis · [2026-07-05]</span></li>
+    <li><span class="cat">mechanism</span><strong>The whitening correction.</strong> The early naive-axis
+      "SNR" (0.33) understated linear readout ~10×; the whitened d′ (3.35) is what probes attain — this
+      restatement replaced a fitted, self-inconsistent collapse curve with the zero-parameter law. §2 is
+      the derivation.
+      <span class="src">[2026-07-03b] restatement</span></li>
+    <li><span class="cat">mechanism</span><strong>"Superposition" became a covariance number.</strong>
+      Cross-frame noise correlation ρ ≈ +0.09…+0.13 in joint passes vs ≈ +0.01 in isolated forwards —
+      single-pass frame contamination, quantified (information-limiting correlations).
+      <span class="src">E2 · cache_mp_compare pairs</span></li>
+    <li><span class="cat">mechanism</span><strong>The readout wall is a measured angle.</strong>
+      cos(native axis, w*) ≈ 0.005 — the frozen model reads the right token along a nearly worst-case
+      direction, keeping d′ 0.51 of the available 2.47 (~20%).
+      <span class="src">E6 · Wall Ⅲ, §10</span></li>
+    <li><span class="cat">mechanism</span><strong>The joint-context tax localized to the query.</strong>
+      The ~3× per-frame d′ tax of processing N frames in one forward rides on query-routing
+      contamination (2×2 swap: a joint query collapses the read 4.79 → 1.59 even on clean values; a
+      clean query on joint values keeps 3.14). The value half is reversible (a learned un-mixer recovers
+      ~100%); the query half is an irreducible addressing limit — over-squashing at the query.
+      <span class="src">Q/KV 2×2 + un-mixers · [2026-07-12] · Wall Ⅰ, §10</span></li>
+    <li><span class="cat">mechanism</span><strong>Softmax's three sins, measured.</strong> At fixed N,
+      mean ≡ sum (0.439 = 0.439, benign); the magnitude channel flips from free ride to hidden
+      (corr(‖S‖, count) +1.00 free-N → −0.14 fixed-N) — making the frozen model a fraction reader; and
+      one attention hop cannot binarize a frame, which is exactly the operation the fix needs. §9.
+      <span class="src">evidence-only + visual_fixed8 series · §9</span></li>
+    <li><span class="cat">validity</span><strong>Sufficiency confirmed, 21/21.</strong> An MLP on the
+      pooled sum never beats a linear readout (Δ −0.04…−0.58) — the post-sum theorem's empirical
+      signature; the fix cannot live after the sum.
+      <span class="src">E3</span></li>
+    <li><span class="cat">validity</span><strong>The adequacy map.</strong> E4 passes exactly where
+      evidence is diverse + binary and the context short (image-MMRED, text-MMRED, natural
+      distinct-needle cells) and fails with diagnosed signatures: graded evidence → skew/kurtosis
+      (HERBench), degenerate identical needles → kurtosis (ident cells), near-deterministic filler →
+      variance blowup (text-CWE), long joint context → progressive heavy tails (N=8 pass → N=128
+      kurt +25). Binary groundability alone does not buy adequacy. §5.
+      <span class="src">E4 + P0b sweep · [2026-07-11e]</span></li>
+    <li><span class="cat">causal</span><strong>The δ channel is load-bearing.</strong> Scaling the δ
+      component of the messages during real forwards moves behavior (dose–response); ablating the
+      evidence subspace collapses the model into low answers while a dimensionality-matched control
+      subspace does nothing. The clouds are not a probe's invention.
+      <span class="src">E5 · [2026-07-04b]</span></li>
+    <li><span class="cat">transfer</span><strong>Cross-task replication.</strong> Co-occupancy: a
+      distributed two-token carrier, closed by block reads (pred .456 / meas .484) with a causal double
+      dissociation. Rooms-visited: the K-channel form, where the support-size reduction is provably
+      nonlinear in the tallies — linear 0.40 &lt; per-channel threshold 0.65 ≪ decode-then-count 0.99 —
+      the theory predicting its own probe's failure.
+      <span class="src">[2026-07-04] rollout</span></li>
+    <li><span class="cat">transfer</span><strong>Natural images: the d′ dial works, and the wall is
+      binding, not pixels.</strong> On COCO photos, needle diversity moves carrier d′ 6.2 → 4.3 and
+      distractor similarity 6.2 → 5.4 (registered monotone edges); with no relational binding required,
+      the model itself rides the law (pred 0.60–0.76, meas 0.57–0.66) — the MMRED-style gap largely
+      vanishes on this rung.
+      <span class="src">A4 mmred_natural · [2026-07-10h]</span></li>
+    <li><span class="cat">transfer</span><strong>Wording selects the aggregation operator.</strong> With
+      identical repeated needles, "how many FRAMES does a dog appear in?" is answered with the frame
+      count (mean 3.90 vs gold 4.17) while "how many DOGS in total?" is answered with the support size
+      (1.13–1.37 vs unique 0.9) — the frozen model picks Σ vs distinct-count from the question.
+      <span class="src">P4k dedup semantics · [2026-07-11f]</span></li>
+    <li><span class="cat">scale</span><strong>Long N: collapse into the prior, tracked — then a clamp.</strong>
+      Text long-N accuracy follows the law into the floor (N=16/24/40: pred .141/.116/.078, meas
+      .139/.083/.033); by N=128 the emitted range clamps (answers ≈3 for every N while ordinal signal
+      survives to N=64), and law ∘ measured-clamp reproduces behavior with zero fitted parameters.
+      <span class="src">B1/B3 long-N · [2026-07-10/11]</span></li>
+    <li><span class="cat">cure</span><strong>What the theory prescribes, works.</strong> Per-frame sharp
+      gate before the sum: 0.09 → 1.00 (soft 0.73 — the gate must commit). Retrieve-then-verify holds
+      0.79–0.88 to N=128 (beating the supply tax). Tally-as-answer through the token interface ≈1.0
+      including OOD — while every activation-level injection fails OOD: the token interface is
+      necessary, not just sufficient.
+      <span class="src">gate/Σσ series · retrieve-then-verify · C1 token interface</span></li>
+  </ul>
+</section>
+
+<!-- ============ 6 PARITY ============ -->
+<section id="parity">
+  <h2><span class="no">7</span>The parity record — zero fitted parameters</h2>
+  <p class="lead">Everywhere E4 passes: measure d′ and N, predict with Theorem 3, independently measure.
+  Nothing is tuned. Table 1: the frames-first image ladder, joint vs multipass per N. Table 2: every
+  other regime.</p>
+  <h3 style="margin:18px 0 4px">Table 1 — frames-first image count, joint vs multipass per N (deployed carrier, L16, 392px)</h3>
+  <div class="scroll full"><table>
+    <thead>
+      <tr><th class="n" rowspan="2">N</th>
+          <th colspan="4" style="text-align:center;border-left:1px solid var(--line)">joint — one forward, all N frames</th>
+          <th colspan="4" style="text-align:center;border-left:1px solid var(--line)">multipass — each frame alone</th></tr>
+      <tr><th class="n" style="border-left:1px solid var(--line)">d′_w</th><th class="n">d′_w/√N</th><th class="n">law-pred</th><th class="n">model acc</th>
+          <th class="n" style="border-left:1px solid var(--line)">d′_w</th><th class="n">d′_w/√N</th><th class="n">law-pred</th><th class="n">tally acc</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="n">1</td><td class="n" style="border-left:1px solid var(--line)">—</td><td class="n">—</td><td class="n">—</td><td class="n">0.997</td><td class="n" style="border-left:1px solid var(--line)" colspan="4">≡ joint (a single frame is alone in its forward)</td></tr>
+      <tr><td class="n">2</td><td class="n" style="border-left:1px solid var(--line)">2.71</td><td class="n">1.92</td><td class="n">0.747</td><td class="n">0.889</td><td class="n" style="border-left:1px solid var(--line)">6.72</td><td class="n">4.75</td><td class="n">0.987</td><td class="n">0.993</td></tr>
+      <tr><td class="n">4</td><td class="n" style="border-left:1px solid var(--line)">2.52</td><td class="n">1.26</td><td class="n">0.537</td><td class="n">0.480</td><td class="n" style="border-left:1px solid var(--line)">7.96</td><td class="n">3.98</td><td class="n">0.959</td><td class="n">0.974</td></tr>
+      <tr><td class="n">6</td><td class="n" style="border-left:1px solid var(--line)">2.48</td><td class="n">1.01</td><td class="n">0.438</td><td class="n">0.338</td><td class="n" style="border-left:1px solid var(--line)">8.44</td><td class="n">3.45</td><td class="n">0.922</td><td class="n">0.953</td></tr>
+      <tr><td class="n">8</td><td class="n" style="border-left:1px solid var(--line)">1.97</td><td class="n">0.70</td><td class="n">0.314</td><td class="n">0.207</td><td class="n" style="border-left:1px solid var(--line)">7.18</td><td class="n">2.54</td><td class="n">0.807</td><td class="n">0.910</td></tr>
+      <tr><td class="n">16</td><td class="n" style="border-left:1px solid var(--line)">2.12</td><td class="n">0.53</td><td class="n">0.249</td><td class="n">0.127</td><td class="n" style="border-left:1px solid var(--line)">7.91</td><td class="n">1.98</td><td class="n">0.693</td><td class="n">0.793</td></tr>
+      <tr><td class="n">32</td><td class="n" style="border-left:1px solid var(--line)">1.98</td><td class="n">0.35</td><td class="n">0.175</td><td class="n">0.053</td><td class="n" style="border-left:1px solid var(--line)">8.08</td><td class="n">1.43</td><td class="n">0.545</td><td class="n">0.680</td></tr>
+      <tr><td class="n">64</td><td class="n" style="border-left:1px solid var(--line)">1.93</td><td class="n">0.24</td><td class="n">0.130</td><td class="n">0.040</td><td class="n" style="border-left:1px solid var(--line)">7.74</td><td class="n">0.97</td><td class="n">0.395</td><td class="n">0.580</td></tr>
+      <tr><td class="n">128</td><td class="n" style="border-left:1px solid var(--line)">1.59</td><td class="n">0.14</td><td class="n">0.084</td><td class="n">0.013</td><td class="n" style="border-left:1px solid var(--line)">7.82</td><td class="n">0.69</td><td class="n">0.292</td><td class="n">0.420</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  d′_w/√N = count-level discriminability (§4) · law-pred = 2Φ(d′/2√N)−1, count-prior-mixed ·
+  "model acc" = the model's emitted answer (joint); for multipass there is no single emitted answer —
+  "tally acc" = the multipass-sum reader · joint d′ flat ~2.0 ∀N vs multipass flat ~7.2–8.1 ∀N = the
+  two-tax split: context-sharing costs d′ once, length costs √N · E4 licenses the law at N=8, indicative
+  beyond (kurtosis grows with N) · N ≤ 6 rows: fresh 1,300-sample datasets (mmred_smallN_park, current
+  generator, jobs 120800–13) — joint d′ rose 1.93→2.71 / 1.95→2.52 / 2.20→2.48 vs the first n=100–300
+  caches, i.e. the small-cache values were estimator-limited · N=1: per-frame probe saturated, d′
+  unmeasurable even at n=600 · multipass d′_w at small N carries the AUC-ceiling caveat (rank estimator
+  pegged at 5.26) · sources: image_longN/dprime_vs_n/20260711_003548 +
+  dprime_vs_n_smallN/20260713_v2_1300.</p>
+
+  <h3 style="margin:26px 0 4px">The E4 verdict map — which regimes license the closed form (battery of §5)</h3>
+  <div class="scroll full"><table>
+    <thead><tr><th>regime</th><th>verdict</th><th>which check fires</th><th>mechanism</th></tr></thead>
+    <tbody>
+      <tr><td>image-MMRED (all 3 tasks)</td><td><span class="pill p-ok">PASS</span></td>
+        <td class="m">skew ≤.15 · kurt ≤.2 · ratio .89–.92 · d′s agree</td>
+        <td>binary-by-construction evidence, homogeneous styling noise</td></tr>
+      <tr><td>Q-first probe regimes (ns2–8, crowd8, cooc balanced)</td><td><span class="pill p-ok">PASS</span></td>
+        <td class="m">same battery — the original "trusted regimes"</td>
+        <td>same structure, question-first layout</td></tr>
+      <tr><td>text-MMRED (L14–16)</td><td><span class="pill p-ok">PASS</span></td>
+        <td class="m">mild kurt +1.07 at L16 block only</td>
+        <td>same structure; peak-layer wobble in both modalities</td></tr>
+      <tr><td>text-MMRED long-N (N=16–40)</td><td><span class="pill p-ok">PASS</span></td>
+        <td class="m">std-ratio 0.9–1.1 · d′_AUC plateau 1.39–1.40; kurt grows with N (d′_w drifts from d′_AUC ~29% by N=40)</td>
+        <td>states-only text; adequacy logged as holding on std-ratio + AUC stability — quote d′ via the AUC estimator here</td></tr>
+      <tr><td>mmred_natural dist_far (real photos)</td><td><span class="pill p-ok">PASS</span></td>
+        <td class="m">kurt +0.49 (L14) / +0.78 (L16)</td>
+        <td>diverse binary evidence — realism is not the boundary</td></tr>
+      <tr><td>mmred_natural dist_near</td><td><span class="pill p-warn">PARTIAL</span></td>
+        <td class="m">L16 PASS (+0.77) · L14 FAIL (+2.09)</td>
+        <td>layer-dependent; quote the law at L16</td></tr>
+      <tr><td>mmred_natural ident cells (same photo repeated)</td><td><span class="pill p-bad">FAIL — degenerate</span></td>
+        <td class="m">kurt +1.6…+5.4</td>
+        <td>identical needles → point-mass × chunk-context mixture; binary GT alone does not buy adequacy</td></tr>
+      <tr><td>image long-N joint caches, N ≥ 16</td><td><span class="pill p-bad">FAIL — progressive</span></td>
+        <td class="m">kurt +0.52 @N=8 → +25 @N=128 · ratio drifts to 1.4–2.0</td>
+        <td>long joint context → heavy-tailed per-frame messages (mass competition); law licensed at N=8</td></tr>
+      <tr><td>HERBench (real video)</td><td><span class="pill p-bad">FAIL — graded</span></td>
+        <td class="m">skew +3.5 · kurt +2.6…+35 · ratio 1.4–2.2 · d′s disagree 20–40%</td>
+        <td>evidence is a mixture: ~¼ crisp + ¾ marginal (occlusion, mid-action)</td></tr>
+      <tr><td>MLVU-AC (real video, judge labels)</td><td><span class="pill p-bad">FAIL — variance</span></td>
+        <td class="m">std-ratio 6.6–7.9×</td>
+        <td>judge-label-noise signature</td></tr>
+      <tr><td>VNBench counting</td><td><span class="pill p-bad">FAIL — variance</span></td>
+        <td class="m">std-ratio 3.2–3.5 — exactly as pre-registered</td>
+        <td>near-deterministic filler class, CWE family</td></tr>
+      <tr><td>text-CWE</td><td><span class="pill p-bad">FAIL — variance</span></td>
+        <td class="m">std-ratio 1.2 → 10.8 with N</td>
+        <td>filler class near-deterministic → QDA regime; linear law <em>under</em>-predicts</td></tr>
+      <tr><td>saturated regimes (char1, small-n decrowded cooc, multipass)</td><td><span class="pill p-warn">UNMEASURABLE</span></td>
+        <td class="m">per-frame probe ≈ 1.0; AUC→d′ pegs at its 6.72 cap</td>
+        <td>d′ not estimable from finite data — predictions are extrapolations, not quoted</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none">Thirteen regimes, four distinct alarms — graded-mixture, degenerate-identity,
+  variance/QDA, long-context heavy tails — each mapping to a diagnosed mechanism. The battery doesn't
+  just gate the law, it <em class="d">classifies the failure</em>; the rows below quote the closed form
+  only where this map says PASS.</p>
+
+  <h3 style="margin:26px 0 4px">Table 2 — cross-regime parity (all other loci, tasks, modalities, model families)</h3>
+  <div class="scroll full"><table>
+    <thead><tr><th>regime (locus)</th><th class="n">N</th><th class="n">d′<sub>w</sub></th>
+      <th class="n">predicted</th><th class="n">measured</th><th class="n">model acc</th><th>note</th></tr></thead>
+    <tbody>
+      <tr><td colspan="7" style="background:var(--card2);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">question-first regimes — measured = held-out ridge-on-sum probe (the parity pairs proper)</td></tr>
+      <tr><td>Q-first steps, N-sweep</td><td class="n">2</td><td class="n">3.46</td><td class="n">0.849</td><td class="n">0.853</td><td class="n">—</td><td rowspan="4">d′ constant while acc collapses exactly as √N dictates</td></tr>
+      <tr><td></td><td class="n">4</td><td class="n">3.21</td><td class="n">0.662</td><td class="n">0.650</td><td class="n">—</td></tr>
+      <tr><td></td><td class="n">6</td><td class="n">3.34</td><td class="n">0.575</td><td class="n">0.593</td><td class="n">—</td></tr>
+      <tr><td></td><td class="n">8</td><td class="n">3.35</td><td class="n">0.504</td><td class="n">0.471</td><td class="n">—</td></tr>
+      <tr><td>co-occ balanced (Q-first)</td><td class="n">8</td><td class="n">7.10</td><td class="n">0.814</td><td class="n">0.798</td><td class="n">—</td><td></td></tr>
+      <tr><td>deployed room token L16 (image)</td><td class="n">8</td><td class="n">2.47</td><td class="n">0.375</td><td class="n">0.363</td><td class="n">0.236</td><td>the deployed locus</td></tr>
+      <tr><td>co-occ two-name <em>block</em> L14</td><td class="n">8</td><td class="n">3.19</td><td class="n">0.456</td><td class="n">0.484</td><td class="n">≈0.17</td><td>distributed carrier, closed by block read</td></tr>
+      <tr><td>co-occ 6-locus block L14 (E4 PASS)</td><td class="n">8</td><td class="n">3.43</td><td class="n">0.476</td><td class="n">0.534</td><td class="n">≈0.17</td><td>complete cooc supply; kurt +0.38</td></tr>
+      <tr><td>text-MMRED room L16</td><td class="n">8</td><td class="n">1.76</td><td class="n">0.280</td><td class="n">0.317</td><td class="n">0.165</td><td>no vision at all</td></tr>
+      <tr><td>text-MMRED long-N (room L16)</td><td class="n">16</td><td class="n">1.23</td><td class="n">0.141</td><td class="n">0.139</td><td class="n">0.062</td><td rowspan="3">collapse into the prior, tracked</td></tr>
+      <tr><td></td><td class="n">24</td><td class="n">1.15</td><td class="n">0.116</td><td class="n">0.083</td><td class="n">0.035</td></tr>
+      <tr><td></td><td class="n">40</td><td class="n">1.09</td><td class="n">0.078</td><td class="n">0.033</td><td class="n">0.020</td></tr>
+      <tr><td>InternVL2.5-8B carrier L20</td><td class="n">8</td><td class="n">1.69–1.96</td><td class="n">0.288</td><td class="n">0.292</td><td class="n">0.117–0.137</td><td>foreign model family (means)</td></tr>
+      <tr><td>mmred_natural dist_far (dog token L16)</td><td class="n">8</td><td class="n">4.30</td><td class="n">0.595</td><td class="n">0.580</td><td class="n">0.580</td><td rowspan="2">NATURAL images, no binding: the model itself rides the law</td></tr>
+      <tr><td>mmred_natural dist_near</td><td class="n">8</td><td class="n">4.28</td><td class="n">0.596</td><td class="n">0.607</td><td class="n">0.607</td></tr>
+      <tr><td colspan="7" style="background:var(--card2);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">behavioral closures — the law at the model's own reading axis predicts the model's own accuracy</td></tr>
+      <tr><td>Qwen native axis L16</td><td class="n">8</td><td class="n">0.51</td><td class="n">0.17</td><td class="n">0.21–0.24</td><td class="n">0.21–0.24</td><td>the model's behavior, predicted</td></tr>
+      <tr><td>InternVL native axis L20</td><td class="n">8</td><td class="n">0.19</td><td class="n">0.135</td><td class="n">0.117–0.137</td><td class="n">0.117–0.137</td><td>second family</td></tr>
+      <tr><td>text-MMRED native axis L16</td><td class="n">8</td><td class="n">0.80</td><td class="n">0.163</td><td class="n">0.165</td><td class="n">0.165</td><td>third regime, no vision</td></tr>
+      <tr><td colspan="7" style="background:var(--card2);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">where E4 fails — ordering survives, exact form caveated</td></tr>
+      <tr><td>HERBench armB (action tokens)</td><td class="n">16</td><td class="n">0.98</td><td class="n">0.158</td><td class="n">0.196</td><td class="n">0.17</td><td>graded evidence; ordering ✓</td></tr>
+      <tr><td>text-CWE (word token)</td><td class="n">8</td><td class="n">5.06</td><td class="n">0.685</td><td class="n">0.722</td><td class="n">0.793</td><td>N=8 fine; under-predicts at N=64 (variance regime)</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  model acc = the frozen model's emitted-answer exact match in that regime · "—" = probe-only regime,
+  emitted answer not evaluated (question-first probing layouts) · cooc ≈0.17 derived from
+  the logged ratio (decode-then-count 0.601 = 3.6× model) · HERBench 0.17 = armB own-answer EM
+  (n=134, job 119014; digit-argmax reader 0.082) · text long-N model 0.062/0.035/0.020 ≈ the majority
+  baseline (0.059/0.040/0.024) — prior-locked from N=16 on · in the behavioral-closure band, measured IS the model's accuracy (that is the
+  closure), so the two columns repeat.</p>
+
+  <h3 style="margin:26px 0 4px">Table 3 — the δ channel is causally load-bearing: the dose–response series (E5, [2026-07-03d–f])</h3>
+  <p style="max-width:none">The dose: in a clean forward the pooled room-token state already contains the
+  count component Σ<sub>k</sub> e<sub>k</sub>δ = g·δ (§4). Adding <span class="m">(λ−1)·g·δ</span> turns
+  it into <span class="m">λ·g·δ</span> — the aggregate count signal multiplied by λ with the accumulated
+  noise untouched (oracle-dosed: uses the true g — a mechanism experiment, not a method). Per arm, three
+  reads: what the model says (emitted), what the LAST token's mid-network state contains (decode @L24 —
+  i.e. did the dose cross the carrier→last-token hop), and what a linear head on the last token's
+  final-layer state would say — the model with a repaired readout. The injection is at the carrier;
+  both probes are at the answer position.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>arm</th><th class="n">emitted answer (frozen head)</th><th class="n">decode @L24 (LAST token, mid-network)</th>
+      <th class="n">repaired readout (LAST token, final layer)</th></tr></thead>
+    <tbody>
+      <tr><td>ablate (λ=0, single-site — leaky)</td><td class="n">0.233</td><td class="n">0.367</td><td class="n">—</td></tr>
+      <tr><td>baseline (λ=1)</td><td class="n">0.227</td><td class="n">0.367</td><td class="n">0.283</td></tr>
+      <tr><td>amplify ×2</td><td class="n">0.213</td><td class="n">0.400</td><td class="n">—</td></tr>
+      <tr><td>amplify ×4</td><td class="n">0.200</td><td class="n">0.533</td><td class="n">—</td></tr>
+      <tr><td>amplify ×8</td><td class="n">0.187</td><td class="n">0.650</td><td class="n" style="color:var(--ok)">0.683</td></tr>
+      <tr><td>amplify ×16</td><td class="n">0.193</td><td class="n">0.700</td><td class="n">0.650</td></tr>
+      <tr><td>amplify ×32</td><td class="n">0.147</td><td class="n">0.717</td><td class="n" style="color:var(--ok)">0.700</td></tr>
+      <tr><td>amplify ×64</td><td class="n" style="color:var(--bad)">0.133</td><td class="n" style="color:var(--ok)">0.750</td><td class="n" style="color:var(--ok)"><b>0.783</b></td></tr>
+      <tr><td>amplify ×128</td><td class="n">0.167</td><td class="n">0.633</td><td class="n">0.667</td></tr>
+      <tr><td>multi-layer ×8 (4 sites)</td><td class="n">0.193</td><td class="n">0.650</td><td class="n">0.667</td></tr>
+      <tr><td>multi-layer ×16 (4 sites)</td><td class="n" style="color:var(--bad)">0.140</td><td class="n">0.650</td><td class="n">0.617</td></tr>
+      <tr><td><b>scrub — δ̂ removed at every carrier layer</b></td><td style="color:var(--bad)">0.180 (MAE 2.47, undercount collapse)</td><td class="n">0.317</td><td class="n">0.317</td></tr>
+      <tr><td>scrub of a <em>random</em> axis (control)</td><td>0.247 (MAE 1.50 ≈ baseline)</td><td class="n">0.333</td><td class="n">0.300</td></tr>
+      <tr><td>random-direction dose ×8 (control)</td><td class="n">0.213</td><td class="n">0.600</td><td class="n">0.517</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  INJECTION SITE · single-site arms: the dose is written into the ROOM-TOKEN carrier's residual stream at
+  L16 (it enters the block at L17), along that layer's own measured δ. Multi-layer arms: 4 sites,
+  L14/16/18/20, each dosed along its own δ_L. Scrub: label-free removal of the δ̂_L component of the
+  room-token state at EVERY carrier layer continuously — later attention re-delivers the messages each
+  layer, so one-shot removal (the leaky λ=0 row) is not a valid ablation. Oracle-dosed, n=150/arm,
+  image-MMRED count · runs: frame_axis/probes/dprime_dose/20260703_{182429,185555,192542,194553}
+  (jobs 116926/116938/116943/116945) · "—" cells: the final-layer capture was added in the third script
+  version; those arms predate it. The headline dissociation: at ×64 the repaired readout reads 0.783
+  while the frozen head emits 0.133 — the information crosses all 28 layers and dies at the unembedding.</p>
+</section>
+
+<!-- ============ 6 LADDER ============ -->
+<section id="ladder">
+  <h2><span class="no">8</span>The ladder — where accuracy is lost, step by step</h2>
+  <p class="lead">Same samples, same frozen representations; only the read strategy changes.
+  Steps task, deployed locus, N = 8.</p>
+  <figure>
+    <svg id="ladderSvg" viewBox="0 0 760 380" role="img" aria-label="Waterfall of accuracies from perfect supply down to the frozen model"></svg>
+    <figcaption>Each gap is a different, separately measured mechanism. The probe rows are certificates:
+    the information is in the model's own activations — extraction machinery strictly weaker than the
+    model's (one linear map) recovers it.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 7 SOFTMAX ============ -->
+<section id="softmax">
+  <h2><span class="no">9</span>Softmax's three contributions to the failure</h2>
+  <div class="def"><span class="tag">i · normalization → dilution</span>
+    <h3>Attention aggregates a weighted mean, not a sum</h3>
+    <p style="max-width:none">Softmax weights sum to 1, so at fixed N mean ≡ sum (measured identical,
+    0.439 = 0.439) — benign. But each frame's message shrinks ~1/N as frames are added, and across
+    varying N a mean-like statistic is count-blind: the root of length-extrapolation failure and the
+    gate-threshold drift expected at N = 128.</p>
+  </div>
+  <div class="def"><span class="tag">ii · the magnitude channel</span>
+    <h3>Softmax hands the model a fraction, and hides the count</h3>
+    <p style="max-width:none">Evidence-only data: the count is the <em class="d">length</em> of the sum,
+    ‖S‖ ≈ g·‖μ‖ — corr(‖S‖, g) = <span class="m">+1.00</span>, an easy loud channel. Fix the total set
+    size at 8 and ‖S‖ ≈ 8‖μ‖ = constant — corr drops to <span class="m">−0.14</span>; the count is forced
+    onto the 1%-sized δ direction. The model behaves accordingly: a <em class="d">fraction reader</em>
+    (systematic undercount, by-gold slope ~0.1, g ≥ 5 → 0) — reading evidence-share, which softmax
+    provides for free, instead of absolute count, which it hides.</p>
+  </div>
+  <div class="def"><span class="tag">iii · no per-frame threshold</span>
+    <h3>One attention hop cannot implement the sharp gate</h3>
+    <p style="max-width:none">Theorem 4 says the fix is a per-frame threshold before the sum. Attention's
+    aggregation is linear in the values — a single hop can reweight frames but cannot binarize each one.
+    The operation that takes 0.09 → 1.00 is exactly the operation the aggregating layer doesn't have.</p>
+  </div>
+</section>
+
+<p><strong>The read, factored (2026-07-12).</strong> The message a carrier token c collects
+from frame f factorizes as <span class="m">msg_f = m_f · o_proj(Σ_j ŵ_j v_j)</span>: a scalar
+mass <span class="m">m_f</span> (how much of c's attention frame f wins — excluded from d′,
+which is per-frame-scale-invariant; equalizing it causally recovers nothing), a within-frame
+routing distribution <span class="m">ŵ_j</span> (WHERE inside the frame c looks — set by the
+query q_c; the subset-renormalization property of softmax makes ŵ independent of other frames'
+logits), and the values <span class="m">v_j</span> (what the frame's tokens carry). The 2×2
+swap shows the joint-context tax rides almost entirely on <span class="m">ŵ_j</span> via a
+contaminated q_c, secondarily on <span class="m">v_j</span>, and not at all on
+<span class="m">m_f</span>.</p>
+
+<!-- ============ 8 WALLS ============ -->
+<section id="walls">
+  <h2><span class="no">10</span>The three walls</h2>
+  <p class="lead">The model-vs-ceiling gap decomposes into three separately measured, separately curable
+  mechanisms.</p>
+  <div class="walls">
+    <div class="wall"><span class="no">Ⅰ</span>
+      <h3>Supply — the joint-context tax, localized</h3>
+      <p>Processing N frames in ONE forward costs a ~3.2–3.6× d′ factor at the deployed carrier
+      (joint ~2.0 vs isolated 7–8; flat in N to 128), both modalities, both families. Final
+      localization (the query/encoding 2×2, 2026-07-12): swap the carrier query q_c and the frame
+      values k,v independently between clean and joint forwards — a JOINT query collapses the
+      per-frame read to joint level even on clean values (1.59 vs clean 4.79 @L16); a clean query
+      on joint values keeps most separability (3.14). <strong>The tax is chiefly QUERY-ROUTING
+      contamination</strong> — q_c mis-aims the within-frame attention ŵ_j — plus a secondary
+      value-encoding component and a saturating long-context term (~1.9). Consistent with all
+      nulls: not mass (renorm 1–8%), not removable edges (fence sweep all-negative), onsets at
+      the first companion (8.08→3.37 at k=2), content-graded (gray free, same-scene worst).
+      <strong>The two halves are opposite in kind (un-mixers, 2026-07-12):</strong> the value
+      degradation is REVERSIBLE — a learned joint→clean map recovers ~100% of the encoding gap —
+      while the query is an IRREDUCIBLE addressing-capacity limit: a per-frame query mis-reads other
+      frames (donor 1.02 &lt; joint 1.71 &lt; own 3.48) and cannot be reconstructed from the joint
+      state (un-mix reads 1.19, below baseline). One fixed-width query cannot address N sources —
+      <em>over-squashing at the query</em> — so per-frame forwards are the supply floor, not a workaround.</p>
+      <span class="fix">levers: separate/near-separate forwards (k≤2) → retrieve-then-verify
+      (0.79–0.88 to N=128) · clean-query re-read: k=2-level margins at ~2 forwards</span>
+    </div>
+    <div class="wall"><span class="no">Ⅱ</span>
+      <h3>Pooling — the √N tax</h3>
+      <p>Summing before deciding superimposes N frames' noise and erases per-frame identity: even the
+      optimal linear read of the sum caps at 2Φ(d′/2√N)−1 ≈ 0.38–0.47. Deciding first, then adding
+      (decode-then-count) reaches 0.47–0.59 from the same vectors. At scale a frozen gate ALSO drifts:
+      1/N mass dilution inflates FN 0.09→0.99 (direction intact — mass-normalization cuts it ~10×).</p>
+      <span class="fix">cures: per-frame sharp gate → tally (Σσ: 0.09→1.00) · mass-norm + per-N margin</span>
+    </div>
+    <div class="wall"><span class="no">Ⅲ</span>
+      <h3>Readout — the angle and the clamp</h3>
+      <p>The model reads the right token along its native axis: cos to w* = 0.005, carrying d′ 0.51 —
+      ~20% of available separation. At scale the emitted RANGE clamps (answers ≈3 for every N to 128
+      while ordinal signal survives to N=64); law ∘ measured-clamp reproduces behavior with zero fitted
+      parameters. And the interface is one-way: real tokens verbalize at 1.000 OOD; every learned
+      activation-level injection (digit / count / Fourier / native-anchored) fails OOD — the token
+      interface is necessary, not just sufficient.</p>
+      <span class="fix">cures: tally-as-answer via predicate-matched fact pre-question (≈1.0 incl. OOD)</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap" style="padding:0">
+    SOURCES · Fisher (1936), <a href="https://hdl.handle.net/2440/15227">Annals of Eugenics 7:179–188 — free PDF, U. Adelaide Fisher archive</a> ·
+    Green &amp; Swets (1966), <a href="https://archive.org/details/signaldetectiont0000gree">Signal Detection Theory and Psychophysics — Internet Archive</a> ·
+    Zaheer et al. (2017) <a href="https://arxiv.org/abs/1703.06114">DeepSets</a> ·
+    Wagstaff et al. (2019) <a href="https://arxiv.org/abs/1901.09006">limits of set representations</a><br>
+    All measured numbers trace to RESULTS.md entries [2026-06-28]–[2026-07-11e]; companion results page:
+    the block-read report artifact. Written 2026-07-09; walls/parity updated 2026-07-11 (joint-context tax, range clamp, token-necessity).
+  </div>
+</footer>
+</main>
+
+<script>
+const btn=document.getElementById('themeBtn');
+btn.addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme')
+    ||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',cur==='dark'?'light':'dark');
+  drawFigAxis();drawFigW();drawProj();drawLadder();
+});
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* ---------- shared: seeded gaussian dots ---------- */
+function makeRng(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296}}
+function makeGauss(rng){return()=>{const u=Math.max(rng(),1e-9),v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)}}
+
+/* ---------- canvas figures (ported from dprime_explainer, theme-aware) ---------- */
+function rngC(seed){let s=seed>>>0;return function(){s|=0;s=(s+0x6D2B79F5)|0;
+  let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function gaussC(r){let u=0,v=0;while(u===0)u=r();while(v===0)v=r();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+function drawFigAxis(){
+  const c=document.getElementById('figAxis'); if(!c)return;
+  const ctx=c.getContext('2d'),W=c.width,H=c.height;
+  const EV=css('--evid'),NV=css('--noise'),INK=css('--ink'),MUT=css('--muted'),
+        RULE=css('--line2'),BG=css('--card');
+  const r=rngC(7);
+  ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+  const cx=W/2;
+  const muN=[cx-170,290],muE=[cx+170,250],s=95;
+  function cloud(mu,color,n){ctx.fillStyle=color;
+    for(let i=0;i<n;i++){const x=mu[0]+gaussC(r)*s,y=mu[1]+gaussC(r)*s*0.75;
+      ctx.globalAlpha=0.5;ctx.beginPath();ctx.arc(x,y,5,0,7);ctx.fill();}ctx.globalAlpha=1;}
+  cloud(muN,NV,120);cloud(muE,EV,120);
+  function dot(p,col){ctx.fillStyle=col;ctx.beginPath();ctx.arc(p[0],p[1],9,0,7);ctx.fill();
+    ctx.strokeStyle=BG;ctx.lineWidth=2.5;ctx.stroke();}
+  ctx.strokeStyle=INK;ctx.lineWidth=3.5;
+  ctx.beginPath();ctx.moveTo(muN[0],muN[1]);ctx.lineTo(muE[0]-14,muE[1]+2);ctx.stroke();
+  const ang=Math.atan2(muE[1]-muN[1],muE[0]-muN[0]);
+  ctx.beginPath();ctx.moveTo(muE[0]-6,muE[1]);
+  ctx.lineTo(muE[0]-6-16*Math.cos(ang-0.42),muE[1]-16*Math.sin(ang-0.42));
+  ctx.lineTo(muE[0]-6-16*Math.cos(ang+0.42),muE[1]-16*Math.sin(ang+0.42));
+  ctx.closePath();ctx.fillStyle=INK;ctx.fill();
+  dot(muN,NV);dot(muE,EV);
+  ctx.font="italic 30px Georgia";ctx.fillStyle=INK;
+  ctx.fillText("δ",(muN[0]+muE[0])/2-8,(muN[1]+muE[1])/2-18);
+  ctx.font="26px system-ui";ctx.fillStyle=NV;ctx.fillText("non-evidence frames",muN[0]-190,muN[1]+150);
+  ctx.fillStyle=EV;ctx.fillText("evidence frames",muE[0]+10,muE[1]-130);
+  ctx.strokeStyle=MUT;ctx.setLineDash([7,6]);ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(120,muN[1]+((120-muN[0])/(muE[0]-muN[0]))*(muE[1]-muN[1]));
+  ctx.lineTo(W-120,muN[1]+((W-120-muN[0])/(muE[0]-muN[0]))*(muE[1]-muN[1]));ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=MUT;ctx.font="24px system-ui";ctx.fillText("reading axis w",W-360,muE[1]-60);
+  const base=H-70,ph=200;
+  ctx.strokeStyle=RULE;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(90,base);ctx.lineTo(W-90,base);ctx.stroke();
+  const pm=v=>cx+v*3.1;
+  function bump(mu,sig,color){
+    ctx.beginPath();
+    for(let x=90;x<=W-90;x+=2){const z=(x-pm(mu))/(sig*3.1);
+      const y=base-ph*Math.exp(-0.5*z*z);if(x===90)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+    ctx.strokeStyle=color;ctx.lineWidth=4;ctx.stroke();
+    ctx.lineTo(W-90,base);ctx.lineTo(90,base);ctx.closePath();
+    ctx.fillStyle=color;ctx.globalAlpha=0.10;ctx.fill();ctx.globalAlpha=1;
+  }
+  bump(-55,32,NV);bump(55,32,EV);
+  ctx.save();ctx.beginPath();
+  for(let x=90;x<=W-90;x+=2){const zN=(x-pm(-55))/(32*3.1),zE=(x-pm(55))/(32*3.1);
+    const y=base-ph*Math.min(Math.exp(-0.5*zN*zN),Math.exp(-0.5*zE*zE));
+    if(x===90)ctx.moveTo(x,y);else ctx.lineTo(x,y);}
+  ctx.lineTo(W-90,base);ctx.lineTo(90,base);ctx.closePath();
+  ctx.fillStyle=NV;ctx.globalAlpha=0.32;ctx.fill();ctx.restore();ctx.globalAlpha=1;
+  ctx.fillStyle=MUT;ctx.font="24px system-ui";
+  ctx.fillText("projections onto w — the unavoidable overlap is the error",90,base+44);
+  ctx.strokeStyle=INK;ctx.lineWidth=2.5;
+  const yb=base-ph-26;
+  ctx.beginPath();ctx.moveTo(pm(-55),yb);ctx.lineTo(pm(55),yb);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pm(-55),yb-8);ctx.lineTo(pm(-55),yb+8);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(pm(55),yb-8);ctx.lineTo(pm(55),yb+8);ctx.stroke();
+  ctx.font="italic 26px Georgia";ctx.fillStyle=INK;
+  ctx.fillText("gap = d′ noise-widths",cx-120,yb-14);
+}
+
+function drawFigW(){
+  const c=document.getElementById('figW'); if(!c)return;
+  const ctx=c.getContext('2d'),W=c.width,H=c.height;
+  const EV=css('--evid'),NV=css('--noise'),INK=css('--ink'),
+        RULE=css('--line2'),BG=css('--card');
+  ctx.fillStyle=BG;ctx.fillRect(0,0,W,H);
+  const pw=W/2-60;
+  const sLong=110,sShort=16,dvec=[70,0];
+  function drawPanel(x0,useWhiten,title){
+    const r=rngC(13);
+    const cx=x0+pw/2,cy=210;
+    const muN=[cx-dvec[0],cy+8],muE=[cx+dvec[0],cy-8];
+    const cc=Math.SQRT1_2;
+    function samp(mu){const a=gaussC(r)*sLong,b=gaussC(r)*sShort;
+      return [mu[0]+a*cc-b*cc,mu[1]+a*cc+b*cc];}
+    let w;
+    if(!useWhiten){w=[muE[0]-muN[0],muE[1]-muN[1]];}
+    else{const u=[cc,cc],v=[-cc,cc],d=[muE[0]-muN[0],muE[1]-muN[1]];
+      const du=d[0]*u[0]+d[1]*u[1],dv=d[0]*v[0]+d[1]*v[1];
+      const wu=du/(sLong*sLong),wv=dv/(sShort*sShort);
+      w=[wu*u[0]+wv*v[0],wu*u[1]+wv*v[1]];}
+    const nw=Math.hypot(w[0],w[1]);w=[w[0]/nw,w[1]/nw];
+    const projsN=[],projsE=[];
+    for(let i=0;i<110;i++){const p=samp(muN);ctx.fillStyle=NV;ctx.globalAlpha=0.45;
+      ctx.beginPath();ctx.arc(p[0],p[1],4.5,0,7);ctx.fill();
+      projsN.push((p[0]-cx)*w[0]+(p[1]-cy)*w[1]);}
+    for(let i=0;i<110;i++){const p=samp(muE);ctx.fillStyle=EV;
+      ctx.beginPath();ctx.arc(p[0],p[1],4.5,0,7);ctx.fill();
+      projsE.push((p[0]-cx)*w[0]+(p[1]-cy)*w[1]);}
+    ctx.globalAlpha=1;
+    ctx.strokeStyle=INK;ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(cx-w[0]*230,cy-w[1]*230);ctx.lineTo(cx+w[0]*230,cy+w[1]*230);ctx.stroke();
+    const base=H-64,ph=110;
+    const mN=projsN.reduce((a,b)=>a+b,0)/projsN.length,mE=projsE.reduce((a,b)=>a+b,0)/projsE.length;
+    const sd=(arr,m)=>Math.sqrt(arr.reduce((a,b)=>a+(b-m)*(b-m),0)/arr.length);
+    const sN=sd(projsN,mN),sE=sd(projsE,mE),sp=(sN+sE)/2;
+    const scale=pw/2/(Math.max(Math.abs(mN),Math.abs(mE))+3*sp);
+    function bump(mu,sig,color){ctx.beginPath();
+      for(let px2=x0;px2<=x0+pw;px2+=2){const val=(px2-(x0+pw/2))/scale,z=(val-mu)/sig;
+        const y=base-ph*Math.exp(-0.5*z*z);if(px2===x0)ctx.moveTo(px2,y);else ctx.lineTo(px2,y);}
+      ctx.strokeStyle=color;ctx.lineWidth=3.5;ctx.stroke();}
+    ctx.strokeStyle=RULE;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(x0,base);ctx.lineTo(x0+pw,base);ctx.stroke();
+    bump(mN,sN,NV);bump(mE,sE,EV);
+    ctx.fillStyle=INK;ctx.font="600 23px system-ui";
+    ctx.fillText(title,x0+6,44);
+  }
+  drawPanel(30,false,"naive axis δ̂  →  bumps overlap (d′ = 0.33)");
+  drawPanel(W/2+30,true,"whitened axis Σ⁻¹δ  →  bumps separate (d′ = 3.4)");
+  ctx.strokeStyle=RULE;ctx.beginPath();ctx.moveTo(W/2,20);ctx.lineTo(W/2,H-20);ctx.stroke();
+}
+
+/* ---------- interactive projection figure ---------- */
+const PJ={tilt:-14*Math.PI/180, su:95, sv:5, du:16.75, dv:16.75, cx:380, cy:150, theta:0};
+function pjRot(u,v,ang){const c=Math.cos(ang),si=Math.sin(ang);return [u*c-v*si, u*si+v*c]}
+function pjScreen(u,v){const [x,y]=pjRot(u,v,PJ.tilt);return [PJ.cx+x, PJ.cy-y]}
+function pjDprime(theta){
+  const [wu,wv]=pjRot(Math.cos(theta),Math.sin(theta),-PJ.tilt);
+  const num=Math.abs(PJ.du*wu+PJ.dv*wv);
+  const den=Math.sqrt((PJ.su*wu)**2+(PJ.sv*wv)**2);
+  return num/den;
+}
+const pjThetaNaive=Math.atan2(PJ.dv,PJ.du)+PJ.tilt;
+const pjThetaStar=Math.atan2(PJ.dv/(PJ.sv*PJ.sv),PJ.du/(PJ.su*PJ.su))+PJ.tilt;
+PJ.theta=pjThetaNaive;
+function drawProj(){
+  const s=document.getElementById('projfig');
+  const evid=css('--evid'),noise=css('--noise'),muted=css('--muted'),acc=css('--acc'),
+        line=css('--line'),ink=css('--ink'),mono=css('--mono');
+  const g=makeGauss(makeRng(42));
+  let dots='';
+  for(const [sign,color] of [[-1,noise],[1,evid]]){
+    for(let i=0;i<80;i++){
+      const u=sign*PJ.du/2+g()*PJ.su, v=sign*PJ.dv/2+g()*PJ.sv;
+      const [x,y]=pjScreen(u,v);
+      if(x>14&&x<746&&y>28&&y<268)
+        dots+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="2.2" fill="${color}" opacity=".55"/>`;
+    }
+  }
+  let ells='';
+  for(const [sign,color] of [[-1,noise],[1,evid]]){
+    const [x,y]=pjScreen(sign*PJ.du/2,sign*PJ.dv/2);
+    ells+=`<g transform="translate(${x.toFixed(1)},${y.toFixed(1)}) rotate(${(-PJ.tilt*180/Math.PI).toFixed(1)})">
+      <ellipse rx="${2*PJ.su}" ry="${2*PJ.sv}" fill="none" stroke="${color}" stroke-width="1.6" opacity=".8"/></g>
+      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="${color}"/>`;
+  }
+  // reading axis through the midpoint (clamped to the cloud panel)
+  const ct=Math.cos(PJ.theta), st=Math.sin(PJ.theta);
+  const L=Math.min(340, st?118/Math.abs(st):1e9, ct?358/Math.abs(ct):1e9);
+  const ax1=[PJ.cx-ct*L,PJ.cy+st*L], ax2=[PJ.cx+ct*L,PJ.cy-st*L];
+  const axis=`<line x1="${ax1[0].toFixed(1)}" y1="${ax1[1].toFixed(1)}" x2="${ax2[0].toFixed(1)}" y2="${ax2[1].toFixed(1)}"
+      stroke="${acc}" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <polygon points="0,-5 10,0 0,5" fill="${acc}"
+      transform="translate(${(PJ.cx+ct*(L-12)).toFixed(1)},${(PJ.cy-st*(L-12)).toFixed(1)}) rotate(${(-PJ.theta*180/Math.PI).toFixed(1)})"/>
+    <text x="${(PJ.cx+ct*(L-58)).toFixed(1)}" y="${(PJ.cy-st*(L-58)-10).toFixed(1)}" fill="${acc}"
+      font-size="13" font-weight="700" font-family="${mono}">w</text>`;
+  // histogram panel
+  const d=pjDprime(PJ.theta);
+  const base=442, hTop=95, hx=380, hw=330;
+  const xmax=Math.max(4,d/2+3.2), px=hw/xmax;
+  function bump(mean,color){
+    let path=`M ${(hx-hw).toFixed(1)} ${base}`;
+    for(let i=0;i<=100;i++){
+      const xv=-xmax+(2*xmax*i/100);
+      const yv=base-hTop*Math.exp(-0.5*(xv-mean)*(xv-mean));
+      path+=` L ${(hx+xv*px).toFixed(1)} ${yv.toFixed(1)}`;
+    }
+    path+=` L ${(hx+hw).toFixed(1)} ${base} Z`;
+    return `<path d="${path}" fill="${color}" opacity=".16"/><path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>`;
+  }
+  const hist=
+    `<line x1="20" y1="290" x2="740" y2="290" stroke="${line}" stroke-width="1"/>
+     <text x="26" y="312" fill="${muted}" font-size="12" font-family="${mono}">what the readout sees: the clouds projected onto w</text>
+     <line x1="${hx-hw}" y1="${base}" x2="${hx+hw}" y2="${base}" stroke="${muted}" stroke-width="1.5"/>`+
+    bump(-d/2,noise)+bump(d/2,evid)+
+    `<line x1="${(hx-d/2*px).toFixed(1)}" y1="${base}" x2="${(hx-d/2*px).toFixed(1)}" y2="${base-hTop-8}" stroke="${noise}" stroke-width="1" stroke-dasharray="3 3"/>
+     <line x1="${(hx+d/2*px).toFixed(1)}" y1="${base}" x2="${(hx+d/2*px).toFixed(1)}" y2="${base-hTop-8}" stroke="${evid}" stroke-width="1" stroke-dasharray="3 3"/>
+     <text x="${hx}" y="${base-hTop-16}" text-anchor="middle" fill="${ink}" font-size="19" font-weight="700"
+       font-family="${mono}">d′(w) = ${d.toFixed(2)}</text>
+     <text x="${hx}" y="${base+22}" text-anchor="middle" fill="${muted}" font-size="12.5" font-family="${mono}">gap = d′ noise-widths · balanced acc Φ(d′/2) = ${(0.5*(1+erf(d/(2*Math.SQRT2)))).toFixed(2)}</text>
+     <text x="${hx-hw}" y="${base-hTop-16}" fill="${noise}" font-size="12.5" font-family="${mono}">non-evidence</text>
+     <text x="${hx+hw}" y="${base-hTop-16}" text-anchor="end" fill="${evid}" font-size="12.5" font-family="${mono}">evidence</text>`;
+  s.innerHTML=ells+dots+axis+hist;
+}
+function erf(x){ // Abramowitz–Stegun 7.1.26
+  const t=1/(1+0.3275911*Math.abs(x));
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return x<0?-y:y;
+}
+(function wireProj(){
+  const s=document.getElementById('projfig');
+  if(!s)return;
+  let dragging=false;
+  const setFromEvent=e=>{
+    const r=s.getBoundingClientRect(), k=760/r.width;
+    const mx=(e.clientX-r.left)*k, my=(e.clientY-r.top)*k;
+    PJ.theta=Math.atan2(PJ.cy-my, mx-PJ.cx);
+    drawProj();
+  };
+  s.addEventListener('pointerdown',e=>{dragging=true;s.setPointerCapture(e.pointerId);setFromEvent(e)});
+  s.addEventListener('pointermove',e=>{if(dragging)setFromEvent(e)});
+  s.addEventListener('pointerup',()=>{dragging=false});
+  document.getElementById('snapNaive').addEventListener('click',()=>{PJ.theta=pjThetaNaive;drawProj()});
+  document.getElementById('snapStar').addEventListener('click',()=>{PJ.theta=pjThetaStar;drawProj()});
+})();
+/* ---------- ladder waterfall ---------- */
+function drawLadder(){
+  const s=document.getElementById('ladderSvg');
+  const acc=css('--acc'),muted=css('--muted'),line=css('--line'),ink=css('--ink'),
+        noise=css('--noise'),bad=css('--bad'),ok=css('--ok');
+  const rows=[
+    {l:"perfect supply (ground truth)",v:1.00,c:ok,note:""},
+    {l:"per-frame decisions, isolated",v:0.94,c:acc,note:"extraction gap · crowding, 5-char superposition"},
+    {l:"decode each frame, then add (dtc)",v:0.59,c:acc,note:"per-frame errors + one-sided bias at high g"},
+    {l:"best linear read of the pooled sum",v:0.46,c:noise,note:"Wall Ⅱ · the √N pooling tax (Theorem 3 ceiling)"},
+    {l:"frozen model, emitted answer",v:0.21,c:bad,note:"Wall Ⅲ · readout angle — cos(native, w*) = 0.005"},
+  ];
+  const W=760,left=16,barX=300,barW=380,rh=64,top=18;
+  let out="";
+  rows.forEach((r,i)=>{
+    const y=top+i*rh+14;
+    out+=`<text x="${left}" y="${y+16}" font-size="14" fill="${ink}" font-family="${css('--serif')}">${r.l}</text>`;
+    out+=`<rect x="${barX}" y="${y}" width="${barW}" height="22" rx="5" fill="${line}"/>`;
+    out+=`<rect x="${barX}" y="${y}" width="${barW*r.v}" height="22" rx="5" fill="${r.c}"/>`;
+    out+=`<text x="${barX+barW*r.v+8}" y="${y+16}" font-size="14" font-weight="700" fill="${r.c}" font-family="${css('--mono')}">${r.v.toFixed(2)}</text>`;
+    if(r.note)out+=`<text x="${barX}" y="${y+38}" font-size="11.5" fill="${muted}" font-family="${css('--mono')}">${r.note}</text>`;
+  });
+  s.innerHTML=out;
+}
+drawFigAxis();drawFigW();drawProj();drawLadder();
+</script>

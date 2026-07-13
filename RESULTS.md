@@ -2434,6 +2434,330 @@ completely, ~4× cost).
 
 ---
 
+## [2026-07-08] ✅📊 B0a resolution smoke — deployed carrier d′ vs frame resolution: 392px keeps 87.5% of the 512-baseline d′ (within the pre-set 15% rule) → **392px chosen for all long-N work**; 336px drops 20%
+
+> Plan 2026-07-08 workstream B, step B0a [preapproved-smoke]. **Question:** what does downscaling
+> frames cost in *deployed carrier d′* (frames-first room-token messages) — the number the prior
+> behavioral (2026-04-14) and is-evidence-AUC (2026-06-20) sweeps never measured. **Run:**
+> `outputs/_scratch/b0a_res_smoke/20260708_195354/` (job **119516**, rtx6k, 25 min; probe gained
+> `--resize`, tokens/frame=(px/28)²: 512→324, 392→196, 336→144). n=150, steps crowded 5-char N=8,
+> carrier=room token (off−9), L14/16/20, joint pass. **d′ via the parity engine** (3 seeds,
+> held-out shrinkage-LDA; `outputs/_scratch/b0a_res_smoke/parity/{20260708_201235,20260708_201658}/`
+> + console.log).
+
+| room@layer | 512px (native) | 392px | 336px |
+|---|---|---|---|
+| **L16 (peak)** | **d′_w 1.99±0.11** | **1.74±0.05 (−12.5%)** | 1.60±0.06 (−20%) |
+| L14 | 1.69±0.05 | 1.49±0.08 (−12%) | 1.30±0.03 (−23%) |
+| L20 | 1.83±0.07 | 1.51±0.03 (−17%) | 1.65±0.04 (−10%) |
+| per-frame balacc @L16 | 0.864 | 0.829 | 0.827 |
+| model own-answer | 0.200 | 0.200 | 0.173 |
+
+**Decision (per the plan's pre-registered rule):** 392 ≈ within 15% of baseline AND N=128@392px ≈
+25.4k tokens fits context → **long-N (B0b/B1/B2/B3) runs at 392px**; 336 exceeds the drop threshold
+and is not needed. No stop-and-ask triggered. Data strategy: render long-N sets at native 512 and
+downscale at load (`--resize`) so any res remains measurable later.
+**Consistency checks:** naive-axis SNR at 512 reproduces the known 1.16@L16 ([2026-07-03], 1.156
+here); behavior is res-flat (the 2026-04-14 result) while d′ is not — resolution taxes the supply
+side well before it shows behaviorally at N=8. Parity holds at every res (pred vs ridge within
+~1–4 pts). **Caveats:** n=150 (d′ values are finite-n lower bounds — compare across res at matched
+n only); joint-pass only; steps task only; L20 non-monotonicity (1.51 vs 1.65) within seed noise.
+
+---
+
+## [2026-07-08b] ✅📊 C1 token-interface smoke — the registered "≈1.0 trivially" prediction is WRONG in the most useful way: the token interface hits 0.95–0.99 (incl. OOD multi-digit counts) ONLY under semantic-fact phrasing; explicit answer-directives and tally sentences are IGNORED (0.00)
+
+> Plan 2026-07-08 workstream C, step C1 [preapproved-smoke]. Write an oracle count into the prompt
+> as digits, zero training; deployed visual context (steps, N=8 images, crowded 5-char). Answer
+> read two ways: candidate-digit argmax (0–8, comparable to all prior runs) AND greedy generation +
+> first-integer parse (multi-digit capable — the B3/C answer reader, new). **Script:**
+> `experiments/readout/c1_token_interface.py` + runner. **Runs:**
+> `outputs/_scratch/c1_token_interface/20260708_202759/` (job **119524**, n=150, v1 arms) and
+> `…/20260708_204306/` (job **119528**, n=120, phrasing variants). Counterfactual arms write a
+> WRONG count k≠gold (in-range 0–8) or an out-of-range k ∈ {11,13,17,23,29,34,40} — target = k
+> (does the model repeat the written count?).
+
+| phrasing (arm) | tally=gold | counterfactual in-range | counterfactual OOD (11–40) |
+|---|---|---|---|
+| "Counted occurrences so far: k." (before instr) | 0.013 | 0.000 | 0.000 |
+| same, right before "Answer:" | 0.042 | — | 0.000 |
+| **"The correct answer is k."** | **0.008** | 0.000 | 0.000 |
+| **"Note: C spent exactly k steps in the R."** | **0.992** | **0.950** | **0.992** |
+
+(accuracies = generation vs written target; base arm reproduces the 0.200 baseline. In the failing
+arms the model just does its own counting — acc-vs-gold stays ≈0.19 with the usual undercount.)
+
+**Readings.**
+1. **The token interface is real and composes out-of-range** — but only as a *world-fact in the
+   question's semantic frame*: "Note: Michael spent exactly 17 steps in the Park." → the model
+   answers 17 at 0.99, two-digit targets included, zero training. The C2 comparison bar is set:
+   **0.95–0.99 in-range and OOD**, params = 0.
+2. **The refutation half (registered prediction C-1 ✗/partial):** "digits compose so anything ≈1.0"
+   was wrong — a frozen VLM does NOT obey "The correct answer is k." (0.008!) nor a tally sentence
+   even when adjacent to the answer slot. The interface is *phrasing-gated*: the count must enter
+   as evidence (a fact it can treat as world state), not as instruction. For the tally-register
+   architecture this fixes the design: **the adapter's symbolic output must be rendered as a fact
+   statement**, not as an answer hint.
+3. **The model prefers the written fact over its own perception** (fact counterfactual arms:
+   acc-vs-gold drops to 0.008–0.033 — it follows k, not the frames) — clean dictatability, in
+   token space, with the right packaging.
+4. Instrument note: the digit-argmax reader shows first-token logit nudges the generation path
+   doesn't follow (e.g. afterq_std argmax 0.625 vs gen 0.042) — first-position logits over-report
+   compliance; generation is the honest channel for interface tests (and the argmax reader is
+   blind >9 by construction).
+
+**Caveats.** n=120–150 single seed; steps task only; the fact arm's phrasing matches the question
+template exactly (paraphrase robustness untested); "honest version" (trained tally-adapter output →
+text) not yet run — this was the oracle-written-prompt bar.
+
+---
+
+## [2026-07-08c] ✅📊 A1 — text-MMRED full instrument battery: perfect input legibility does NOT raise carrier d′ (1.8 ≈ image) — the supply cap is the model's carrier-write process, not perception and not interference (fence NULL on text); behavior, ladder, and the native-axis law closure all replicate without vision
+
+> Plan 2026-07-08 workstream A rung 1. Frames rendered as TEXT (states → words, wording identical
+> to `eval_mmred_text_frames_acc.py`), frames-first, frozen Qwen-7B nf4 — the same instrument
+> battery as the deployed image pipeline, vision tower removed entirely. **New instrument code:**
+> `probe_frame_to_carrier_message.py --text-frames` (text-block token groups via fast-tokenizer
+> offsets, self-checked == chat-template ids), `native_axis_probe.py --text-frames`,
+> `experiments/glstm/native_axis_compare.py` (new CPU E6 comparator). **Runs:** behavior
+> `outputs/ladder/text_mmred/behavior/20260708_200014/` (job 119517, n=250); locmap+cache
+> `…/locmap_cache/20260708_200751/` (job **119518**, n=400, L4–24, offsets −9 room / −13 char);
+> fenced cache `…/locmap_cache_fenced/20260708_202818/` (job **119525**, fence L0–13, Δv verified);
+> parity `…/parity/` + `…/parity_fenced/` (3 seeds); native axis `…/native_axis/20260708_200014/`
+> (job 119517, n=100) + `…/compare/`. Index: `outputs/ladder/INDEX.md`.
+
+**1 · Behavior: the wall is vision-independent.** Text steps N=8: **0.196** (generation, n=250;
+bias −1.95, 74% undercounts) / 0.165 (digit-argmax, n=400) — statistically the image pipeline's
+0.21/0.24. Removing extraction entirely does not move the frozen model. *(Registered prediction
+A-2 ✓.)* NB the historical "frozen Qwen text 0.47" row averaged seq_len 1–8; at seq8-only it was
+never high.
+
+**2 · The headline refutation: carrier d′ does NOT rise on text.** *(Registered prediction A-1 ✗
+for this rung — the most informative miss of the day.)* Room-token carrier messages: **d′_w
+1.65–1.88 (L14–L20)**, per-frame probe AUROC 0.94 @L16 — the same numbers as the image deployed
+locus (1.99 @ n=150 / 2.47 @ n=600), nowhere near the "extraction ≈ perfect ⇒ d′ high ⇒ probe
+ceiling ≈ 1" expectation. Input legibility and carrier-message separability are different
+quantities: **what caps d′ is the frame→carrier attention write itself.**
+
+**3 · Fence NULL on text kills the interference account for this cap.** Cross-frame attention
+blocked L0–13 (Δv self-check passed): fenced room d′_w **1.84 @L16 vs joint 1.76**; per-frame
+AUROC 0.917 vs 0.938. No recovery (images: 3.1→5.2 from the same mask). Text-MMRED behaves like
+HERBench (fence-null) while being synthetic, binary and perfectly legible ⇒ the supply ceiling
+family now has two members: *interference-limited* (image-MMRED) and **write-limited** (text-MMRED,
+and plausibly the "intrinsic perception" part of HERBench is partly this too). Side-effect worth
+knowing: the fence collapses text *behavior* (own-answer 0.070) — the model's own computation uses
+cross-frame text attention even though the carrier messages don't gain from isolation.
+
+**4 · Ladder + parity on text (zero fitted params).** model **0.165** < law ceiling at the peak
+carrier (d′ 1.76, N=8, prior-mixed) **0.280** ≈ measured ridge-on-sum **0.317** < dtc (room+char
+@L16) **0.514** < per-frame 0.94. Parity is on-diagonal at L14–16; **measured > predicted at
+L18/L20 and at the char token (0.41 vs 0.27; 0.38 vs 0.22)** — the locmap explains why: on text
+the evidence is *distributed* across many question tokens (offsets −2/−5/−8/−9/−11/−13 all carry
+naive SNR 0.8–1.0 @L16–18; char > room, unlike image), so single-token predictions are lower
+bounds, the co-occ distributed-carrier signature. Adequacy: skew ≤0.7 / exkurt ≤2.8 / std-ratio
+0.7–1.2 at L14–16 (law's domain); L20 fails kurtosis (+7.7) — quote L14–16 only.
+
+**5 · E6 law closure on text (third modality-regime).** Native axis @L16: coherence 0.67,
+**cos(native, w*) = −0.004, cos(native, δ̂) = +0.13, d′_native = 0.80** → law prediction **0.163**
+vs measured own-answer **0.165** (same cache; behavior run 0.196). "Right token, wrong axis"
+replicates verbatim without vision; the readout wall is a property of the frozen LM stack, not of
+the visual interface.
+
+**Caveats.** Steps task only; text carrier is more distributed than image (single-token d′
+understates the pooled supply — block-read parity like cooc's not yet run); native-axis coherence
+0.67 = first-order summary; fenced-behavior collapse (0.070) makes the fenced own-answer column
+non-comparable; n=400 d′ values are finite-n lower bounds (image comparison quoted at both n=150
+and n=600 for fairness).
+
+---
+
+## [2026-07-08d] ✅📊 A2 — text-CWE rung (word-in-frame counting, extraction perfect by construction): the high-d′ rung confirmed (d′_w 4–5, per-frame ≈ 1.0) — and the frozen model largely ESCAPES the wall on it (0.79 @ N=8), decaying far slower than √N; E4 correctly rejects the closed form in a THIRD way (variance-ratio explosion)
+
+> Plan 2026-07-08 workstream A rung 2. Synthetic "Frame i: <word>" text frames; question =
+> `how many frames contain the word "X"` (targets verified single-token in quotes); gold uniform
+> 0–8 at every N; frozen Qwen-7B nf4, same battery. **Code:** `--task text_cwe` in the carrier
+> probe + native-axis probe (generator `gen_cwe_sample`). **Runs:** N=8/16/32
+> `outputs/ladder/text_cwe/locmap_cache/20260708_201605/N{8,16,32}/` (job **119522**; its N=64
+> pass OOM'd at 48G — RAM, not GPU) + N=64 rerun (job **119529**, 96G, 4 layers)
+> `…/N64/`; parity `…/parity/` + `…/parity_n64/` (3 seeds); native axis
+> `…/native_axis/20260708_201605/{20260708_205647,compare}/`. Index: `outputs/ladder/INDEX.md`.
+
+**1 · Behavior vs N (own-answer, digit-argmax, n=150/N):**
+
+| N | 8 | 16 | 32 | 64 |
+|---|---|---|---|---|
+| model | **0.793** | 0.547 | 0.540 | 0.473 |
+| law at the single-carrier d′ (pred_iid) | 0.685 | 0.430 | 0.307 | 0.209 |
+| measured ridge-on-sum | 0.722 | 0.583 | 0.572 | 0.583 |
+| decode-then-count @L16 | 0.94 | 0.93 | 0.86 | 0.87 |
+
+**2 · The rung IS high-d′** *(registered A-1: d′-high part ✓ on this rung)*: carrier = the quoted
+word token (off −11), **d′_w 4.0–5.1** roughly flat in N; per-frame evidence AUROC ≈ 0.998–1.0
+(probe acc 0.99). This is what "extraction removed" actually looks like at the carrier — text-MMRED
+([2026-07-08c]) showed relational room/char evidence does NOT reach this even as text; CWE's
+literal-token evidence does.
+
+**3 · The frozen model largely escapes the wall here** *(registered A-2 ✗ on this rung — honest
+refutation)*: 0.79 at N=8 (vs 0.20 on MMRED image/text), and the decay to N=64 (0.47) is FAR
+slower than the fixed-d′ √N law (which dictates 0.69→0.21 over this range). The model also beats
+the single-carrier probe ceiling at every N ≥ 16 (0.55 vs 0.43 @N16). Mechanism (from the
+instruments): (i) the answer token can address evidence **by literal content match** — attention
+selection with a literal key removes the effective-N dilution (counts stay ≤ 8 while fillers grow);
+(ii) the native single-axis account breaks exactly here: d′_native 1.4 @L16, law-at-native predicts
+0.30 ≪ measured 0.79, cos(native, w*) = −0.006, coherence only 0.60 — **the model's CWE readout is
+not a single linear direction at one carrier** (contrast: text-MMRED closure 0.163 vs 0.165).
+`native_axis/…/compare/native_compare.txt`.
+
+**4 · E4 adequacy: rejected, in a NEW direction — the instrument's third regime.** Class-std ratio
+explodes with N (**1.2 → 2.9 → 4.7 → 7.8–10.8** at L14/16), evidence-class kurtosis +2 to +12:
+filler messages are near-deterministic while evidence messages vary ⇒ equal-covariance Gaussianity
+fails ⇒ pred_iid *under*-predicts (measured ridge 0.58 vs pred 0.21 at N=64). Taxonomy now:
+image-MMRED = adequacy ✓ law exact · HERBench = ✗ graded evidence (heavy right tail) · **CWE = ✗
+degenerate noise class (variance ratio)**. The battery self-diagnoses all three correctly — quote
+the closed form only where E4 passes, as standing policy.
+
+**Ladder placement (thesis figure):** CWE sits ABOVE image/text-MMRED on both axes (d′ 4–5,
+model 0.47–0.79): extraction perfect + content-addressable readout ⇒ smallest wall; MMRED
+(relational binding through a carrier) ⇒ full wall at matched legibility; HERBench ⇒ wall +
+supply-cap. The thesis claim sharpens: **the aggregation wall is specifically a property of
+carrier-mediated relational evidence, not of counting per se.**
+
+**Caveats.** Counts capped at 0–8 for all N (answers single-token; N-scaling of the *count range*
+is a different axis, see B0b/C-range); digit-argmax reader (counts ≤ 8 only); n=150/N single seed;
+N=64 cache is 4-layer (L14–20); adequacy failure means the pred columns are lower bounds by
+diagnosed violation, not law failures; per-frame probe saturation caps measurable d′ (values are
+floor estimates).
+
+---
+
+## [2026-07-08e] ✅📊 Text-MMRED N-scaling preview (N=16/24/40, states-only data) + C-range: the law tracks the collapse into the prior (pred 0.14/0.12/0.08 vs ridge 0.14/0.08/0.03; model at majority from N=16); the fact-phrased token interface verbalizes EVERY count 0–40 at 0.99–1.00 in-task
+
+> Cheap unblocked preview of workstream B's math on text (no image data gen needed) + the plan's
+> C-range design requirement (counts ≥10). **Data:** `data/mmred_text_longN/` (states-only,
+> `generate_mmred_balanced.py --no-render`, 15 MB, N ∈ {16,24,40}, counts uniform 0–N, ~200–490
+> samples/N; generator gained `--counts`). **Runs:** caches+locmap `outputs/ladder/text_mmred/
+> longN/20260708_214148/N{16,24,40}/` (job **119532**; first attempt 119530 discarded to
+> `outputs/_scratch/broken_runs/` — states-only loading left `frame_targets` empty via a
+> `len(frames)`→`len(states)` bug, now fixed for count/first_occurrence/co_occupancy); parity
+> `…/parity_longN/` (3 seeds, room+char @L16); C-range fact test
+> `…/c_range_n40/20260708_213957/` (job **119531**, n=150, N=40 text, generation reader).
+
+**1 · d′ vs N (joint pass, room@L16):** d′_AUC **1.91 (N=8, [2026-07-08c]) → 1.39 → 1.39 → 1.40**
+(N=16/24/40) — a real ~25% supply drop from 8→16, then a PLATEAU (adequacy holds, std-ratio
+0.9–1.1; d′_w declines 1.23→1.09 with frame-count-growing caches, d′_AUC is the stabler estimator
+here). For B1's registered prediction this is the text preview: **joint d′ does not keep falling
+with N — dilution of the pooled readout, not per-frame message quality, drives the collapse.**
+
+**2 · The collapse itself follows the law with zero fitted parameters:**
+
+| N (counts 0–N uniform) | 16 | 24 | 40 |
+|---|---|---|---|
+| law pred (d′_w, prior-mixed) | 0.141 | 0.116 | 0.078 |
+| measured ridge-on-sum | 0.139 | 0.083 | 0.033 |
+| model own-answer (argmax≤8 floor) | 0.062 | 0.035 | 0.020 (gen reader: **0.027**) |
+| majority | 0.059 | 0.040 | 0.024 |
+
+Model ≈ majority from N=16 on — fully prior-locked (the B-3 signature, on text, before any image
+long-N data exists).
+
+**3 · C-range established (the C2 contrast column's foundation):** on N=40 TEXT frames in-task,
+writing "Note: C spent exactly k steps in the R." yields emitted **k at 0.987 (k=gold) / 1.000
+(counterfactual k, every value 0–40 incl. all two-digit)** while the base model scores 0.027
+(MAE 13.4). Multi-digit verbalization via the token interface is unconditionally available across
+the full C2 test range; the C2/C3 activation-injection routes now have a hard 1.00-vs-0.03
+contrast pair to beat/match. (Fact-phrasing dependence logged in [2026-07-08b] still applies.)
+
+**Caveats.** Text only (image long-N gated on B0b/Q1); the argmax own-answer column reads only
+digits ≤8 (floor for counts >8 — the generation reader is the honest behavioral number);
+d′-vs-N confounds n_samples (200 vs 400 at N=8) — frame counts (3.2k–8k) keep the per-frame
+estimate well-powered, and d′_AUC agreement across N=16/24/40 supports the plateau reading;
+counts-prior differs from the planned B0b low-band design (uniform 0–N here).
+
+---
+
+## [2026-07-09] ✅📊 A1 addendum — LOCUS-COMPLETENESS / block read: text-MMRED's carrier is DISTRIBUTED, so the [2026-07-08c] single-token d′≈1.8 was a ~0.5 underestimate; the complete text supply is d′≈2.45 @L16 ≈ image-MMRED's 2.47 — "legibility ≠ higher d′" survives but "text is write-limited/lower-supply" is REVISED to "same supply, spread over more tokens"
+
+> **Motivation:** [2026-07-08c] measured text carrier d′ at the single room token (image's locus) and
+> got 1.8, concluding "write-limited." But the text locmap showed evidence *distributed* across ~6
+> question tokens (char > room, unlike image) → any single-token d′ is a LOWER BOUND (the cooc
+> distributed-carrier signature). This runs the block read to measure the pooled supply.
+> **New code:** `experiments/glstm/block_read_completeness.py` (CPU; per-locus shrinkage-LDA d′,
+> two block estimators [score-concat two-stage + PCA256-concat], incremental d′-vs-K curve, block
+> dtc, zero-param law parity, E4 on the block; 3 sample-disjoint seeds, group-split by sample).
+> **Cache:** job **119762** (rtx6k, n=800 [seq8 all_uniform pool ran dry at LIMIT=1200], 7 offsets
+> {0,−2,−5,−8,−9,−11,−13} × L14/16/18, save-messages, 1.4 GB) →
+> `outputs/ladder/text_mmred/locmap_cache/blockcache_20260709_191746/count/messages_cache.pt`.
+> **Analysis:** `outputs/ladder/text_mmred/block_read/20260709_192440/` (report.txt, results.csv,
+> incremental.csv, block_read.png).
+
+**1 · Distributed carrier CONFIRMED — single-token underestimated the supply by ~0.5 d′.** At the
+peak transfer layer L16, whitened d′ rises **1.97 (best single locus) → 2.45 (block score-concat,
+d′_auc 2.49)** — gain **+0.47** (> the 0.4 complementary threshold). PCA256-concat agrees (2.29;
+conservative by truncation). The incremental curve (greedy add by single-locus d′) **plateaus at
+K≈4–5**: 1.99 → 2.25 → 2.36 → 2.45 → 2.47 → 2.46 → 2.45 — ~4 question tokens carry the supply
+(room off−9, plus the naive-hot off−5/−2 and char off−13), the rest redundant. L14/L18 blocks are
+lower (2.00–2.02, small +0.11–0.18 gains) — the distributed lift is specific to the peak layer.
+
+**2 · Corrected text supply ≈ image supply.** Complete text carrier d′ **2.45 @L16 ≈ image-MMRED
+deployed room-token 2.47** ([2026-07-03], n=600). ⇒ **REVISION of [2026-07-08c]:** text is NOT
+uniquely low-supply/"write-limited"; it has the *same* carrier supply as image, merely spread over
+more tokens (image concentrates on the room token → single-token ≈ complete there; text distributes
+→ single-token undercounts). The "perfect legibility does NOT raise d′" headline SURVIVES (text
+2.45 ≯ image 2.47), but the specific "text 1.8 < image 2.5" gap was a **locus-completeness
+artifact**, exactly as [2026-07-08c]'s own caveat flagged. The fence-null-on-text result
+([2026-07-08c] §3) is untouched — interference still isn't the text binder.
+
+**3 · Last-token whitened d′ measured (answers the standing question): near-dead in the transfer
+window.** Per-frame evidence d′ at offset 0 = **0.49 @L14/L16**, rising only to 0.95 @L18 — far
+below room/char, confirming the last token is the prediction hub, not the aggregation recipient
+(the late-layer naive-SNR bump 0.81@L24 does NOT correspond to strong *whitened per-frame* evidence
+in-window). Adding the last token to the block changes nothing (K=7 = K=4).
+
+**4 · The aggregation gap is larger than logged.** Block dtc (charitable per-frame-classifier →
+sum) = **0.589 @L16** (vs 0.514 room+char only, [2026-07-03] era) — the extra loci carry real
+complementary count evidence. Full ladder @L16: **model 0.158 < law-pred(block d′) 0.376 ≈
+ridge-on-sum 0.460 < dtc(block) 0.589 < per-frame ~0.94.** Model-vs-achievable gap ~3.7×.
+
+**5 · E4 at the peak layer: mild FAIL — separability valid, closed-form accuracy slightly
+optimistic.** L16 block excess kurtosis **+1.07** (just over the 1.0 flag; HERBench was +2.6…+35),
+skew +0.18, std-ratio 1.07. **Does NOT invalidate the d′/distributed-carrier finding:** (i) d′ is
+descriptive (gap/width separability), Gaussian-free; (ii) the internal self-check PASSES — d′_w
+2.449 ≈ d′_auc 2.488 (1.6% apart; the exact test HERBench failed by 20–40%), so the classes ARE
+approximately Gaussian, just mildly heavy-tailed; (iii) the only consequence is the closed-form
+accuracy runs slightly low (pred 0.376 < measured ridge 0.460 at L16). L14/L18 pass E4 outright
+(kurt +0.53/+0.74) at their lower block d′ (2.00). Quote 2.45 as separability; quote the accuracy
+law with the adequacy caveat at L16.
+
+**Registered-prediction verdict (plan A1-followup).** "Block read either recovers to ~4 (distributed,
+mismeasured) or saturates ~2 (write-capped)": **DISTRIBUTED at the peak layer** (2.45, +0.47) — the
+first branch, but landing at ~2.45 not ~4: text supply equals image, not more. The write-limited
+label is downgraded to "distributed-carrier, supply ≈ image."
+
+**Caveats.** n=800 single cache (6.4k frame examples — well-powered; d′ is a converging lower bound);
+block d′ uses a two-stage estimator (stage-1 locus selection is held-out and PCA-concat corroborates,
+but a small optimism can't be fully excluded); E4 mild-fail at L16 (accuracy law caveated there);
+steps task only. Instruments: [2026-07-03b/c] parity engine conventions reused (shrinkage-LDA d′,
+√2·Φ⁻¹(AUC) cross-check, prior-mixed law).
+
+**Addendum (same day) — SYMMETRIC IMAGE CONTROL: concentrated vs distributed carrier, cleanly
+dissociated.** Ran the identical 7-offset block read on a fresh IMAGE deployed cache (job **119781**,
+rtx6k, n=800, same offsets/layers) → `outputs/frame_axis/probes/carrier_message/count_msgcache_blockctrl/20260709_220729/`
++ analysis `.../block_read_20260709_2231*/`. **Image L16: single room token d′ 2.57 → block 2.71,
+gain +0.14 (REDUNDANT/concentrated)** — the room token alone is ~95% of the pooled supply, vs text's
++0.47 (distributed). Incremental curves both plateau by K≈4 but from opposite starts (image flat-high,
+text rising). **The dissociation is the clean result:** image writes the relational evidence into ONE
+carrier token; text spreads it over ~4. Two further reads: (i) **complete supplies are comparable,
+image slightly higher (2.71 vs text 2.45)** — so "perfect legibility doesn't raise d′" is now stronger
+than survival: the *visual* pipeline binds character→room into its carrier at least as well as text,
+killing any "text should be higher because it's legible" intuition; (ii) **E4 mild-fails at L16 in
+BOTH modalities** (image kurt +1.05, text +1.07) with L14/L18 passing — the peak-layer adequacy wobble
+is a block-score-estimator/layer property, not modality-specific; d′_w≈d′_auc in both (image 2.57≈2.63
+single). Image dtc(block) 0.566, model 0.219 — same ~2.6× aggregation gap. **Verdict:** the [2026-07-08c]
+"text write-limited" revision stands and is now symmetric — image=concentrated-carrier, text=distributed-
+carrier, comparable supply; single-token reads are complete for image, ~0.5 d′ low for text.
+
+---
+
 ## References (GNN / set-aggregation grounding)
 
 > External literature this work builds on. Relevance noted per entry; arXiv IDs verified 2026-06-13.
@@ -2554,3 +2878,1237 @@ parameter-free fixed extensive reduction (sum / soft-OR) of a per-frame-supervis
 - [x] Backfill the Experiment Log from existing dirs (oldest → newest).
 - [x] Write first-pass Synthesis.
 - [ ] **Spot-check the flagged numbers** (trained-on-clean / oracle / normalization) before any go in the thesis.
+
+## [2026-07-10] ✅📊 A1-fu3 — COOC block read (locus completeness on the third task): block d′ 3.43 @L14 vs best single (char2, off−13) 3.05 — gain +0.38/+0.42, BORDERLINE at the 0.4 threshold; co-occupancy sits BETWEEN image-MMRED (concentrated, +0.14) and text-MMRED (distributed, +0.47) on the carrier-concentration axis
+
+> **Motivation:** [2026-07-09] dissociated concentrated (image, block gain +0.14) vs distributed
+> (text, +0.47) carriers at equal supply. Cooc's locmap was known-distributed over the two NAME
+> tokens ([2026-07-04] 2-name block d′ 3.19). This runs the full 6-locus block read on the existing
+> big cooc cache to complete the three-task picture. Pure CPU, job **119985** (4h_0g, 5 min).
+> **Cache:** `outputs/frame_axis/probes/carrier_message/cooc_msgcache_big/co_occupancy/`
+> (n=1080, offsets {0,10,11,13,14,15}, L14/16 — note: memo said "n=1500"; the real cache is n=1080).
+> **Analysis:** `outputs/frame_axis/probes/carrier_message/cooc_block_read/20260710_210215/`
+> (report.txt, results.csv, incremental.csv, block_read.png).
+
+1. **Complete cooc supply d′ ≈ 3.43 @L14 (score-concat; d′_auc 3.24; PCA256 3.30), 3.41 @L16.**
+   Best single locus is the char2 name token (off−13): 3.05 @L14 / 2.99 @L16. Block gain **+0.38
+   (L14) / +0.42 (L16)** — straddles the pre-set 0.4 "complementary" line: the second name region
+   (off−15/−10/−11) adds a real but modest ~0.4 d′; the incremental curve plateaus at K≈2 (L14:
+   3.05→3.42 with ONE added locus, then flat; L16 needs K≈4 to plateau at 3.42).
+2. **Three-task carrier-concentration ordering (same instrument, same estimator):** image-MMRED
+   +0.14 (one room token ≈ complete) < cooc +0.38/+0.42 (two name tokens carry it) < text-MMRED
+   +0.47 (~4 tokens). Cooc's "distributed" is really *two-locus*: exactly the two entities the
+   question binds — consistent with the [2026-07-04] 2-name block (3.19; the 6-locus block adds
+   +0.24 over it).
+3. **Ladder replicates on the corrected supply:** model 0.138 < law-pred(3.43) 0.476 ≈ ridge-on-sum
+   0.534±0.028 (L14; L16 0.566±0.004) < dtc(block) 0.648±0.010 < per-frame ≈ [2026-07-04] values.
+   Model-vs-achievable gap ~4.7×. **E4 PASSES at both layers** (skewE +0.12/+0.16, kurtE
+   +0.38/+0.35, std-ratio 0.83/0.80) — unlike the L16 mild-fails on text/image blocks, the cooc
+   block projections are clean-Gaussian, so the law is licensed without caveat here.
+4. **Verdict vs the informal expectation** ("cooc is 2-name distributed; block should recover
+   ~3.2+"): ✓ — block 3.43 ≥ the 2-name 3.19, gain concentrated in the name loci; single-token
+   reads of cooc undercount supply by ~0.4 d′ (quote 3.4, not 3.0).
+
+**Caveats.** Single cache (n=1080, one seed pool), L14/16 only (no L18 in this cache); offsets are
+the cooc locmap's picks, not a dense sweep — a wider sweep could find small extra loci; same
+two-stage estimator optimism caveat as [2026-07-09] (PCA-concat corroborates at 3.30).
+
+## [2026-07-10b] ✅📊 A1-fu1 — TEXT MULTIPASS (isolated per-frame forwards): the text carrier "write cap" is NOT a write cap — isolation lifts room-token d′ 1.97→7.9 @L16 (block 2.45→7.9; d′_auc saturates its 5.26 estimator ceiling = perfect separation), and the multipass+sum solution scores 0.965 behaviorally; the joint-pass supply loss is SHARED-FORWARD-induced, not attention-edge-carried (fence was NULL)
+
+> **Motivation:** [2026-07-08c] measured joint text carrier d′ 1.8 (block-corrected 2.45,
+> [2026-07-09]) and called text "write-limited"; the definitive test is whether the model's
+> carrier-write process stays capped when each frame is processed ALONE (the image/InternVL
+> multipass unlock: joint 1.9 → multipass 6.4–6.6). **New code:**
+> `experiments/glstm/text_multipass_cache.py` (isolated single-frame text forwards, identical
+> question suffix, same 7 carrier offsets/layers as the joint blockcache; schema-compatible
+> messages_cache.pt + per-frame perception + multipass-sum behavioral score).
+> **Runs:** cache job **119991** (l40s, 15 min, n=400 × 8 frames, L14/16/18) →
+> `outputs/ladder/text_mmred/multipass_cache/20260710_211249/`; block-read job **120010** →
+> `outputs/ladder/text_mmred/block_read_multipass/20260710_215350/` (report.txt, results.csv).
+
+1. **Isolation unlocks the text supply ~3×:** room token (off−9) d′_w **7.86 @L16** (joint block
+   2.45); L14 3.20; L18 11.2 (ceiling-inflated). d′_auc pegs at **5.26 = the estimator's ceiling**
+   (AUC ≈ 1 exactly at n=3200 frame examples) — quote "d′ ≥ 5.3, d′_w ≈ 7.9". Block gain over the
+   best single locus is **+0.00–0.04 @L14/16** — under isolation the carrier RE-CONCENTRATES into
+   the room token (the joint-pass distribution over ~4 tokens was itself a joint-processing
+   artifact; L18 shows a +0.49 tail).
+2. **Behavioral closure:** per-frame single-frame perception = **0.995**; multipass-sum solution
+   (sum of clipped per-frame answers) = **0.965** vs joint model 0.158–0.196. dtc(block) 0.987,
+   ridge-on-sum 0.938, law-pred 0.872 @L18 — the whole ladder moves to the high-d′ regime.
+3. **Mechanism dissociation completed:** fence (blocking cross-frame attention edges) was NULL on
+   text ([2026-07-08c] §3) and HURTS on image — yet full isolation is a 3× d′ unlock in both
+   modalities. ⇒ the joint-pass supply loss is a property of the shared forward pass (context
+   dilution / attention-mass competition / in-context binding load), NOT of direct cross-frame
+   attention edges. "Write-limited" is retired; the cap is **joint-context-induced**, and it is
+   modality-general (text replicates image).
+4. **Registered-framing verdict (A1-fu1 "definitive write-cap test"):** ✗ for the write-cap
+   branch — the carrier-write process is nearly noiseless in isolation; the supply cap lives in
+   joint processing. (This is the informative refutation the test was designed to force.)
+
+**Caveats.** E4 FAILS at all layers (kurtE +0.8…+2.6, std-ratio 0.53–0.67 — evidence-class
+projections are tighter than no-evidence): quote the law rows with the adequacy caveat; the d′
+numbers are separability statements (d′_w vs d′_auc diverge at ceiling — report both). L18's 11.2
+is finite-n inflated (perfect separation). Single-frame prompts say "1 frames" (template kept
+identical to joint up to the frame count) — an in-distribution-ness gap vs joint remains possible
+in principle, but the image multipass shares it and the per-frame perception 0.995 bounds it.
+Steps task only, n=400.
+
+## [2026-07-10c] ✅📊 A1-fu2 — EASY-TEXT minimal pair ("Frame i: Michael@Park, Sara@Kitchen."): putting the character→room binding INTO THE SURFACE FORM does NOT unlock the supply — block d′ 2.89 @L16 (standard text 2.45), model 0.215 (unchanged); the binding-format account of the text cap is REFUTED
+
+> **Motivation:** text-CWE (surface literal match) escaped the wall with d′ 4–5 while text-MMRED
+> (binding required: room→occupants lists) capped at ~2.45. If in-context BINDING is the cap,
+> rendering each frame as pre-bound "Char@Room" pairs should push d′ toward CWE. Registered
+> expectation (approved item A1-fu2): "expect d′ → CWE-like if the binding account is right."
+> **New code:** `--text-style compact` in `probe_frame_to_carrier_message.py`.
+> **Runs:** cache job **119992** (n=400, L14/16/18/20, 7 offsets; job died at the report stage in
+> the 21:29 quota incident but the 957MB messages_cache.pt is complete and verified) →
+> `outputs/ladder/text_mmred_easy/locmap_cache/20260710_211249/`; block-read job **120011** →
+> `outputs/ladder/text_mmred_easy/block_read/20260710_215350/`.
+
+1. **d′ barely moves:** best single locus = room token (off−9) **2.51 @L16** (d′_auc 2.67); block
+   score-concat **2.89±0.06** vs standard-text block 2.45 — a ~+0.4 improvement, far from the
+   CWE regime (4–5). L14 block 2.41. The carrier also RE-CONCENTRATES mildly (block gain +0.38
+   vs standard text's +0.47; room token dominant, char token 1.45).
+2. **Behavior unchanged:** model own-answer 0.215 (from the cache's digit-argmax field; standard
+   text 0.158–0.196, image 0.219) with the classic undercount profile (1.00 at K=2, 0.00 at K≥5).
+3. **Verdict on the registered expectation: ✗ REFUTED** — surface-form binding does not produce
+   CWE-like d′. Combined with [2026-07-10b] (multipass unlocks text to d′≈7.9) and the fence null,
+   the three-way dissociation is now: NOT attention edges (fence null), NOT binding format (this),
+   NOT extraction/legibility ([2026-07-08c]) — the cap is **joint-context processing of N frames
+   per se** (attention-mass competition / context dilution in a shared forward). What separates
+   CWE is presumably its literal-match ADDRESSING (the target word is in the question), not its
+   easier binding.
+4. Ladder @L16: model 0.215 < law-pred 0.416 ≈ ridge 0.512 < dtc(block) 0.665.
+
+**Caveats.** E4 FAILs at L14/16 (kurtE +1.1/+1.3) — law rows caveated; d′ comparison (2.89 vs
+2.45) is cross-cache (same n=400, same seed pool, same estimator — but different prompts, so
+token-position offsets differ slightly in what they capture); in-run locmap sweep (MAXOFF 20)
+was lost to the quota kill — the 7 cached offsets cover the known carrier region; the compact
+rendering sorts pairs by character name (canonical order), which if anything should HELP.
+
+## [2026-07-10d] ✅📊 C1b — FACT-PHRASING ROBUSTNESS GRID: the token interface is gated on (a) PREDICATE MATCH with the question and (b) PRE-QUESTION POSITION — given those it is fully robust (words≈digits 1.00, source-attributed 0.99, max-distance 0.99, distractor-fact 0.97); paraphrased predicates and post-question placement collapse to 0.00 OOD
+
+> **Runs:** job **120012** (rerun after the quota kill; the 21:15 attempt's partial rows are in
+> `outputs/readout/c1b_phrasing/20260710_211500/`) →
+> `outputs/readout/c1b_phrasing/20260710_215647/` (report.txt, summary.json, rows.json).
+> n=120 image samples (steps N=8, deployed visual context), counterfactual targets (in-range
+> and OOD {11,13,17,23,29,34,40}) so the score isolates fact-READING, not counting. Generation
+> reader. 12 arms. New phrasings/positions/distractor logic added to
+> `experiments/readout/c1_token_interface.py`.
+
+| arm | phrasing / manipulation | acc vs target (in / OOD) |
+|---|---|---|
+| fact (canonical) | "Note: C spent exactly K steps in the R." | 0.942 / 0.967 (replicates C1) |
+| **words** | count as an English word ("seventeen") | **0.992 / 1.000** |
+| src | "An automated frame counter reports: …" | — / 0.992 |
+| top | fact BEFORE everything (max distance from answer) | — / 0.992 |
+| dis | + same-form distractor fact (other char+room, other count) | 0.925 / 0.967 |
+| para1 | "For reference, C was in the R in K of the frames." | 0.225 / **0.000** |
+| para2 | "It is known that C appears in the R exactly K times." | — / **0.000** |
+| factq | canonical fact AFTER the question | — / **0.000** |
+
+**Readings.**
+1. **The gate is predicate match, not "fact-ness":** every working arm phrases the count with the
+   QUESTION'S OWN predicate ("spent … steps in the R" ← "How many steps did C spend in the R?").
+   Both failing paraphrases state the same quantity under a different predicate ("in K of the
+   frames" / "appears K times") and are IGNORED (model falls back toward counting: acc-vs-gold
+   0.13–0.18, MAE-vs-target ≈ 21). The interface does lexical/semantic retrieval keyed on the
+   question, not general fact integration.
+2. **Position: the fact must precede the question.** Identical canonical sentence placed after the
+   question = 0.00. Mechanistically consistent with the carrier architecture: question-token
+   carriers aggregate evidence via CAUSAL attention (they cannot see later tokens), and the
+   answer readout reads carriers — content the carriers never saw effectively doesn't exist.
+   (Distance is irrelevant — 'top' at maximum distance scores 0.992 — only ORDER matters.)
+3. **Within the gate, the interface is format-agnostic and selective:** number-words = digits
+   (1.000 OOD — C2's digit-token assumption is not load-bearing for the bar), source attribution
+   free, and the model BINDS the right fact under a competing same-form distractor (0.967 OOD;
+   only weak spot: target K=0 with a distractor present → 0.58 — the distractor's nonzero count
+   leaks when the true fact says zero).
+4. **C2 design confirmed:** the C2 fact-slot site uses the canonical predicate-matched sentence
+   pre-question — inside the working regime. (And the tally-adapter→text route must render
+   predicate-matched facts, per Q5 amendment (b) — now with direct evidence.)
+
+**Caveats.** n=120/arm, single task/model; argmax column is 0.00 on OOD by construction (single
+digit head) — generation reader is the metric; paraphrase set is 2 items (predicate-match reading
+inferred from a consistent pattern, not a parametric sweep).
+
+## [2026-07-10e] ✅📊 Evidence-only behavioral number (flagged-gap closer): with EVERY shown frame being evidence (gold = N, zero selection load), the frozen model still CRUSHES — 1.00 @N=1, 0.05–0.26 @N=2–5, 0.00 @N≥6 (answers ~4.6 when shown 8 evidence frames); the wall is aggregation/readout, not distractor selection
+
+> **Run:** job **120029** → `outputs/ladder/evidence_only_behavior/20260710_221821/N{1..8}/`
+> (report.txt, rows.json, summary.json per N). Data `data/mmred_images_park_evidence_only_seq1_8`
+> (all frames evidence, gold = seq_len), n=19/N (n=152 total), native res, generation reader
+> (`experiments/readout/behavior_vs_n.py`), seed 0.
+
+| N | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| exact | 1.000 | 0.053 | 0.263 | 0.105 | 0.158 | 0.000 | 0.000 | 0.000 |
+| MAE | 0.00 | 0.95 | 0.79 | 1.05 | 1.16 | 1.74 | 3.16 | 3.42 |
+
+At N=8 the prediction distribution is {3–7}, mode 4, mean 4.58 — the canonical undercount/crush
+(≈ the "number axis saturates ~5" readout wall) with the count signal *maximal* (every frame is
+evidence, extraction validated ≥0.99 elsewhere). Selection/distractor load is not required to
+produce the wall; pure aggregation+readout reproduces it. (N=2's 0.053 dip below N=3: model says
+1 or 3, rarely 2 — a known digit-prior quirk, small n.) Closes the gap flagged in the 2026-07-09
+approvals ("frozen evidence-only behavioral number at N=8").
+
+**Caveats.** n=19/N (the approved cheap read); gold is constant within each N cell so "exact"
+is per-cell hit rate on a degenerate target — the MAE row and the prediction distribution carry
+the signal; native-res (not 392) by design for comparability with historical N=8 numbers.
+
+## [2026-07-10f] ✅📊 B3 — frozen-model behavior vs N (images @392px, generation reader): exact-match 0.173 → 0.127 → 0.073 → 0.053 → 0.020 for N=8→128; the emitted range is CLAMPED at mean ≈3 regardless of N (gold mean grows 4→27.5) while rank correlation with gold HOLDS at ~0.75 up to N=64 — the readout-range wall, not signal loss, drives the collapse
+
+> **Runs:** jobs **120030** (N=8/16/32) / **120031** (N=64) / **120032** (N=128) →
+> `outputs/ladder/image_longN/behavior/N{8,16,32,64,128}/<ts>/` (report.txt, rows.json,
+> summary.json). n=150/N, seed 1 (disjoint from the cache draw), data `mmred_longN_park`
+> (N=8: `mmred_images_park`), resize 392, greedy generation + first-integer parse
+> (`experiments/readout/behavior_vs_n.py` — the B3/C multi-digit reader; parse-fail 0.000
+> everywhere, N=128 ≈ 25k tokens fits and runs 7.7 s/sample).
+
+| N | 8 | 16 | 32 | 64 | 128 |
+|---|---|---|---|---|---|
+| exact-match | 0.173 | 0.127 | 0.073 | 0.053 | 0.020 |
+| MAE | 1.73 | 3.28 | 6.37 | 12.35 | 24.57 |
+| mean pred (mean gold) | 3.0 (4.1) | 3.3 (6.1) | 3.5 (9.5) | 2.8 (15.0) | 3.2 (27.5) |
+| corr(pred, gold) | 0.74 | 0.70 | 0.77 | 0.78 | 0.33 |
+
+**Readings.** (1) MAE ∝ N (ratio ≈ 0.20±0.02) because the answer DISTRIBUTION is N-invariant:
+the model emits ~{1..7} (mode 3–4) at every N — the [2026-07-10e] evidence-only crush and the
+"number axis saturates ~5" readout wall, now measured to N=128. (2) The ordinal signal SURVIVES
+to N=64 (corr ~0.75): relative count information reaches the readout but cannot be verbalized
+outside the clamped range — readout-limited, not extraction- or transport-limited (multipass
+per-frame perception stays 0.985+ at all N, [2026-07-10 mp caches]). At N=128 even the ordinal
+signal thins (0.33; residual exact hits only at K∈{0,128}). (3) Registered prediction B-3
+("collapse toward prior as the law dictates"): collapse ✓ and monotone; the quantitative
+2Φ(d′/2√N)−1 closure will be evaluated against the B1 joint-cache d′ when those land — note the
+clamp means the mechanism is range-truncation on top of d′ dilution, so expect the law (which
+models dilution only) to sit ABOVE the measured exact-match at large N.
+
+**Caveats.** n=150/N; counts span {0..8}∪spread (not uniform 0..N) — MAE mixes bands; corr at
+N=128 computed over the wider gold range (0–128) so its drop partly reflects range, not only
+signal; seed-1 sample draw.
+
+## [2026-07-10g] ✅ A4 pilot gate — mmred_natural passes the pre-registered extraction gate after one judge-curation round: per-frame look-again accuracy 0.998–1.000 in all 4 (diversity × similarity) cells
+
+> **Pipeline:** COCO val2017 needles (dog) + distractors (near = cat-no-dog, far = no-animal),
+> per-frame GT by construction; 4 cells ident/dist × far/near, N=8, counts 0–8.
+> **Round 1** (uncurated, 50 samples/cell, job 120028; judge 120034): AUROC 0.986–0.997 but
+> accuracy 0.922–0.960 — 3/4 cells FAIL the ≥0.95 gate via FN 8–15% (a tail of small/occluded
+> COCO dogs; FP ≈ 0). **Curation:** dropped 23/170 needle images with judge P(yes)<0.9 and 9/548
+> distractors with P(yes)>0.1 (`data/mmred_natural/judge_curation.json`).
+> **Round 2** (curated pools, `data/mmred_natural_v2/`, job 120038; judge **120039**):
+> **ident_far 0.998 / dist_far 1.000 / ident_near 1.000 / dist_near 1.000** (AUROC 1.000) → GATE
+> PASSED; full 375/cell build proceeding. Judge = the plan-designated look-again instrument
+> (single-frame yes/no logit read), independent of the probe axis; curation is on DATA
+> construction only. v1 pilot kept at `data/mmred_natural/` (superseded).
+
+## [2026-07-10h] ✅📊 A4 — mmred_natural LANDED (the d′ dial on natural images works): needle-diversity moves carrier d′ 6.2→4.3, distractor-similarity moves it 6.2→5.4 under identical needles (3 of 4 registered monotone edges ✓); and on this no-binding rung the MODEL RIDES THE LAW (law-pred 0.60–0.76 vs measured 0.57–0.66) — the MMRED-style wall largely disappears when counting needs no relational binding
+
+> **Dataset:** `data/mmred_natural_v2/` — 4 cells × ~421 samples, N=8, counts 0–8, COCO val2017
+> needles (dog) with judge-curated pools ([2026-07-10g]: gate 0.998–1.000), distractors near =
+> cat-no-dog / far = no-animal, per-frame GT by construction, HERBench-style meta.
+> **Runs:** caches+behavior jobs **120042/120046/120047/120048** (n=300/cell, L14/16, offsets
+> 8–12, digit-argmax reader) → `outputs/ladder/natural/<cell>/<ts>/herbench_ac/`; per-cell d′
+> (shrinkage-LDA held-out, 3 seeds) jobs **120056–58** → `outputs/ladder/natural/dprime_cells/
+> 20260710_231039_off{9,10,11}/`. Probe gained meta-question support (`question`/head override).
+
+| cell (diversity_similarity) | carrier d′_w @L16 (off−10) | model acc | law-pred 2Φ(d′_auc/2√8)−1* | dtc |
+|---|---|---|---|---|
+| ident_far | **6.21** (auc 4.83) | 0.657 | 0.761 | 0.983 |
+| ident_near | 5.41 (auc 4.39) | 0.567 | 0.704 | 1.000 |
+| dist_far | 4.30 (auc 3.73) | 0.580 | 0.595 | 0.949 |
+| dist_near | 4.28 (auc 4.05) | 0.607 | 0.596 | 0.941 |
+*prior-mixed, boundary-aware, from the run CSVs.
+
+**Readings.**
+1. **The dial works (registered A-3 mostly ✓):** diversity (ident→dist) lowers d′ by ~1.9/1.1
+   (far/near rows); similarity (far→near) lowers it by 0.8 under identical needles but is FLAT
+   under distinct needles (4.30≈4.28) — once instance variability dominates the evidence noise,
+   distractor proximity adds nothing measurable. 3/4 edges monotone as registered; the 4th
+   saturates rather than reverses.
+2. **The natural rung behaves like CWE, not like MMRED:** model 0.57–0.66 ≈ law 0.60–0.76 (gap
+   ≤0.11) vs image-MMRED's model 0.21 ≪ law 0.31. Counting "does a dog appear" needs no
+   character→room binding — content addressing reaches the evidence, and the model spends most
+   of the available d′. Behaviorally the cells order 0.657/0.607/0.580/0.567 — NOT the d′ order;
+   two visible biases: identical-needle repeats slightly depress behavior vs their d′ (dedup
+   bias — counting distinct dogs, not dog-frames: ident_near 0.567 < dist_near 0.607 despite
+   +1.1 d′), and law-model gaps grow with d′ (readout saturation).
+3. **Extraction is not the constraint anywhere on this rung:** dtc 0.94–1.00 in every cell.
+4. Registered A-4 (adequacy passes while evidence binary-groundable) — E4 not yet computed on
+   these caches; block-read/E4 pass queued as follow-up analysis.
+
+**Caveats.** d′ at the single best offset (−10; −9/−11 within ±0.4 — see the off9/off11 CSVs);
+digit-argmax behavioral reader (counts ≤8, adequate here); needle pool judge-curated (14% of
+COCO dog images dropped — the rung measures unambiguous-evidence counting by design); one seed
+pool, n=300/cell.
+
+## [2026-07-10i] ✅📊 B2 — GATE CALIBRATION vs N (train@N=8, frozen; the dilution test): raw-message gate FN explodes 0.09→0.99 by N=128 exactly as registered (threshold drift; AUC stays 0.88–0.94 — the DIRECTION survives, the threshold breaks); mass-normalization cuts the drift ~10× (FN 0.11→0.26 ✓) but its FP floor then over-counts (+13 bias @N=128); FENCED messages dilute like raw (✗) — and the bias law bias≈N·FP−g·(FN+FP) matches measured bias everywhere
+
+> **Run:** job **120059** (CPU) → `outputs/ladder/image_longN/gate_calibration/20260710_231635/`
+> (report.txt, results.csv, fig_b2.png). Gate = logistic per-frame classifier on the room-token
+> (off−9) carrier message, fit on 70% of the N=8 joint cache, DIRECTION+THRESHOLD frozen, applied
+> to the joint caches at N∈{8holdout,16,32,64,128}; inputs (a) raw msg_f, (b) msg_f / attention
+> mass m_f (the new `mass` cache field), (c) fenced caches (fenced-trained gate). New script
+> `experiments/glstm/gate_calibration_vs_n.py`.
+
+| arm @L16 | FN @N=8→128 | FP @N=8→128 | AUC @8→128 | tally bias @128 |
+|---|---|---|---|---|
+| raw | 0.09 → **0.99** | 0.15 → 0.00 | 0.94 → 0.88 | **−29.9** (all-miss) |
+| mass-norm | 0.11 → **0.26** | 0.15 → 0.22 | 0.94 → 0.83 | **+13.1** (FP-driven) |
+| fenced (to N=64) | 0.11 → 0.75 | 0.29 → 0.04 | 0.88 → 0.83 | −10.6 @64 |
+
+**Registered verdicts (plan B):** raw FN inflates ✓ (1/N dilution pushes every message below the
+frozen threshold; per-frame magnitudes shrink while the frozen intercept stays); mass-normalized
+~flat **partial ✓** (drift cut ~10×, FN plateaus ~0.2 — magnitude dilution WAS the main driver —
+but exact tallies then need FP ≲ 1/N, and the constant ~0.2 FP floor makes the Σ-gate over-count
+at scale: bias +N·FP); fenced ~flat **✗** (fencing does not stop softmax renormalization over
+N·196 visual tokens — fenced messages dilute like joint ones); bias identity ✓ (pred == measured
+throughout, i.e., per-frame errors aggregate independently — no error correlation rescue).
+
+**Design consequence for the tally register:** an N-robust deployed gate needs BOTH
+mass-normalization (threshold stability) AND an N-scaled decision margin / FP control
+(e.g., threshold on the mass-normalized margin calibrated per-N, or a top-g selection rather
+than a fixed threshold). Neither raw Σσ nor fenced reps survive N-scaling as-is.
+
+**Caveats.** Single offset (room −9); gate = plain logistic (no recalibration allowed by design
+— that IS the test); fenced arm missing N=128 (job 120017 still running at analysis time; the
+0.11→0.75 trend is already decisive); AUC decline (0.94→0.83-0.88) shows dilution also costs
+some separability, consistent with joint d′ 1.97→1.59 ([dprime_vs_n run]).
+
+## [2026-07-11] ✅📊 B1 — d′ vs N COMPLETE (images @392px, N=8→128, three arms): joint carrier d′ is FLAT ≈2.0 out to N=64 (1.97/2.12/1.98/1.93, dip 1.59 @128) — never near the 6.3 crush line; multipass is N-INVARIANT at 7.2–8.1 (≥ crush line at every N); fenced sits consistently BELOW joint (1.6–1.8) — the fence is not a lever at any N. The model's collapse (0.207→0.013) therefore is NOT d′ collapse: supply stays ~2 while behavior dies — dilution + the range clamp sit between carrier and answer
+
+> **Runs:** caches jobs **120013–120022** (+ wave-1 survivor 120004; wave 1 killed by quota,
+> [PROGRESS incident note]) → `outputs/ladder/image_longN/{joint,fenced,multipass}/N{8..128}/`;
+> n=300/300/300/200/150 per N; layers 14/16, offsets 9/13, mass field included. Analysis job
+> **120065** (shrinkage-LDA held-out, 3 sample-disjoint seeds, room token off−9) →
+> `outputs/ladder/image_longN/dprime_vs_n/20260711_003548/` (report.txt, results.csv,
+> **fig_b1.png** — the pre-registered Fig B1). Multipass = isolated per-frame forwards
+> (`text_multipass_cache.py --modality image`).
+
+| arm @L16 (d′_w) | N=8 | 16 | 32 | 64 | 128 |
+|---|---|---|---|---|---|
+| joint | 1.97 | 2.12 | 1.98 | 1.93 | 1.59 |
+| fenced | 1.80 | 1.84 | 1.79 | 1.67 | 1.62 |
+| multipass | 7.18 | 7.91 | 8.08 | 7.74 | 7.82 (auc-ceiling 5.26 ∀N) |
+| model (joint) / mp-sum | 0.207/0.910 | 0.127/0.793 | 0.053/0.680 | 0.040/0.580 | 0.013/0.420 |
+| law-pred(joint d′) | 0.314 | 0.248 | 0.175 | 0.130 | 0.084 |
+
+**Registered-prediction verdicts (plan B):**
+1. "Joint d′ stays ≪ 6.3" — **✓** (max 2.12; at N=128 the per-frame supply is 4× short of what
+   ~90% exact-match needs).
+2. "Fenced/multipass approach the crush line" — **✓ multipass / ✗ fenced.** Multipass clears 6.3
+   at EVERY N with no N-trend (per-frame writes are N-independent when frames are processed
+   alone — the supply degradation is entirely a joint-context effect, replicating [2026-07-10b]
+   on images at scale). Fenced is a null-to-negative lever at all N (extends the N=8 fence
+   refutation).
+3. "Model collapses as the law dictates" — **partial**: collapse ✓ and monotone, but the law
+   over-predicts increasingly with N (0.084 vs 0.013 @128) — because d′ does NOT dilute as
+   1/√N-of-supply (it's flat); the failure concentrates downstream: the [2026-07-10f] emitted
+   range clamp + the B2 threshold drift. The "d′ dilution" picture is REVISED: joint attention
+   costs a fixed ~4–6× d′ factor vs isolated processing at every N, and N-scaling failures ride
+   on readout/decision calibration, not on further supply loss.
+4. mp-sum behavior tracks per-frame error accumulation (0.985 flat perception → 0.91→0.42),
+   staying 4–30× above the joint model at every N.
+
+**Caveats.** Single offset (room −9; off−13 in results.csv), L14 lower everywhere (0.9–1.1 @128);
+multipass d′_w is above the AUC estimator ceiling (perfect separation; quote "≥5.3, d′_w≈7–8");
+E4 not evaluated per-N here (law rows indicative); n shrinks with N (150 @128); fenced N=128 ran
+in the same job as joint (shared sample draw).
+
+## [2026-07-11b] ✅📊 C2 + C3 — THE TOKEN INTERFACE IS NECESSARY, NOT JUST SUFFICIENT: every learned embedding-level injection route verbalizes trained counts (0.81–1.00) and extrapolates to ZERO (0.000–0.098 held-out), while real digit tokens in the same slot score 1.000 everywhere with zero parameters — including a continuous Fourier basis and one ANCHORED to the model's own digit-embedding geometry (both 1.000 in-range / 0.000 held-out)
+
+> **Runs:** jobs **120027** (digit routes; crashed on an OOD-interp bug after digit arms
+> completed) / **120040** (digit_fact rerun, 5 epochs) / **120060** (count/fourier/fourierE/token)
+> → `outputs/readout/c2_digit_codebook/{20260710_220702,225300,233141}/` (results.json,
+> recs_*.json, report.txt). New: `experiments/readout/c2_digit_codebook.py`. Setup: text-MMRED
+> N=40 context, fact-slot injection ("Note: C spent exactly ⟨K⟩ steps in the R." — the C1b-validated
+> predicate-matched pre-question site), embedding-level soft tokens, frozen 7B, CE on the answer
+> digits, train counts {0–9,12,25,30}, held-out = other two-digit ≤40, NO trained readout head.
+
+| route | trained params | in-range | held-out two-digit |
+|---|---|---|---|
+| **token_fact** (real digit tokens = C1 bar) | **0** | 1.000 | **1.000** |
+| digit_fact (per-digit codebook, compositional in principle) | 35,840 | 0.808 | 0.098 |
+| count_fact (C-CONTROL per-count + charitable interpolation) | 46,592 | 0.808 | **0.000** |
+| fourier_fact (continuous basis φ(K), extrapolates mathematically) | 28,672 | 1.000 | **0.000** |
+| fourierE_fact (φ(K)→W anchored to E(digits) geometry) | 28,672 | 1.000 | **0.000** |
+
+**Registered-prediction verdicts (plan C):**
+1. C-control fails held-out (~0): **✓ exactly** (0.000, even with interpolated vectors).
+2. C2 digit-compositional extrapolates (the bet): **✗** — 0.098, and its nonzero cells are only
+   counts adjacent to the trained envelope (24/28/29); cos(v_d, E(d)) ≈ 0–0.11: SGD finds
+   arbitrary memorized symbols, never the digit tokens, and single digits SHARED with trained
+   two-digit counts degrade (2:0.00, 9:0.00 in-range) — direct evidence of compositional tension,
+   not composition.
+3. **The pre-registered alternative branch LANDS as the thesis claim:** since token_fact = 1.000
+   OOD under identical conditions, the failure is not the site, phrasing, or range — **the frozen
+   readout can verbalize activation-level quantities only through the token embedding lookup;
+   learned vectors are read as opaque trained symbols, not decoded from any geometry** — even a
+   basis anchored to the model's own number geometry (fourierE) is not decoded for unseen values.
+   Token interface: sufficient AND necessary.
+4. C3 (native/continuous geometry, secondary): **✗ resolved negative** at embedding level —
+   fourier/fourierE are exactly the "inject count as a point in a continuous basis" test.
+
+**Caveats.** No trained readout head anywhere (the plan allowed LoRA-r4/unembedding; adding one
+could only blur the token-necessity contrast — the clean negative stands without it and the
+"too-good" gate never triggered); embedding-level injection only (residual-level per-count was
+already ruled out pre-plan; residual-level compositional injection remains untested); train set
+13 count values × 60 reps × 5 epochs, loss plateaued ~0.15 (converged in-range — 0.81–1.00);
+single seed; eval 4 samples/count (52 in-range, 112 held-out per route).
+
+## [2026-07-11c] ✅📊 A3 — MLVU Action-Count PORTED (206 Qs, frames-only, `data/mlvu_ac/`): at the standard 32-frame budget the benchmark is EVIDENCE-DELIVERY-limited, not counting-limited — the judge finds 0 visible evidence frames for 35% of questions and only ~0.37 frames per gold instance, and the model's mean answer (1.02) is roughly calibrated to what it sees; 4× denser sampling (N=128 @392px) causally lifts mean-pred to 2.45 (gold 2.93), MCQ 0.282→0.393
+
+> **Port:** ungated mirror `sy1998/MLVU` (the official repo is HF-gated); 206 count questions,
+> 206 videos (~26 GB transient, batched ≤7 GB with a quota guard, all deleted after prep) →
+> 128 uniform 448px frames/question + meta (`experiments/mlvu/prep_ac_frames.py`, jobs
+> 120037/120049-OOM→120051/120068; OOM fixed by a packbits/chunked hamming matrix). **The released
+> jsons carry NO insertion timestamps** — the plan's "exact insertion GT" assumption fails;
+> duplicate-detection recovers GT for only 7/206 (insertions are DIFFERENT clips of the same
+> Kinetics action, not repeats). Per-frame labels therefore come from the look-again judge
+> (`lookagain_ac.py`, job 120070 → `lookagain_N32.json` per question).
+> **Behavior:** `eval_ac_behavior.py` — N=32: job 120069 → `outputs/ladder/mlvu_ac/behavior_N32/`;
+> N=128: job 120071 → `outputs/ladder/mlvu_ac/behavior_N128/`.
+
+| protocol | N=32 | N=128 |
+|---|---|---|
+| MCQ (4-choice; chance 0.25) | 0.282 | **0.393** |
+| open integer (exact) | 0.112 | 0.175 |
+| open MAE / mean-pred (gold 2.93) | 1.91 / 1.02 | **1.24 / 2.45** |
+
+**Readings.**
+1. **The rung's difficulty is dominated by sampling coverage:** videos average 782 s (max 2.2 h)
+   and insertions are short; 32 uniform frames deliver ~0.37 evidence frames per gold instance
+   (judge-measured; corr(visible, gold)=0.48), and 35% of questions show ZERO evidence. The
+   model's near-constant answer "1" at N=32 is approximately optimal for its observation.
+   Quadrupling frames moves every metric in lockstep — behavior tracks delivered evidence, not
+   count difficulty. **For the thesis ladder: MLVU-AC sits BELOW HERBench in per-frame evidence
+   availability; it measures the sampling+perception pipeline, not aggregation, at standard
+   budgets.** (This answers the peer "benchmark ladder" request with a measured caveat.)
+2. gold=5 stays ≈0 in both protocols and budgets — the emitted-range clamp (mean-pred ≤2.5)
+   compounds with coverage.
+3. Instruments beyond behavior: judge per-frame labels are in place for a d′/parity pass on
+   sampled-frame caches (judge-noise caveat applies); dup-detect GT exists for 7 questions
+   (exact); both left as follow-up analysis — behavioral + coverage results above are complete.
+
+**Caveats.** Judge labels are model-derived (same 7B family as the subject — shared blind spots
+possible; HERBench precedent applies); MCQ letter-reader; N=128 open accuracy is still
+range-clamped; mirror provenance (sy1998/MLVU) rather than the gated official repo — spot-check
+against the official release before thesis citation.
+
+## [2026-07-11d] 📊 RECONCILIATION + REGISTRATION — the fence-layout split is now understood (fence helps QUESTION-FIRST frame reps; at the DEPLOYED frames-first carrier it is null-to-negative), and MASS COMPETITION in the shared softmax is registered as the candidate mechanism for the joint-context tax; the tax constant is family-general (Qwen 3.2–3.6×, InternVL 3.4×)
+
+> Bookkeeping entry (no new runs — every number below traces to an existing run dir).
+
+**1 · Fence-layout reconciliation.** Two apparently contradictory fence results coexist in this
+log and are now explicitly re-scoped:
+- **Question-first layout: fence WORKS.** [2026-06-30] block-diagonal isolation mask (each frame
+  attends only to itself + the question) lifts per-frame extraction 0.942→0.995 and sum-count
+  0.657→0.952 in one forward — the "3.1→5.2" d′ lever cited in the 2026-07-08 plan is THIS
+  (question-first per-frame reps).
+- **Deployed frames-first carrier: fence HURTS.** `count_msgcache_fenced` (job 118557): best
+  per-frame message AUROC **0.920 < joint 0.956** (matched-spec logistic L14: 0.889 < 0.905),
+  carrier d′ 2.47→1.93, model 0.215→0.120; text fence NULL ([2026-07-08c]); and B1 fenced ≤
+  joint at EVERY N ([2026-07-11]: 1.80/1.84/1.79/1.67/1.62 vs joint 1.97/2.12/1.98/1.93/1.59).
+- **Re-scoped claim:** frame isolation by attention masking repairs the frames→frame-rep path
+  (question-first reps read the question; cutting cross-frame edges removes contamination), but
+  the deployed frames-first *carrier write* is not limited by cross-frame ATTENTION EDGES —
+  cutting them only removes useful context. The joint→multipass gap survives fencing entirely.
+
+**2 · Registered hypothesis (frozen before the P1 mechanism probes): MASS COMPETITION.** The
+joint-context tax — carrier d′ ~2 in any joint pass vs 7–8 when frames are processed alone,
+N-invariant on both sides ([2026-07-11] Fig B1) — is caused by the carrier's softmax attention
+being SHARED across all N frames' tokens: each frame's message enters with attention mass ~V/N
+instead of ~V, and the induced magnitude/mixing noise (competition varying per frame with chunk
+content) costs the fixed ~3–4× d′ factor. Predictions for the P1 probes (registered now):
+- (e) chunk-size sweep: d′ decreases monotonically in chunk size k with the sharpest drop from
+  k=1 to small k (competition onset), saturating toward the joint value — anchors k=1: 8.08,
+  k=32: 1.98 at N=32 (both measured).
+- (f) within-frame attention renormalization during a joint pass (equal per-frame mass at the
+  carrier hop, L14–17): if mass competition is the tax, patched d′ recovers MOST of the
+  joint→multipass gap; if patched ≈ joint, the tax is upstream in-context frame encoding and
+  the hypothesis is REFUTED for the carrier hop.
+- (g, conditional on f-recovery) a frame's message shifts with its chunk-mates' salience through
+  the shared denominator.
+
+**3 · Cross-family tax constant (spot-check satisfied from existing anchors — no new runs).**
+Qwen image: joint 1.97 → multipass 7.18 @L16 (**3.6×**, [2026-07-11]); Qwen text: joint block
+2.45 → multipass 7.9 (**3.2×**, [2026-07-10b]); InternVL2.5-8B: joint 1.9 → multipass 6.4–6.6
+(**3.4×**, [2026-07-07c], `internvl/multipass_bench/`). Three pipelines, two model families,
+two modalities: the joint-context tax is a ~3.2–3.6× d′ factor everywhere measured.
+
+## [2026-07-11e] ✅📊 P0b — E4 ADEQUACY SWEEP: registered A-4 lands PARTIAL with a sharper reading — adequacy passes exactly where the evidence class is DIVERSE (natural distinct-needle cells: kurt +0.5–0.8 PASS) and fails via kurtosis where evidence is degenerate-identical (ident cells +1.6…+5.4) or where joint context is long (long-N joint caches: kurt +0.5 @N=8 → +25 @N=128); binary-groundability alone does NOT buy adequacy
+
+> **Runs:** CPU block-read/E4 jobs **120130–120138** →
+> `outputs/ladder/natural/block_read/20260711_125059_<cell>/` and
+> `outputs/ladder/image_longN/block_read/20260711_125059_N{8,16,32,64,128}/` (report.txt,
+> results.csv each). Estimator identical to all prior block reads (score-concat matched filter,
+> 3 sample-disjoint seeds).
+
+**1 · Natural cells (scores registered A-4 "adequacy passes while evidence stays
+binary-groundable"): PARTIAL.**
+| cell | E4 @L14 / @L16 (kurtE) | block d′ @L14 | best single |
+|---|---|---|---|
+| dist_far | **PASS / PASS** (+0.49 / +0.78) | 6.87 | 5.24 |
+| dist_near | FAIL / **PASS** (+2.09 / +0.77) | 7.20 | 5.53 |
+| ident_far | FAIL / FAIL (+5.43 / +1.56) | 8.12 | 5.97 |
+| ident_near | FAIL / FAIL (+4.06 / +2.32) | 8.50 | 6.09 |
+All four cells are binary-groundable by construction, yet only the DISTINCT-needle cells pass —
+identical repeated needles make the evidence-message distribution near-degenerate (point-mass ×
+chunk-context mixture → heavy tails). **A-4 revised:** adequacy tracks evidence-class diversity.
+The law is licensed on the naturalistic cells (which are also the thesis-relevant ones); the
+ident cells carry the d′-dial anchor but get the caveat. (Block reads also lift the natural
+carrier ~+1–2 d′ over the best single offset — the multi-token concept region is a distributed
+carrier; auc-ceiling caveat applies at these magnitudes.)
+
+**2 · Long-N joint caches (qualifies B1's law rows): E4 fails progressively with N.**
+kurtE @L14/L16: N=8 **+0.52 PASS**/+1.61 → N=16 +2.9/+1.8 → N=32 +5.2/+3.0 → N=64 +16.8/+7.9 →
+N=128 **+25.2/+19.2**; std-ratio drifts 0.97→1.4–2.0. The joint-context tax is not only a mean
+d′ factor — long joint contexts make per-frame message distributions heavy-tailed (magnitude
+depends on chunk-mates → mixture noise), exactly the signature the registered mass-competition
+mechanism predicts ([2026-07-11d] §2). Consequence: B1's law-pred column is licensed at N=8
+and indicative-only beyond; the [2026-07-11] B1 caveat is now quantitative.
+
+## [2026-07-11f] ✅📊 P4k — DEDUP SEMANTICS on mmred_natural: the registered dissociation CONFIRMED — with identical repeated needles, "in how many FRAMES does a dog appear?" is answered with the frame count (mean 3.90 vs gold 4.17) while "how many DOGS are there in total?" is answered with the SUPPORT SIZE (mean 1.13–1.37 vs unique 0.9; exact-vs-unique 0.707/0.827); distinct-needle cells show no dissociation — the frozen model selects the aggregation operator (Σ vs distinct-count) from question wording
+
+> **Run:** job **120147** → `outputs/ladder/natural/dedup_semantics/<ts>/` (report.txt,
+> summary.json, rows.json). n=150/cell/question, mmred_natural_v2, generation reader,
+> `experiments/natural/dedup_semantics.py`.
+
+| cell | question | acc vs frame-gold | acc vs unique | mean pred (frame-gold / unique) |
+|---|---|---|---|---|
+| ident_far | frames | **0.687** | 0.220 | 3.90 (4.17 / 0.91) |
+| ident_far | count | 0.260 | **0.707** | 1.37 |
+| ident_near | frames | **0.567** | 0.367 | 3.31 (4.09 / 0.89) |
+| ident_near | count | 0.280 | **0.827** | 1.13 |
+| dist_far | frames / count | 0.613 / 0.487 | (= frame-gold) | 3.93 / 3.38 (3.86) |
+| dist_near | frames / count | 0.553 / 0.260 | (= frame-gold) | 3.84 / 3.17 (4.21) |
+
+**Readings.** (1) **Registered prediction ✓** — dissociation exactly on ident cells, agreement on
+dist cells. The model implicitly DEDUPLICATES under entity-count wording: same visual stream, two
+different aggregation operators selected by the question (frame-count Σ vs support-size distinct
+count). (2) This retro-explains the [2026-07-10h] ident-cell behavioral dip (the "dedup bias" —
+part of the frames-question probability mass leaks to the entity reading) and ties directly to
+the rooms_visited support-size semantics: distinct-counting is a NATIVE operator, available
+in-context. (3) The clean 0.827 exact at ident_near/count is also a positive control that the
+model can count near-perfectly when the effective target is small — consistent with the range
+clamp (support size ≤1 here).
+
+**Caveats.** "How many dogs are there in total?" is ill-posed on dist cells (a COCO frame may
+contain several dogs; unique-image count ≠ dog-instance count) — the dist count-question rows
+are reported for symmetry but their "gold" is approximate; the ident-cell dissociation (where
+one image = one dog instance repeated) carries the claim. Single model, n=150/cell.
+
+## [2026-07-11g] ✅📊 P1f — MECHANISM VERDICT: the registered MASS-COMPETITION hypothesis is REFUTED at the carrier hop — renormalizing every frame to an EQUAL share of the carrier's attention mass during a joint pass (forward patch, L14–17) recovers essentially nothing of the joint→multipass gap (N=8: renorm d′ 2.03 vs joint 1.97 vs multipass 7.18; N=32: 2.44 vs 1.98 vs 8.08) — the joint-context tax is UPSTREAM, in the in-context encoding of the frames themselves
+
+> **Runs:** new `experiments/glstm/attn_renorm_patch.py` — SDPA forward patch: question-token
+> rows' attention recomputed with per-frame mass equalization (within-frame relative weights and
+> text columns untouched; self-check |Δ question-row output| = 0.72) in layers 14–17; carrier
+> messages read WITH the renormalized weights. Jobs **120145/120149** (N=8, n=300) and
+> **120146/120154** (N=32, n=200) → `outputs/ladder/image_longN/renorm/{N8,N32}/` +
+> `renorm/dprime_N{8,32}_*/`. Anchors: B1 joint/multipass caches (same data, same seed).
+
+| N | joint d′ @L16 | renorm d′ @L16 | multipass d′ @L16 | gap recovered |
+|---|---|---|---|---|
+| 8 | 1.97 | 2.03 | 7.18 | **~1%** |
+| 32 | 1.98 | 2.44 | 8.08 | **~8%** |
+
+**Registered branches ([2026-07-11d] §2):** "patched d′ recovers most of the gap → mass
+competition" vs "patched ≈ joint → tax is upstream in-context frame encoding." **The second
+branch lands.** Equal-mass delivery at the carrier hop (and through 4 patched layers feeding
+it) leaves d′ within ~0.5 of joint. The per-frame information that the carrier COULD collect is
+already degraded by the time frames are encoded in a shared context — consistent with the fence
+result (cutting cross-frame attention edges doesn't help either) and with B2/E4 (heavy-tailed
+message distributions at long N: the damage is in the message CONTENT, not its mass).
+Behavioral note: the patch leaves the model's answers roughly intact at N=8 (0.173 vs 0.207)
+and unchanged-bad at N=32 (0.020) — renormalized streams are mildly off-distribution downstream.
+**P1g (chunk-mate composition probe) SKIPPED per its pre-registered condition** (no recovery).
+What remains as candidate mechanisms for the upstream tax: shared-context encoding interference
+in the visual/early-LM layers (not attention-edge-carried — possibly normalization/gain effects
+or position-conditioned encoding), to be constrained by the P1e chunk-size curve (in flight).
+
+**Caveats.** Patch covers L14–17 question rows only (frame-token rows unpatched — a full-row
+renorm was not tested; the carrier's supply is what the hypothesis addressed); N=32 renorm shows
+a real but small +0.46 lift, so mass competition is a MINOR contributor, not zero; single seed,
+n=200–300.
+
+## [2026-07-11h] ✅📊 P0c — MLVU-AC d′/parity on judge-labeled frames: the carrier is the ACTION-DESCRIPTION token region (peak off−16, d′_w 2.60 @L14; block 2.80, d′_auc 3.24), placing MLVU-AC-at-N=32 between image-MMRED (~2.0–2.5) and mmred_natural (4.3+) on the ladder; E4 fails via a 6.6–7.9× STD-RATIO — the judge-label-noise signature; and the model's answer tracks the judge-visible count at 0.583
+
+> **Runs:** derived dataset `data/mlvu_ac_n32judge/` (206 questions × 32 uniform frames,
+> is_evidence = look-again judge P(yes)>0.5, question normalized to a fixed template so carrier
+> offsets align); cache job **120139** → `outputs/ladder/mlvu_ac/msgcache_n32judge/20260711_125240/`;
+> block-read job **120150** → `outputs/ladder/mlvu_ac/block_read/20260711_130831/`.
+
+Single-locus d′_w @L14: off−16 (last action token) 2.60 > off−15 2.23 > off−14 2.20 > off−0 1.91;
+block 2.80±0.17. Ladder vs judge-count gold: model 0.583, ridge-on-sum 0.518, dtc(block) 0.610 —
+the frozen model is essentially AT its achievable ceiling for the evidence actually delivered
+(the failure vs true gold is sampling, [2026-07-11c]). The carrier location (needle-description
+tokens in the question) matches the CWE/content-addressing pattern, not MMRED's relational-carrier
+pattern. **Caveats:** labels are judge-derived (noise attenuates d′ — quote as lower bound; the
+std-ratio E4 failure is exactly what label noise predicts); evidence base rate ~3.4% (nE≈220);
+"model acc 0.583" is vs the judge-visible count, not the 1–5 insertion gold.
+
+## [2026-07-11i] ✅📊 P0d — LAW + CLAMP composed closure (zero fitted parameters): rank-remapping the d′-limited latent estimate through the MEASURED emission marginal reproduces the B3 behavioral curve almost exactly where the plain law is 2–5× high — and the composition transfers directionally to both real-video rungs
+
+> **Script:** `experiments/glstm/law_clamp_closure.py` (composition = latent count estimate
+> ~ N(gold, N/d′²) pushed through F_emitted∘F_latent⁻¹ — a monotone rank remap onto the measured
+> answer marginal; predicts the PAIRING, the marginal is measured). **Run:**
+> `outputs/ladder/image_longN/law_clamp/<ts>/` (results.csv, report.txt, **fig_b3_clamp.png**).
+> Inputs: B1 joint d′ @L16 per N, B3/HERBench/MLVU behavioral rows.
+
+| cell | measured | plain law | **law+clamp** |
+|---|---|---|---|
+| MMRED N=8 | 0.173 | 0.350 | **0.186** |
+| MMRED N=16 | 0.127 | 0.291 | **0.106** |
+| MMRED N=32 | 0.073 | 0.188 | **0.069** |
+| MMRED N=64 | 0.053 | 0.147 | **0.054** |
+| MMRED N=128 | 0.020 | 0.100 | **0.039** |
+| HERBench armB (N=16, d′ 1.04) | 0.172 | 0.103 | 0.137 |
+| MLVU-AC N=32 (d′ 2.80, visible-count latent) | 0.112 | 0.124 | 0.140 |
+
+**Readings.** (1) On MMRED the composition is a near-exact ZERO-parameter account (mean |err|
+0.013 vs the plain law's 0.13): flat supply + measured emission clamp + ordinal-preserving squash
+= the entire N-collapse. The two mechanisms measured separately ([2026-07-11] d′ flat;
+[2026-07-10f] clamp) COMPOSE. (2) Transfer is directional, not exact: HERBench moves from 40%
+under-prediction to 20% under (graded-evidence adequacy failure documented there); MLVU lands
+within 0.03 when the latent is centered on the judge-VISIBLE count (the delivered evidence).
+One quantitative backbone — d′ supply → rank-preserving clamped emission — now spans synthetic
+and natural rungs, with honest residuals where E4 already flags inadequacy.
+
+**Caveats.** The emitted marginal is measured from the same behavioral runs whose exact-match is
+predicted — the composition predicts the gold-pairing given the marginal (non-circular in the
+pairing, circular in the support; stated in the figure caption); MLVU cell uses judge-visible
+latents (adds judge noise); HERBench golds are 1–5 so the clamp barely binds there.
+
+## [2026-07-11j] ✅📊 P1e — CHUNK-SIZE SWEEP (N=32 @392px, k frames per forward): the joint-context tax is paid at the FIRST companion frame — d′ 8.08 (k=1) → 3.37 (k=2) → 2.54 (k=4) → 2.31 (k=8) → 2.15 (k=16) → 1.98 (k=32); the registered "sharp drop at small k, saturating toward joint" shape lands EXACTLY, and with the renorm null it pins the tax to in-context encoding interference that switches on as soon as a frame is not alone
+
+> **Runs:** `--chunk-k` mode added to `experiments/glstm/text_multipass_cache.py` (image chunked
+> passes; per-chunk digit answers give a chunked-tally behavioral read for free); job **120143**
+> (k∈{2,4,8,16}, n=200 each; smoke 120140) → `outputs/ladder/image_longN/chunk_sweep/k{2,4,8,16}/`;
+> anchors k=1 (multipass N32) and k=32 (joint N32) from B1. d′ analysis job **120166** →
+> `outputs/ladder/image_longN/chunk_sweep/dprime_20260711_134108/` (report.txt, results.csv,
+> fig_b1.png = the d′-vs-k curve).
+
+| k (frames/forward) | 1 | 2 | 4 | 8 | 16 | 32 |
+|---|---|---|---|---|---|---|
+| carrier d′_w @L16 | 8.08 | **3.37** | 2.54 | 2.31 | 2.15 | 1.98 |
+| chunked-tally behavior | 0.680 | 0.140 | 0.105 | 0.135 | 0.140 | 0.053 |
+| per-chunk count exact | 0.985* | 0.833 | 0.57 | ~0.35 | 0.223 | — |
+*(k=1 = per-frame binary perception.)
+
+**Readings.**
+1. **58% of the total log-d′ drop happens between k=1 and k=2.** One companion frame in the
+   forward costs more than the next thirty combined. The tax is an ONSET effect of shared
+   processing, not a gradual per-frame crowding accumulation.
+2. **Mechanism triangulation (with [2026-07-11g]):** not carrier-mass competition (renorm null),
+   not cross-frame attention edges (fence null/negative), onset at the first companion —
+   the per-frame representations are computed differently the moment context exists
+   (candidates: visual-encoder/early-LM contextual normalization, cross-frame feature binding
+   during encoding, position-conditioned encoding). This is the sharpest constraint the campaign
+   has on WHERE the joint-context tax lives.
+3. **Pipeline consequence (explains the P2h result):** k=8 chunks retain only d′ 2.31 ≈ joint —
+   chunking with k≥4 buys almost nothing; the accuracy-per-forward frontier is at k=1–2
+   (k=2: d′ 3.37 at half the forwards of multipass). The e2e chunked pipeline's N=64 collapse
+   ([P2h, this session]) is now explained: its k=8 messages were barely better than joint.
+4. Chunked-tally behavior is non-monotone in k (0.14 at k=2 vs 0.105 at k=4): per-chunk answers
+   at k=2 are near-perfect (0.833) but 16 chunk-answers accumulate sum errors; at k=16 fewer,
+   noisier chunks — two error sources trade off. The gate-based pipeline (not digit answers)
+   remains the right reader.
+
+**Caveats.** Single N (32), steps task, n=200/k, single seed; k=1/k=32 anchors are n=300 from B1
+(same data/seed pool); per-chunk "exact" for k=16 read from the running log at n≈200.
+
+## [2026-07-11k] ✅📊 P3 — VNBench COUNTING PORTED (450 videos, exact needle-time GT for edit1/insert1): registered scoring — (1) E4 fails via VARIANCE-RATIO ✓ exactly as predicted (std-ratio 3.2–3.5); (2) "high d′, model between CWE and MMRED" ✗ — block d′ is only 2.50 (MMRED-level; no content-addressing escape); (3) "carrier = needle-description tokens" ✗ — the carrier is FLAT across question offsets (no needle-token peak); behaviorally the emission clamp reappears (open 0.193→0.229 at N=32→64, mean-pred 3.4–4.6 vs gold 5.66, zero exact above ~8)
+
+> **Port:** official Google-Drive archive (10.9 GB zip, videos deleted post-extraction; jsons from
+> `videoniah/VNBench`) → `data/vnbench_cnt/` (450 questions × 128 uniform 448px frames, 2.0 GB
+> durable; `experiments/vnbench/prep_cnt_frames.py`). **GT structure finding:** `needle_time` =
+> one start-time per occurrence; gold == len(needle_time) for ALL 300 edit1/insert1 questions
+> (exact per-frame GT with a 1.5 s window) — but cnt_edit2's gold counts OBJECTS WITHIN needles
+> (gold ≠ #events for 149/150; metas annotated `needle_time_events_only`). Instruments use the
+> exact-GT 300 (`data/vnbench_cnt_n32exact/`).
+> **Runs:** behavior jobs **120158** (N=32) / **120159** (N=64) →
+> `outputs/ladder/vnbench/behavior_N{32,64}/`; cache **120160** + block-read **120170** →
+> `outputs/ladder/vnbench/{msgcache_n32exact/<ts>,block_read/20260711_135010}/`.
+
+| instrument | value |
+|---|---|
+| behavior MCQ (chance 0.25) | 0.369 @N=32 → 0.416 @N=64 |
+| behavior open | 0.193 → 0.229 (MAE ~3.0; mean-pred 3.44→4.57 vs gold 5.66; ~0 above gold 8) |
+| carrier d′ (N=32 frames, exact labels) | best single 2.02 (off−12), **block 2.50±0.05 @L14** |
+| carrier profile | FLAT: off−12/−16/−0 ≈ 2.0 each — no needle-token peak |
+| E4 | **FAIL via std-ratio 3.21/3.46** (skew +0.35/+0.43, kurt +1.3/+0.4) |
+| ladder (vs visible-count gold) | model 0.250, ridge 0.144, law-pred 0.179, dtc 0.192 |
+
+**Registered verdicts:** (1) ✓ exact — the synthetic-needle variance-ratio failure mode predicted
+from CWE's precedent; (2) ✗ — d′ 2.50 sits at MMRED level, NOT the CWE regime; the anticipated
+content-addressable escape did not materialize (candidate cause: VNBench needles are small
+edited patches / 1-frame inserts — at 392px×32-frame sampling the per-frame evidence is
+perception-thin, unlike CWE's whole-token match); (3) ✗ — carrier distributed/flat across the
+question span. Net ladder placement: VNBench-cnt lands NEXT TO image-MMRED (d′ ~2–2.5, model at
+law), not next to CWE — synthetic needles do not by themselves buy content addressing.
+
+**Caveats.** d′ from N=32 subsampled frames (needle visibility ~1–2 frames per occurrence at
+this rate — delivery-limited like MLVU, quantified by visible_count in the metas); 392px resize
+may under-render small needles (not swept); edit2 excluded from instruments (compound gold);
+judge-free exact GT is the port's strength — numbers are lower bounds only via sampling, not
+label noise.
+
+## [2026-07-11l] ✅📊 P2 — END-TO-END TALLY PIPELINE (frozen model as its own extractor, verifier, and verbalizer): retrieve-then-verify recovers exact-match 0.880 / 0.807 / 0.707 at N=32/64/128 — 17–35× the frozen model (0.053/0.053/0.020), above the full multipass solution (0.680/0.580/0.420), and above the law ceiling for any linear read of the joint carrier — while the cheap chunked variant beats the frozen model 2.6–3.5× at N≤32 for 2–5 forwards but dies at N≥64 exactly as the chunk-size curve predicts
+
+> **Script:** `experiments/pipeline/e2e_tally.py` — every stage is a measured campaign result
+> deployed: (1) per-frame carrier margins from a mass-normalized logistic gate trained ONCE on
+> the N=8 joint cache ([2026-07-10i]); (2) per-N calibrated threshold (30 labeled calib samples,
+> N known at inference); (3) tally; (4) the tally rendered as the predicate-matched fact sentence
+> pre-question ([2026-07-10d]) and verbalized by the frozen model. `--mode retrieve` (P2i): ONE
+> joint pass → high-recall shortlist (FN≤2% calibrated) → isolated yes/no look-again passes on
+> the shortlist → tally = #yes. **Runs:** chunked (k=8) job **120151** →
+> `outputs/pipeline/e2e_tally_chunked/`; retrieve jobs **120162/120163/120164** →
+> `outputs/pipeline/e2e_retrieve_N{32,64,128}/`. Eval seed 2 (disjoint from cache/behavior
+> draws), n=150/N, calib disjoint from eval.
+
+| N | frozen (B3) | law ceiling (joint d′) | mp-sum (N fwd) | chunked k=8 (fwd) | **retrieve (fwd)** |
+|---|---|---|---|---|---|
+| 8 | 0.173 | 0.314 | 0.910 (8) | **0.600** (2) | — |
+| 16 | 0.127 | 0.248 | 0.793 (16) | 0.280 (3) | — |
+| 32 | 0.073 | 0.175 | 0.680 (32) | 0.193 (5) | **0.880** (26.6) |
+| 64 | 0.053 | 0.130 | 0.580 (64) | 0.033 (9) | **0.807** (56.7) |
+| 128 | 0.020 | 0.084 | 0.420 (128) | 0.027 (17) | **0.707** (113) |
+
+**Readings.**
+1. **Retrieve-then-verify is the headline constructive result:** a fully frozen system (gate =
+   one logistic on N=8 messages; everything else is the model itself) sustains 0.71–0.88 exact
+   to N=128, above every baseline including full multipass — the isolated yes/no verifier
+   (per-frame perception 0.985) is a cleaner reader than per-frame digit answers, and errors
+   that survive it are nearly unbiased (MAE 0.15/0.23/0.55). It also sits ABOVE the closed-form
+   ceiling for any linear readout of the summed joint carrier — by construction: it never sums
+   noisy messages; it decides per frame first (the thesis's gate-before-sum principle, deployed).
+2. **Cost verdict (registered P2i "cost scales with evidence count"): ✗ honest miss** — the
+   shortlist calibrated to FN≤2% on DILUTED joint margins keeps ~80–90% of frames (B2's
+   threshold-drift again), so cost ≈ N+1 forwards, not O(evidence). Accuracy goal ✓✓, cost goal
+   ✗. (Obvious v2: shortlist from k=2 chunk margins — d′ 3.37 — instead of the joint pass;
+   untested, noted as future work.)
+3. **Chunked k=8 (registered P2h): ✓ at N≤32, ✗ beyond** — 0.600 at N=8 for 2 forwards is the
+   budget option (3.5× frozen), but k=8 chunks retain only d′ 2.31 ≈ joint ([2026-07-11j]), so
+   the gate has nothing to work with at N≥64 and MAE-calibration collapses the tally. The
+   chunk-size curve, the gate calibration, and the pipeline results now form one consistent
+   quantitative picture.
+
+**Caveats.** Per-N threshold calibration uses 30 labeled samples/N (legitimate at inference —
+N is known — but it is supervision the frozen baseline lacks; the gate itself is trained on the
+pre-existing N=8 cache only); render stage is text-only (no frames at answer time; C1 cf-arms
+showed the fact wins even against conflicting visuals); steps task only; n=150/N, single seed.
+
+## [2026-07-11m] ✅📊 P4j (partial) — NATIVE READING AXIS vs N: the axis is STABLE, not rotating — |cos(axis_N=16, axis_N=8)| = 0.82–0.86 at L14/L16 (gradient axes, coherence 0.64–0.69), with d′ along the native axis flat at 0.55–0.77 across N — the emission clamp is "same axis, saturating magnitude," not context-driven axis rotation
+
+> **Runs:** `native_axis_probe.py` (+ new `--resize`) @392px, offset −9, n=100 (N=8) / 55 (N=16)
+> — job **120144** → `outputs/ladder/image_longN/native_axis/N{8,16}/20260711_130100/`; axis
+> comparison computed from the saved `native_axes.pt` files against the joint caches (console,
+> this session). Global gradient-axis sign is a convention (|cos| is the statistic).
+> **N=32/64 legs:** the answer-margin backward at ≥6.5k tokens OOMs on 48GB L40S (588 OOM
+> retries, then empty-grad crash) AND on the 40GB A100 slices — attempts 120144/120161; third
+> attempt 120169 pends on the fully-occupied H200s. Blocked-with-note if no H200 frees before
+> campaign close; the N≤16 stability result stands on its own.
+
+| | L14 | L16 |
+|---|---|---|
+| \|cos(axis_16, axis_8)\| | 0.817 | 0.864 |
+| d′ along native axis (N=8 / N=16 caches) | 0.72 / 0.66 | 0.55 / 0.77 |
+
+**Reading:** between N=8 and N=16 the model's reading direction barely moves while its emitted
+range stays clamped ([2026-07-10f]) — the clamp is a saturating MAGNITUDE/decoding phenomenon on
+a fixed axis, not the readout re-aiming as context grows. Combined with C2/C3 (the readout only
+decodes token-embedding lookups), the readout picture is: one fixed, poorly-aligned axis
+(cos to w* ≈ 0.005, [2026-07-05]), read through a saturating value range.
+
+## [2026-07-11n] ✅📊 E4 tags for the constructive chapter: multipass caches PASS adequacy at EVERY N (kurtE −0.1…+0.5, std-ratio 0.92–1.07 for N=32/64/128) and so does chunk-k=2 — while the joint caches fail progressively (kurt +25 @N=128, [2026-07-11e]); the joint-context tax is ALSO the adequacy-breaker: isolated/near-isolated processing yields clean equal-covariance Gaussian messages, licensing the law for every pipeline number
+
+> **Runs:** CPU block-read jobs **120225–120230** →
+> `outputs/ladder/image_longN/block_read/e4tags_*_{mp_N8,mp_N32,mp_N64,mp_N128,chunk_k2,chunk_k8}/`.
+> Exceptions worth noting: mp_N8 fails only via std-ratio 0.63 (evidence class TIGHTER than
+> noise — the near-ceiling separation regime, quote d′ as separability); chunk_k8 marginal
+> (kurt +0.85/+1.10) — the first traces of joint-style corruption already visible at k=8,
+> consistent with the k-curve. Every retrieve-pipeline supply number (k=1/k=2 messages) is now
+> E4-licensed; the composed law∘clamp closure inherits the caveat only on its JOINT-d′ input.
+
+## [2026-07-11o] ✅📊 P4b — HERBench armB retrieve-then-verify: NULL (honest refutation of even the "modest lift" expectation) — judge-verified tally 0.157 = rendered 0.157 vs frozen open 0.172 (MCQ 0.351); on graded-evidence real video the per-frame verifier IS the wall (MAE 2.87, systematic undercount of marginal evidence), and no aggregation machinery can add what perception doesn't supply — the regime-2 prescription ("fix perception, not aggregation") confirmed constructively
+
+> **Run:** job **120223** → `outputs/pipeline/e2e_herbench/<ts>/` (report.txt, rows.json);
+> `experiments/pipeline/e2e_herbench.py`. Verifier = the existing 2026-07-07 look-again scores
+> (independent of any probe axis), thr 0.5, all 134 armB samples, tally → predicate-matched fact
+> → frozen render. **Registered verdict: ✗-as-stated** — the prediction said "modest lift,
+> bounded by d′≈1"; measured is NO lift (−0.015). Two clean sub-findings: (1) the render stage
+> is perfectly faithful (rendered == tally on every sample — the token interface transports the
+> tally losslessly even when it's wrong); (2) the pipeline's failure decomposes entirely onto
+> the verifier: HERBench's forced-binary curation ([2026-07-07e]) showed only ~¼ of evidence is
+> binary-groundable — the yes/no read misses the graded ¾, hence MAE 2.87. Contrast: MMRED
+> (binary evidence) retrieve-verify = 0.71–0.88. The two regimes now have constructive
+> demonstrations on both sides.
+
+**Caveats.** thr=0.5 unswept (a calibrated threshold could trade FN/FP but cannot exceed the
+judge's AUROC ceiling ~0.79 on graded frames); armA (evidence-only) not run; n=134.
+
+## [2026-07-11p] ✅📊 P3 (algebra half) — THE PIPELINE GENERALIZES ACROSS THE TASK ALGEBRA: rooms_visited 0.993 (frozen 0.193 — effectively SOLVED by per-frame room-read → SUPPORT SIZE → support-size fact), co-occupancy 0.513 (frozen 0.127), both at 10 forwards/sample; the registered ordering rooms ≥ steps > cooc lands exactly, and the reduction operator is swapped per task with zero retraining
+
+> **Runs:** `experiments/pipeline/e2e_task_algebra.py`, jobs **120215** (rooms) / **120216**
+> (cooc) → `outputs/pipeline/e2e_algebra_{rooms,cooc}/<ts>/` (report.txt, rows.json). N=8,
+> n=150, verify-all (no shortlist at this N), seed 3. Verifiers: rooms = per-frame "Which room
+> is C in?" first-token logit read over the 6 room names → tally = |{answers}| (the distinct/
+> union operator — the [2026-07-11f] dedup semantics, deployed); cooc = per-frame same-room
+> yes/no → Σ. Render: predicate-matched fact per task ("C visited exactly K different rooms." /
+> "C1 and C2 were in the same room in exactly K of the 8 frames.").
+
+| task | pipeline (reduction / rendered) | frozen joint | lift | registered |
+|---|---|---|---|---|
+| rooms_visited | **0.993 / 0.993** (MAE 0.01) | 0.193 (MAE 1.24) | 5.1× | rooms ≥ steps ✓ (it TOPS the table) |
+| steps (N=8, retrieve family) | 0.600–0.910 by mode | 0.173 | 3.5–5.3× | — |
+| co_occupancy | 0.513 / 0.513 (MAE 0.70) | 0.127 (MAE 2.10) | 4.0× | cooc lower ✓ (pair-visibility perception is the verifier's known bottleneck, [2026-07-04-era per-frame verify 0.867]) |
+
+**Readings.** (1) The constructive claim is now task-general: ONE skeleton (per-frame verify →
+fixed extensive reduction → fact render), THREE reduction operators (Σ, distinct-count, Σ over
+pair-predicate), all frozen, no training anywhere — rooms even demonstrates the support-size
+operator that the learned adapters historically struggled with (union is exact once per-frame
+room reads are right: per-frame room decode ≈0.99 at 392px). (2) Renders are again perfectly
+faithful (rendered == tally on every sample in both tasks). (3) cooc's 0.513 decomposes onto
+per-frame same-room verification (~0.92/frame → 0.92⁸ ≈ 0.51 with cancellation) — same
+per-frame-supply bound as everywhere; better pair-perception is the only lever.
+
+**Caveats.** N=8 only (long-N algebra untested); rooms first-token logit read assumes the six
+park rooms (task-specific but query-independent); n=150, seed 3, single model.
+
+## [2026-07-11q] ✅📊 P4j COMPLETE (memory fix + N=32/64 legs): the native reading axis DRIFTS MILDLY but does not rotate away — |cos(axis_N, axis_8)| @L16 = 0.86/0.72/0.72 for N=16/32/64 (coherence stable 0.62–0.74), and d′ along the model's own axis is FLAT in N (0.55/0.77/0.73/0.66) — the emission clamp is downstream saturation on a stable read, not context-driven re-aiming
+
+> **Ops:** the [2026-07-11m] OOM blocker was 125 float params (norms/embeddings) left with
+> requires_grad=True — they built the autograd graph from layer 0 regardless of the graph-start
+> hook. Fix: explicit `model.requires_grad_(False)` + graph start at the first probed layer +
+> `num_logits_to_keep=1` (`native_axis_probe.py`); N=32 now runs in 3 min on a 48G L40S (was
+> OOM on 48G/40G, needed H200). H200 job 120169 cancelled; legs run as job **120238** →
+> `outputs/ladder/image_longN/native_axis/N{32,64}/`, n=60/N, @392px, offset −9.
+
+| L16 | N=8 | 16 | 32 | 64 |
+|---|---|---|---|---|
+| \|cos(axis_N, axis_8)\| | 1 | 0.864 | 0.717 | 0.723 |
+| d′ along native axis_N | 0.55 | 0.77 | 0.73 | 0.66 |
+| grad coherence | 0.69 | 0.67 | 0.70 | 0.74 |
+
+The [2026-07-11m] partial verdict extends: the reading direction shifts ~25–30% of its angle by
+N=32 then stabilizes, and reads a constant ~0.6 d′ at every N — neither rotation-collapse nor
+read-collapse tracks the behavioral collapse (0.173→0.053 over this range). The failure remains
+in emission (the [2026-07-10f] clamp), which law∘clamp already accounts for. L14 shows the same
+pattern with a mild native-read decline (0.72→0.41).
+
+## [2026-07-11r] ✅📊 P1a+P1b — THE k=2 TAX DISSECTED: it is TWO measured components — a saturating LONG-CONTEXT tax (isolated frame at joint positions via text padding: d′ 7.18→5.37/5.30 for 16/32-frame-equivalent padding — position NOT innocent, but pad16≈pad32) and a CONTENT-SIMILARITY interference tax graded exactly as registered (gray 6.40 / noise 6.35 / patch-shuffled 4.39 / other-scene 3.63 / same-scene 3.27 — matching the P1e k=2 anchor 3.37); a contentless visual neighbor costs almost nothing (−0.8), a same-domain scene costs −3.9
+
+> **Runs:** P1a jobs **120235** (pad16/pad32, n=200; `--pad-to-frames`, question-neutral filler
+> text before the image, prompt suffix identical) → `outputs/ladder/image_longN/position_ctrl/`
+> + d′ `dprime_20260711_191524/`; P1b jobs **120236/120237** (5 companion types ×n=200;
+> `--companion`, real frame always FIRST, messages captured for the real frame only) →
+> `outputs/ladder/image_longN/companion/` + d′ `dprime_20260711_185105/` (fig_b1.png = the
+> ladder). Anchor "alone" = multipass N8 (n=300). All @L16, room-token carrier, N=8 park data
+> @392px. Smokes 120211.
+
+| condition (one evidence frame, read @L16) | d′_w |
+|---|---|
+| alone (k=1 multipass) | 7.18 |
+| + 15/31-frame-equivalent TEXT padding (position/context only) | **5.37 / 5.30** |
+| + gray companion | 6.40 |
+| + uniform-noise companion | 6.35 |
+| + patch-shuffled scene companion | 4.39 |
+| + real frame, DIFFERENT scene | 3.63 |
+| + real frame, SAME scene | **3.27** |
+| joint N=8 (7 same-scene companions) | 1.97 |
+
+**Registered verdicts.**
+1. P1a ("d′ falls toward 2–3.4 with no companion → positional; stays 7–8 → position innocent"):
+   **neither branch cleanly — position costs a real, SATURATING ~1.9 d′** (5.3, identical at
+   pad16/pad32) but cannot produce the content ladder. Behavioral per-frame perception under
+   padding is intact (0.989; mp-sum 0.93).
+2. P1b ("flat across companions → any-visual-neighbor; graded → cross-frame feature
+   interference"): **GRADED — cross-frame feature interference confirmed.** The cost tracks
+   content-domain similarity monotonically; a contentless neighbor is nearly free (−0.8),
+   killing the token-budget/attention-allocation account.
+3. Synthesis with [2026-07-11g] (renorm null): the interference is content-carried but NOT
+   via carrier-mass competition, and [2026-07-08c]-era fence results say cutting cross-frame
+   visual edges wholesale doesn't recover it either (off-distribution confound documented).
+   The remaining consistent picture: same-domain companions corrupt the frame's in-context
+   ENCODING through cross-frame attention content (V-mixing), in a way that naive edge-cutting
+   breaks rather than repairs. P1c (partial-depth fence sweep, in flight) probes the depth.
+4. Pipeline note: gray-padding companions ≈ free → a "pad-to-k" trick canNOT recover multipass
+   d′ in fewer forwards (padding with content-free frames keeps d′ 6.4 but wastes the slot);
+   the accuracy-per-forward frontier stays at k=1–2 with real frames.
+
+**Caveats.** Real frame always first (order effect unswept); text padding ≠ visual-token padding
+(M-RoPE positions differ by modality — the 5.3 is the TEXT-context tax; a gray-frames padding
+arm would give the visual-position variant and its number is ~6.4 from the companion gray arm at
+k=2); n=200/arm, single seed, steps task.
+
+## [2026-07-11s] ✅📊 P1c — DEPTH LOCALIZATION NULL: partial-depth fencing hurts at EVERY depth (joint 1.97 → fence[0,4) 1.77 → fence[0,8) 1.63 → fence[0,12) 1.56 → fence[0,14) 1.80 @L16) — no depth recovers any of the content-interference tax; the registered "d′-vs-L curve names the depth" instrument fails INFORMATIVELY: cross-frame attention edges cannot be removed at any depth without net signal loss in the frozen model
+
+> **Runs:** job **120244** (fence-upto ∈ {4,8,12}, n=150, N=8 @392px) →
+> `outputs/ladder/image_longN/depth_fence/upto{4,8,12}/` + d′ **120256** →
+> `depth_fence/dprime_20260711_192154/`; anchors joint + fence[0,14) from B1 (n=300).
+
+**Reading.** With P1b showing content-GRADED interference and P1a showing a separate saturating
+context tax, the natural expectation was that cutting cross-frame visual edges below some depth
+would recover part of the 3–4 d′ content tax. It recovers none, anywhere — the fence curve is
+monotone-worse through L12 (and the fuller [0,14) fence sits at 1.80, still below joint). Two
+readings compatible with all data: (i) the interference travels through the SAME edges that
+carry useful cross-frame computation the frozen model depends on (norm statistics, shared-scene
+context) — cutting removes both, net negative at every depth; (ii) part of the tax enters through
+non-edge channels (the P1a context tax is ~1.9 of it by construction). Either way, the
+constructive consequence is unchanged and now fully justified: the ONLY working lever on the
+supply is separate/near-separate forwards (k≤2), which is exactly what the retrieve pipeline
+deploys. Depth localization of the content component needs a finer instrument (e.g., per-layer
+activation patching of companion content, not edge removal) — noted as future work.
+
+**Caveats.** n=150/arm; fence blocks visual→visual edges only (text-relay edges intact); the
+behavioral column degrades with fence depth (0.21→0.13) consistent with off-distribution damage.
+
+## [2026-07-11t] ✅📊 P2 — RETRIEVE-THEN-VERIFY v2 (k=2 chunk shortlist) + 3-SEED ERROR BARS: accuracy improves at scale over v1 (N=128: 0.791±0.055 vs v1 0.707; N=64: 0.853 vs 0.807; N=32: 0.862±0.014 ≈ v1 0.880) — but the registered COST prediction is REFUTED: keep-rate stays ~65–70% (registered 25–35%), so v2 costs ≈1.15N forwards (fig_frontier.png written)
+
+> **Runs:** jobs **120212/120213/120214** (seeds 3, N=32/64/128) + **120217/120219** (N=32 seeds
+> 4/5) + **120218/120220** (N=128 seeds 4/5) → `outputs/pipeline/e2e_retrieve2_N*/` (reports,
+> rows). Same protocol as v1 (FN≤2% calibration, 30 samples/N, eval seed-disjoint), shortlist
+> margins from k=2 chunk passes (d′ 3.37) instead of the joint pass.
+
+| N | v2 exact (seeds) | v1 (seed 2) | mp-sum | frozen | v2 fwd/sample |
+|---|---|---|---|---|---|
+| 32 | **0.862 ± 0.014** (.860/.880/.847) | 0.880 | 0.680 | 0.073 | 36.9 |
+| 64 | 0.853 (single seed) | 0.807 | 0.580 | 0.053 | 76.8 |
+| 128 | **0.791 ± 0.055** (.833/.713/.827) | 0.707 | 0.420 | 0.020 | 150.1 |
+
+**Registered verdicts.** Accuracy ≈ v1 at small N and BETTER at large N ✓ (the k=2 margins
+don't dilute with N, so the shortlist quality is N-invariant — v1's joint margins degraded
+exactly where it mattered); keep-rate 25–35% **✗ refuted** — measured 65–70%: even d′-3.37
+margins under an FN≤2% recall constraint must keep two-thirds of frames (the gate's ROC at 98%
+recall allows ~35% rejection, not 70%). Consequently cost ≈ N/2 chunk-forwards + 0.65N verifies
+≈ 1.15N — v2 buys accuracy, not cost. In TOKEN terms v2 is still much cheaper than v1 at N=128
+(k=2 forwards are ~500 tokens vs the 25k joint pass). The 3-seed spread at N=128 (±0.055,
+driven by seed 4's 0.713) is the honest error bar on the headline; N=32 is tight (±0.014).
+**fig_frontier.png** (accuracy vs forwards/sample; frozen / chunked-k8 / mp-sum / v1 / v2 at
+N=32/64/128) → `outputs/ladder_report/fig_frontier.png`. Steps-task 3-seed rerun requirement
+(P3c) is satisfied by the same runs.
+
+**Caveats.** fwd/sample counts forwards, not tokens (footnoted in the figure); N=64 single-seed;
+per-N calibration uses 30 labeled samples as before.
+
+## [2026-07-11u] ✅📊 P4a — CROSS-FAMILY PORTABILITY: verify-then-tally on InternVL2.5-8B (steps N=32, verify-all, zero Qwen components, zero training) scores 0.690 exact vs its frozen joint 0.090 — a 7.7× lift; the rendered answer equals the tally on every sample (the fact interface transports losslessly in the second family too)
+
+> **Run:** job **120245** (smoke 120232→120243; two fixes: InternVL forward requires
+> pixel_values — text-only renders get a gray dummy image + explicit ignore instruction; manual
+> greedy decode since the remote code lacks .generate) → `outputs/pipeline/e2e_internvl/<ts>/`.
+> `experiments/pipeline/e2e_internvl.py`: per-frame yes/no logit verify → Σ → fact render,
+> n=100, seed 3. Registered ("works — multipass supply 6.5 clears the crush line"): **✓**.
+> Design note: no gate/shortlist (no InternVL mass-cache; verify-all at 33 forwards/sample) —
+> the one-number portability claim per the charter. Tally MAE 0.51: InternVL's per-frame yes/no
+> is slightly noisier than Qwen's (its 0.690 vs Qwen-N=32-verify-all-equivalent ~0.86), matching
+> its slightly lower multipass supply (6.5 vs 7.2).
+
+## [2026-07-11v] ✅📊 P5 — RESIDUAL-LEVEL COMPOSITIONAL INJECTION (L14–17 fact slot): the registered prediction lands — every learned route trains in-range (digit 0.750 / count 1.000 / Fourier 0.923 / native-anchored Fourier 1.000) and FAILS held-out (0.080 / 0.018 / 0.000 / 0.000), matching the embedding level exactly; "the token interface is necessary" is now airtight at BOTH injection levels
+
+> **Runs:** `--inject-level residual` added to `experiments/readout/c2_digit_codebook.py`
+> (count slot holds same-length dummy digits so tokenization/positions are unchanged; learned
+> vectors REPLACE the residual stream at the slot positions at layers 14–17 entries via
+> pre-hooks; init rescaled to the measured residual norm ≈96 at the slot; generation-safe
+> hook guard). Smoke **120221** → full job **120233** →
+> `outputs/readout/c2_residual/20260711_181926/` (results.json, recs, report). Same splits,
+> no trained head, 5 epochs × 60 reps.
+
+| route (residual, L14–17) | params | in-range | held-out |
+|---|---|---|---|
+| digit codebook | 35,840 | 0.750 | 0.080 |
+| count codebook (+interp) | 46,592 | 1.000 | **0.018** |
+| Fourier basis | 28,672 | 0.923 | **0.000** |
+| native-anchored Fourier | 28,672 | 1.000 | **0.000** |
+| (embed-level token reference, [2026-07-11b]) | 0 | 1.000 | **1.000** |
+
+**Notes.** (1) The residual-run's own token_fact row (0.077/0.000) is NOT the C1 bar — in
+residual mode the prompt's count slot carries dummy digits by design, so the untrained token
+route reads the dummy (its only hit is K=5 == the 1-digit dummy "5"); the valid token reference
+is the embedding-level 1.000/1.000. (2) In-range trainability at the residual level is even
+EASIER than embed level (count/fourierE reach 1.000) — the model will happily read arbitrary
+residual vectors it was trained to map — and OOD failure is equally total: the readout performs
+value lookup, not geometry decoding, at every level we can inject. (3) The too-good gate never
+triggered (no positive to audit; no head used).
+
+**Caveats.** One layer window (14–17); replacement (not additive) injection; single seed;
+dummy-digit slot design means residual routes also carry a (constant) dummy-token signal —
+the learned vectors must OVERRIDE it, which they do in-range, confirming the injection is
+causally read.
+
+## [2026-07-12] ⚠️ CORRECTION to [2026-07-11r] — the companion-ladder claim "same-domain companions corrupt the frame's in-context ENCODING" was OVERSTATED: in every P1b pair the real frame came FIRST, so under causal attention its keys/values were computed BEFORE the companion existed — the content-graded d′ drop (gray 6.40 → same-scene 3.27) can only have entered through the CARRIER'S READ of the frame, i.e. the within-frame routing ŵ_j set by the carrier query q_c (which forms after the companion), not through the frame's own k/v
+
+> Correction credit: Tal (2026-07-11 session review). Three consequences, logged before the
+> P1 (2026-07-12) experiment that separates the survivors:
+> 1. **Re-scope:** [2026-07-11r]'s mechanism label becomes "READ-SIDE (query-routing)
+>    contamination, demonstrated for frame 1; encode-side untested for frames 2..N" — for the
+>    first frame of a causal pair, k_j and v_j are companion-independent by construction, so
+>    the entire measured content-graded effect on THAT frame is carried by q_c.
+> 2. **Factorization to carry forward:** msg_f = m_f · o_proj(Σ_j ŵ_j v_j) — scale m_f
+>    (algebraically EXCLUDED from d′, which is per-frame-scale-invariant; also the refuted
+>    renorm target), within-frame routing ŵ_j (q-side), values v_j (encode-side). The 2×2
+>    swap experiment (joint vs clean q × joint vs clean k/v) separates the last two.
+> 3. **Instrument note:** masking the carrier's softmax to one frame is ALGEBRAICALLY the
+>    refuted renorm variant — within-frame softmax shape is unchanged by removing other
+>    frames' logits (softmax ratios are subset-independent); only m_f changes, and d′ doesn't
+>    see m_f. That variant tests nothing new and is not run.
+> Downstream text updated with supersession notes (STORY.md §supply, theory_background.html
+> Wall Ⅰ) after the P1 verdict lands. [2026-07-11r]'s MEASUREMENTS are untouched — only the
+> mechanism attribution is narrowed.
+
+## [2026-07-12b] ✅📊 P1 — THE QUERY/ENCODING 2×2 LANDS: QUERY CONTAMINATION IS DOMINANT — with the carrier query taken from the JOINT forward, per-frame d′ collapses to the joint level REGARDLESS of whose values are read (joint-q × clean-kv = 1.59 ≈ joint×joint 1.71 @L16), while a CLEAN query reading the JOINT-encoded values retains most separability (clean-q × joint-kv = 3.14 of clean×clean 4.79); Tal's session prediction confirmed — the joint-context tax lives in the carrier's mis-routed within-frame attention ŵ_j, with a real but secondary encoding component
+
+> **Runs:** capture job **120529** (n=150, 3 forwards/sample: joint / multipass / text-padded
+> single; pre-rotary q_c, k_j, v_j at L14/16 + joint rope slices + dequantized o_proj; 3.3 GB) →
+> `outputs/ladder/image_longN/qkv_2x2/20260712_full/`; analysis job **120530** (within-frame
+> softmax, ONE consistent joint geometry, o_proj applied, held-out LDA ×3 seeds) →
+> `.../20260712_full/analysis/` (report.txt, results.csv). New code:
+> `experiments/glstm/qkv_2x2_{capture,analysis}.py` (smokes 120453 + login n=4).
+
+**ANCHOR GATE (charter: hard):** the literal band FAILS — pad×pad 4.79 < 5.3 @L16 (L14 2.68) —
+and the required debug attributes it to a UNIFORM reconstruction compression: (i) all arms are
+read under the JOINT rope geometry (the controlled-mixing choice; it moves the clean arms' native
+carrier↔frame relative phases), (ii) fp16 capture + dequantized-o_proj path. The compression is
+structure-preserving: mp×mp / pad×pad / joint×joint = 5.55 / 4.79 / 1.71 reproduces the native
+7.18 / 5.37 / 1.97 ordering with matched RATIOS (joint/mp: 0.31 vs native 0.27; pad/mp: 0.86 vs
+0.75). Off-diagonals are therefore interpreted on the reconstruction's own scale, with this
+caveat attached to every number below.
+
+| L16 (d′_w, rows = q-arm, cols = kv-arm) | pad-kv (clean) | joint-kv | mp-kv |
+|---|---|---|---|
+| pad-q (clean) | **4.79** | 3.14 | 4.87 |
+| joint-q | **1.59** | 1.71 | 1.60 |
+| mp-q | 5.33 | 3.48 | **5.55** |
+
+**Registered verdicts.**
+1. "joint-q × clean-kv ≪ clean×clean ⇒ query contamination dominant" — **✓ LANDS, maximally**:
+   the joint query flattens EVERY kv arm to 1.59–1.71 (share of the clean−joint gap ≈ 104%).
+2. "clean-q × joint-kv ≪ clean×clean ⇒ encoding dominant" — partial: 3.14 < 4.79 (share ≈ 54%,
+   overlapping with 1) — the joint-encoded values DO carry most of the frame's evidence; the
+   encoding component is real but secondary.
+3. Mechanism statement (supersedes [2026-07-11r] per the [2026-07-12] correction): the
+   joint-context tax is carried chiefly by the CARRIER QUERY — q_c, formed after attending the
+   whole multi-frame context, mis-routes within each frame's 196 tokens (ŵ_j points at the
+   wrong patches), even when the values it mixes are clean. Consistent with everything prior:
+   renorm null (mass ≠ routing), fence null (the query reads through legal edges), companion
+   grading (q_c's corruption scales with how much same-domain content it absorbed), first-frame
+   causality (k,v companion-free yet d′ drops — because the READ drops).
+
+**P1d gate (registered "wire the clean-query joint read into the pipeline if d′ ≥ 5"):** the
+grid's clean-q × joint-kv cell IS that fix's d′ — **3.1–3.5, below the ≥5 wiring bar** → not
+wired. Noted for the thesis: a clean-query read of one joint forward delivers k=2-chunk-level
+margins (≈3.4) at ~2 forwards for ANY N — the economics beat k=2 (N/2 forwards) even though
+the supply is unchanged; a deployable frameless-q variant is measured next.
+
+**Caveats.** Reconstruction scale ~0.85× native (documented above; all comparisons within-grid);
+n=150, L14 shows the same pattern compressed (joint-q row 1.38–1.63 vs pad×pad 2.68); q for the
+joint arm is the single carrier query shared across frames (as deployed); fp16 capture.
+
+## [2026-07-12c] ✅📊 P1d CLOSED (both branches negative, mechanistically decisive): the deployable "frameless clean query" reads joint-encoded frames at d′ 0.53–1.07 — WORSE than the joint query itself (1.71) and far below the per-frame clean query (3.14) — so the query is not "clean vs contaminated" as a static object: q_c carries FRAME-CONDITIONED routing (where to look inside THIS frame), acquired only by attending the frame; a single query attending 8 frames holds a compromise routing program for all of them — the joint-context tax is a ONE-QUERY-MANY-FRAMES binding/capacity limit
+
+> **Runs:** frameless-q capture job **120533** (one gray-image, filler-padded forward per sample,
+> question identical; q_c at L14/16) + CPU analysis **120539** →
+> `outputs/ladder/image_longN/qkv_2x2/20260712_full/{frameless_q.pt,frameless_analysis/}`.
+> `experiments/glstm/frameless_q_{capture,analysis}.py`.
+
+| query variant (× joint-kv, @L16) | d′_w |
+|---|---|
+| per-frame clean q (saw frame f alone, padded) | 3.14 |
+| joint q (saw all 8 frames) | 1.71 |
+| **frameless q (saw no frame)** | **0.53** |
+
+**Readings.** (1) The monotonicity frameless < joint < per-frame in frames-seen-specificity
+nails the mechanism: within-frame routing quality tracks how specifically q_c was conditioned
+on the frame being read. The joint query is not "noise-corrupted" — it is a rate-limited
+compromise: one 3584-dim vector cannot hold 8 frame-specific routing programs (the thesis's
+over-squashing lens, now at the QUERY: the bottleneck squeezes not the evidence but the
+addressing). (2) **P1d wiring: dead on both counts** — the ≥5 bar unmet (3.1–3.5 ceiling even
+with per-frame clean queries) and the 2-forward economics variant fails outright (0.53). The
+only clean queries are per-frame ones, i.e., exactly the k=1/2 forwards the pipeline already
+uses. P2 (adaptive verification) proceeds as the cost lever.
+
+**Caveats.** Frameless q built with a gray image in the slot (the model may treat "no real
+frame" pathologically; a text-only-question q was not tested — but the direction of the result
+makes the deployable variant moot regardless); same reconstruction-scale caveat as
+[2026-07-12b]; n=150.
+
+## [2026-07-12d] ✅📊 P3 — LONG-N TASK ALGEBRA: the support-size pipeline holds at scale — rooms_visited 0.993 @N=32 and 0.967 @N=128 (frozen: 0.300 / 0.213; registered "≥0.9 both N" ✓✓); co_occupancy degrades gracefully 0.367 → 0.233 (frozen 0.073 / 0.060) — just BELOW the registered 0.3–0.5 band at N=128 (scored partial): the pair-visibility verifier's ~0.92/frame error compounds over 128 frames exactly as the per-frame-supply bound dictates
+
+> **Data:** `data/mmred_longN_{rooms_visited,co_occupancy}/seq_len_{32,128}/` (jobs 120449–52;
+> render 512, 5-char, per-count 75/35/27; rooms counts native 1–6 — the support-size target
+> does NOT grow with N, isolating the operator from count-range effects).
+> **Runs:** jobs **120503/120505** (N=32) and **120504/120506** (N=128) →
+> `outputs/pipeline/e2e_algebra_{rooms,cooc}_N{32,128}/<ts>/` (n=150, verify-all, seed 3;
+> report headers say "N=8" — a cosmetic label bug; forwards/sample 34/130 confirm the N).
+
+| task | N=32 | N=128 | frozen (32/128) | registered |
+|---|---|---|---|---|
+| rooms_visited (distinct-count operator) | **0.993** | **0.967** | 0.300 / 0.213 | ≥0.9 both ✓✓ |
+| co_occupancy (pair-Σ operator) | 0.367 | 0.233 | 0.073 / 0.060 | 0.3–0.5: ✓ @32, **✗ @128 (0.233)** |
+
+**Readings.** (1) The distinct-count operator is nearly N-INVARIANT (0.993→0.967 over 4× frames)
+— set-union absorbs per-frame read errors unless a NEW room is hallucinated; with per-frame room
+reads at ~0.99 the union stays clean. This is the strongest long-N number in the project and the
+cleanest demonstration that the operator choice, not N, governs pipeline scaling. (2) cooc's
+graceful decay tracks its verifier: ~0.92 per-frame same-room accuracy → sum over 128 frames →
+MAE 5.3 (vs the frozen model's catastrophic 43.7 — it answers small numbers while gold reaches
+128). The honest miss vs the 0.3 band-edge at N=128 re-confirms the universal bound: pipeline
+accuracy = f(per-frame verifier quality, operator error-absorption), and pair-predicates are the
+weakest verifier in the family. (3) Renders lossless in all four cells (rendered == tally).
+
+**Caveats.** verify-all (no shortlist) — N+2 forwards; cooc gold band at N=128 includes counts
+up to 128 (exact-match is harsh; MAE tells the graceful-degradation story); seed 3, n=150/cell.
+
+## [2026-07-12e] ✅📊 P2 — RETRIEVE COST FIX: both registered variants REFUTED, and P1 explains why — adaptive early-stop loses 0.10–0.13 accuracy for ≤13% cost savings (0.733/0.740/0.693 @32/64/132 fwd); two-stage joint-prefilter is within 0.033 of v2 only at N=64 (0.773/0.820/0.680 @31/72/142 fwd); the verification cost is CALIBRATION-BOUND: with d′≈3.4 margins under a recall-safe constraint, ~⅔ of frames must be verified regardless of scheduling — and [2026-07-12c] shows margins can't get better without per-frame-conditioned queries, i.e., the k=1/2 forwards themselves
+
+> **Runs:** adaptive jobs **120534/120535/120536**, two-stage **120556/120557/120558** →
+> `outputs/pipeline/e2e_{adaptive,twostage}_N{32,64,128}/<ts>/` (n=150, seed 4). Adaptive =
+> descending-margin verify with a ceil(0.15N) consecutive-no stop (no threshold); two-stage =
+> joint pre-filter (FN≤1%) → k=2 margins on survivors (FN≤2%) → verify.
+
+| N | retrieve-v2 (ref) | adaptive | two-stage |
+|---|---|---|---|
+| 32 | 0.862 @36.9 | 0.733 @32.0 | 0.773 @31.1 |
+| 64 | 0.853 @76.8 | 0.740 @64.0 | **0.820 @72.4** |
+| 128 | 0.791 @150.8 | 0.693 @132.5 | 0.680 @142.1 |
+
+**Registered verdicts.** P2a (cost O(evidence+window), accuracy within 0.03): **✗ both counts** —
+the stability window rarely triggers early because evidence sits throughout the 65%-quality
+margin ordering. P2b fallback: within-band at N=64 only (−0.033), **✗** at 32/128; savings ≤15%.
+**Closing synthesis (the campaign's cost story):** the ~N verification floor is not a scheduling
+failure but a margin-quality consequence — d′ 3.4 margins at 98% recall keep ~⅔ of frames, and
+the P1 mechanism ([2026-07-12b,c]) proves better margins need frame-conditioned queries, which
+cost one forward per frame(-pair) by construction. Accuracy and cost are two faces of the same
+supply bound. v2 (0.79–0.88, ~1.15N forwards) stands as the deployable configuration; below-N
+cost at matched accuracy would require breaking the one-query-many-frames limit inside the
+model — a training-time question, out of frozen-model scope.
+
+**Caveats.** Window/thresholds per registered protocol (0.15N, FN≤2%/1%) — other operating
+points trade differently but cannot beat the margin ROC; seed 4, n=150/N.
+
+## [2026-07-12f] 📊 Session note — parallel threads by Tal (same account, 2026-07-12): the P1 capture (job 120529) and grid analysis (120530) that this campaign's [2026-07-12b] uses were submitted from Tal's side using the campaign's scripts; his follow-up own-geometry anchor variant (`qkv_2x2/20260712_geomfix`, jobs 120537/120566, n=8) is exploratory-scale (LDA noise floor at n=8 — not interpretable yet) and remains HIS open thread: a full-n own-geometry rerun would test whether native-geometry anchors land in the 5.3–7.2 band and firm up the [2026-07-12b] reconstruction-compression account.
+
+## [2026-07-12g] ✅📊 QUERY-GENERALIZATION test (does one frame's query read others? → the deployable-query-fix test): DECISIVELY NEGATIVE and stronger than "no" — a per-frame query reading a DIFFERENT frame scores d′ 1.02 @L16, WORSE than the generic joint query (1.71) and far below its own frame (3.48); carrier queries are frame-SPECIFIC routing programs that are ACTIVELY WRONG on other frames, so no single-query "one probe → read all N" fix exists
+> **Motivation:** [2026-07-12b/c] showed query-side dominance; the untested question for a DEPLOYABLE
+> fix was whether a query from ONE real-frame forward generalizes to read OTHER frames (transfer =
+> 1-forward fix; frame-specific = no fix). CPU recompute on the existing n=150 2×2 capture
+> (`qkv_2x2/20260712_full`), joint rope geometry, job **120609** →
+> `.../query_gen/`. New: `experiments/glstm/query_generalization.py`.
+>
+> | read frame f with… (L16) | d′_w |
+> |---|---|
+> | its OWN clean query | 3.48 |
+> | the JOINT query (compromise over all 8) | 1.71 |
+> | a DONOR query (from a different frame) | **1.02** |
+>
+> **Readings.** (1) donor < joint < own: a query tuned to frame A mis-routes on frame B (worse than
+> the compromise joint query, which at least attended B) — even though all 8 MMRED frames are the
+> SAME scene (per-frame character arrangement differs enough to break transfer). Queries are not
+> sharp-vs-blurry detectors; they are frame-specific "where to look in THIS arrangement" programs.
+> (2) **Kills the query-transfer fix** ("one probe forward → reuse its query to read all N"): ruled
+> out. The masked-carrier-probe alternative (N question-probes, one forward) still gives N
+> frame-specific queries but reads JOINT-encoded frames (cap ≈3.1) at ≈multipass compute while
+> multipass reads CLEAN frames (cap ≈7) — dominated. **No deployed-query trick improves aggregation
+> on the frozen model.** (3) Confirms the one-query-many-frames capacity limit at its strongest: even
+> one frame's *perfect* query is worse than the generic query on any other frame. The per-frame tally
+> pipeline is necessary; the cost lever is shortlisting (fewer per-frame reads), not query cleverness.
+> **Caveats:** reconstruction-scale caveat as [2026-07-12b] (relative comparison, joint geometry); n=150,
+> steps, L14/16; donor set = other same-scene frames (cross-scene could differ but only strengthens the point).
+
+## [2026-07-12h] ✅📊 ENCODING UN-MIXER — the encoding half of the joint-context tax is REVERSIBLE: a small learned map (trained joint-kv→mp-kv, label-free) recovers ~98–100% of the clean-encoding d′ gap, while the query half is a capacity limit — the two halves of the tax are mechanistically OPPOSITE
+> **Motivation:** the 2×2 ([2026-07-12b]) split the joint tax into query (dominant) + encoding
+> (secondary, clean-q×joint-kv 3.1 vs clean-q×mp-kv 4.4). This tests whether the ENCODING gap is
+> entangled-but-recoverable (learned map cleans it) or destroyed. CPU, existing 2×2 capture
+> (`qkv_2x2/20260712_full`); train g_k,g_v per-token pre-rotary joint→mp on 90 samples (label-free
+> reconstruction), apply to 60 held-out, read with the PERFECT (mp) query, d′ vs joint/mp anchors.
+> Job **120621**; new `experiments/glstm/encoding_unmixer.py`.
+>
+> | read joint-encoded frame, perfect query (L16, recon units) | d′_w |
+> |---|---|
+> | joint values (baseline) | 3.13 |
+> | **un-mixed values (ridge)** | **4.37** (98% of gap) |
+> | **un-mixed values (MLP)** | **4.67** (≈ceiling, within n=60 noise ±0.3) |
+> | clean/mp values (ceiling) | 4.39 |
+>
+> **Readings.** (1) A label-free learned map recovers essentially ALL the encoding-degradation gap
+> → the joint context does NOT destroy per-token evidence; it applies an invertible mixing an
+> adapter undoes. **Encoding degradation is REVERSIBLE.** (L14 same pattern: 1.48→1.92/2.41,
+> ceiling 2.21.) No label leak (trained on rep-reconstruction; d′ on disjoint eval); legitimately
+> can exceed the 3.1 pooled-message figure because it acts on the 196 per-token reps before pooling.
+> (2) **The two halves of the joint-context tax are mechanistically OPPOSITE:** encoding =
+> reversible mixing (recoverable); query = capacity limit (a wrong query ACTIVELY destroys the read
+> — donor 1.02 < joint 1.71 < own 3.1, [2026-07-12g]). The frozen joint VALUES are fine; the
+> irreducible wall is the QUERY's addressing capacity. (3) **Deployability caveat:** used the
+> perfect per-frame query, so not a standalone deployed fix (with the joint query the read is
+> query-limited). The decisive follow-up is a QUERY un-mixer (reconstruct q^(f) from the joint
+> state): if it works, one joint forward + two small adapters = full recovery with no per-frame
+> forwards (trained, cheap at inference); if not, the query capacity limit is the floor.
+> **Caveats:** recon-scale (recovers the clean-q encoding gap 3.1→4.4, not the recon→direct 4.4→7.2
+> deflation); n_eval=60 (d′ ±0.3, MLP-over-ceiling within noise → read "≈100%"); steps, L14/16.
+
+## [2026-07-12i] ✅📊 QUERY UN-MIXER — the query half is IRREDUCIBLE: it cannot be reconstructed from the joint forward (recovers −37%, reads WORSE than the joint query), so the two halves of the tax are asymmetric — encoding reversible ([2026-07-12h]), query a hard capacity limit → NO one-forward deployable fix
+> **Motivation:** [2026-07-12h] showed encoding degradation is reversible; the decisive follow-up is
+> whether the per-frame query q^(f) is reconstructable from the SINGLE joint forward (→ one-forward
+> fix with two adapters). Learned map (ridge) from [joint carrier q + mean-pooled frame-f joint k,v]
+> → mp query; value un-mixers (MLP) reused for the combined condition. CPU, existing capture; job
+> **120622**; new `experiments/glstm/query_unmixer.py`. **Data-limited: only ~720 query examples
+> (1/frame) for a 3584-dim target vs 150k tokens for values — recovery is a lower bound.**
+>
+> | read frame f from ONE joint forward (L16, recon units) | d′_w |
+> |---|---|
+> | joint-q × joint-kv (deployed baseline) | 1.71 |
+> | **unmix-q × joint-kv** (reconstructed query) | **1.19** (−37%: WORSE than baseline) |
+> | mp-q × joint-kv (query ceiling) | 3.13 |
+> | unmix-q × unmix-kv (BOTH adapters) | 1.48 |
+> | mp-q × mp-kv (full ceiling) | 4.39 |
+>
+> **Readings.** (1) The reconstructed query reads BELOW the joint query (1.19<1.71) — a data-starved
+> underfit would regress toward the mean query (≈baseline), not produce a worse-than-baseline
+> mis-route; the map produces donor-like frame-specific-but-wrong queries. **The per-frame routing
+> program is not present in the one-query-many-frames joint state; it can only be CREATED by
+> attending the frame (a per-frame forward).** (2) Converges with two training-free results:
+> frameless q 0.53, donor q 1.02 ([2026-07-12g]) — three independent angles, same verdict. (3)
+> **The two halves of the joint-context tax are ASYMMETRIC:** encoding = reversible mixing
+> (un-mixer ~100%, [2026-07-12h]); query = irreducible capacity limit (this). Cleaning values is
+> free but wasted behind a broken query (both-adapters 1.71→1.48, no gain). **⇒ NO one-forward
+> deployable supply fix; per-frame (multipass/chunk) forwards are provably the floor — the one thing
+> joint processing cannot preserve is the addressing.** (4) L14 identical pattern (query −5%,
+> both +13% — within noise of null).
+> **Caveats:** query un-mixer data-limited (720 ex, ridge; a larger capture could firm the null —
+> but negative-not-weak + frameless/donor convergence make "irreducible" the strong reading);
+> recon-scale; n_eval=60 (±0.2–0.3); steps, L14/16. A definitive version = capture ~1k+ samples for
+> the query map (parked).
+
+## [2026-07-13] ✅📊 n=500 FIRM-UP of the query/encoding dissection — the reconstruction ANCHOR now VALIDATES (mp×mp own-geometry 7.81 ≈ direct 7.18), so the 2×2 is on the REAL d′ scale; value un-mixer 93% at scale; and query-irreducibility is AIRTIGHT — the query un-mixer still fails NEGATIVELY (−27%) at 3–4× the data
+> **Motivation:** the [2026-07-12b–i] dissection was n=150, single-seed, and the reconstruction anchor
+> FAILED at small n (deflated absolutes). Re-capture at n=500 (job **120639**, 13.4 GB) + analysis
+> battery (job **120645**, 180 GB — the first pass OOM'd on the 4h_0g 16 GB cap; note: 13.4 GB capture
+> needs a GPU-QOS high-mem node). Dir `outputs/ladder/image_longN/qkv_2x2/20260712_n500/`.
+>
+> **1 · ANCHOR VALIDATES (the key methodological win).** L16 fixed-geometry pad×pad **6.29** (band
+> 5.3–7.2 ✓), joint×joint **2.33** (2.0±0.5 ✓); own-geometry mp×mp **7.81** ≈ **direct 7.18** ✓,
+> pad×pad(own) 6.84 ✓. ⇒ the earlier "reconstruction deflation" was just **finite-sample d′
+> under-estimation**, not a recompute bug; at n=500 the CPU reconstruction matches the real forward.
+> **The 2×2 numbers are now quotable on the true d′ scale.** (L14 anchor still low — intrinsically
+> lower-d′ layer; quote L16.)
+>
+> **2 · The query/encoding 2×2, real scale (L16, d′_w):**
+> | q \ kv | pad(clean) | joint | mp(clean) |
+> |---|---|---|---|
+> | pad(clean) | 6.29 | 3.97 | 6.13 |
+> | **joint** | 1.97 | **2.33** | 1.91 |
+> | mp(clean) | 6.92 | 4.47 | **7.33** |
+>
+> Joint query collapses the read to ~2 regardless of encoding (1.91 even on clean values); a clean
+> query recovers to 4–4.5 on joint values, 6–7 on clean. QUERY-contamination share **1.09**,
+> ENCODING share 0.59 — query dominant, confirmed at scale.
+>
+> **3 · Value un-mixer: RECOVERABLE at scale** (L16, MLP): joint 3.82 → un-mixed **6.17** ≈ ceiling
+> 6.33 (**93%**); ridge 54%. Encoding degradation is reversible — confirmed n=500.
+>
+> **4 · Query un-mixer: IRREDUCIBLE, now AIRTIGHT** (L16): joint 2.09 → un-mixed **1.63** (−27%,
+> WORSE than baseline) with ~2,400 training examples (3–4× [2026-07-12i]'s 720). The negative result
+> replicates at scale — NOT a data-limitation artifact. Both-adapters recovers −6% (the value gain is
+> wasted behind a broken query). **The joint-context tax is confirmed: reversible value-mixing +
+> irreducible query-addressing-capacity limit; per-frame forwards are the supply floor.**
+> **Caveats:** n_eval=200, single capture seed (7); L16 (peak carrier); the [2026-07-12b–i] entries'
+> relative conclusions all hold — this entry puts them on the validated absolute scale and removes the
+> data-limitation caveat on query-irreducibility.

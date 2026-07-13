@@ -1,0 +1,396 @@
+<title>d′ Theory — Anticipated Objections</title>
+<style>
+  :root{
+    --paper:#faf8f4; --card:#ffffff; --card2:#f2efe8; --ink:#1d1a14; --muted:#6b6353;
+    --line:#e5dfd2; --line2:#d3cbba;
+    --acc:#4c56c0; --acc-soft:#4c56c01f;
+    --evid:#4c56c0; --noise:#b07d2e;
+    --ok:#3d7d4f; --warn:#a5731f; --bad:#b3483f;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --serif:Charter,"Bitstream Charter",Cambria,Georgia,serif;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --paper:#12141a; --card:#191c24; --card2:#1f232e; --ink:#e9e7e0; --muted:#9a948a;
+    --line:#2a2e3a; --line2:#3a3f4e;
+    --acc:#98a0ff; --acc-soft:#98a0ff22; --evid:#98a0ff; --noise:#d9a75e;
+    --ok:#6fbb84; --warn:#d9a54a; --bad:#e07b70;
+  }}
+  :root[data-theme="light"]{
+    --paper:#faf8f4; --card:#ffffff; --card2:#f2efe8; --ink:#1d1a14; --muted:#6b6353;
+    --line:#e5dfd2; --line2:#d3cbba; --acc:#4c56c0; --acc-soft:#4c56c01f;
+    --evid:#4c56c0; --noise:#b07d2e; --ok:#3d7d4f; --warn:#a5731f; --bad:#b3483f;
+  }
+  :root[data-theme="dark"]{
+    --paper:#12141a; --card:#191c24; --card2:#1f232e; --ink:#e9e7e0; --muted:#9a948a;
+    --line:#2a2e3a; --line2:#3a3f4e; --acc:#98a0ff; --acc-soft:#98a0ff22;
+    --evid:#98a0ff; --noise:#d9a75e; --ok:#6fbb84; --warn:#d9a54a; --bad:#e07b70;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--serif);
+    font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:820px;margin:0 auto;padding:0 26px}
+  h1,h2,h3{line-height:1.16;text-wrap:balance;margin:0;letter-spacing:-.012em}
+  a{color:var(--acc)}
+  .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--acc);font-weight:600}
+  .m{font-family:var(--mono);font-size:.92em;font-variant-numeric:tabular-nums}
+  em.d{font-style:italic}
+  header{padding:54px 0 26px;border-bottom:1px solid var(--line)}
+  header h1{font-size:34px;font-weight:700;margin:10px 0 12px}
+  header p{color:var(--muted);max-width:62ch;margin:0}
+  .toc{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+  .toc a{font-family:var(--mono);font-size:12px;text-decoration:none;color:var(--muted);
+    border:1px solid var(--line2);border-radius:999px;padding:4px 12px}
+  .toc a:hover{color:var(--acc);border-color:var(--acc)}
+  section{padding:34px 0 4px}
+  p{margin:0 0 14px;max-width:70ch}
+  .obj{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--bad);
+    border-radius:0 12px 12px 0;padding:16px 22px;margin:0 0 14px;font-style:italic;font-size:19px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .obj .who{display:block;font-style:normal;font-family:var(--mono);font-size:11px;
+    letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:var(--bad);margin-bottom:6px}
+  .short{font-weight:700;max-width:70ch}
+  .math{font-family:var(--mono);font-size:14px;background:var(--card2);border:1px solid var(--line);
+    border-radius:8px;padding:10px 16px;margin:10px 0;overflow-x:auto;white-space:nowrap}
+  .data{background:var(--acc-soft);border-radius:8px;padding:10px 16px;margin:14px 0 6px;font-size:15px;
+    max-width:none}
+  .data b{font-family:var(--mono);font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .grid2 .cell{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px 16px;
+    font-size:15px}
+  .grid2 .cell b{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;
+    display:block;margin-bottom:4px}
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:14px 0}
+  table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  thead th{background:var(--card2);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--muted)}
+  tbody tr:last-child td{border-bottom:none}
+  footer{border-top:1px solid var(--line);margin-top:44px;padding:24px 0 70px;
+    font-family:var(--mono);font-size:12px;color:var(--muted);line-height:1.9}
+  .toggle{position:fixed;top:14px;right:14px;z-index:10;font-family:var(--mono);font-size:12px;
+    background:var(--card);border:1px solid var(--line2);color:var(--muted);
+    border-radius:999px;padding:6px 12px;cursor:pointer}
+  .toggle:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+
+<button class="toggle" id="themeBtn" aria-label="Toggle color theme">◐ theme</button>
+
+<header>
+  <div class="wrap">
+    <span class="eyebrow">Peer defense · Q&amp;A</span>
+    <h1>Anticipated objections — and the answers</h1>
+    <p>The six challenges a sharp peer will raise against the d′ theory, each with the full response
+      and a one-breath version for the room. Every number traces to a real run (RESULTS.md
+      [2026-06-28]–[2026-07-11]). Companion to the
+      <a href="https://claude.ai/code/artifact/1a534b5d-d1ed-42cc-8a03-81a1771519f1">mathematical
+      background page</a>.</p>
+    <nav class="toc">
+      <a href="#q1">1 · why SDT at all</a><a href="#q2">2 · why linear</a>
+      <a href="#q3">3 · Gaussian = toy data?</a><a href="#q4">4 · why Gaussian at all</a>
+      <a href="#q5">5 · probe artifact?</a><a href="#q6">6 · novel? portable?</a>
+      <a href="#q7">7 · why one axis</a><a href="#q8">8 · why LDA</a>
+      <a href="#q9">9 · it's a mean, not a sum</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section id="q1">
+  <div class="obj"><span class="who">Objection 1</span>
+    "Why are you using signal detection theory here, exactly? It's a psychophysics framework."</div>
+  <p class="short">Because the measured situation is literally SDT's founding problem — and because the
+  framework earned its place by replacing a fitted story with a zero-parameter law that passed.</p>
+  <p><strong>Structural fit.</strong> SDT was built (radar, then psychophysics — Green &amp; Swets 1966)
+  for one question: from a single noisy observation, decide whether a binary event is present. Per-frame
+  evidence detection <em class="d">is</em> that question: a "noise-alone" trial is a non-evidence
+  message m = μ + ε; a "signal-plus-noise" trial is an evidence message m = μ + δ + ε. No analogy is
+  being stretched — it is the same two-distributions-one-detector setup, with the observation living in
+  3584 dimensions instead of one.</p>
+  <p><strong>Epistemic fit.</strong> The alternative was tried first and failed: the earlier ad-hoc
+  "SNR" account used the naive axis and a <em class="d">fitted</em> collapse curve gated by an arbitrary
+  threshold — and it was quantitatively inconsistent with its own numbers (predicted ~0.15 where 0.45
+  was measured; the fit papered it over). The SDT restatement replaced it with
+  <span class="m">2Φ(d′/2√N) − 1</span>: two measured inputs, zero fitted parameters, falsifiable — and
+  it landed across 16+ regimes, two model families, image and text, including predicting the model's
+  own behavioral accuracy from the d′ along its own native axis.</p>
+  <div class="data"><b>in the room</b> &nbsp;"It's not borrowed decoration — it's the exact detection
+  problem, and the framework is held to a zero-fitted-parameter prediction, which it passes."</div>
+</section>
+
+<section id="q2">
+  <div class="obj"><span class="who">Objection 2</span>
+    "Why a linear readout of the messages? Why limit yourself to linear decodability when stronger
+    tools exist?"</div>
+  <p class="short">We didn't limit ourselves — nonlinear probes were run and never won; and under the
+  audited model, post-sum linearity is a theorem, not a restriction.</p>
+  <p><strong>(a) The stronger tools were tried, head-to-head.</strong> E3 ran MLP-on-sum vs
+  linear-on-sum on the same caches and splits: the MLP <strong>never</strong> beats linear —
+  <span class="m">21/21 regimes, Δ = −0.04…−0.58</span> (extra capacity only overfits the noise).</p>
+  <p><strong>(b) Under the model, linear is optimal — so the "limit" costs zero.</strong> Fisher (1936):
+  for two equal-covariance Gaussian classes the Bayes-optimal rule of <em class="d">any</em> form is
+  linear. And the matched filter t = w*ᵀS is a <em class="d">sufficient statistic</em> of the pooled sum
+  for the count: any function of S — an MLP, another transformer, anything — can only re-process t plus
+  count-irrelevant noise. No post-sum nonlinearity can beat it, as a theorem under a premise the E4
+  battery audits per regime.</p>
+  <p><strong>(c) The theory locates where nonlinearity does matter — and uses it there.</strong></p>
+  <div class="math">before the sum: nonlinearity essential (per-frame gate 0.09 → 1.00) · after the sum: provably inert (MLP ≤ linear, 21/21)</div>
+  <p>DeepSets says any permutation-invariant function is ρ(Σ φ(m_k)); sufficiency caps ρ; so the only
+  productive site for a nonlinearity is per-frame, pre-sum. The data honors the bracket: decode-then-count
+  0.47–0.59 vs best-linear-on-sum ~0.38–0.47; and on rooms-visited — whose reduction (support size) is
+  provably nonlinear in the tallies — the theory <em class="d">predicted its own linear probe's
+  failure</em>: linear 0.40 &lt; per-channel threshold 0.65 ≪ decode-then-count 0.99 on the same pooled
+  vector.</p>
+  <p><strong>(d) Measurement hygiene.</strong> A held-out linear probe cannot manufacture separability
+  from finite noise; a high-capacity nonlinear probe can. Linear is the conservative instrument — it
+  makes the reported d′ an honest lower bound on supply (and the block-read analysis then measures how
+  tight that bound is by combining loci).</p>
+  <div class="data"><b>in the room</b> &nbsp;"Post-sum, nothing beats linear — proven under an audited
+  premise and confirmed 21/21 by the MLP that never wins. Pre-sum, nonlinearity is exactly what's
+  needed, and the theory both says so and demonstrates it."</div>
+</section>
+
+<section id="q3">
+  <div class="obj"><span class="who">Objection 3</span>
+    "Two Gaussian clouds with equal covariance — that only happens on simple datasets like MMRED,
+    not on real videos."</div>
+  <p class="short">Partly right — and the theory's own tables print it. But the boundary is
+  binary-vs-graded evidence, not synthetic-vs-real pixels; and when the premise fails, most of the
+  theory survives and the failure mode itself is a diagnosis.</p>
+  <p><strong>(1) We agree — we measured it.</strong> HERBench (real video) fails E4, loudly: skew +3.5,
+  excess kurtosis +2.6…+35, class-std ratio 1.4–2.2, and the two d′ estimators disagree by 20–40%. The
+  adequacy table publishes the FAIL. A framework that reports its own assumption's failure on real data
+  is doing the opposite of assuming it.</p>
+  <p><strong>(2) The boundary is not where the objection puts it.</strong> mmred_natural — real natural
+  images — <em class="d">passes</em> E4 and the law holds (pred 0.595 / meas 0.580; pred 0.596 /
+  meas 0.607). Meanwhile text-CWE, fully synthetic, <em class="d">fails</em> (std-ratio 1.2 → 10.8
+  with N). Gaussianity tracks whether the per-frame evidence is crisp (binary by construction) or
+  graded (HERBench: ~¼ crisp + ¾ marginal — occlusion, mid-action) — a property of the task's evidence
+  structure, not of how "real" the pixels are.</p>
+  <p><strong>(3) What survives the failure — most of the theory.</strong> The Φ-formulas are the only
+  casualty. Still standing: d′ as descriptive separability (a second-moment quantity, distribution-free);
+  the √N noise accumulation (needs only finite variance + weak dependence); the CLT self-repair — the
+  law concerns the <em class="d">sum</em> of N noises, which Gaussianizes as N grows even when per-frame
+  clouds don't; and ordering claims. On HERBench the prediction still lands in the right neighborhood
+  with the right ordering (pred 0.158, meas 0.196) — what is lost is the exact closed form and the
+  strict optimality ceiling.</p>
+  <p><strong>(4) The alarms are diagnoses.</strong> Skew + kurtosis = mixture → the paved-road extension
+  is a graded evidence label (mixture / unequal-variance SDT is textbook material). Std-ratio blowup =
+  one near-deterministic class → QDA regime, where the linear law <em class="d">under</em>-predicts —
+  the failure is in the conservative direction. MMRED's role is the controlled lab where a
+  zero-parameter law can be validated cleanly; E4 is the instrument you carry when you leave the lab.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>regime</th><th>pixels</th><th>evidence</th><th>E4</th></tr></thead>
+    <tbody>
+      <tr><td>image-MMRED (3 tasks)</td><td>synthetic</td><td>binary</td><td class="m">PASS</td></tr>
+      <tr><td>mmred_natural</td><td><strong>real photos</strong></td><td>binary</td><td class="m">PASS — law holds</td></tr>
+      <tr><td>text-CWE</td><td>none (text)</td><td>binary, degenerate filler</td><td class="m">FAIL — variance</td></tr>
+      <tr><td>HERBench</td><td>real video</td><td><strong>graded</strong></td><td class="m">FAIL — mixture</td></tr>
+    </tbody>
+  </table></div>
+  <div class="data"><b>in the room</b> &nbsp;"Correct — real video breaks it, and our table says so.
+  But natural images pass: the boundary is graded-vs-binary evidence, not real-vs-synthetic. When it
+  breaks, d′, √N and the ordering survive — only the exact closed form is lost — and the specific alarm
+  tells you which extension to use."</div>
+</section>
+
+<section id="q4">
+  <div class="obj"><span class="who">Objection 4</span>
+    "Why should the noise be Gaussian in the first place?"</div>
+  <p class="short">It isn't assumed — it's defined as the residual and then audited; and the theory
+  needs far less Gaussianity than it appears to.</p>
+  <p><strong>Defined, then audited.</strong> ε is the leftover after removing class means — a
+  construction, not a claim. The claims (Gaussian, equal covariance, independent across frames) are each
+  separately tested by E4 on the held-out projections: |skew| ≤ 0.15, excess kurtosis ≤ 0.2, class-std
+  ratio 0.89–0.92, and d′_gap ≈ d′_AUC (two estimators that coincide exactly for Gaussians and drift
+  apart otherwise — agreement is positive evidence, not absence of a red flag). Where checks fail, the
+  closed form is not quoted. The domain of validity is self-diagnosing.</p>
+  <p><strong>The theory needs less than it looks like.</strong> Three structural points:
+  d′ itself is a second-moment quantity — a valid descriptive separability for any distribution
+  (Gaussianity enters only where a Φ appears). What must be Gaussian is a <em class="d">1-D
+  projection</em>, not the 3584-dim cloud — and low-dimensional projections of high-dimensional data
+  are generically near-Gaussian (Diaconis–Freedman 1984). And the accuracy law concerns the
+  <em class="d">sum</em> Σε_k of N noises, which the CLT Gaussianizes as N grows even when per-frame
+  noise isn't — precisely in the large-N regime where the law matters, the assumption is manufactured
+  by the aggregation itself.</p>
+  <div class="data"><b>in the room</b> &nbsp;"We checked — here are the moments. And the parts of the
+  theory that survive without Gaussianity are exactly the parts we lean on at large N."</div>
+</section>
+
+<section id="q5">
+  <div class="obj"><span class="who">Objection 5</span>
+    "Isn't d′ a probe artifact? Probes famously find directions the model doesn't actually use."</div>
+  <p class="short">A legitimate worry in general — answered here causally, and by the strongest closure
+  in the record: the same law evaluated on the model's own axis predicts the model's own behavior.</p>
+  <p><strong>Causal grounding.</strong> The carrier locus was found by activation patching (patch it,
+  the answer moves), not by probing. Scaling the δ component of the messages during real forward passes
+  moves behavior in the predicted direction (E5 dose–response); ablating the evidence subspace collapses
+  the model into low answers while a <em class="d">dimensionality-matched control subspace</em> is
+  inert. The δ channel is load-bearing, not epiphenomenal.</p>
+  <p><strong>The native-axis closure.</strong> The strongest answer inverts the objection: we extracted
+  the model's <em class="d">own</em> reading axis at the locus and found it nearly orthogonal to the
+  optimal one (cos ≈ 0.005), carrying d′ = 0.51 of the available 2.47. The law evaluated at 0.51
+  predicts accuracy ≈ 0.17; the model measures 0.21–0.24. One formula, three axes, three correctly
+  predicted regimes (native → model behavior; whitened → probe ceiling; per-frame → supply). The linear
+  lens doesn't just find directions — it describes the mechanism the model uses, including how
+  miscalibrated that mechanism is. Replicated on a second model family (InternVL: native d′ 0.19,
+  pred 0.135, meas 0.117–0.137) and on text (native 0.80, pred 0.163, meas 0.165).</p>
+  <p><strong>Estimator honesty.</strong> All d′ values are held-out (sample-disjoint 60/40 × 3 seeds,
+  Ledoit–Wolf shrinkage), cross-checked by the rank-based AUC conversion; in-sample separability is
+  never reported. A probe cannot fake held-out separation.</p>
+  <div class="data"><b>in the room</b> &nbsp;"Patching found the locus, dose–response moves behavior,
+  a matched control subspace does nothing — and the law on the model's own axis predicts the model's
+  own accuracy in three regimes and two model families."</div>
+</section>
+
+<section id="q6">
+  <div class="obj"><span class="who">Objection 6</span>
+    "Is any of this new? And does any of it transfer beyond MMRED?"</div>
+  <p class="short">The machinery is deliberately 90 years old — the novelty is the measurement site and
+  the zero-parameter closure; the form transfers, the numbers are re-measured per dataset.</p>
+  <p><strong>Lineage (a feature, not a weakness).</strong> The decomposition m = μ + e·δ + ε is the
+  equal-variance SDT model (Green &amp; Swets 1966), the LDA generative model (Fisher 1936), and a
+  two-level ANOVA, simultaneously; d′-between-means is Mahalanobis (1936); pooled-population d′ and
+  correlated-noise corrections are the population-coding toolkit (Averbeck 2006; Moreno-Bote 2014 —
+  ρ is their "information-limiting correlations", measured here in a transformer); difference-in-means
+  directions are today's standard steering-vector practice. What is new: the exact per-frame
+  <em class="d">attention-message</em> decomposition at a causally identified carrier, pushing it
+  through the sum to a zero-fitted-parameter behavioral law, and the joint-vs-multipass ρ measurement
+  that turns "single-pass superposition" into a covariance number.</p>
+  <p><strong>Portability.</strong> The form is task-agnostic — requirements: a per-frame label
+  (binary or K-class via the channel extension), an identifiable locus, and an E4 pass. It was
+  re-derived, not assumed, on co-occupancy and rooms-visited (law + readout wall + carrier structure
+  replicate), on text frames with no vision at all, and on a second model family. What never transfers:
+  the numbers — μ, δ, Σ, d′, ρ, the carrier and layer are re-measured per regime (d′ ranges 0.19–6.6
+  across this project alone). Procedure portable; parameters local.</p>
+  <div class="data"><b>in the room</b> &nbsp;"Every component has a textbook citation — that's the
+  armor, not the gap. The contribution is where the electrode is placed, and that the resulting law
+  predicts behavior with nothing tunable in it."</div>
+</section>
+
+<section id="q7">
+  <div class="obj"><span class="who">Objection 7</span>
+    "Why read the messages out along one axis? Why not work with the full 3584-dimensional vector?"</div>
+  <p class="short">A linear readout of a vector <em class="d">is</em> an axis, by definition — and the
+  axis is computed from all 3584 dimensions, not a slice of them.</p>
+  <p>w* ∝ Σ⁻¹δ uses the full covariance and the full mean-gap: every dimension participates, loud
+  nuisance directions get suppressed, informative ones get weight. And under the audited model the
+  projection is a <em class="d">sufficient statistic</em>: the likelihood ratio between the classes
+  depends on m only through w*·m, so conditioned on that one number the other 3583 dimensions have
+  identical distributions in both classes — provably pure nuisance. Nothing was thrown away.
+  Practically, a held-out 1-D projection is also the largest object n ≈ 600 samples can estimate
+  honestly in 3584-d (even Σ needs Ledoit–Wolf shrinkage).</p>
+  <p>Where one axis provably cannot suffice, the framework detects it and scales up: multiclass labels
+  get K channels (rooms: per-room d′ 4.5–5.9); distributed carriers get block reads — and the
+  block-read-completeness check measured whether combining loci/dimensions recovers more than the
+  single-token axis: it barely does ("write-capped"). One axis is a measured conclusion, not an
+  aesthetic.</p>
+  <div class="data"><b>in the room</b> &nbsp;"The axis is built from all 3584 dimensions; under the
+  audited model the projection provably carries everything the full vector knows about the label; and
+  when we tested whether more dimensions held more, they didn't."</div>
+</section>
+
+<section id="q8">
+  <div class="obj"><span class="who">Objection 8</span>
+    "Why LDA specifically? You also use ridge and logistic elsewhere — isn't the probe choice
+    arbitrary?"</div>
+  <p class="short">LDA is not one probe among many here — it is the estimator OF the theory's central
+  object: its fitted direction is Σ⁻¹δ by construction, exactly the w* the derivation says is optimal.</p>
+  <p><strong>Why LDA for the axis and d′.</strong> The theory's quantity is
+  <span class="m">w* ∝ Σ⁻¹δ</span>. LDA's coefficient vector is literally (estimated Σ)⁻¹(estimated δ) —
+  the estimator and the theoretical object coincide. In 3584 dimensions with ~2,900 training frames the
+  raw Σ is singular, so we use <strong>Ledoit–Wolf shrinkage</strong> (2004): an analytically-optimal,
+  zero-hyperparameter blend of the empirical covariance with a scaled identity — the standard instrument
+  for n ≪ d decoding (ubiquitous in neural population decoding for exactly this regime). Every d′ is
+  then a <em class="d">held-out</em> gap/width on sample-disjoint splits (×3 seeds), cross-checked by
+  <span class="m">√2·Φ⁻¹(AUC)</span> — a rank-based estimator that fits nothing.</p>
+  <p><strong>The direction barely depends on the probe family.</strong> For two classes, the
+  least-squares/ridge direction is <em class="d">proportional to the LDA direction</em> (a classical
+  identity), and logistic regression converges to the same Bayes direction for near-Gaussian classes.
+  So "trained linear probe" is well-defined here — ridge, logistic, and LDA read essentially the same
+  axis; the reported whitened d′ is not an artifact of picking LDA.</p>
+  <p><strong>The division of labor across the project</strong> — each tool where its loss matches the
+  job:</p>
+  <div class="grid2">
+    <div class="cell"><b>shrinkage-LDA</b>estimates w* and d′ — the axis itself (binary evidence
+      detection per frame)</div>
+    <div class="cell"><b>RidgeCV → round</b>decodes the COUNT from the pooled sum — regression matches
+    the equispaced-means geometry of counting; measured 10–25 pts better than multinomial logistic,
+    a decoder-head effect, not a different axis</div>
+    <div class="cell"><b>logistic regression</b>comparison probe in E3 — same direction, different
+      loss; confirms probe-family invariance</div>
+    <div class="cell"><b>MLP</b>the nonlinear control — allowed to beat linear, never does (21/21);
+      its failure is the sufficiency theorem's empirical signature</div>
+  </div>
+  <div class="data"><b>in the room</b> &nbsp;"LDA isn't a choice of probe — its coefficients ARE the
+  Σ⁻¹δ the theory is about; shrinkage is the textbook fix for n ≪ d; ridge and logistic land on the
+  same direction; and the one place regression type matters (count decoding) we measured it and used
+  the better-matched head."</div>
+</section>
+
+<section id="q9">
+  <div class="obj"><span class="who">Objection 9</span>
+    "But the model doesn't sum — attention takes a softmax-weighted <em>mean</em>. Why should I care
+    that summing hurts?"</div>
+  <p class="short">At fixed N the distinction is vacuous — and the analysis was done on the model's real
+  attention output anyway. Across varying N the mean is strictly <em class="d">worse</em>, and that is a
+  measured, causal result. "It's a mean" doesn't dissolve the problem; it names a second one.</p>
+  <p><strong>(0) The premise misreads what was measured.</strong> The per-frame message is
+  <span class="m">msg_f = o_proj( Σ_{j∈f} A[c,j]·v_j )</span> — the softmax weights are
+  <em class="d">inside</em> m_f. The aggregate S = Σ_f msg_f is the exact algebraic split of what the
+  attention layer actually adds to the carrier's residual stream, normalization included. Nothing was
+  replaced by a hypothetical sum; every d′ and every parity row is a measurement of the model's real
+  aggregate.</p>
+  <p><strong>(1) At fixed N, mean ≡ sum — provably and measurably.</strong> A weighted mean is a sum
+  divided by a constant, and dividing by a constant scales the signal step Δ and the noise width
+  σ_w√N by the same factor — d′ is a ratio, so d′_N and the whole law are unchanged. Measured: mean and
+  sum decode identically at fixed N (<span class="m">0.439 = 0.439</span>). We blamed the denominator
+  too, for a while — then measured it. At fixed N the denominator is innocent.</p>
+  <p><strong>(2) Across varying N, the mean is guilty — the average is intensive.</strong> An average
+  can only encode the <em class="d">fraction</em> g/N, never the count g: two evidence frames of four
+  average the same as four of eight. Count and length fuse into one number. Four independent
+  measurements pin the failure on the normalization:</p>
+  <div class="grid2">
+    <div class="cell"><b>behavior</b>the frozen model is a fraction reader: systematic undercount,
+      by-gold slope ~0.1, counts ≥ 5 collapse toward 0</div>
+    <div class="cell"><b>matched ablation</b>everything identical except the aggregator: sum/PNA
+      <span class="m">1.00</span> vs mean/softmax <span class="m">0.76</span> on count/length-OOD
+      (IID all tie — the failure hides in-distribution); mean ≈ softmax exactly → it is the Σα=1
+      constraint, not the weighting</div>
+    <div class="cell"><b>causal pokes</b>GAIN (×constant &gt; 1, breaks Σα=1) helps at long sequences;
+      temperature (sharpens, keeps Σα=1) does nothing</div>
+    <div class="cell"><b>1/N dilution</b>each message shrinks ~1/N as frames are added: a frozen gate's
+      FN rate drifts 0.09 → 0.99 by N=128; mass-normalization cuts the drift ~10×</div>
+  </div>
+  <p>The theory anchor: this is the GIN sum-vs-mean expressivity result (mean-pooling cannot represent
+  extensive quantities like counts), demonstrated <em class="d">causally inside a frozen VLM</em> — the
+  GNN bridge of the thesis in one experiment.</p>
+  <div class="data"><b>in the room</b> &nbsp;"The messages we analyze already contain the softmax
+  weights — S is the model's actual attention output. At fixed N, normalizing scales signal and noise
+  identically: mean and sum decode at exactly 0.439 each. Where they differ — varying N — the mean is
+  worse: it encodes the fraction, not the count. The average fails because it is intensive, not because
+  it divides."</div>
+</section>
+
+<footer>
+  <div class="wrap" style="padding:0">
+    SOURCES · Green &amp; Swets (1966) · Fisher (1936) · Mahalanobis (1936) · Ledoit &amp; Wolf (2004) ·
+    Zaheer et al. (2017) DeepSets · Averbeck, Latham &amp; Pouget (2006) · Moreno-Bote et al. (2014) ·
+    Diaconis &amp; Freedman (1984)<br>
+    All measured numbers trace to RESULTS.md entries [2026-06-28]–[2026-07-11]. Companion:
+    <a href="https://claude.ai/code/artifact/1a534b5d-d1ed-42cc-8a03-81a1771519f1">d′ Theory —
+    Mathematical Background</a>. Written 2026-07-12.
+  </div>
+</footer>
+</main>
+
+<script>
+const btn=document.getElementById('themeBtn');
+btn.addEventListener('click',()=>{
+  const cur=document.documentElement.getAttribute('data-theme')
+    ||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light');
+  document.documentElement.setAttribute('data-theme',cur==='dark'?'light':'dark');
+});
+</script>

@@ -67,6 +67,19 @@ curve, no "SNR ≳ 2" threshold.
 The earlier collapse curve (acc rises 0.20→0.79 as δ̂-SNR 0.15→1.77 across crowding/depth/masking, fixed
 N=8) stands as *consistent* evidence, but the load-bearing claim is now the parameter-free prediction.
 
+**N-scaling revision (2026-07-11, supersedes the "d′ dilutes with N" reading — RESULTS [2026-07-11],
+[2026-07-10f,i]):** measured to N=128, the joint carrier d′ does NOT dilute — it is FLAT at ~2.0
+(1.97/2.12/1.98/1.93/1.59 for N=8→128) while behavior collapses 0.173→0.020. The collapse is carried
+by two measured downstream mechanisms: (i) an **emission-range clamp** — the answer distribution is
+N-invariant (mean ≈3) while ordinal signal survives (corr 0.75 to N=64); (ii) **decision-threshold
+drift** — a frozen per-frame gate's FN inflates 0.09→0.99 with N from 1/N attention-mass dilution of
+message MAGNITUDES (direction intact: AUC stays 0.88+; mass-normalization cuts the drift ~10×, and the
+tally-bias identity bias≈N·FP−g·(FN+FP) is exact). Composing the closed form with the measured emission
+clamp (rank remap, zero fitted parameters) reproduces the behavioral curve almost exactly
+(law+clamp 0.186/0.106/0.069/0.054/0.039 vs measured 0.173/0.127/0.073/0.053/0.020), where the plain
+law is 2–5× high. The √N law still governs what a linear readout of the pooled statistic CAN extract;
+what the frozen model actually loses at scale is calibration and emission range, not supply.
+
 **Correction to the naive over-squashing story (unified):** attention output is a convex combination — an
 *intensive* statistic (a function of the empirical distribution of messages), which can encode the
 fraction k/N but never the count. At fixed N that's a bijection, so **mean ≡ sum** (measured: both 0.44)
@@ -89,16 +102,83 @@ wrong-yes cancels a wrong-no). Evidence:
 - causal: a LoRA trained to sharpen drove **per-frame SNR 0.40→2.76** and accuracy with it; the
   decomposition proved the win came *through* the gate (`Σσ` 0.44→1.0), not a black box.
 
-## 5. Two working solutions
+## 5. Three working solutions
 - **Frozen + frame-isolation mask + fixed Σσ readout.** A block-diagonal attention mask (each frame
   attends only to itself + the query) recovers multipass-clean per-frame reps **in one forward**
   (extraction 0.94→0.99); a parameter-free Σσ counts. **1.00 IID / 1.00 OOD on clean extraction; 0.95 /
   0.82 crowded** — it *extrapolates*. (Crowded 0.82-OOD gap = extraction ceiling, not aggregation.)
 - **Native LoRA (MLP + per-frame BCE).** The model itself learns the gate and **verbalizes at 0.99**
   crowded IID, mechanism-confirmed by the decomposition.
+- **Retrieve-then-verify pipeline (frozen end-to-end, 2026-07-11 — RESULTS [2026-07-11l]).** One
+  joint pass shortlists frames by a mass-normalized gate margin (the gate: one logistic trained
+  once on the N=8 cache); isolated yes/no look-again passes verify the shortlist; the tally is
+  rendered as a predicate-matched fact and the frozen model verbalizes it. **Exact-match
+  0.880 / 0.807 / 0.707 at N=32/64/128** — 17–35× the frozen model, above full multipass, above
+  the law ceiling for any linear read of the joint carrier (it never sums noisy messages: it is
+  the gate-before-sum principle deployed at system level). Cost ≈ N+1 forwards (the diluted joint
+  margins shortlist ~85% of frames — the honest miss; a k=2-chunk shortlist is the untested v2).
 
 (The isolation mask *helps* the frozen-probe path but *hurts* the native LoRA — 0.99→0.89 — because
 isolated reps are off-distribution for the frozen downstream. Two different tools.)
+
+**Scope correction (2026-07-11, supersedes an earlier conflation — RESULTS [2026-07-11d]):** the
+isolation-mask win is a QUESTION-FIRST, frame-rep result. At the *deployed frames-first carrier* the
+same fence is null-to-negative (fenced message AUROC 0.920 < joint 0.956; carrier d′ 2.47→1.93; fenced ≤
+joint at every N to 128). What DOES lift the deployed supply is full per-frame isolation — separate
+forwards — which raises carrier d′ from ~2 to 7–8 in both modalities and both model families tested
+(the **joint-context tax**, a ~3.2–3.6× d′ factor: Qwen image 3.6×, Qwen text 3.2×, InternVL 3.4×).
+The tax is NOT carried by cross-frame attention edges (fence null), NOT binding format (Char@Room
+rendering changes nothing, [2026-07-10c]), NOT legibility ([2026-07-08c]): it is a property of
+processing N frames in one shared forward. Two mechanism probes then pinned it further
+([2026-07-11g,j]): equal-mass attention renormalization during the joint pass recovers ~1–8% of the
+gap (mass competition at the carrier hop REFUTED as the main cause), and the chunk-size sweep shows
+the tax ONSETS at the first companion frame (d′ 8.08 alone → 3.37 with one companion → 1.98 at 32)
+— the damage is done during in-context ENCODING of the frames, before any carrier read.
+The campaign-3 dissection ([2026-07-11r,s]) then DECOMPOSED the tax: (1) a saturating long-context
+component ≈1.9 d′ (an isolated frame text-padded to joint positions reads 5.3, independent of
+padding length), and (2) a content-similarity interference component graded by the companion's
+domain (gray/noise neighbors ≈ free at 6.4; patch-shuffled 4.4; other-scene 3.6; same-scene 3.3).
+**Correction ([2026-07-12]) and final localization ([2026-07-12b]):** the "encoding interference"
+reading was overstated — in the companion pairs the real frame came FIRST, so its k/v never saw
+the companion; the content-graded drop had to enter through the carrier's READ. The query/encoding
+2×2 (swap q_c and k/v independently between clean and joint forwards, one fixed rope geometry,
+within-frame softmax so the mass term is excluded) settles it: a JOINT-context query collapses
+per-frame d′ to the joint level even on clean values (1.59 vs clean×clean 4.79 @L16), while a
+clean query reading JOINT-encoded values keeps most separability (3.14). **The joint-context tax
+is chiefly QUERY-ROUTING CONTAMINATION**: q_c, shaped by the whole multi-frame context, mis-aims
+the within-frame attention ŵ_j — with a real but secondary value-encoding component (~half the
+gap, overlapping). This unifies every prior null: renorm (mass ≠ routing), fence (the corrupted
+read travels legal edges), first-frame causality. The only working supply lever remains separate
+or near-separate forwards; a clean-query re-read of one joint forward delivers k=2-level margins
+(≈3.4) at ~2 forwards — an economics option, below the d′≥5 wiring bar.
+
+**Final localization — the tax is an ADDRESSING-capacity limit, and its two halves are opposite in
+kind ([2026-07-12g–i]).** Three further probes closed the mechanism. (1) *The query is frame-specific,
+not merely "contaminated."* A per-frame query reading a **different** frame scores d′ 1.02 — WORSE
+than the generic joint query (1.71) and far below its own frame (3.48); a content-free (frameless)
+query scores 0.53. Monotone in frame-conditioning (frameless < joint < own): the query is a
+"where-to-look-in-THIS-arrangement" program that is actively wrong on other frames, so no single
+query serves many — the deployable "one probe query → read all N" fix is dead. (2) *The
+value-encoding half is REVERSIBLE.* A small label-free adapter trained to map joint-encoded k/v →
+isolated (multipass) k/v recovers ~98–100% of the clean-encoding d′ gap (3.13 → 4.4 ≈ the mp
+ceiling): joint processing does not destroy per-token evidence, it applies an invertible mixing.
+(3) *The query half is IRREDUCIBLE.* The analogous query un-mixer — reconstruct q^(f) from the joint
+forward's state — FAILS: its output reads **below** the joint query (1.19 vs 1.71, −37%), and it fits
+its training queries fine (R²≈0.65–0.85), so a query MSE-close to the target still routes wrongly.
+**Synthesis: the joint-context tax = a reversible value-mixing + an irreducible query-capacity limit.**
+A single fixed-width query vector cannot encode N frame-specific attention patterns, and that missing
+addressing cannot be transferred, faked, or reconstructed after the fact — it can only be *created* by
+attending each frame (a per-frame forward). This is **over-squashing at the query**: the bottleneck
+squeezes the *addressing* (which tokens to attend), not the evidence content — the values are fine.
+It proves the per-frame (multipass/chunk) forward is not a workaround but the floor: cleaning values
+is free, but there is no one-forward supply fix, because the one thing joint processing cannot
+preserve is which query reads which frame.
+
+**Why exact-match still caps at large N (the crush line, [2026-07-11]).** Even at full supply, exact
+counting needs the summed per-frame decisions to have net-zero error, so per-frame error ε ≲ 1/N:
+at N=128 the ~1.5% verifier error gives √(Nε)≈1.4 counts of spread → exact-match ≈0.71 (retrieve-then-
+verify), not ~1.0 — the tally-bias law N·FP − g·(FN+FP) biting as registered. This is intrinsic to
+exact integer counting at scale (MAE stays small: within ~1–2 of gold), not a defect of the gate.
 
 ## 6. The remaining wall is the readout, not the aggregation
 The native counter **memorizes**: train on counts 0–4 → **0.97 IID but 0.035 OOD** (never emits 7/8). Yet
@@ -106,12 +186,32 @@ its internal gate is *perfect and extensive* (`Σσ` 0.44→1.0). **The brain ha
 — the learned number head can't emit an unseen value, and the model's native number representation
 saturates ~5. Exact split: read via the **learned head → 0.035 OOD**; via **direct Σσ → 0.82–1.0 OOD**.
 
+**The token interface is necessary, not just sufficient (2026-07 campaign, RESULTS [2026-07-11b]).**
+Writing the count into the prompt as a predicate-matched fact sentence verbalizes at 1.000 including
+held-out two-digit values with zero parameters — but EVERY learned activation-level injection route
+fails OOD at the same site: per-digit soft-token codebook 0.098, per-count codebook (+interpolation)
+0.000, a continuous Fourier basis 0.000, and a Fourier basis anchored to the model's own digit-embedding
+geometry 0.000 — all at 0.81–1.00 on trained counts. The frozen readout treats injected vectors as
+memorized opaque symbols; it decodes no geometry. The interface itself is gated: the fact must use the
+question's own predicate and precede the question (paraphrase or post-question placement → 0.00,
+RESULTS [2026-07-10d]) — consistent with causal question-carrier aggregation. Emission-side, the same
+wall appears as a **range clamp**: the frozen model's answer distribution is N-invariant (mean ≈3,
+support ≲7) from N=8 to 128 while ordinal information survives to N=64 (corr 0.75, [2026-07-10f]).
+
 ## 7. Task-agnostic, and it generalizes
 The **gate is universal** — the query supplies the predicate; per-frame labels are self-generatable
 (look-again, 0.96–0.99). The **reduction is a small fixed choice** covering the family: **sum**
 (occurrence), **soft-OR** (distinct), **position-weighted sum** (temporal — order rides in via the
 positional encoding, so sum ≈ a sequence model). Validated OOD: **sum/soft-OR extrapolate
 (steps 0.996 / rooms 1.000 / co-occ 0.974); every learned readout collapses (0.00–0.59).**
+
+**And the wall is binding-specific — natural images without binding don't have it (RESULTS
+[2026-07-10h]).** mmred_natural (COCO needles, per-frame GT by construction, judge-gated 0.998–1.00)
+gives a d′ dial on natural images: needle diversity moves carrier d′ 6.2→4.3 and distractor similarity
+6.2→5.4. On this rung — "does a dog appear?", no character→room binding — the frozen model RIDES the
+closed-form law (measured 0.57–0.66 vs predicted 0.60–0.76): content addressing reaches the evidence,
+and the MMRED-style gap between model and achievable vanishes. The wall lives where evidence is
+relational, not where it is merely visual.
 
 ## 8. The thesis lens (GNN over-squashing)
 Attention is message-passing; squashing N frame-messages into a fixed-width carrier is the
@@ -219,6 +319,15 @@ it generalize to unseen counts.*
 - The **sign-vs-magnitude / error-cancellation** argument (per-element threshold *before* the sum).
 - **OOD-via-direct-extensive-read vs learned-head-capping**, demonstrated for a **frozen VLM**.
 - The **cross-domain synthesis** (over-squashing ↔ cardinality-blindness ↔ readout-misalignment) under one SNR account.
+- **The query/encoding dissection of the joint-context aggregation tax** ([2026-07-12]): decomposing the
+  per-frame attention message into routing (query) vs values (encoding), and showing by independent
+  interventions (2×2 swap, frameless/donor query transfer, and joint→clean un-mixers for each half)
+  that the tax is a **reversible value-mixing plus an irreducible query-addressing-capacity limit** —
+  "over-squashing at the query." The value half is recoverable by a learned map (~100%); the query half
+  cannot be transferred, faked, or reconstructed from the joint state — a one-query-cannot-address-N-sources
+  result localized inside a deployed VLM, proving per-frame forwards are the supply floor. (Lit check
+  for this specific mechanism in flight — position against attention-capacity / associative-memory and
+  retrieval-head work.)
 - **VLM / multi-frame visual counting failure as an empirical regime is UNSOURCED** — the 85%→20–30% length-collapse and per-frame d′≈0.33 appear genuinely uncovered; claim as our empirical contribution (and do a dedicated CVPR/ICCV/NeurIPS video-VLM benchmark search before final write-up).
 
 ### Caveats from verification (do NOT over-claim)
