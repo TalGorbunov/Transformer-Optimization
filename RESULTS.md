@@ -4112,3 +4112,63 @@ points trade differently but cannot beat the margin ROC; seed 4, n=150/N.
 > **Caveats:** n_eval=200, single capture seed (7); L16 (peak carrier); the [2026-07-12b–i] entries'
 > relative conclusions all hold — this entry puts them on the validated absolute scale and removes the
 > data-limitation caveat on query-irreducibility.
+
+## [2026-07-14] ✅📊 REPLICA CARRIERS — per-frame question replicas in ONE forward: the UNMASKED (plain interleaved prompt) arm reads d′ 3.56 @L16 (+81% over joint 1.97, above the pre-registered GO bar ≥3) and BEATS the masked-attention arm (2.52); the masked arm's per-copy ladder exposes a design subtlety (the mask cleans queries everywhere but values only for frame 0); the predicted contamination decay in the unmasked arm did NOT appear at N=8
+
+> **Motivation:** the query half of the joint-context tax is architecturally irreducible
+> ([2026-07-13] trained-query NO-GO: shared q* 0.36–0.48). Replica carriers test per-source
+> addressing via TOKEN TOPOLOGY instead of weights: insert a copy of the question after every
+> frame; each copy's room token is a per-frame local carrier. Two arms: MASKED (custom all-layer
+> 4D mask — each replica attends only {prefix, its own frame, itself} and is INVISIBLE to all
+> other tokens, so the original computation is undisturbed) and UNMASKED (plain interleaved
+> prompt, everything visible — the prompt-engineering control, proposed by Tal).
+> **Script:** `experiments/glstm/replica_carrier_probe.py` (new; reuses the fence 4D-mask
+> injection, the probe qkv/rotary capture, and the 2×2 o_proj dequantization). **Runs:** job
+> **121431** (a100, 88 min: masked smoke n=8 → masked full n=300 → unmasked full n=300; job
+> 121401 = earlier attempt, failed on an image_token_groups signature); steps task,
+> mmred_images_park seq_len_8, 392px, forward-only. Dirs:
+> `outputs/ladder/image_longN/replica_carrier/20260714_214534/` (masked) and
+> `…/replica_carrier_nomask/20260714_221634/` (unmasked); held-out shrinkage-LDA d′
+> (dprime_pair, 3 sample-disjoint seeds), n=300, skip=0.
+
+| read @L16 (n=300) | mean d′ | per-copy d′ (index 0→7) |
+|---|---|---|
+| **UNMASKED interleaved** | **3.56±0.14** | 3.73 4.00 2.88 2.65 3.52 2.68 2.59 2.97 (≈flat) |
+| MASKED replicas | 2.52±0.11 | **3.70** 2.33 1.75 2.01 1.99 1.82 1.99 2.18 (ladder) |
+| external joint anchor (B1 N=8, same data/layer/px) | 1.97 | — |
+| in-run "off−9 anchor" | 0.15–0.73 | **INVALID** — the interleaved chat template shifts the final room token off the off−9 position; do not use |
+
+(L14: unmasked 2.72, masked 1.52 — same ordering, lower level, consistent with L14 being the
+weaker carrier layer.)
+
+**Readings.**
+1. **The unmasked interleave is the finding: d′ 3.56 in one forward, zero training, zero
+   architecture change** — +81% over the joint carrier, above the pre-registered GO bar (≥3)
+   that the masked arm missed. Gate-law pricing at this supply (p=0.038): tally exact ≈ 0.75 /
+   0.37 / 0.10 at N=8/32/128 vs 0.33/0.09/0.02 at joint supply — IF the level holds at larger N
+   (untested; the decisive follow-up).
+2. **The predicted per-copy contamination decay (≈6 at copy 0 → ≈2.3 at copy 7, from the
+   chunk-size curve) did NOT appear** — the unmasked ladder is ≈flat at ~2.6–4.0. Best current
+   account: question-conditioned frame encoding (frames attend earlier question copies, the
+   Q-first effect) offsets the growing cross-frame contamination, at least to N=8.
+3. **The masked arm underperformed its 2×2 prediction (3.3–4.0) at 2.52, and its per-copy ladder
+   explains why:** the mask restricted REPLICA rows only, so frame encodings still attend all
+   earlier frames — frame 0 is effectively isolation-encoded (copy 0 reads 3.70 ✓ the predicted
+   band) while frame 7 is fully joint (2.18). The mask delivered clean queries everywhere but
+   clean values only at frame 0. The arms dissociate the two ingredients: clean queries alone
+   ≈ +28%; visibility (question conditioning) ≈ +81%.
+4. **Both in-run anchors are mislocated** (off−9 convention breaks under the interleaved
+   template); the external B1 anchor is the valid baseline. Fix for reruns: locate the final
+   question's room token by word match like the replicas.
+
+**Caveats.** Single seed, N=8 only, steps task only, n=300; per-copy d′ from n=300×1 frames
+(±~0.2); masked-arm smoke n=8 prints nan (too small for held-out folds — expected); the two
+arms share frames/questions so their difference is paired but no paired test was run;
+behavioral (emitted-answer) effect of the interleaved prompt NOT measured — messages only.
+
+**Next (registered):** (a) unmasked interleave at N=32/128 — does the flat ladder hold (the
+gate-law prize at N=32 is 0.37 vs joint 0.09)? (b) replicas + frame-fencing combined (clean
+queries AND clean values per frame → 2×2 predicts ~6, multipass-in-one-forward; the B1
+fence-alone null does not preclude it — that null had a joint query); (c) behavioral EM with
+the interleaved prompt; (d) gate→tally on the unmasked replica messages (supply 3.56 is above
+the k=2 chunk supply 3.37 that retrieve-v2 uses — a ONE-forward shortlist candidate).

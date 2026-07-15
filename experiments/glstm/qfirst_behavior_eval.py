@@ -54,7 +54,11 @@ def main() -> int:
             if ex is None:
                 continue
             frames, question, gold, nf, states = ex
-            inputs = fa.build_inputs(processor, frames, question, device)
+            # same answer-format instruction as the frames-first behavioral protocol
+            # (base.build_prompt), kept in the Q-first position so only layout differs
+            q_instr = (f"Respond with a single integer from 0 to {len(frames)} (0 is allowed). "
+                       f"Output only the integer.\n{question}\nAnswer with only the integer.")
+            inputs = fa.build_inputs(processor, frames, q_instr, device)
             plen = int(inputs["input_ids"].shape[-1])
             with torch.inference_mode():
                 oids = model.generate(**inputs, do_sample=False,

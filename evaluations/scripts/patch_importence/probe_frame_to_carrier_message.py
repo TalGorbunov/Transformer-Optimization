@@ -390,8 +390,8 @@ def main() -> int:
             except Exception:
                 continue
             evid = set(int(i) for i in eval_utils.collect_evidence_frame_indices(q0, states))
-            if not evid:
-                continue
+            if not evid and gold != 0:   # empty evidence is legitimate when gold=0
+                continue                  # (dropping gold-0 made the N=1 cache single-class)
             question = q0
             frame_targets = {t: ("evid" if t in evid else "noev") for t in range(len(states))}
         elif args.task == "rooms_visited":

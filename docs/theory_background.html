@@ -72,6 +72,8 @@
   figure canvas{width:100%;height:auto;display:block}
   .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;margin:14px 0}
   .scroll.full{width:min(100vw - 36px,1500px);position:relative;left:50%;transform:translateX(-50%)}
+  table.wrapcells th,table.wrapcells td{white-space:normal}
+  table.wrapcells td.m{font-family:var(--mono);font-size:13px}
   table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
   th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
   thead th{background:var(--card2);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;
@@ -132,9 +134,10 @@
     <nav class="toc">
       <a href="#obj">1 · The messages</a><a href="#defs">2 · From ruler to d′</a>
       <a href="#thms">3 · Theorems</a><a href="#sumlaw">4 · The √N tax</a>
-      <a href="#e4">5 · The E4 battery</a><a href="#results">6 · Results &amp; insights</a>
-      <a href="#parity">7 · Parity table</a><a href="#ladder">8 · The ladder</a>
-      <a href="#softmax">9 · Softmax</a><a href="#walls">10 · Three walls</a>
+      <a href="#e4">5 · The E4 battery</a>
+      <a href="#parity">6 · Parity table</a><a href="#ladder">7 · The ladder</a>
+      <a href="#saga">8 · Multipass vs joint</a><a href="#readout">9 · The readout</a><a href="#walls">10 · Three walls</a>
+      <a href="#method">11 · The method</a>
     </nav>
   </div>
 </header>
@@ -311,7 +314,7 @@
     plug w*'s d′ into 2Φ(d′/2√N)−1 and you predict what a probe can extract (0.375; measured 0.363);
     plug the native axis's d′ into the <em class="d">same formula</em> and you predict what the model
     actually scores (0.17; measured 0.21–0.24). One equation, two directions, two correctly predicted
-    accuracies — the model-vs-probe gap is not a mystery, it is a measured angle (Wall Ⅲ, §10).
+    accuracies — the model-vs-probe gap is not a mystery, it is a measured angle (Wall Ⅲ, §10; the full story: §9).
     Replicated on InternVL (native 0.19 → pred 0.135, meas 0.117–0.137) and text-MMRED (0.80 → 0.163,
     meas 0.165).</p>
   </div>
@@ -389,7 +392,7 @@
     <p style="max-width:none">Sketch: along w*, each unit of count moves t by ‖δ‖ while the summed noise
     has width σ<sub>w</sub>√N — so consecutive counts are <span class="m">d′/√N</span> apart in noise units,
     and nearest-integer rounding succeeds when the noise stays within half a step. Two measured inputs
-    (d′, N), zero fitted parameters. This is the number every "law pred" column in §7 contains.</p>
+    (d′, N), zero fitted parameters. This is the number every "law pred" column in §6 contains.</p>
   </div>
 
   <div class="thm"><span class="tag">Theorem 4 · DeepSets (Zaheer 2017) + Wagstaff 2019</span>
@@ -455,7 +458,7 @@
     gap/width once more. At N = 8: 3.4/√8 ≈ 1.2 — a 96% per-frame decision became a ~73% per-boundary
     decision, with eight boundaries to get right. This is the whole over-squashing tax in one line:
     every added frame costs √N even when per-frame supply stays perfectly flat, exactly the measured
-    pattern in §7's N-sweeps (d′ ~2.0 for all N while the model collapses).</p>
+    pattern in §6's N-sweeps (d′ ~2.0 for all N while the model collapses).</p>
   </div>
 
   <div class="thm"><span class="tag">the predictor</span>
@@ -465,7 +468,7 @@
     d′/2√N in noise units:</p>
     <div class="math">P(exact | interior g) = 2Φ( d′ / 2√N ) − 1&nbsp;&nbsp;·&nbsp;&nbsp;boundary g ∈ {0, N}: Φ( d′ / 2√N )&nbsp;&nbsp;·&nbsp;&nbsp;overall: mix over the count prior</div>
     <p style="max-width:none">Two measured inputs (d′, N), nothing fitted — this is Theorem 3 of §3 in
-    its working form, and every "predicted" column in §7's parity table is this formula evaluated at a
+    its working form, and every "predicted" column in §6's parity table is this formula evaluated at a
     measured d′.</p>
   </div>
 </section>
@@ -516,103 +519,13 @@
   prediction must be caveated.</p>
 
   <p>The per-regime verdict map — every dataset the battery has been run on, with which alarm
-  fires where — lives with the parity record: §7, directly above Table 2.</p>
+  fires where — lives with the parity record: §6, directly above Table 2.</p>
 </section>
 
 <!-- ============ 5 RESULTS & INSIGHTS ============ -->
-<section id="results">
-  <h2><span class="no">6</span>Results &amp; insights</h2>
-  <p class="lead">Everything the theory produced, predicted, or explained — one line each, every number
-  traceable to a run. Compact index for now; items expand into subsections as needed.</p>
-
-  <ul class="res">
-    <li><span class="cat">law</span><strong>The √N collapse, predicted exactly.</strong> Per-frame d′
-      stays flat (~3.2–3.5) while sum-readout accuracy falls 0.85 → 0.47 as N goes 2 → 8 — on the
-      zero-parameter schedule 2Φ(d′/2√N)−1. The failure is pooling, not supply.
-      <span class="src">E1 N-sweep · probe_dprime_parity · §7 rows 1–4</span></li>
-    <li><span class="cat">law</span><strong>One law, 16+ regimes.</strong> The same closed form lands on
-      image-MMRED, text-MMRED, natural COCO photos, a foreign model family (InternVL), distributed
-      carriers, and long-N collapse — nothing tuned anywhere. Full record: the parity table, §7.
-      <span class="src">E1 + follow-ups · §7</span></li>
-    <li><span class="cat">law</span><strong>Behavioral closure — the law predicts the model itself.</strong>
-      Evaluate the law at the d′ of the model's own reading axis (0.51) and it predicts the model's
-      emitted accuracy (pred 0.17, meas 0.21–0.24); replicated on InternVL (0.135 / 0.117–0.137) and
-      text (0.163 / 0.165). One equation prices probe ceiling and model behavior alike.
-      <span class="src">E6 native axis · [2026-07-05]</span></li>
-    <li><span class="cat">mechanism</span><strong>The whitening correction.</strong> The early naive-axis
-      "SNR" (0.33) understated linear readout ~10×; the whitened d′ (3.35) is what probes attain — this
-      restatement replaced a fitted, self-inconsistent collapse curve with the zero-parameter law. §2 is
-      the derivation.
-      <span class="src">[2026-07-03b] restatement</span></li>
-    <li><span class="cat">mechanism</span><strong>"Superposition" became a covariance number.</strong>
-      Cross-frame noise correlation ρ ≈ +0.09…+0.13 in joint passes vs ≈ +0.01 in isolated forwards —
-      single-pass frame contamination, quantified (information-limiting correlations).
-      <span class="src">E2 · cache_mp_compare pairs</span></li>
-    <li><span class="cat">mechanism</span><strong>The readout wall is a measured angle.</strong>
-      cos(native axis, w*) ≈ 0.005 — the frozen model reads the right token along a nearly worst-case
-      direction, keeping d′ 0.51 of the available 2.47 (~20%).
-      <span class="src">E6 · Wall Ⅲ, §10</span></li>
-    <li><span class="cat">mechanism</span><strong>The joint-context tax localized to the query.</strong>
-      The ~3× per-frame d′ tax of processing N frames in one forward rides on query-routing
-      contamination (2×2 swap: a joint query collapses the read 4.79 → 1.59 even on clean values; a
-      clean query on joint values keeps 3.14). The value half is reversible (a learned un-mixer recovers
-      ~100%); the query half is an irreducible addressing limit — over-squashing at the query.
-      <span class="src">Q/KV 2×2 + un-mixers · [2026-07-12] · Wall Ⅰ, §10</span></li>
-    <li><span class="cat">mechanism</span><strong>Softmax's three sins, measured.</strong> At fixed N,
-      mean ≡ sum (0.439 = 0.439, benign); the magnitude channel flips from free ride to hidden
-      (corr(‖S‖, count) +1.00 free-N → −0.14 fixed-N) — making the frozen model a fraction reader; and
-      one attention hop cannot binarize a frame, which is exactly the operation the fix needs. §9.
-      <span class="src">evidence-only + visual_fixed8 series · §9</span></li>
-    <li><span class="cat">validity</span><strong>Sufficiency confirmed, 21/21.</strong> An MLP on the
-      pooled sum never beats a linear readout (Δ −0.04…−0.58) — the post-sum theorem's empirical
-      signature; the fix cannot live after the sum.
-      <span class="src">E3</span></li>
-    <li><span class="cat">validity</span><strong>The adequacy map.</strong> E4 passes exactly where
-      evidence is diverse + binary and the context short (image-MMRED, text-MMRED, natural
-      distinct-needle cells) and fails with diagnosed signatures: graded evidence → skew/kurtosis
-      (HERBench), degenerate identical needles → kurtosis (ident cells), near-deterministic filler →
-      variance blowup (text-CWE), long joint context → progressive heavy tails (N=8 pass → N=128
-      kurt +25). Binary groundability alone does not buy adequacy. §5.
-      <span class="src">E4 + P0b sweep · [2026-07-11e]</span></li>
-    <li><span class="cat">causal</span><strong>The δ channel is load-bearing.</strong> Scaling the δ
-      component of the messages during real forwards moves behavior (dose–response); ablating the
-      evidence subspace collapses the model into low answers while a dimensionality-matched control
-      subspace does nothing. The clouds are not a probe's invention.
-      <span class="src">E5 · [2026-07-04b]</span></li>
-    <li><span class="cat">transfer</span><strong>Cross-task replication.</strong> Co-occupancy: a
-      distributed two-token carrier, closed by block reads (pred .456 / meas .484) with a causal double
-      dissociation. Rooms-visited: the K-channel form, where the support-size reduction is provably
-      nonlinear in the tallies — linear 0.40 &lt; per-channel threshold 0.65 ≪ decode-then-count 0.99 —
-      the theory predicting its own probe's failure.
-      <span class="src">[2026-07-04] rollout</span></li>
-    <li><span class="cat">transfer</span><strong>Natural images: the d′ dial works, and the wall is
-      binding, not pixels.</strong> On COCO photos, needle diversity moves carrier d′ 6.2 → 4.3 and
-      distractor similarity 6.2 → 5.4 (registered monotone edges); with no relational binding required,
-      the model itself rides the law (pred 0.60–0.76, meas 0.57–0.66) — the MMRED-style gap largely
-      vanishes on this rung.
-      <span class="src">A4 mmred_natural · [2026-07-10h]</span></li>
-    <li><span class="cat">transfer</span><strong>Wording selects the aggregation operator.</strong> With
-      identical repeated needles, "how many FRAMES does a dog appear in?" is answered with the frame
-      count (mean 3.90 vs gold 4.17) while "how many DOGS in total?" is answered with the support size
-      (1.13–1.37 vs unique 0.9) — the frozen model picks Σ vs distinct-count from the question.
-      <span class="src">P4k dedup semantics · [2026-07-11f]</span></li>
-    <li><span class="cat">scale</span><strong>Long N: collapse into the prior, tracked — then a clamp.</strong>
-      Text long-N accuracy follows the law into the floor (N=16/24/40: pred .141/.116/.078, meas
-      .139/.083/.033); by N=128 the emitted range clamps (answers ≈3 for every N while ordinal signal
-      survives to N=64), and law ∘ measured-clamp reproduces behavior with zero fitted parameters.
-      <span class="src">B1/B3 long-N · [2026-07-10/11]</span></li>
-    <li><span class="cat">cure</span><strong>What the theory prescribes, works.</strong> Per-frame sharp
-      gate before the sum: 0.09 → 1.00 (soft 0.73 — the gate must commit). Retrieve-then-verify holds
-      0.79–0.88 to N=128 (beating the supply tax). Tally-as-answer through the token interface ≈1.0
-      including OOD — while every activation-level injection fails OOD: the token interface is
-      necessary, not just sufficient.
-      <span class="src">gate/Σσ series · retrieve-then-verify · C1 token interface</span></li>
-  </ul>
-</section>
-
 <!-- ============ 6 PARITY ============ -->
 <section id="parity">
-  <h2><span class="no">7</span>The parity record — zero fitted parameters</h2>
+  <h2><span class="no">6</span>The parity record — zero fitted parameters</h2>
   <p class="lead">Everywhere E4 passes: measure d′ and N, predict with Theorem 3, independently measure.
   Nothing is tuned. Table 1: the frames-first image ladder, joint vs multipass per N. Table 2: every
   other regime.</p>
@@ -626,7 +539,7 @@
           <th class="n" style="border-left:1px solid var(--line)">d′_w</th><th class="n">d′_w/√N</th><th class="n">law-pred</th><th class="n">tally acc</th></tr>
     </thead>
     <tbody>
-      <tr><td class="n">1</td><td class="n" style="border-left:1px solid var(--line)">—</td><td class="n">—</td><td class="n">—</td><td class="n">0.997</td><td class="n" style="border-left:1px solid var(--line)" colspan="4">≡ joint (a single frame is alone in its forward)</td></tr>
+      <tr><td class="n">1</td><td class="n" style="border-left:1px solid var(--line)">6.40</td><td class="n">6.40</td><td class="n">0.999</td><td class="n">0.994</td><td class="n" style="border-left:1px solid var(--line)" colspan="4">≡ joint (a single frame is alone in its forward)</td></tr>
       <tr><td class="n">2</td><td class="n" style="border-left:1px solid var(--line)">2.71</td><td class="n">1.92</td><td class="n">0.747</td><td class="n">0.889</td><td class="n" style="border-left:1px solid var(--line)">6.72</td><td class="n">4.75</td><td class="n">0.987</td><td class="n">0.993</td></tr>
       <tr><td class="n">4</td><td class="n" style="border-left:1px solid var(--line)">2.52</td><td class="n">1.26</td><td class="n">0.537</td><td class="n">0.480</td><td class="n" style="border-left:1px solid var(--line)">7.96</td><td class="n">3.98</td><td class="n">0.959</td><td class="n">0.974</td></tr>
       <tr><td class="n">6</td><td class="n" style="border-left:1px solid var(--line)">2.48</td><td class="n">1.01</td><td class="n">0.438</td><td class="n">0.338</td><td class="n" style="border-left:1px solid var(--line)">8.44</td><td class="n">3.45</td><td class="n">0.922</td><td class="n">0.953</td></tr>
@@ -644,8 +557,7 @@
   two-tax split: context-sharing costs d′ once, length costs √N · E4 licenses the law at N=8, indicative
   beyond (kurtosis grows with N) · N ≤ 6 rows: fresh 1,300-sample datasets (mmred_smallN_park, current
   generator, jobs 120800–13) — joint d′ rose 1.93→2.71 / 1.95→2.52 / 2.20→2.48 vs the first n=100–300
-  caches, i.e. the small-cache values were estimator-limited · N=1: per-frame probe saturated, d′
-  unmeasurable even at n=600 · multipass d′_w at small N carries the AUC-ceiling caveat (rank estimator
+  caches, i.e. the small-cache values were estimator-limited · N=1 (rebuilt 2026-07-13, job 120903, n=1200 balanced, after fixing the builder's gold-0 drop): a frame alone in its forward reads at multipass quality — d′ 6.40 vs 2.71 the moment a companion arrives; N=1 uses the complete 0..1 count prior, N≥2 rows keep the historical gold≥1 cache convention · multipass d′_w at small N carries the AUC-ceiling caveat (rank estimator
   pegged at 5.26) · sources: image_longN/dprime_vs_n/20260711_003548 +
   dprime_vs_n_smallN/20260713_v2_1300.</p>
 
@@ -705,11 +617,11 @@
       <th class="n">predicted</th><th class="n">measured</th><th class="n">model acc</th><th>note</th></tr></thead>
     <tbody>
       <tr><td colspan="7" style="background:var(--card2);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)">question-first regimes — measured = held-out ridge-on-sum probe (the parity pairs proper)</td></tr>
-      <tr><td>Q-first steps, N-sweep</td><td class="n">2</td><td class="n">3.46</td><td class="n">0.849</td><td class="n">0.853</td><td class="n">—</td><td rowspan="4">d′ constant while acc collapses exactly as √N dictates</td></tr>
-      <tr><td></td><td class="n">4</td><td class="n">3.21</td><td class="n">0.662</td><td class="n">0.650</td><td class="n">—</td></tr>
-      <tr><td></td><td class="n">6</td><td class="n">3.34</td><td class="n">0.575</td><td class="n">0.593</td><td class="n">—</td></tr>
-      <tr><td></td><td class="n">8</td><td class="n">3.35</td><td class="n">0.504</td><td class="n">0.471</td><td class="n">—</td></tr>
-      <tr><td>co-occ balanced (Q-first)</td><td class="n">8</td><td class="n">7.10</td><td class="n">0.814</td><td class="n">0.798</td><td class="n">—</td><td></td></tr>
+      <tr><td>Q-first steps, N-sweep</td><td class="n">2</td><td class="n">3.46</td><td class="n">0.849</td><td class="n">0.853</td><td class="n">0.337</td><td rowspan="4">d′ constant while acc collapses exactly as √N dictates</td></tr>
+      <tr><td></td><td class="n">4</td><td class="n">3.21</td><td class="n">0.662</td><td class="n">0.650</td><td class="n">0.217</td></tr>
+      <tr><td></td><td class="n">6</td><td class="n">3.34</td><td class="n">0.575</td><td class="n">0.593</td><td class="n">0.173</td></tr>
+      <tr><td></td><td class="n">8</td><td class="n">3.35</td><td class="n">0.504</td><td class="n">0.471</td><td class="n">0.130</td></tr>
+      <tr><td>co-occ balanced (Q-first)</td><td class="n">8</td><td class="n">7.10</td><td class="n">0.814</td><td class="n">0.798</td><td class="n">0.167</td><td></td></tr>
       <tr><td>deployed room token L16 (image)</td><td class="n">8</td><td class="n">2.47</td><td class="n">0.375</td><td class="n">0.363</td><td class="n">0.236</td><td>the deployed locus</td></tr>
       <tr><td>co-occ two-name <em>block</em> L14</td><td class="n">8</td><td class="n">3.19</td><td class="n">0.456</td><td class="n">0.484</td><td class="n">≈0.17</td><td>distributed carrier, closed by block read</td></tr>
       <tr><td>co-occ 6-locus block L14 (E4 PASS)</td><td class="n">8</td><td class="n">3.43</td><td class="n">0.476</td><td class="n">0.534</td><td class="n">≈0.17</td><td>complete cooc supply; kurt +0.38</td></tr>
@@ -730,8 +642,10 @@
     </tbody>
   </table></div>
   <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
-  model acc = the frozen model's emitted-answer exact match in that regime · "—" = probe-only regime,
-  emitted answer not evaluated (question-first probing layouts) · cooc ≈0.17 derived from
+  model acc = the frozen model's emitted-answer exact match in that regime · Q-first model accs measured
+  2026-07-13 (qfirst_behavior_eval, job 120836, n=300/regime, single-integer instruction, question-first
+  placement): ≈ the majority baseline at every N (maj 0.37/0.24/0.17/0.13) — the Q-first layout
+  prior-locks the emitted answer even though its probe-side supply is the highest measured · cooc ≈0.17 derived from
   the logged ratio (decode-then-count 0.601 = 3.6× model) · HERBench 0.17 = armB own-answer EM
   (n=134, job 119014; digit-argmax reader 0.082) · text long-N model 0.062/0.035/0.020 ≈ the majority
   baseline (0.059/0.040/0.024) — prior-locked from N=16 on · in the behavioral-closure band, measured IS the model's accuracy (that is the
@@ -775,12 +689,17 @@
   image-MMRED count · runs: frame_axis/probes/dprime_dose/20260703_{182429,185555,192542,194553}
   (jobs 116926/116938/116943/116945) · "—" cells: the final-layer capture was added in the third script
   version; those arms predate it. The headline dissociation: at ×64 the repaired readout reads 0.783
-  while the frozen head emits 0.133 — the information crosses all 28 layers and dies at the unembedding.</p>
+  while the frozen head emits 0.133 — the information crosses all 28 layers and dies at the unembedding.
+  VERIFICATION (2026-07-13, recomputed from the saved doses.pt reps): probe positions confirmed in code
+  (last token entering L24; last token at layer-27 output); the dissociation replicates robustly on
+  3-seed held-out ridge (base 0.28 → high-λ 0.58–0.64 decodable vs emitted flat ~0.15; scrub ≈ base) —
+  but the single-split table cells carry the stated ±0.09: across 6 splits the ×64 columns range
+  0.50–0.78, so quote the dissociation (~4×), not the exact 0.783.</p>
 </section>
 
 <!-- ============ 6 LADDER ============ -->
 <section id="ladder">
-  <h2><span class="no">8</span>The ladder — where accuracy is lost, step by step</h2>
+  <h2><span class="no">7</span>The ladder — where accuracy is lost, step by step</h2>
   <p class="lead">Same samples, same frozen representations; only the read strategy changes.
   Steps task, deployed locus, N = 8.</p>
   <figure>
@@ -791,90 +710,595 @@
   </figure>
 </section>
 
-<!-- ============ 7 SOFTMAX ============ -->
-<section id="softmax">
-  <h2><span class="no">9</span>Softmax's three contributions to the failure</h2>
-  <div class="def"><span class="tag">i · normalization → dilution</span>
-    <h3>Attention aggregates a weighted mean, not a sum</h3>
-    <p style="max-width:none">Softmax weights sum to 1, so at fixed N mean ≡ sum (measured identical,
-    0.439 = 0.439) — benign. But each frame's message shrinks ~1/N as frames are added, and across
-    varying N a mean-like statistic is count-blind: the root of length-extrapolation failure and the
-    gate-threshold drift expected at N = 128.</p>
+<!-- ============ 9 MULTIPASS VS JOINT ============ -->
+<section id="saga">
+  <h2><span class="no">8</span>The multipass-vs-joint saga — where the supply wall was found, hunted, and localized</h2>
+  <p class="lead">The same frames, the same question, the same frozen model — the only variable is
+  whether frames share a forward pass. Everything below is the per-frame read at the deployed carrier
+  (room token, L16, 392px), held-out shrinkage-LDA, 3 seeds.</p>
+
+  <div class="scroll full"><table>
+    <thead>
+      <tr><th class="n" rowspan="2">N</th>
+          <th colspan="3" style="text-align:center;border-left:1px solid var(--line)">joint — one forward, all N frames</th>
+          <th colspan="3" style="text-align:center;border-left:1px solid var(--line)">multipass — each frame alone</th></tr>
+      <tr><th class="n" style="border-left:1px solid var(--line)">per-frame bal-acc</th><th class="n">d′_w</th><th class="n">Φ(d′/2)</th>
+          <th class="n" style="border-left:1px solid var(--line)">per-frame bal-acc</th><th class="n">d′_w</th><th class="n">Φ(d′/2)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="n">1</td><td class="n" style="border-left:1px solid var(--line)">0.998 ±0.003</td><td class="n">6.40</td><td class="n">0.999</td><td class="n" style="border-left:1px solid var(--line)" colspan="3">≡ joint (a single frame is alone)</td></tr>
+      <tr><td class="n">2</td><td class="n" style="border-left:1px solid var(--line)">0.917 ±0.008</td><td class="n">2.71</td><td class="n">0.913</td><td class="n" style="border-left:1px solid var(--line)">0.995 ±0.005</td><td class="n">6.72</td><td class="n">1.000</td></tr>
+      <tr><td class="n">4</td><td class="n" style="border-left:1px solid var(--line)">0.905 ±0.005</td><td class="n">2.52</td><td class="n">0.896</td><td class="n" style="border-left:1px solid var(--line)">0.999 ±0.000</td><td class="n">7.96</td><td class="n">1.000</td></tr>
+      <tr><td class="n">6</td><td class="n" style="border-left:1px solid var(--line)">0.904 ±0.006</td><td class="n">2.48</td><td class="n">0.892</td><td class="n" style="border-left:1px solid var(--line)">0.999 ±0.000</td><td class="n">8.44</td><td class="n">1.000</td></tr>
+      <tr><td class="n">8</td><td class="n" style="border-left:1px solid var(--line)">0.862 ±0.012</td><td class="n">1.97</td><td class="n">0.838</td><td class="n" style="border-left:1px solid var(--line)">0.998 ±0.002</td><td class="n">7.18</td><td class="n">1.000</td></tr>
+      <tr><td class="n">16</td><td class="n" style="border-left:1px solid var(--line)">0.876 ±0.002</td><td class="n">2.12</td><td class="n">0.855</td><td class="n" style="border-left:1px solid var(--line)">1.000 ±0.000</td><td class="n">7.91</td><td class="n">1.000</td></tr>
+      <tr><td class="n">32</td><td class="n" style="border-left:1px solid var(--line)">0.852 ±0.011</td><td class="n">1.98</td><td class="n">0.838</td><td class="n" style="border-left:1px solid var(--line)">1.000 ±0.000</td><td class="n">8.08</td><td class="n">1.000</td></tr>
+      <tr><td class="n">64</td><td class="n" style="border-left:1px solid var(--line)">0.838 ±0.010</td><td class="n">1.93</td><td class="n">0.833</td><td class="n" style="border-left:1px solid var(--line)">0.999 ±0.000</td><td class="n">7.74</td><td class="n">1.000</td></tr>
+      <tr><td class="n">128</td><td class="n" style="border-left:1px solid var(--line)">0.782 ±0.007</td><td class="n">1.59</td><td class="n">0.786</td><td class="n" style="border-left:1px solid var(--line)">0.999 ±0.000</td><td class="n">7.82</td><td class="n">1.000</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  per-frame bal-acc = held-out balanced accuracy of the evidence probe on single-frame messages — the
+  Φ(d′/2) dictionary, measured (the two columns agree within ~1–2 pts everywhere) · joint ≈ 0.78–0.92 vs
+  multipass ≈ 0.995–1.000: sharing a forward turns a ~1-in-500 per-frame error into ~1-in-8 — a one-time
+  tax, flat in N on both sides · N=1: rebuilt with the gold-0 builder fix (job 120903, n=1200 balanced) — a frame alone in its
+  forward reads at multipass quality inside the joint arm · multipass d′_w carries the AUC-ceiling caveat · sources: B1 caches
+  (120013–22) + small-N v2 (120800–13); bal-acc recomputed 2026-07-13.</p>
+
+  <h3 style="margin:26px 0 4px">The hunt — every hypothesis for the tax, and how it died</h3>
+  <div class="scroll full"><table class="wrapcells">
+      <thead><tr><th>hypothesis</th><th>the test</th><th>result</th><th>verdict</th></tr></thead>
+      <tbody>
+        <tr><td>mass competition (each frame gets ~1/N of the carrier's attention)</td>
+          <td>forward-patch every frame to an EQUAL attention share (renorm, L14–17)</td>
+          <td class="m">d′ 2.03 vs joint 1.97 vs multipass 7.18 — recovers ~8%</td>
+          <td><span class="pill p-bad">dead</span></td></tr>
+        <tr><td>removable cross-frame attention edges</td>
+          <td>fence: mask all frame→frame edges (full depth sweep)</td>
+          <td class="m">fenced ≤ joint, all-negative</td>
+          <td><span class="pill p-bad">dead</span></td></tr>
+        <tr><td>resolution / visual detail</td>
+          <td>hi-res 896px caches (vs 392px)</td>
+          <td class="m">d′ unchanged</td>
+          <td><span class="pill p-bad">dead</span></td></tr>
+      </tbody>
+  </table></div>
+  <p style="max-width:none">Three hypotheses, three controlled kills — what survives is
+  <em class="d">in-context encoding interference that switches on the moment a frame is not alone</em>.
+  Where it lives was the next question.</p>
+
+  <div class="def"><span class="tag">the localization</span>
+    <h3>The 2×2 and the un-mixers — the tax lives at the query</h3>
+    <p style="max-width:none">The message structure (§1), factored one level deeper — same A[c,j],
+    split into scale × shape:</p>
+    <div class="math">m<sub>f</sub> = Σ<sub>j∈f</sub> A[c,j]&nbsp;&nbsp;·&nbsp;&nbsp;ŵ<sub>j</sub> = A[c,j] / m<sub>f</sub>&nbsp;&nbsp;(Σ<sub>j∈f</sub> ŵ<sub>j</sub> = 1)&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— so A[c,j] = m<sub>f</sub>·ŵ<sub>j</sub>, exactly</span></div>
+    <div class="math">msg<sub>f</sub> = o_proj( Σ<sub>j∈f</sub> A[c,j]·v<sub>j</sub> ) = m<sub>f</sub> · o_proj( Σ<sub>j∈f</sub> ŵ<sub>j</sub> v<sub>j</sub> )&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— mass × (within-frame routing · values); identical to §1, o_proj is linear</span></div>
+    <p style="max-width:none">ŵ is renormalized <em class="d">within</em> the frame, so Σŵ<sub>j</sub>v<sub>j</sub>
+    is a pure weighted average — all cross-frame competition (the ~1/N dilution) lives in the scalar
+    m<sub>f</sub> alone. And here is where the query hides inside A:</p>
+    <div class="math">ŵ<sub>j</sub> = softmax<sub>j∈f</sub>( q<sub>c</sub>ᵀ k<sub>j</sub> / √d<sub>h</sub> )&nbsp;&nbsp;·&nbsp;&nbsp;q<sub>c</sub> = W<sub>Q</sub>·h<sub>c</sub>&nbsp;&nbsp;·&nbsp;&nbsp;k<sub>j</sub> = W<sub>K</sub>·h<sub>j</sub>&nbsp;&nbsp;·&nbsp;&nbsp;v<sub>j</sub> = W<sub>V</sub>·h<sub>j</sub></div>
+    <p style="max-width:none">h<sub>c</sub> is the carrier's residual state at the layer — and in a
+    joint pass h<sub>c</sub> has already attended over all N frames in every earlier layer. That is the
+    contamination path: the tax can enter through q<sub>c</sub> (mis-aimed routing) or through
+    h<sub>j</sub> (degraded frame encoding, moving both k and v) — and the 2×2 separates them. The
+    split makes the channels independently testable:</p>
+    <div class="scroll"><table class="wrapcells">
+      <thead><tr><th>factor</th><th>what it is</th><th>verdict on the tax</th></tr></thead>
+      <tbody>
+        <tr><td class="m">m_f (mass)</td><td>how much of the carrier's attention frame f wins</td>
+          <td><span class="pill p-ok">inert</span> — renorm null (~8%); excluded from d′ anyway</td></tr>
+        <tr><td class="m">ŵ_j (routing)</td><td>WHERE inside the frame the carrier looks — set by its query q<sub>c</sub></td>
+          <td><span class="pill p-bad">the culprit</span> — see the 2×2</td></tr>
+        <tr><td class="m">v_j (values)</td><td>what the frame's tokens carry</td>
+          <td><span class="pill p-warn">secondary</span> — degraded but reversible</td></tr>
+      </tbody>
+    </table></div>
+    <p style="max-width:none"><strong>The 2×2, exactly.</strong> For the same sample, two forwards
+    produce two versions of every state: <em class="d">joint</em> (all 8 frames + question) and
+    <em class="d">clean</em> (the frame alone + question, text-padded to 8-frame-equivalent context
+    length, so the ~1.9 long-context term cannot masquerade as the tax). Capture pre-rotary
+    q<sub>c</sub>, k<sub>j</sub>, v<sub>j</sub> from both; then rebuild the message in all four
+    combinations under ONE fixed rotary geometry (the joint forward's positions), with the softmax
+    taken within the frame (mass excluded by construction):</p>
+    <div class="math">msg<sub>f</sub><sup>(Q,KV)</sup> = o_proj( Σ<sub>j∈f</sub> softmax( q̃<sub>c</sub><sup>(Q)ᵀ</sup> k̃<sub>j</sub><sup>(KV)</sup> / √d<sub>h</sub> ) · v<sub>j</sub><sup>(KV)</sup> )&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">Q, KV ∈ {clean, joint} — keys and values travel together (both come from h<sub>j</sub>)</span></div>
+    <p style="max-width:none">Held-out per-frame d′ of each cell's reconstructed messages @L16
+    (n=500 re-capture, [2026-07-13] — anchor-validated: the reconstructed own-geometry mp×mp reads
+    7.81 ≈ the direct forward's 7.18, so these are on the real d′ scale; the earlier n=150 values,
+    4.79/3.14/1.59, were finite-sample-deflated with the same relative structure):</p>
+    <div class="scroll"><table>
+      <thead><tr><th></th><th class="n">clean values</th><th class="n">joint values</th></tr></thead>
+      <tbody>
+        <tr><td><b>clean query</b></td><td class="n" style="color:var(--ok)">6.29</td><td class="n">3.97</td></tr>
+        <tr><td><b>joint query</b></td><td class="n" style="color:var(--bad)">1.97</td><td class="n">2.33 (= the joint pass)</td></tr>
+      </tbody>
+    </table></div>
+    <p style="max-width:none">Read the columns: swapping the encoding costs 6.29 → 3.97. Read the
+    rows: swapping the query costs 6.29 → 1.97 — and a joint query collapses the read to ~2 regardless
+    of encoding (log-share: query 1.09 vs encoding 0.59). A third arm (true frame-alone forwards)
+    matches the padded clean arm within noise (mp×mp 7.33) — padding is a faithful control. The
+    <strong>un-mixers</strong> then split the two channels by reversibility:</p>
+    <div class="scroll"><table>
+      <thead><tr><th>q \ values</th><th class="n">clean</th><th class="n">un-mixed (MLP repair)</th><th class="n">joint (damaged)</th></tr></thead>
+      <tbody>
+        <tr><td><b>clean query</b></td><td class="n" style="color:var(--ok)">6.33</td><td class="n" style="color:var(--ok)">6.17 — repair works (93%)</td><td class="n">3.82</td></tr>
+        <tr><td><b>joint query (unfixable)</b></td><td class="n" style="color:var(--bad)">1.97</td><td class="n" style="color:var(--bad)">1.72</td><td class="n" style="color:var(--bad)">2.09</td></tr>
+      </tbody>
+    </table></div>
+    <p style="max-width:none">Top row: under a clean query, the value damage is <em class="d">repairable</em> —
+    the un-mixed cell nearly reaches the ceiling. Bottom row: under a joint query, nothing matters —
+    clean values (1.97), damaged values (2.09), and REPAIRED values (1.72) all read the same ~2 —
+    fixing the encoding behind a broken query buys nothing. And attempting to repair the query itself
+    makes it <em class="d">worse</em>: query un-mix 2.09 → <span class="m" style="color:var(--bad)">1.63</span>
+    (−27%); both adapters together 1.84 (−6%) — the value gain is wasted behind a broken query.
+    (The joint-q × un-mixed-v cell measured 2026-07-13, job 120864, with the retrained un-mixer
+    reproducing every logged cross-check exactly — 3.82/6.16/2.09; qkv_2x2/20260712_n500/jointq_cell.
+    All cells L16, eval n=200.)</p>
+    <p style="max-width:none"><strong>One fixed-width query cannot address N sources — over-squashing
+    at the query.</strong> Per-frame forwards are the supply floor, not a workaround.</p>
   </div>
-  <div class="def"><span class="tag">ii · the magnitude channel</span>
-    <h3>Softmax hands the model a fraction, and hides the count</h3>
-    <p style="max-width:none">Evidence-only data: the count is the <em class="d">length</em> of the sum,
-    ‖S‖ ≈ g·‖μ‖ — corr(‖S‖, g) = <span class="m">+1.00</span>, an easy loud channel. Fix the total set
-    size at 8 and ‖S‖ ≈ 8‖μ‖ = constant — corr drops to <span class="m">−0.14</span>; the count is forced
-    onto the 1%-sized δ direction. The model behaves accordingly: a <em class="d">fraction reader</em>
-    (systematic undercount, by-gold slope ~0.1, g ≥ 5 → 0) — reading evidence-share, which softmax
-    provides for free, instead of absolute count, which it hides.</p>
-  </div>
-  <div class="def"><span class="tag">iii · no per-frame threshold</span>
-    <h3>One attention hop cannot implement the sharp gate</h3>
-    <p style="max-width:none">Theorem 4 says the fix is a per-frame threshold before the sum. Attention's
-    aggregation is linear in the values — a single hop can reweight frames but cannot binarize each one.
-    The operation that takes 0.09 → 1.00 is exactly the operation the aggregating layer doesn't have.</p>
+
+  <div class="def"><span class="tag">the consequences</span>
+    <h3>What the saga buys, and where it stops</h3>
+    <div class="scroll"><table class="wrapcells">
+      <thead><tr><th>consequence</th><th>numbers</th><th>where</th></tr></thead>
+      <tbody>
+        <tr><td>behavior follows supply</td>
+          <td class="m">multipass tally 0.91 → 0.42 vs joint model 0.207 → 0.013 (N = 8 → 128)</td>
+          <td>§6 Table 1</td></tr>
+        <tr><td>retrieve-then-verify beats the tax</td>
+          <td class="m">0.79–0.88 held to N = 128</td>
+          <td>Wall Ⅰ cure, §10</td></tr>
+        <tr><td>chunking has a sharp frontier</td>
+          <td class="m">k ≥ 4 buys nothing (d′ 2.31 ≈ joint); frontier k = 1–2</td>
+          <td>chunk sweep</td></tr>
+        <tr><td>the tax damages the distribution too</td>
+          <td class="m">joint E4 kurt +0.5 → +25 with N; multipass stays clean</td>
+          <td>§5 verdict map</td></tr>
+        <tr><td>the honest limit</td>
+          <td class="m">HERBench: isolation NULL (multipass ≈ fenced ≈ joint, d′ ~1)</td>
+          <td>weak source extraction — the saga is a strong-supply phenomenon</td></tr>
+      </tbody>
+    </table></div>
   </div>
 </section>
 
-<p><strong>The read, factored (2026-07-12).</strong> The message a carrier token c collects
-from frame f factorizes as <span class="m">msg_f = m_f · o_proj(Σ_j ŵ_j v_j)</span>: a scalar
-mass <span class="m">m_f</span> (how much of c's attention frame f wins — excluded from d′,
-which is per-frame-scale-invariant; equalizing it causally recovers nothing), a within-frame
-routing distribution <span class="m">ŵ_j</span> (WHERE inside the frame c looks — set by the
-query q_c; the subset-renormalization property of softmax makes ŵ independent of other frames'
-logits), and the values <span class="m">v_j</span> (what the frame's tokens carry). The 2×2
-swap shows the joint-context tax rides almost entirely on <span class="m">ŵ_j</span> via a
-contaminated q_c, secondarily on <span class="m">v_j</span>, and not at all on
-<span class="m">m_f</span>.</p>
+
+
+<!-- ============ 10 THE READOUT ============ -->
+<section id="readout">
+  <h2><span class="no">9</span>The readout saga — right token, wrong axis</h2>
+  <p class="lead">§8 explained what reaches the carrier. This section is about the last step: how the
+  frozen model reads it — and why the emitted answer sits far below what its own states contain.
+  The whole story is one measured direction.</p>
+
+  <h3 style="margin:18px 0 4px">One law, three axes — the project's accuracy hierarchy is one formula at three read qualities</h3>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>axis</th><th>how obtained</th><th class="n">cos to w*</th><th class="n">d′ along it</th>
+      <th class="n">law → predicted acc</th><th class="n">observed</th></tr></thead>
+    <tbody>
+      <tr><td><b>native</b> (the model's own read)</td><td>gradient of the answer-logit margin (below)</td>
+        <td class="n">0.005</td><td class="n">0.51</td><td class="n">≈0.17</td><td class="n">0.21–0.24 (the model)</td></tr>
+      <tr><td>whitened w*</td><td>shrinkage-LDA (§2)</td>
+        <td class="n">1</td><td class="n">2.47</td><td class="n">0.375</td><td class="n">0.363 (probe ceiling)</td></tr>
+      <tr><td>multipass supply</td><td>same w*, isolated forwards (§8)</td>
+        <td class="n">—</td><td class="n">~6.6–7.2</td><td class="n">0.92+</td><td class="n">0.95+ (mp solution)</td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  replications of the native-axis closure: InternVL d′ 0.19 → pred 0.135, meas 0.117–0.137 ·
+  text-MMRED 0.80 → 0.163, meas 0.165 · sources: E6 [2026-07-05] (job 117809), §6 Table 2.</p>
+
+  <div class="def"><span class="tag">the extraction</span>
+    <h3>How the model's own reading axis was measured</h3>
+    <p style="max-width:none">Ask, per sample: <em class="d">in which direction of the carrier's state
+    does the model's emitted answer move?</em> Concretely, with h<sub>c</sub> the room-token residual
+    entering L17 and the digit logits at the answer position:</p>
+    <div class="math">g<sup>(i)</sup> = ∇<sub>h_c</sub> [ logit(gold digit) − max<sub>d≠gold</sub> logit(d) ]&nbsp;&nbsp;&nbsp;<span style="color:var(--muted)">— one gradient per sample i, n=100</span></div>
+    <div class="math">a<sub>native</sub> = normalize( mean<sub>i</sub> sign-aligned g<sup>(i)</sup>/‖g<sup>(i)</sup>‖ )&nbsp;&nbsp;·&nbsp;&nbsp;coherence = ‖mean û‖ = 0.658</div>
+    <p style="max-width:none">This is the local linearization of the model's read map — the first-order
+    answer to "what does the frozen readout project the carrier onto?" Coherence 0.658 says one
+    direction captures most (not all) of a nonlinear map — which is why the 0.17-vs-0.21 closure above
+    is corroboration, not exact accounting. Measured: cos(a<sub>native</sub>, w*) = 0.005,
+    cos(a<sub>native</sub>, δ̂) = 0.056, held-out d′ along it 0.51 — worse than even the naive axis.</p>
+  </div>
+
+  <div class="def"><span class="tag">the causal proof</span>
+    <h3>A double dissociation at one token</h3>
+    <p style="max-width:none">Dose each axis during real forwards and watch two channels — what a probe
+    can decode at the last token, and what the model actually answers:</p>
+    <div class="scroll"><table>
+      <thead><tr><th>dosed axis</th><th class="n">last-token decode</th><th class="n">emitted answer</th></tr></thead>
+      <tbody>
+        <tr><td>δ̂ / w* (the informative axes)</td><td class="n" style="color:var(--ok)">0.37 → 0.75 (soars)</td><td class="n" style="color:var(--bad)">flat ~0.13–0.23</td></tr>
+        <tr><td><b>native</b> (the model's axis)</td><td class="n" style="color:var(--bad)">flat (~0.22 ≈ base 0.23)</td><td class="n" style="color:var(--ok)">moves — the only axis that does</td></tr>
+      </tbody>
+    </table></div>
+    <p style="max-width:none">Content flows through one channel, behavior through a nearly orthogonal
+    other — the readout wall as a causally verified geometric fact. Controls: random-axis dose/scrub
+    move neither channel.</p>
+  </div>
+
+  <h3 style="margin:26px 0 4px">The native dose–response series (E6c, job 118594, n=250) — the Table-3 twin, on the model's own axis</h3>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>arm</th><th class="n">emitted acc (MAE)</th><th>what happened</th></tr></thead>
+    <tbody>
+      <tr><td>base</td><td class="n">0.240 (1.48)</td><td>counts ≥ 5 essentially never emitted (g5 0.00, g6 0.00)</td></tr>
+      <tr><td><b>natdose ×2</b></td><td class="n" style="color:var(--ok)"><b>0.300 (1.06)</b></td><td><b>the first behavior-moving dose in the program</b> — unlocks the high counts (g5 0.00→0.58, g7 0.10→0.28)</td></tr>
+      <tr><td>natdose ×4</td><td class="n">0.192 (1.49)</td><td rowspan="3">monotone overshoot toward high answers (g2–g4 → 0.00) — causal direction confirmed; the port saturates</td></tr>
+      <tr><td>natdose ×8</td><td class="n">0.156 (1.84)</td></tr>
+      <tr><td>natdose ×16</td><td class="n">0.164 (1.93)</td></tr>
+      <tr><td>natscrub (remove the native component)</td><td class="n" style="color:var(--bad)">0.196 (1.75)</td><td>behavior falls with last-token decode INTACT (0.22 ≈ base 0.23) — the inverse dissociation</td></tr>
+      <tr><td>random-axis scrub (control)</td><td class="n">0.228 (1.50)</td><td>≈ base — the effect is axis-specific</td></tr>
+      <tr><td>natset (write a chosen count g′ onto the port)</td><td class="n" style="color:var(--bad)">0.176 (2.02)</td><td>emitted does NOT follow the written g′ (worse than coincidence 0.240) — <b>the port is a confidence knob, not a number line</b></td></tr>
+    </tbody>
+  </table></div>
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  contrast with Table 3 (§6): dosing the INFORMATIVE axis moves decode and never behavior; dosing the
+  NATIVE axis moves behavior and never decode · natset failing is why activation-level count-writing is
+  dead (§9 fixes) · run: dprime_dose/native_port/20260706_225256.</p>
+
+  <h3 style="margin:26px 0 4px">Every alternative, killed — why "misaligned readout" and not something else</h3>
+  <div class="scroll full"><table class="wrapcells">
+      <thead><tr><th>alternative explanation</th><th>experiment</th><th>result</th></tr></thead>
+      <tbody>
+        <tr><td>"the count never reaches the answer position"</td><td>dose ×64, decode at last token (Table 3)</td>
+          <td class="m">0.75 decodable @L24 — delivery is fine</td></tr>
+        <tr><td>"it decays across the late layers"</td><td>decode@FINAL vs decode@L24 at every dose</td>
+          <td class="m">equal — survives all 28 layers, dies AT the unembedding</td></tr>
+        <tr><td>"the head just needs more signal"</td><td>frozen head across the whole λ ladder</td>
+          <td class="m">flat 0.13–0.23 at every dose</td></tr>
+        <tr><td>"the probe invented the axis"</td><td>native dose/scrub + random-axis controls (above)</td>
+          <td class="m">behavior moves only along the native axis</td></tr>
+        <tr><td>"it is a capability limit, not alignment"</td><td>repaired readout: ONE linear head on the final layer</td>
+          <td class="m">0.783 vs frozen 0.133 at ×64 — one linear map away</td></tr>
+        <tr><td>"the long-N failure is supply"</td><td>B3 behavior vs N</td>
+          <td class="m">emitted range clamps at ≈3 ∀N to 128 while ordinal signal survives to N=64 (corr 0.75); law ∘ measured-clamp reproduces behavior, zero fitted params</td></tr>
+        <tr><td>"the exit geometry might still be usable"</td><td>count direction vs digit unembedding rows, final layer</td>
+          <td class="m">cos ≤ 0.01 to all nine digit rows (read R² 0.85, alignment 0.008)</td></tr>
+      </tbody>
+  </table></div>
+
+  <h3 style="margin:26px 0 4px">The fixes — what works and what provably does not</h3>
+  <div class="scroll full"><table class="wrapcells">
+      <thead><tr><th>route</th><th class="n">in-task</th><th class="n">OOD</th><th>verdict</th></tr></thead>
+      <tbody>
+        <tr><td><b>real tokens</b> — fact-phrased pre-question ("Note: C spent exactly k steps…")</td>
+          <td class="n" style="color:var(--ok)">0.987</td><td class="n" style="color:var(--ok)">1.000 (every k 0–40, all two-digit)</td>
+          <td><span class="pill p-ok">the cure</span> tally-as-answer ≈1.0; base model 0.027</td></tr>
+        <tr><td>repaired linear head on the final layer</td>
+          <td class="n">0.283 base / 0.783 dosed</td><td class="n">—</td>
+          <td><span class="pill p-warn">diagnostic</span> proves the ceiling; modest alone (+0.06)</td></tr>
+        <tr><td>learned digit/count codebooks (activation injection)</td>
+          <td class="n">~1.0</td><td class="n" style="color:var(--bad)">fails</td>
+          <td rowspan="3"><span class="pill p-bad">dead</span> every activation-level route verbalizes in-range and fails OOD; steering the answer position to ±16×rms moves nothing — <b>the token interface is necessary, not just sufficient</b></td></tr>
+        <tr><td>count-direction / Fourier / native-anchored injections</td>
+          <td class="n">partial</td><td class="n" style="color:var(--bad)">fails</td></tr>
+        <tr><td>writing g′ onto the native port (natset)</td>
+          <td class="n" style="color:var(--bad)">0.176 &lt; 0.240</td><td class="n">—</td></tr>
+      </tbody>
+  </table></div>
+</section>
 
 <!-- ============ 8 WALLS ============ -->
 <section id="walls">
-  <h2><span class="no">10</span>The three walls</h2>
-  <p class="lead">The model-vs-ceiling gap decomposes into three separately measured, separately curable
-  mechanisms.</p>
+  <h2><span class="no">10</span>The three walls — each problem, concluded; each fix, measured</h2>
+  <p class="lead">The model-vs-perfect gap decomposes into three separately measured, separately curable
+  mechanisms. One sentence, three numbers, one fix each.</p>
   <div class="walls">
     <div class="wall"><span class="no">Ⅰ</span>
-      <h3>Supply — the joint-context tax, localized</h3>
-      <p>Processing N frames in ONE forward costs a ~3.2–3.6× d′ factor at the deployed carrier
-      (joint ~2.0 vs isolated 7–8; flat in N to 128), both modalities, both families. Final
-      localization (the query/encoding 2×2, 2026-07-12): swap the carrier query q_c and the frame
-      values k,v independently between clean and joint forwards — a JOINT query collapses the
-      per-frame read to joint level even on clean values (1.59 vs clean 4.79 @L16); a clean query
-      on joint values keeps most separability (3.14). <strong>The tax is chiefly QUERY-ROUTING
-      contamination</strong> — q_c mis-aims the within-frame attention ŵ_j — plus a secondary
-      value-encoding component and a saturating long-context term (~1.9). Consistent with all
-      nulls: not mass (renorm 1–8%), not removable edges (fence sweep all-negative), onsets at
-      the first companion (8.08→3.37 at k=2), content-graded (gray free, same-scene worst).
-      <strong>The two halves are opposite in kind (un-mixers, 2026-07-12):</strong> the value
-      degradation is REVERSIBLE — a learned joint→clean map recovers ~100% of the encoding gap —
-      while the query is an IRREDUCIBLE addressing-capacity limit: a per-frame query mis-reads other
-      frames (donor 1.02 &lt; joint 1.71 &lt; own 3.48) and cannot be reconstructed from the joint
-      state (un-mix reads 1.19, below baseline). One fixed-width query cannot address N sources —
-      <em>over-squashing at the query</em> — so per-frame forwards are the supply floor, not a workaround.</p>
-      <span class="fix">levers: separate/near-separate forwards (k≤2) → retrieve-then-verify
-      (0.79–0.88 to N=128) · clean-query re-read: k=2-level margins at ~2 forwards</span>
+      <h3>Supply — the joint-context tax (§8)</h3>
+      <p><strong>Problem:</strong> sharing a forward pass costs ~3.5× per-frame d′ — paid in full at the
+      first companion, carried by an irreducible query-addressing limit (one fixed-width query cannot
+      address N sources).</p>
+      <p class="m" style="margin-top:8px">joint ~2.0 vs multipass 7.2–8.1, flat ∀N · onset 8.08 → 3.37
+      at k=2 · 2×2: query 6.29 → 1.97 · value repair 93%, query repair −27%</p>
+      <span class="fix">FIX: don't share forwards — per-frame or k≤2 reads; retrieve-then-verify holds
+      0.79–0.88 to N=128</span>
     </div>
     <div class="wall"><span class="no">Ⅱ</span>
-      <h3>Pooling — the √N tax</h3>
-      <p>Summing before deciding superimposes N frames' noise and erases per-frame identity: even the
-      optimal linear read of the sum caps at 2Φ(d′/2√N)−1 ≈ 0.38–0.47. Deciding first, then adding
-      (decode-then-count) reaches 0.47–0.59 from the same vectors. At scale a frozen gate ALSO drifts:
-      1/N mass dilution inflates FN 0.09→0.99 (direction intact — mass-normalization cuts it ~10×).</p>
-      <span class="fix">cures: per-frame sharp gate → tally (Σσ: 0.09→1.00) · mass-norm + per-N margin</span>
+      <h3>Pooling — the √N tax (§4)</h3>
+      <p><strong>Problem:</strong> summing N messages before deciding leaves adjacent counts d′/√N
+      apart — even the optimal linear readout of the sum caps at 2Φ(d′/2√N)−1; and at scale the frozen
+      gate's threshold drifts with the 1/N mass dilution.</p>
+      <p class="m" style="margin-top:8px">linear-on-sum ceiling 0.38–0.47 · decode-then-count 0.47–0.59
+      from the SAME vectors · gate FN 0.09 → 0.99 by N=128 (mass-norm cuts ×10)</p>
+      <span class="fix">FIX: decide per frame BEFORE the sum — sharp gate → tally: 0.09 → 1.00; plus
+      mass-normalization at scale</span>
     </div>
     <div class="wall"><span class="no">Ⅲ</span>
-      <h3>Readout — the angle and the clamp</h3>
-      <p>The model reads the right token along its native axis: cos to w* = 0.005, carrying d′ 0.51 —
-      ~20% of available separation. At scale the emitted RANGE clamps (answers ≈3 for every N to 128
-      while ordinal signal survives to N=64); law ∘ measured-clamp reproduces behavior with zero fitted
-      parameters. And the interface is one-way: real tokens verbalize at 1.000 OOD; every learned
-      activation-level injection (digit / count / Fourier / native-anchored) fails OOD — the token
-      interface is necessary, not just sufficient.</p>
-      <span class="fix">cures: tally-as-answer via predicate-matched fact pre-question (≈1.0 incl. OOD)</span>
+      <h3>Readout — the angle and the clamp (§9)</h3>
+      <p><strong>Problem:</strong> the model reads the right token along a nearly orthogonal axis
+      (cos 0.005 to w*, keeping d′ 0.51 of 2.47), its emitted range clamps at scale, and no activation
+      channel is dictatable (the port is a knob, not a number line).</p>
+      <p class="m" style="margin-top:8px">repaired head 0.783 vs frozen 0.133 · law@native 0.17 ≈ model
+      0.21–0.24 · answers ≈3 ∀N to 128 · every injection fails OOD</p>
+      <span class="fix">FIX: route the count through REAL tokens — tally-as-answer ≈1.0 incl. OOD; the
+      token interface is necessary, not just sufficient</span>
     </div>
   </div>
+</section>
+
+
+<!-- ============ 12 THE METHOD ============ -->
+<section id="method">
+  <h2><span class="no">11</span>The method — retrieve-then-verify: the three fixes, composed and deployed</h2>
+  <p class="lead">The constructive result of the thesis: a <em class="d">fully frozen</em> system — the
+  model serving as its own extractor, verifier, and verbalizer — where the only trained component is one
+  logistic gate fit once on the N=8 message cache. Each stage is one wall's fix (§10), deployed.</p>
+
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th class="n">stage</th><th>what happens</th><th>which wall it answers</th><th>key number</th></tr></thead>
+    <tbody>
+      <tr><td class="n">1</td><td><b>shortlist</b> — one joint pass; a logistic gate on msg<sub>f</sub>/m<sub>f</sub>
+        (§8's mass factor divided out, so the frozen threshold survives the 1/N dilution — B2's raw
+        gate drifts FN 0.09→0.99, mass-normed 0.11→0.26), trained once on N=8 messages, flags
+        candidate evidence frames at high recall; the verifier below absorbs its ~0.2 FP floor</td>
+        <td>cheap coverage (FN ≤ 2% calibrated)</td><td class="m">gate trained once, reused ∀N</td></tr>
+      <tr><td class="n">2</td><td><b>verify</b> — each shortlisted frame gets its own isolated yes/no
+        look-again pass</td>
+        <td><b>Wall Ⅰ</b> — per-frame forwards are the supply floor (§8)</td>
+        <td class="m">isolated per-frame perception 0.985</td></tr>
+      <tr><td class="n">3</td><td><b>tally</b> — count the yeses; no noisy message is ever summed</td>
+        <td><b>Wall Ⅱ</b> — decide per frame BEFORE aggregating (§4)</td>
+        <td class="m">gate-before-sum: 0.09 → 1.00 in the ablation ladder</td></tr>
+      <tr><td class="n">4</td><td><b>verbalize</b> — the tally is rendered as the predicate-matched fact
+        sentence pre-question; the frozen model emits it</td>
+        <td><b>Wall Ⅲ</b> — the token interface is the only dictatable channel (§9)</td>
+        <td class="m">fact-phrased render: 1.000 incl. OOD (every k 0–40)</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="margin:26px 0 4px">Headline — steps count, image, exact match vs N</h3>
+  <div class="scroll full"><table>
+    <thead><tr><th class="n">N</th><th class="n">frozen model</th><th class="n">law ceiling (joint)</th>
+      <th class="n">multipass solution</th><th class="n">chunked k=8 (budget)</th>
+      <th class="n">retrieve v1</th><th class="n">retrieve v2 (3 seeds)</th></tr></thead>
+    <tbody>
+      <tr><td class="n">32</td><td class="n">0.073</td><td class="n">0.175</td><td class="n">0.680</td><td class="n">0.193 (5 fwd)</td><td class="n" style="color:var(--ok)">0.880</td><td class="n" style="color:var(--ok)">0.862 ±0.014</td></tr>
+      <tr><td class="n">64</td><td class="n">0.053</td><td class="n">0.130</td><td class="n">0.580</td><td class="n">0.033</td><td class="n" style="color:var(--ok)">0.807</td><td class="n" style="color:var(--ok)">0.853</td></tr>
+      <tr><td class="n">128</td><td class="n">0.020</td><td class="n">0.084</td><td class="n">0.420</td><td class="n">0.027</td><td class="n" style="color:var(--ok)">0.707</td><td class="n" style="color:var(--ok)">0.791 ±0.055</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none"><strong>17–35× the frozen model, above the full multipass solution, and
+  above the closed-form ceiling for ANY linear readout of the joint carrier</strong> — the last by
+  construction: the pipeline never sums noisy messages, so the √N law does not bind it. Surviving
+  errors are nearly unbiased (MAE 0.15/0.23/0.55). The theory is not just diagnosis — it prices its own
+  cure: every stage choice traces to a measured section of this page.</p>
+
+  <h3 style="margin:26px 0 4px">The wall ladder — pay one more wall per column (steps count, exact match)</h3>
+  <p style="max-width:none">The clearest way to see what each wall costs: four systems, each fixing one
+  more wall than the last. Bold = measured; grey = the theory's price (the law / gate-law at the
+  measured joint d′). All single-forward except the last column.</p>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th class="n">N</th>
+      <th>frozen model<br><span style="font-weight:400">no walls paid · 1 fwd</span></th>
+      <th>+ Wall Ⅲ<br><span style="font-weight:400">readout fixed: best linear read of the joint sum · 1 fwd</span></th>
+      <th>+ Walls Ⅱ&amp;Ⅲ<br><span style="font-weight:400">per-frame sigmoid gate → tally → tokens, still ONE joint pass · 1 fwd</span></th>
+      <th>+ Walls Ⅰ&amp;Ⅱ&amp;Ⅲ<br><span style="font-weight:400">per-frame forwards: retrieve-then-verify · ~N fwd</span></th></tr></thead>
+    <tbody>
+      <tr><td class="n">8</td><td class="n">0.173</td><td class="n"><b>0.363</b> (law 0.314)</td><td class="n"><b>0.52</b> (gate-law 0.33–0.52 by read locus)</td><td class="n"><b>0.910</b> (multipass tally)</td></tr>
+      <tr><td class="n">32</td><td class="n">0.073</td><td class="n" style="color:var(--muted)">0.175</td><td class="n" style="color:var(--muted)">0.094</td><td class="n"><b>0.862</b></td></tr>
+      <tr><td class="n">64</td><td class="n">0.053</td><td class="n" style="color:var(--muted)">0.130</td><td class="n" style="color:var(--muted)">0.046</td><td class="n"><b>0.853</b></td></tr>
+      <tr><td class="n">128</td><td class="n">0.020</td><td class="n" style="color:var(--muted)">0.084</td><td class="n" style="color:var(--muted)">0.018</td><td class="n"><b>0.791</b></td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none">Read it left to right at any N: fixing the readout multiplies accuracy ~2×;
+  adding the per-frame gate helps at short N (0.52 &gt; 0.36 at N=8) but <em class="d">inverts</em> at
+  long N — with joint supply (d′ ~2, per-frame error ~0.16) a hard gate at N=128 needs ~20 errors to
+  cancel exactly (0.018, below even the linear read: binarizing weak evidence discards what the matched
+  filter can still average). Exact counting needs per-frame error ≲ 1/2N — a supply requirement that
+  GROWS with N while joint supply stays flat. Only paying Wall Ⅰ (isolated reads, error 0.015) survives
+  the row: <strong>at scale, supply is everything, and the theory says so quantitatively.</strong></p>
+
+  <h3 style="margin:26px 0 4px">The gate architecture across tasks — the CHEAP rung (one joint forward, no verification)</h3>
+  <p style="max-width:none">These rows are the Σ-gate alone: gate the joint-pass messages, tally,
+  render — Walls Ⅱ and Ⅲ paid, Wall Ⅰ not. Each task's score is therefore capped by its carrier's
+  joint d′, and the law prices every row (that is this table's point). The headline table above is the
+  expensive rung: the same gate plus per-frame verification (Wall Ⅰ paid, ~N extra forwards), which
+  lifts steps from 0.52 to 0.86–0.88. Rooms never needs the expensive rung (supply d′≈5 → 0.99 cheap);
+  cooc would gain little from it — its isolated pair-verifier is the measured bottleneck (~0.66,
+  9% flip rate).</p>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>task</th><th class="n">frozen model</th><th class="n">gate → reduction</th><th class="n">count-OOD</th><th>reading</th></tr></thead>
+    <tbody>
+      <tr><td><b>rooms-visited</b> (multiclass gate → union)</td><td class="n">0.087</td>
+        <td class="n" style="color:var(--ok)">0.993–1.000</td><td class="n" style="color:var(--ok)">0.960–0.980</td>
+        <td>11× the model — the flagship: gate at d′_r ≈ 5 + a parameter-free union</td></tr>
+      <tr><td>co-occupancy (2-token × 2-layer block gate)</td><td class="n">0.155</td>
+        <td class="n">0.736–0.766</td><td class="n">0.439–0.469</td>
+        <td>4.8× — the distributed carrier handled by the block read</td></tr>
+      <tr><td>steps (room carrier)</td><td class="n">0.207</td>
+        <td class="n">0.517–0.525</td><td class="n">0.118–0.175</td>
+        <td>the theory grading its own solution: 0.52 is exactly the closed form at the carrier's
+        d′ = 2.44 — raising it needs a better read locus (→ retrieve-then-verify above), not a better
+        aggregator</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="def"><span class="tag">honest limits</span>
+    <h3>What the method does not claim</h3>
+    <p style="max-width:none"><strong>Cost:</strong> the registered "cost scales with evidence count"
+    prediction MISSED — the shortlist keeps ~65–90% of frames, so cost ≈ 1.15·N forwards, not
+    O(evidence). Accuracy goal ✓✓, cost goal ✗. <strong>Supervision:</strong> per-N threshold
+    calibration uses 30 labeled samples (legitimate at inference — N is known — but supervision the
+    frozen baseline lacks); the gate itself is trained only on the pre-existing N=8 cache.
+    <strong>Scope:</strong> steps task, n=150/N (v1 single-seed; v2 carries 3-seed bars); render stage
+    is text-only. <strong>The regime boundary, confirmed constructively:</strong> on HERBench real
+    video, retrieve-then-verify is a NULL (0.157 = frozen 0.172) — the per-frame verifier IS the wall
+    there (graded evidence, MAE 2.87 undercount); no aggregation machinery adds what perception does
+    not supply. Regime 2's prescription is "fix perception," and the method knows it.</p>
+  </div>
+  <h3 style="margin:26px 0 4px">Architectural outlook — what the fix looks like when you may change the model</h3>
+  <p style="max-width:none">The theory writes the spec sheet: (1) per-source addressing (no single
+  fixed-width query over N sources — the un-mixer's irreducibility result), (2) an extensive
+  accumulator, (3) a per-item write gate before it, (4) width ≥ max count + a trainable or symbolic
+  readout. Grading the literature against it:</p>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>family</th><th>representatives</th><th>spec items</th><th>what our record says</th></tr></thead>
+    <tbody>
+      <tr><td>linear-state recurrences with write gates</td><td>Gated DeltaNet, Mamba-2, xLSTM/mLSTM, RWKV-7</td>
+        <td class="m">2, 3 native; 4 by training</td>
+        <td>the write gate IS our φ as a primitive; our Mamba adapter ≥ sum but supply-capped (adapters inherit joint reads)</td></tr>
+      <tr><td>hybrid attention+SSM production models</td><td>Qwen3-Next (DeltaNet layers), Jamba, Nemotron-H, Falcon-H</td>
+        <td class="m">same, at scale, ALREADY PRETRAINED</td>
+        <td>untested — the natural experiment below</td></tr>
+      <tr><td>additive memory inside attention</td><td>Infini-attention, RMT / Transformer-XL lineage</td>
+        <td class="m">2; 1 partially (chunked + carried state)</td>
+        <td>chunked-with-register = architecturalized retrieve-then-verify; k=2 supply 3.37 measured</td></tr>
+      <tr><td>slot / query-multiplexed readers</td><td>Perceiver-IO, Slot Attention, DETR-style object queries (why detectors count)</td>
+        <td class="m">1 directly; 3–4 per slot</td>
+        <td>the deep fix — per-frame addressing must exist in the forward; cannot be retrofitted (query un-mix −27%)</td></tr>
+      <tr><td>attention-function surgery</td><td>unnormalized/linear attention, off-by-one softmax, learned gain</td>
+        <td class="m">2 weakly</td>
+        <td>our pokes: GAIN helps at long N, temperature doesn't, Diff-attention = selection only — partial patches</td></tr>
+      <tr><td>GNN-side principled aggregation</td><td>GIN sum, PNA, virtual global node; gLSTM (arXiv:2510.08450)</td>
+        <td class="m">2; 1 by construction (per-node messages)</td>
+        <td>our DeepSets block is a GIN layer; the transformer's pathology = all N nodes route through ONE query</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none"><strong>Three proposals, each with a pre-registered price from the law:</strong></p>
+  <ul class="res">
+    <li><span class="cat">natural experiment</span><strong>Run the text-MMRED battery across released
+      architectures.</strong> Softmax models (Qwen2.5, Llama) vs extensive-state hybrids (Qwen3-Next,
+      Jamba, RWKV-7) on states-only counting, N = 8→128 — no pretraining, someone else paid for the
+      counterfactual. Prediction: softmax collapses on 2Φ(d′/2√N)−1 with the undercount clamp;
+      write-gated recurrent state shows a flatter curve and no clamp. Either outcome is a finding.
+      <span class="src">behavioral battery exists (§6 text rows); ~10–15 GPU-h total</span></li>
+    <li><span class="cat">priced retrofit</span><strong>Chunked additive register (Infini-attention-style)
+      at the carrier layers.</strong> k=2 chunk encoding (supply d′ 3.37 measured) + gated writes into an
+      unnormalized memory + token-render readout. Gate-law price at that supply: exact ≈ 0.32 / 0.17 /
+      0.08 at N = 32/64/128 — beats every single-forward system in the wall ladder, in one forward-ish
+      pass, and the prediction exists before training.
+      <span class="src">finetune-scale; chunk sweep [2026-07-11j] supplies the input d′</span></li>
+    <li><span class="cat">the deep fix</span><strong>Query-multiplexed counting head (DETR-style
+      slots).</strong> Per-frame query slots cross-attending the frozen features — requirement 1 as a
+      trainable head. The 2×2's own-geometry row prices its ceiling: a good per-frame query on
+      joint-encoded values reads d′ ≈ 4.5 → gate-law ≈ 0.68 / 0.49 / 0.29 at N = 32/64/128 — most of the
+      supply wall, without touching the backbone.
+      <span class="src">head-scale; ceiling from the n=500 2×2 (mp-q × joint-kv = 4.47)</span></li>
+  </ul>
+  <h3 style="margin:26px 0 4px">Outcomes — the first two proposals ran (autonomous battery, 2026-07-13/14)</h3>
+  <p style="max-width:none"><strong>The slot-head go/no-go (proposal 3): NO-GO, decisively.</strong>
+  A trained shared query cannot read evidence from joint-encoded k/v — it fails to match even the
+  model's own contaminated query, because that query's value lives in its sample-specific component:</p>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>what reads the frame (L16, held-out, n=500 capture)</th><th class="n">d′</th><th>status</th></tr></thead>
+    <tbody>
+      <tr><td>clean per-frame query × clean k/v (ceiling)</td><td class="n">6.33</td><td>anchor ✓</td></tr>
+      <tr><td>mp query × joint k/v — the "perfect query" bound</td><td class="n">3.82</td><td>anchor ✓</td></tr>
+      <tr><td>the model's own joint query</td><td class="n">2.09</td><td>anchor ✓</td></tr>
+      <tr><td><b>trained shared q* (best of 3 inits)</b></td><td class="n" style="color:var(--bad)"><b>0.36–0.48</b></td><td>10× below the ≥4 GO bar</td></tr>
+      <tr><td>best epoch ever, any init (cherry-picked bound)</td><td class="n">0.51</td><td>trajectory diagnostic</td></tr>
+      <tr><td>mean of the model's own joint queries</td><td class="n">~0.5</td><td>the finding: 2.09 is SAMPLE-specific</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none">A fixed learned query fails twice over — not frame-specific AND not
+  sample-specific. Per-frame addressing must be architectural.
+  <span class="m">qkv_2x2/20260712_n500/trained_query/ · jobs 120908/120914</span></p>
+  <p style="max-width:none"><strong>The natural experiment (proposal 1): NO released architecture
+  escapes — prediction 2 REFUTED as-released.</strong> Exact match, fixed prompt/reader, n=150/N
+  (majority ≈ 0.14/0.07/0.07/0.05/0.07/0.06):</p>
+  <div class="scroll full"><table>
+    <thead><tr><th>model (primitive)</th><th class="n">N=8</th><th class="n">16</th><th class="n">24</th><th class="n">40</th><th class="n">64</th><th class="n">128</th></tr></thead>
+    <tbody>
+      <tr><td>Mistral-7B (softmax)</td><td class="n">0.353</td><td class="n">0.127</td><td class="n">0.040</td><td class="n">0.053</td><td class="n">0.060</td><td class="n">0.040</td></tr>
+      <tr><td>Qwen2.5-14B (softmax)</td><td class="n">0.287</td><td class="n">0.087</td><td class="n">0.067</td><td class="n">0.020</td><td class="n">0.133</td><td class="n">0.087</td></tr>
+      <tr><td>Falcon-H1-7B (Mamba2‖attn)</td><td class="n">0.367</td><td class="n">0.127</td><td class="n">0.120</td><td class="n">0.033</td><td class="n">0.027</td><td class="n">0.040</td></tr>
+      <tr><td>Nemotron-Nano-9B (Mamba2 hybrid)</td><td class="n">0.133</td><td class="n">0.047</td><td class="n">0.073</td><td class="n">0.033</td><td class="n">0.080</td><td class="n">0.073</td></tr>
+      <tr><td>RecurrentGemma-9B (Griffin)</td><td class="n">0.240</td><td class="n">0.087</td><td class="n">0.040</td><td class="n">0.033</td><td class="n">0.040</td><td class="n">0.020</td></tr>
+      <tr><td>xLSTM-7B (mLSTM; base model — uninformative)</td><td class="n">0.067</td><td class="n">0.013</td><td class="n">0.007</td><td class="n">0.020</td><td class="n">0.040</td><td class="n">0.013</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none">Every architecture sits at ≤0.09 ≈ majority by N ≥ 40; Falcon-H1 alone
+  resists briefly (near-zero bias to N=24). Softmax models are NOT clamped like the Qwen-VL anchor —
+  they keep Spearman 0.7–0.9 while bias grows to −16 (they rank; they cannot count) — the clamp is a
+  model-specific readout pathology. <strong>Refined claim: the extensive-state primitive is necessary
+  but not sufficient — training must recruit it.</strong> Gaps: no Gated-DeltaNet point survived
+  (Qwen3-Next MoE defeats bnb quantization on 40GB A100s); xLSTM base-only.
+  <span class="m">outputs/arch_battery/20260713_215812/ · plans/arch_experiments_DRAFT_RESULTS.md</span></p>
+
+  <h3 style="margin:26px 0 4px">Candidate FINAL-SOLUTION architectures — graded against the spec sheet (① per-source addressing · ② extensive accumulator · ③ per-item write gate · ④ token/trained readout)</h3>
+  <div class="scroll full"><table class="wrapcells">
+    <thead><tr><th>#</th><th>architecture</th><th>mechanism</th><th>spec</th><th>our evidence</th><th>training needed</th><th>main risk</th></tr></thead>
+    <tbody>
+      <tr><td class="m"><b>A</b></td><td><b>Interleaved-carrier transformer</b> — input schema inserts a
+        carrier (question) block after every source; optional structured masks; tally head reads the
+        N local carriers</td>
+        <td>per-source addressing via TOKEN TOPOLOGY, not new math; gate over local carriers → tally →
+        verbalize</td>
+        <td class="m">①✅ ②③ gate head ④✅</td>
+        <td>the only design with a MEASURED number on the frozen model: d′ <b>3.56</b> unmasked
+        (+81% over joint), ~6 predicted with fencing; gate-law 0.75/0.37 @N=8/32</td>
+        <td>none-to-light (a gate head, or none via token render)</td>
+        <td>supply decay at large N untested past 8; ~N·20 extra tokens</td></tr>
+      <tr><td class="m"><b>B</b></td><td><b>Slot-decoder VLM</b> — DETR/Perceiver-style: K latent slots
+        cross-attend frame features, per-source assignment, set-based symbolic count head</td>
+        <td>addressing by construction — every source gets its own query slot; output is a set/count,
+        not a softmax average</td>
+        <td class="m">①✅ ②✅ ③✅ ④✅</td>
+        <td>it is WHY detectors count; the trained-q NO-GO applies only to a single FIXED query —
+        slots add per-source assignment, the missing ingredient; frozen-feature version bounded ~4.5
+        by the 2×2</td>
+        <td>decoder training (head-scale on frozen features, or pretrain)</td>
+        <td>slot assignment over long video unsolved</td></tr>
+      <tr><td class="m"><b>C</b></td><td><b>Hybrid attention + write-gated linear state
+        (DeltaNet/Mamba-2) with RECRUITING training</b></td>
+        <td>recurrent state h += g(x)·f(x): a native extensive register with the per-item gate as a
+        primitive</td>
+        <td class="m">① partial ②✅ ③✅ ④ by training</td>
+        <td>primitive verified structurally; the cross-architecture battery proved it INERT
+        as-released — the essential novelty is the training objective, not the block</td>
+        <td>pretraining / heavy continued-training with counting-recruiting data</td>
+        <td>attribution — needs the factorial miniature study</td></tr>
+      <tr><td class="m"><b>D</b></td><td><b>Memory-register transformer</b> — Infini-attention/RMT:
+        k≤2 chunked encoding + additive unnormalized cross-chunk memory with a write gate</td>
+        <td>chunks supply quasi-per-source reads; the memory is the extensive accumulator inside
+        attention</td>
+        <td class="m">① via chunks ②✅ ③✅ ④✅</td>
+        <td>fully PRICED: chunk supply d′ 3.37 → gate-law 0.32/0.17/0.08 @32/64/128</td>
+        <td>finetune-scale</td>
+        <td>dominated by A if A's supply holds — same idea, more machinery</td></tr>
+      <tr><td class="m"><b>E</b></td><td><b>GIN-style message-passing head</b> — frames as graph nodes;
+        per-node nonlinear update φ, THEN sum into a virtual count node; transformer only as per-frame
+        encoder</td>
+        <td>the GNN solution imported whole: per-node messages = addressing free, sum = extensive,
+        φ = gate</td>
+        <td class="m">①✅ ②✅ ③✅ ④ head</td>
+        <td>our DeepSets block IS one GIN layer — 100% incl. OOD on evidence-only; dies only when fed
+        joint reads → pair with per-source encoding (A's topology)</td>
+        <td>head-scale</td>
+        <td>reads as a pipeline, not a single net</td></tr>
+      <tr><td class="m"><b>F</b></td><td><b>Explicit external register (neuro-symbolic)</b> — per-frame
+        judgments emitted as TOKENS; external/self tally; result re-enters as a fact sentence</td>
+        <td>gives up in-activation aggregation entirely — everything through the one interface that
+        provably extrapolates</td>
+        <td class="m">①✅ ②③ exact ④✅</td>
+        <td>this IS retrieve-then-verify: <b>0.79–0.88 @N=128</b>, the strongest measured number in
+        the record</td>
+        <td>none (frozen)</td>
+        <td>~N forwards; "a pipeline" to reviewers</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:none"><strong>Ranking.</strong> Near-term winner: <b>A</b> — the only design
+  born from this analysis rather than imported, with a measured foothold; it compiles F's proven
+  pipeline into one forward, and it is expressible entirely in topology + masks (adoptable without
+  touching pretrained weights). Long-term winner: <b>B</b> — the principled general form of A's trick.
+  <b>C</b> only together with recruiting training (the battery is the proof that the register alone is
+  inert); <b>D</b>/<b>E</b> are respectable fallbacks our own numbers bracket; <b>F</b> remains the
+  deployed-today answer and the upper anchor. Decisive pending runs for A: the unmasked interleave at
+  N=32/128 and the replica+fence arm (predicted ~6).</p>
+
+  <p style="max-width:none">The attribution endgame — a miniature from-scratch pretrain (tiny
+  transformer ± an extensive-register block on synthetic streams; the vanilla model should show the full
+  law signature, the register model should not) — is the controlled counterfactual if a full chapter is
+  wanted. Until then the claim ships as falsifiable cross-architecture predictions.</p>
+
+  <p style="font-family:var(--mono);font-size:12.5px;color:var(--muted);max-width:none">
+  sources: e2e tally pipeline [2026-07-11l] (jobs 120151/120162–64, outputs/pipeline/) · v2 + error
+  bars [2026-07-11t] · gate battery [2026-07-10i] · fact-render [2026-07-10d] · HERBench null
+  [2026-07-11o] · lineage: minimal DeepSets block (100% IID+OOD evidence-only, one mid-layer, shared
+  φ/ρ [2026-06-13]); gLSTM associative addressing measured dispensable — the name outlived the
+  mechanism.</p>
 </section>
 
 <footer>
