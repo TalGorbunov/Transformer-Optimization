@@ -32,6 +32,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=200, help="samples (x8 single-frame passes each)")
     ap.add_argument("--model_name", default="OpenGVLab/InternVL2_5-8B")
     ap.add_argument("--sample-seed", type=int, default=0)
+    ap.add_argument("--qfirst", action="store_true",
+                    help="Track B (2026-07-19): question BEFORE the frame as well — "
+                         "question-conditioned frame encoding (the Qwen Q-first amplifier)")
     ap.add_argument("--output", default="outputs/frame_axis/internvl/multipass_bench")
     args = ap.parse_args()
     out = Path(args.output) / time.strftime("%Y%m%d_%H%M%S")
@@ -68,7 +71,10 @@ def main() -> int:
     def build_one(frame, question):
         pv = tfm(frame).unsqueeze(0).to(vdt).cuda()
         tpl = _copy.deepcopy(model.conv_template)
-        tpl.append_message(tpl.roles[0], "Frame-1: <image>\n" + question + "\nAnswer with a single number.")
+        body = ("Frame-1: <image>\n" + question + "\nAnswer with a single number.")
+        if args.qfirst:
+            body = question + "\n" + body
+        tpl.append_message(tpl.roles[0], body)
         tpl.append_message(tpl.roles[1], None)
         prompt = tpl.get_prompt().replace(
             "<image>", "<img>" + "<IMG_CONTEXT>" * model.num_image_token + "</img>", 1)

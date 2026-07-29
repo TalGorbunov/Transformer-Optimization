@@ -30,10 +30,10 @@ N_HEADS, N_KV, HD = 28, 4, 128
 
 
 def train_unmixer(Xtr, Ytr, kind, epochs=8):
-    """Xtr,Ytr: [n_tok, 512] pre-rotary joint->mp. Returns a callable g."""
+    """Xtr,Ytr: [n_tok, 512] pre-rotary joint->mp. Returns (callable g, net-or-None)."""
     if kind == "ridge":
         r = Ridge(alpha=100.0).fit(Xtr, Ytr)
-        return lambda X: r.predict(X).astype(np.float32)
+        return lambda X: r.predict(X).astype(np.float32), None
     import torch.nn as nn
     dev = "cpu"
     net = nn.Sequential(nn.Linear(512, 1024), nn.GELU(), nn.Linear(1024, 512)).to(dev)
@@ -49,7 +49,8 @@ def train_unmixer(Xtr, Ytr, kind, epochs=8):
             loss.backward(); opt.step()
         print(f"    {kind} ep{ep} mse={loss.item():.4f}", flush=True)
     net.eval()
-    return lambda X: net(torch.tensor(X, dtype=torch.float32)).detach().numpy().astype(np.float32)
+    return (lambda X: net(torch.tensor(X, dtype=torch.float32)).detach().numpy().astype(np.float32),
+            net)
 
 
 def main() -> int:
@@ -58,11 +59,19 @@ def main() -> int:
     ap.add_argument("--output", required=True)
     ap.add_argument("--kind", default="mlp", choices=["ridge", "mlp", "both"])
     ap.add_argument("--train-frac", type=float, default=0.6)
+    ap.add_argument("--layers", default=None,
+                    help="comma list; restrict to these layers (default: all in the capture)")
+    ap.add_argument("--save-dir", default=None,
+                    help="save trained MLP g_k/g_v state dicts here (unmixer_L<L>.pt)")
     args = ap.parse_args()
     cap = Path(args.capture); out = Path(args.output); out.mkdir(parents=True, exist_ok=True)
     blob = torch.load(cap / "qkv_capture.pt", map_location="cpu", weights_only=False)
     oproj = torch.load(cap / "oproj_dense.pt", map_location="cpu", weights_only=False)
     S = blob["samples"]; Ls = blob["layers"]; NF = int(blob["config"]["n_frames"])
+    if args.layers:
+        keep = [int(x) for x in args.layers.split(",")]
+        Ls = [L for L in Ls if L in keep]
+        assert Ls, f"none of {keep} in capture layers"
     from transformers import AutoConfig
     cfg = AutoConfig.from_pretrained(blob["config"]["model_name"])
     tc = cfg.text_config if hasattr(cfg, "text_config") else cfg
@@ -109,7 +118,15 @@ def main() -> int:
         Xv = np.concatenate(Xv); Yv = np.concatenate(Yv)
         print(f"  L{L}: {len(Xk)} training tokens", flush=True)
         for kind in kinds:
-            gk = train_unmixer(Xk, Yk, kind); gv = train_unmixer(Xv, Yv, kind)
+            gk, gk_net = train_unmixer(Xk, Yk, kind)
+            gv, gv_net = train_unmixer(Xv, Yv, kind)
+            if args.save_dir and kind == "mlp":
+                sd = Path(args.save_dir); sd.mkdir(parents=True, exist_ok=True)
+                torch.save({"gk": gk_net.state_dict(), "gv": gv_net.state_dict(),
+                            "layer": L, "kind": kind, "train_frac": args.train_frac,
+                            "capture": str(cap), "arch": "512-1024-gelu-512"},
+                           sd / f"unmixer_L{L}.pt")
+                print(f"  saved g_k/g_v -> {sd / f'unmixer_L{L}.pt'}", flush=True)
             feats = {c: [] for c in ("joint_kv", "unmixed_kv", "mp_kv")}
             labels = []
             for si in ev:

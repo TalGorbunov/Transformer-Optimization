@@ -19,7 +19,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 import torch
+from torch.nn.attention import sdpa_kernel, SDPBackend
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+
+# Long-N generate: mask=None -> transformers sets enable_gqa=True (28 q-heads vs 4 kv) ->
+# the mem-efficient kernel is INELIGIBLE and MATH materializes 17GB (job 125260 OOM).
+# FLASH supports GQA + causal: peak 8.3 GiB at seq 12.7k (smoke 125263).
+EFF_SDPA = [SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
 
 from evaluations.scripts import eval_mmred_qwen25_vl_accuracy as base
 from evaluations.scripts import eval_mmred_text_frames_acc as tf
@@ -66,6 +72,17 @@ def parse_args():
     p.add_argument("--cot", action="store_true",
                    help="chain-of-thought baseline: step-by-step prompt + parse final 'Answer: N' (use with --epochs 0).")
     p.add_argument("--smoke", action="store_true")
+    p.add_argument("--eval-longn", default="",
+                   help="E-B (2026-07-20): comma-separated longN data roots — after test_iid, "
+                        "generate-and-parse eval on each (stratified-shuffled prefix)")
+    p.add_argument("--eval-longn-limit", type=int, default=100)
+    p.add_argument("--eval-dirs-file", action="append", default=[],
+                   help="P4.1 (2026-07-24): file of sample-dir paths — generate-and-parse "
+                        "eval on its first --eval-longn-limit dirs (arm-A dirs-file exams; "
+                        "repeatable)")
+    p.add_argument("--eval-only-adapter", type=Path, default=None,
+                   help="P1.3 (2026-07-23): load a saved LoRA adapter dir and skip training; "
+                        "runs test_iid sanity + --eval-longn only")
     p.add_argument("--output", type=Path, default=PROJECT_ROOT / "outputs" / "frame_axis" / "agg_min" / "lora_run")
     return p.parse_args()
 
@@ -94,20 +111,25 @@ def main() -> int:
     emit(f"loading model {args.model_name} (4bit={args.load_in_4bit}) ...")
     model, processor = base.load_model_and_processor(args.model_name, device, dtype, bool(args.load_in_4bit))
     emit("model loaded; setting up LoRA")
-    if bool(args.load_in_4bit):
-        model = prepare_model_for_kbit_training(model)
-    tmods = {"mlp": ["gate_proj", "up_proj", "down_proj"],
-             "attn": ["q_proj", "k_proj", "v_proj", "o_proj"],
-             "both": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]}[args.target]
-    ltt = None
-    if args.lora_layers:
-        a, b = (int(x) for x in args.lora_layers.split("-"))
-        ltt = list(range(a, b + 1))
-    lcfg = LoraConfig(r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=0.05, bias="none",
-                      task_type="CAUSAL_LM", target_modules=tmods, layers_to_transform=ltt)
-    emit(f"LoRA target={args.target} modules={tmods} layers={args.lora_layers or 'all'}")
-    model = get_peft_model(model, lcfg)
-    model.print_trainable_parameters()
+    if args.eval_only_adapter is not None:
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, str(args.eval_only_adapter), is_trainable=False)
+        emit(f"eval-only: adapter loaded from {args.eval_only_adapter}")
+    else:
+        if bool(args.load_in_4bit):
+            model = prepare_model_for_kbit_training(model)
+        tmods = {"mlp": ["gate_proj", "up_proj", "down_proj"],
+                 "attn": ["q_proj", "k_proj", "v_proj", "o_proj"],
+                 "both": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]}[args.target]
+        ltt = None
+        if args.lora_layers:
+            a, b = (int(x) for x in args.lora_layers.split("-"))
+            ltt = list(range(a, b + 1))
+        lcfg = LoraConfig(r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=0.05, bias="none",
+                          task_type="CAUSAL_LM", target_modules=tmods, layers_to_transform=ltt)
+        emit(f"LoRA target={args.target} modules={tmods} layers={args.lora_layers or 'all'}")
+        model = get_peft_model(model, lcfg)
+        model.print_trainable_parameters()
     tok = processor.tokenizer
 
     train_seq = [int(x) for x in str(args.train_seq_lens).replace(",", " ").split()]
@@ -170,6 +192,11 @@ def main() -> int:
                                              add_generation_prompt=False, tokenize=True, return_dict=True, return_tensors="pt")
         prompt = processor.apply_chat_template(msgs, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
         full = base.move_inputs_to_device(dict(full), device)
+        # P4.1 (2026-07-24): batch=1, no padding -> drop the all-ones mask so transformers
+        # takes the mask-None/is_causal path where FLASH is eligible (with a 4-D mask the
+        # fused kernels never engage and MATH asks 45.6 GiB @N=64 — OOMs even a 140GB h200
+        # in the ckpt-recompute backward). get_rope_index treats mask None as all-ones.
+        full.pop("attention_mask", None)
         bnd = int(prompt["input_ids"].shape[1])
         labels = full["input_ids"].clone(); labels[:, :bnd] = -100
         if fr_head is not None and pf is not None:
@@ -177,7 +204,8 @@ def main() -> int:
             st_fr["spans"] = sp if len(sp) == len(frames) else None
             st_fr["reps"] = None
         set_iso(full["input_ids"], len(frames))
-        loss = model(**full, labels=labels).loss
+        with sdpa_kernel(EFF_SDPA):     # P4.1: long-N training forward needs FLASH too
+            loss = model(**full, labels=labels).loss
         clear_iso()
         if fr_head is not None and st_fr["reps"] is not None and pf is not None and st_fr["reps"].shape[0] == len(pf):
             lg = fr_head(st_fr["reps"]).squeeze(-1)
@@ -192,7 +220,8 @@ def main() -> int:
         inp = processor.apply_chat_template(msgs, add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
         inp = base.move_inputs_to_device(dict(inp), device)
         set_iso(inp["input_ids"], len(frames))
-        out = model.generate(**inp, max_new_tokens=(256 if args.cot else 5), do_sample=False)
+        with sdpa_kernel(EFF_SDPA):
+            out = model.generate(**inp, max_new_tokens=(256 if args.cot else 5), do_sample=False)
         clear_iso()
         txt = tok.decode(out[0, inp["input_ids"].shape[1]:], skip_special_tokens=True)
         if args.cot:  # prefer the 'Answer: N' line; else fall back to the last integer in the reasoning
@@ -219,8 +248,13 @@ def main() -> int:
                 records.append((args.task, split_name, int(sl), int(gold), int(pred)))
         return (ok / max(1, n), (ps - gs) / max(1, n), gs / max(1, n), ps / max(1, n), n)
 
-    _trainable = [p for p in model.parameters() if p.requires_grad] + (list(fr_head.parameters()) if fr_head is not None else [])
-    opt = torch.optim.AdamW(_trainable, lr=args.lr)
+    if args.eval_only_adapter is not None:
+        args.epochs = 0
+        _trainable = []
+        opt = None
+    else:
+        _trainable = [p for p in model.parameters() if p.requires_grad] + (list(fr_head.parameters()) if fr_head is not None else [])
+        opt = torch.optim.AdamW(_trainable, lr=args.lr)
     best_val, best_state, best_epoch = -1.0, None, -1
     vrows = ["epoch,val_acc,val_bias,n"]
     for epoch in range(args.epochs):
@@ -243,7 +277,9 @@ def main() -> int:
             try:
                 loss = train_loss(frames, question, gold, pf)
             except Exception as exc:
-                emit(f"  train skip {Path(dstr).name}: {exc}"); continue
+                emit(f"  train skip {Path(dstr).name}: {exc}")
+                torch.cuda.empty_cache()    # P4.1: OOM debris cascades into every later sample
+                continue
             (loss / args.grad_accum).backward()
             run_loss += float(loss.detach()); seen += 1; step += 1
             if step % args.grad_accum == 0:
@@ -264,6 +300,9 @@ def main() -> int:
         # load ONLY the LoRA params (strict=False) -- a full state_dict() on a 4-bit model carries
         # bitsandbytes quant-metadata keys (.absmax/.quant_map/...) that load_state_dict rejects.
         model.load_state_dict({k: v.to(device) for k, v in best_state.items()}, strict=False)
+    if args.eval_only_adapter is None:
+        model.save_pretrained(str(run_dir / "adapter"))    # E-B fix: persist the LoRA adapter
+        emit(f"adapter saved -> {run_dir / 'adapter'}")
     records = []
     summary = ["split,task,readout,n,accuracy,mean_gold,mean_pred,bias"]
     acc, bias, mg, mp, n = evaluate(splits["test_iid"], records=records, split_name="test_iid")
@@ -277,6 +316,36 @@ def main() -> int:
     (run_dir / "predictions.csv").write_text(
         "\n".join(["task,split,seq_len,gold,pred"] + [f"{t},{s},{sl},{g},{p}" for (t, s, sl, g, p) in records]) + "\n",
         encoding="utf-8")
+
+    if args.eval_longn or args.eval_dirs_file:  # E-B/P4.1: long-N generate-and-parse eval
+        from evaluations.helpers.utils import load_mmred_sample, iter_sample_dirs_shuffled
+        lrows = ["root,n,accuracy,parse_fail,mae"]
+        sources = [(r.strip(), None) for r in str(args.eval_longn).split(",") if r.strip()]
+        sources += [(f, [Path(l.strip()) for l in open(f) if l.strip()])
+                    for f in args.eval_dirs_file]
+        for root, dirlist in sources:
+            hits = pf = nn = mn = 0; mae = 0.0; per = {}
+            dirs = (dirlist if dirlist is not None
+                    else iter_sample_dirs_shuffled(Path(root), 0))
+            for sd in dirs[: int(args.eval_longn_limit)]:
+                try:
+                    _sid, frames, q0, _states, a0 = load_mmred_sample(sd)
+                    gold = int(str(a0).strip())
+                except Exception:
+                    continue
+                frames = [f.resize((392, 392)) for f in frames]
+                pred = predict(frames, q0)
+                nn += 1; hits += int(pred == gold)
+                if pred is None:
+                    pf += 1
+                else:
+                    mae += abs(pred - gold); mn += 1
+                per.setdefault(gold, [0, 0]); per[gold][1] += 1; per[gold][0] += int(pred == gold)
+            pc = " ".join(f"g{g}:{c}/{t2}" for g, (c, t2) in sorted(per.items()))
+            emit(f"LONGN {root}: n={nn} acc={hits/max(nn,1):.4f} parse_fail={pf/max(nn,1):.3f} "
+                 f"mae={mae/max(mn,1):.2f}  {pc}")
+            lrows.append(f"{root},{nn},{hits/max(nn,1):.4f},{pf/max(nn,1):.3f},{mae/max(mn,1):.2f}")
+        (run_dir / "longn_eval.csv").write_text("\n".join(lrows) + "\n", encoding="utf-8")
 
     # ---- paired before/after decomposition (does the fix work THROUGH the mechanism?) ----
     if args.decompose:

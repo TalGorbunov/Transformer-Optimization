@@ -60,6 +60,37 @@ def iter_sample_dirs(data_root: Path) -> List[Path]:
     return out
 
 
+def iter_sample_dirs_shuffled(data_root: Path, seed: int) -> List[Path]:
+    """Stratified deterministic shuffle of iter_sample_dirs (2026-07-18, E1 full-prior fix).
+
+    MMRED dirs are name-sorted by class tag (seq8_e<g>_* / *_K<g>_*), so any LIMIT < full
+    yields a truncated gold prior. This groups dirs by the class tag in the name, shuffles
+    within groups (seeded), then round-robins across groups so EVERY prefix is class-balanced.
+    Falls back to a plain seeded shuffle when no tag is found.
+    """
+    import random
+
+    dirs = iter_sample_dirs(data_root)
+    rng = random.Random(seed)
+    groups: Dict[Optional[str], List[Path]] = {}
+    for d in dirs:
+        m = re.search(r"_(?:K|e)(\d+)_", d.name)
+        groups.setdefault(m.group(1) if m else None, []).append(d)
+    if len(groups) <= 1:
+        out = list(dirs)
+        rng.shuffle(out)
+        return out
+    keys = sorted(groups, key=lambda k: (k is None, int(k) if k is not None else -1))
+    for k in keys:
+        rng.shuffle(groups[k])
+    out = []
+    for i in range(max(len(g) for g in groups.values())):
+        for k in keys:
+            if i < len(groups[k]):
+                out.append(groups[k][i])
+    return out
+
+
 def parse_layer_selection(raw: Optional[str], num_layers: int) -> List[int]:
     if raw is None:
         return list(range(num_layers))
