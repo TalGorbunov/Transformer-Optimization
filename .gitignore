@@ -36,6 +36,3 @@ output*/**
 
 # ---- generated exports (source of truth is the .md)
 *.docx
-
-# ---- separate sub-repo with its own .git (see CLAUDE.md)
-/all-for-one/

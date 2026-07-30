@@ -1,5 +1,19 @@
 # ARCHIVE_MAP.md — where cited output paths actually live
 
+> **2026-07-30 consolidation (serious-refactor):** ALL pre-refactor output trees now live
+> under `outputs_legacy/`. Translation rules, applied on top of everything below:
+> - `outputs/<anything>` (pre-refactor citations) → `outputs_legacy/outputs/<anything>`
+> - `outputs_<codename>/…` and `output_*old/…` → `outputs_legacy/<same tree>/…`
+> - The repo-root `outputs/` is fresh (post-refactor runs only; `outputs/carrier/…`).
+> - Canonical checkpoints/caches keep their stable names under `checkpoints/` (symlinks
+>   re-pointed to `outputs_legacy/…`).
+> - Space cleanup (Tal-approved): the refuted qkv_2x2 raw captures (17G) and superseded
+>   InternVL carrier_map caches (4.8G) were DELETED — each dir has a `CACHE_DELETED.txt`
+>   breadcrumb; all reports/CSVs intact. The empty `outputs_cache/` was removed.
+> - `outputs_olds/`, `outputs_long/` (the pre-refactor archive hops documented below)
+>   are inside `outputs_legacy/` too: e.g. a Table-1 row "`outputs/X` → `outputs_olds/X`"
+>   now resolves to `outputs_legacy/outputs_olds/X`.
+
 **Purpose.** `RESULTS.md` is an append-only research log: once a row is written, its cited
 `outputs/<name>` path is never rewritten. Meanwhile whole output trees were archived wholesale
 (mostly into `outputs_long/` and `outputs_olds/`) without updating citations, so ~45 cited paths no

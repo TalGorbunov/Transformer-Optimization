@@ -23,8 +23,8 @@
   distilled carrier embedding e_c + LoRA on layers ≥ L\*=12 (in-model aggregation);
   (3) **caption-scan scratchpad readout** (the answer is a tally read-off).
   The gLSTM/DeepSets/frame-axis approaches are RETIRED (see docs/archive/).
-- **`all-for-one/`** is a *separate, self-contained* sub-repo (own `.git`, gitignored): the
-  "All for One" mental-math paper — methodological ancestor. Never touch it with repo-wide tooling.
+- The "All for One" paper (AF1 last-token aggregation) is the methodological ancestor; its
+  repo clone was removed 2026-07-30 (re-clone from github.com/siddarth-pm/all-for-one if needed).
 
 ## 2. Environment setup
 

@@ -32,10 +32,11 @@ gnnformer/        the method as a small package
 scripts/          one entrypoint per concern (probe, trainers, exam, baselines, pipeline)
 slurm/            sbatch wrappers + lib/common.sh (env-var driven; DRY_RUN=1 supported)
 tests/            CPU tests: mask parity vs legacy (bit-for-bit), invariants, round-trips
-checkpoints/      stable names for canonical checkpoints/caches (symlinks into outputs/)
+checkpoints/      stable names for canonical checkpoints/caches (symlinks into outputs_legacy/)
 datasets/mmred/   MMRED dataset generators (park renders + corruptions)
 data/             generated datasets (untracked; see the generators + per-root metadata)
-outputs/          run dirs (untracked except INDEX.md per group)
+outputs/          fresh run dirs, post-refactor only (untracked except INDEX.md per group)
+outputs_legacy/   ALL pre-refactor result trees, frozen (path translation: ARCHIVE_MAP.md)
 legacy/           the ENTIRE pre-refactor code world, frozen (see legacy/README.md)
 docs/             method/theory docs, citations, archives (incl. the pre-fencing RESULTS)
 RESULTS.md        append-only research log (live era)      METHOD.md  the method recipe
@@ -73,4 +74,3 @@ On the cluster, submit through `slurm/` (partitions/QOS rules: [CLAUDE.md](CLAUD
   mask/position/target semantics bit-for-bit against the frozen legacy implementations.
 - `legacy/` is the complete pre-refactor tree and still runs
   (`PYTHONPATH=legacy python legacy/experiments/...`) — never edited, never deleted.
-- `all-for-one/` is an unrelated nested sub-repo (the AF1 paper — methodological ancestor).
