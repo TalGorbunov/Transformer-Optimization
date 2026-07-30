@@ -25,5 +25,9 @@ dependencies = [
     "huggingface-hub>=0.34.0,<1.0",
 ]
 
+[project.optional-dependencies]
+# only legacy/ code imports nnsight; install with `pip install -e ".[legacy]"` if rerunning it
+legacy = ["nnsight==0.5.12"]
+
 [tool.setuptools.packages.find]
 include = ["gnnformer", "gnnformer.*"]

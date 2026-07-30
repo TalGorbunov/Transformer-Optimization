@@ -33,7 +33,7 @@ cd /home/tal.gorbunov/projects/Transformer-Optimization
 source .venv/bin/activate          # slurm/lib/common.sh does this automatically
 ```
 
-- **Python:** 3.9. Deps pinned in [pyproject.toml](pyproject.toml) / requirements.txt.
+- **Python:** 3.9. Deps pinned in [pyproject.toml](pyproject.toml) (nnsight = the `[legacy]` extra).
 - **Never run `pip install` / `conda install` without asking me first** — shared env.
 - A second venv for non-Qwen models lives at `.venv_arch -> /rg/...` (untracked symlink).
 
