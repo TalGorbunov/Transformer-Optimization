@@ -4665,3 +4665,196 @@ per-task gate (3.6k params, ~150 samples) is the remaining task-specific piece.
   the trained evidence-detection channel is domain-bound — consistent with the cross-domain carrier
   result (~51% of teacher, [2026-07-18]) and the delivered-evidence ceiling.
 
+## [2026-07-24] ✅📊 P3b — InternVL2.5-8B SCAFFOLD-LEVEL GATE→TALLY: 0.938 ± 0.031 exact @N=8 (L16; per-frame gate 0.991, majority 0.160) — the GNN scaffold (per-frame messages + linear gate + sum) PORTS across model families, at the multipass-isolated supply level
+
+> CPU fit (`experiments/glstm/internvl_gate_tally.py`) on the existing cache of job 124280
+> (`outputs/frame_axis/internvl/multipass_qfirst/20260719_004112/bench_cache.pt`) →
+> `outputs/frame_axis/internvl/gate_tally/20260724_165356/`; logistic gate, sample-disjoint 60/40,
+> seeds 0–2, tally = Σ verdicts. L20: 0.892 ± 0.012.
+
+- Band ≥0.90 MET at L16 → scaffold ports. **Honest label: multipass-isolated Q-first supply** (each
+  frame solo in its own forward), one rung below Qwen's one-forward blockfence cell.
+- Cross-family replication of the readout-misalignment signature: InternVL's own per-frame digit
+  readout is 0.586, while the linear gate on its carrier messages reads 0.991.
+
+## [2026-07-24] ✅📊 P4.3 — NO-HARM ON THE PLAIN SFT ADAPTER: MME −0.6 / POPE +1.2 pts (band |Δ|≤2 → GO); predicted digit-on-yes/no failure REFUTED — both adapter families are safe always-on
+
+> Job 125499 → `outputs/ladder/image_longN/noharm_bench_sft/20260724_190307/`; same 500+500
+> MME/POPE protocol/seed as the carrier cell (124508, ref −0.2/−1.4); new `--peft-adapter` arm +
+> ≤20 failure dumps in `logs/p43_noharm-125499.out`.
+
+- MME 0.862→0.856, POPE 0.862→0.874. Small-n category texture: OCR −20 / celebrity −13.3 vs
+  count +16.7 / commonsense +12.5. Fail dumps emit clean yes/no words — no digit contamination.
+
+## [2026-07-24] ✅📊 P3a — NATURAL-IMAGES MMRED FULL LADDER: supply GO (one-forward d′ 27.3 = 3.5× joint) · scaffold GO (linear gate→tally 0.980 ± 0.012) · IN-MODEL NO-GO (0.145–0.289, below the frozen floor, pure-extremes anatomy) — the cross-domain failure is localized to the in-model readout rung, not the mechanism
+
+> Prereg `plans/p3a_natural_PREREG.md`. Data: `data/mmred_natural_mm` composed from the judge-gated
+> `mmred_natural_v2` pools (global image-half split — train/eval image-disjoint; builder
+> `natural_compose_mmred.py`, BUILD_INFO in the root). Runs: L0 125488 (`natural_mm/frozen_baseline/`),
+> L1 125486 (`natural_mm/replica_supply_dist_far/20260724_180046/`), L2 CPU (`…/gate_tally/`),
+> L3 trainer 125487 (`natural_mm/carrier_caption_nat/20260724_180058_L12_r8/`) + exams 125492–95
+> (`natural_mm/nat_eval_N{8,16}{far,near}/`).
+
+| rung | natural | park ref | band | verdict |
+|---|---|---|---|---|
+| L0 frozen | 0.563/0.407 @N=8 · 0.422/0.311 @N=16 (g≤8, digit protocol) | 0.219 | ref | — |
+| L1 supply | d′_w 27.3 (joint anchor 7.75; per-copy flat 8.5–13.7; AUC-cap caveat) | 13.5 | ≥4.0 & ≥2× joint | **GO** |
+| L2 scaffold | **0.980 ± 0.012** (gate err 0.0025, majority 0.187, n=300) | 0.998 | ≥0.85 | **GO** |
+| L3 in-model | 0.289/0.259 @N=8 · 0.155/0.145 @N=16 (pooled 0.218, pf 0) | 0.987–1.000 | GO ≥0.80 / NO-GO ≤L0+0.10 | **NO-GO** |
+
+- L3 anatomy is PURE EXTREMES (g0 perfect, gmax mostly right, every intermediate 0) — the bimodal
+  signature; the trainer's TF-count 0.996 rode the gold tally prefix (tf-exact 0.187 was the tell).
+- Reading: natural per-frame evidence is EASY (high frozen floor, huge d′) and the GNN mechanism is
+  fully intact off-domain — what fails is the in-model rung (park-distilled carrier e_c and/or
+  LoRA-through-frozen-layers), consistent with the ~51% cross-domain carrier and the MLVU 0.107 cell.
+  Successor experiment (not launched): natural-distilled e_c to split e_c from the integration.
+
+## [2026-07-24] ✅ P1.1 SEEDS — the caption-winner recipe at 3 seeds: N=32 held-out **0.982 ± 0.007** (seed0 0.987 · seed1 0.987 · seed2 0.973; parse-fail 0 ×3; identical 150 dirs) — the headline in-model long-N readout is seed-stable
+
+> Seed trainers 125347/48 → `outputs/ladder/image_longN/carrier_fmt_caption_seed1/20260724_064754_L12_r8/`
+> (BEST 0.999 / tf-exact 0.993 @ep4) and `carrier_fmt_caption_seed2/20260724_064743_L12_r8/`
+> (0.999 / 0.991 @ep3); N=32 exams on arm-A's `eval_dirs_N32all.txt` (byte-identity split gates
+> passed, per `plans/p0p2_STATE.md`) → `fmtCseed1_eval_N32heldout/20260724_213236_L12_r8_evalonly/`
+> **0.987** (pf 0.000, MAE 0.01) and `fmtCseed2_eval_N32heldout/20260724_211258_L12_r8_evalonly/`
+> **0.973** (pf 0.000, MAE 0.03). Seed0 = the format-sweep winner cell (125195, 0.987).
+
+- Logged during the 2026-07-29 migration from `plans/p0p2_STATE.md` (campaign ended before logging);
+  this is the P1.1 cell referenced by the P4 entry's "seeds 0.982±0.007" row.
+
+## [2026-07-24] ⚠️📊 P2a — LOTO (leave-cooc-out) ZERO-SHOT TASK TRANSFER: 4-task variety buys PARTIAL transfer at N=8 (0.403 = 2.3× the best no-variety prior, pf 0) but NO-GO at the doubly-zero-shot N=32 cell (0.107 ≤ frozen+0.10); the all-5 skyline reads the identical cells at 0.997 / 0.629 — task coverage must still be trained; held-in tasks fully intact (arm-2 gate 1.000)
+
+> Prereg `plans/scratchpad_loto_PREREG.md` (bands fixed 2026-07-23 pre-GPU; Arm 5 dropped by
+> amendment — union is a training root of the resolved recipe; Arm-1 N=32 is doubly zero-shot, task
+> AND length, matched with the skyline). T1 writer job 125349 →
+> `outputs/ladder/image_longN/carrier_loto_nococ/20260724_064756_L12_r8/` (15 roots = the 16-root
+> mixture minus `mmred_cooc_balanced`, n=7872, BEST 0.998 / tf-exact 0.993 @ep5; split gate amended +
+> passed per `plans/p0p2_STATE.md`). Exams jobs 125500–505 (2026-07-24); frozen floors via
+> `runners/p2a_frozen_cooc.sbatch`. Logged during the 2026-07-29 migration — reports on disk, never drafted.
+
+| arm (identical dirs per cell) | cooc N=8 (n=300) | cooc N=32 (n=299) |
+|---|---|---|
+| Arm 1 — T1 LOTO (never saw cooc) | **0.403** (pf 0.000, MAE 1.03) | **0.107** (pf 0.000, MAE 4.78) |
+| Arm 3 — skyline (all-5 winner ckpt) | 0.997 (pf 0.000, MAE 0.00) | 0.629 (pf 0.003, MAE 0.70) |
+| Arm 4 — frozen floor | 0.130 | 0.130 (n=207, g≤8 digit-protocol) |
+| prereg bands | GO ≥0.7×skyline = 0.698 · NO-GO ≤ floor+0.10 = 0.230 → **PARTIAL** | GO ≥0.440 · NO-GO ≤0.230 → **NO-GO** |
+
+- Arm 2 in-dist gate (T1 ckpt, the 120 non-cooc rows of arm-A's held-out `eval_dirs_indist150`):
+  **1.000, pf 0.000** (rooms 30/30 · steps 30/30 · union 30/30 · which 30/30) →
+  `loto_arm2_indist120/20260724_203510_L12_r8_evalonly/` — the writer is intact; the transfer gap is
+  real, not trainer breakage.
+- Priors context: without mixture variety, in-model zero-shot task transfer was ≈ chance
+  (steps→cooc 0.179 · cached→rooms 0.153, [2026-07-19]) — 4-task variety more than doubles the N=8
+  cell (0.403) but stays far from the trained skyline; the relational pairwise predicate does not
+  come free. Run dirs: `loto_arm1_coocN{8,32}/`, `loto_arm3_coocN{8,32}/`, `loto_frozen_coocN{8,32}/`.
+- Caveats: the frozen reports' header `data=` string prints the script default — the runner passes
+  the shared cooc dirs-files (`--dirs-file`, verified); frozen N=32 covers the g≤8 subset (207/299,
+  gold>9 skipped by the digit protocol, documented in-runner) while Arms 1/3 answer all 299; first
+  frozen attempts (n=47/23, same dirs) superseded by the full reruns.
+
+## [2026-07-25] ✅📊 P4 — READOUT-SIMPLICITY CONTROLS (3 pre-registered cells): the ≤8-trained SFT baseline was a DATA artifact — plain LoRA SFT trained in-length reads N=32 at 0.967 ("simple-fix-wins" band, logged honestly); but carriers+digit with the same data collapse (0.333/0.140, theory-confirmed), and the SFT path needed an h200 to train at all
+
+> Prereg `plans/p4_PREREG.md` (bands fixed pre-trainer; P4.1 amended to trained-≤32 after 4
+> documented OOM/skip-cascade attempts). Runs: P4.1 trainer 125567 (h200, 0 skips) →
+> `sft_inlength_p41/20260725_031153_lora/` + exams 125620 (`sft_inlength_p41_exams/`); P4.2 trainer
+> 125498 → `carrier_digit_inlength/20260724_202048_L12_r8/` + exams 125610/11
+> (`p42digit_eval_N{32,64}/`); P4.3 = 125499 (`noharm_bench_sft/20260724_190307/`).
+
+| cell | N=32 | N=64 | verdict vs prereg band |
+|---|---|---|---|
+| P4.1 plain SFT, in-length (≤32) | **0.967** (pf 0, per-count uniform) | 0.787 (extrapolation — N=64 training fits no available GPU) | **≥0.90 → simple-fix-wins, logged honestly** |
+| P4.2 carriers + digit, in-length | **0.333** (dead ≥g4) | **0.140** (dead ≥g3) | **≤0.50 + dead mid-range → theory-confirmed** |
+| caption winner (ref) | 0.987 (seeds 0.982±0.007) | 0.981 (in-length) | — |
+| P4.3 SFT no-harm | MME −0.6 / POPE +1.2 pts | — | **GO** (≤2 pts; digit-on-yes/no failure refuted) |
+
+- **Reframing (per the prereg's own terms):** the old "SFT ladder 0.480/0.350/0.220" strongest-baseline
+  row is RETIRED — it measured missing in-length data, not a readout limit. What survives as the
+  thesis contribution: (1) the P4.2 asymmetry — a 2M-param carrier LoRA with a single-token readout
+  cannot use the same data (readout expressivity is the separator); (2) one caption model serves 5
+  tasks + partial LOTO transfer vs single-task SFT (script-limited by design); (3) measured training
+  cost — SFT@N=32 trains only on a 140GB h200 (5 attempts documented: masked-forward→MATH 45.6GiB,
+  ckpt-recompute OOM, skip-cascade silent data loss), while the cached carrier trainer does ≤64 on a
+  40GB a100; (4) N=64: caption 0.981 in-length vs SFT 0.787 structurally-extrapolated.
+- Split-drift discipline (new standing lesson): BOTH P4 trainers redraw splits (gold>9 prep-skip /
+  declare_splits) — every exam dirs-file was contamination-checked and rebuilt from provably-unseen
+  dirs where needed (`eval_dirs_p42_N{32,64}.txt`, `eval_dirs_p41_N32.txt`); the arm-A N=64 file is
+  clean for P4.1 (nothing trained at 64).
+
+## [2026-07-25] ⚠️📊 TRUNC CAMPAIGN (E1–E7) — the caption winner's decode READS FRAMES (kvdrop changes 15/16 transcripts at the first verdict token): prefill aggregation and decode readout are SEPARATE channels; truncation cannot be bolted on — not eval-only (0.047/0.040/0.019), not retrained (greedy 0.093–0.153, the per-slot ADDRESSING wall), not via external readout on truncated carriers (~0.05); measured cause: the per-frame gate is WRITTEN in layers 12–19 (err 0.339@L12 → 0.0051@L24). What SURVIVES: the EXACT cached-fast decode, 16.2×–98.9× per-sample
+
+> Prereg `plans/trunc_PREREG.md` + amendment; campaign state `plans/trunc_STATE.md` (2026-07-25).
+> Root cause (P0.1, code truth + executable smoke): `build_block_mask` never hid frames from
+> tail/decode rows, and the cached trainer teacher-forced targets WITH that visibility — the LoRA
+> learned decode-time frame reads. Logged during the 2026-07-29 migration (campaign ended without
+> logging; only E1 existed as a draft candidate).
+
+| cell | number | run dir (jobs) |
+|---|---|---|
+| E1 exactness / kvdrop (winner ckpt) | mask-only identical **1/16**, answer-equal 1/16 (N-mix, base acc 1.000); 0/4 @N=64; **fast≡mask 18/20**; decode 59.7→3.7 s/sample (**16.2×**) · 657.1→6.6 (**98.9×**); keep 103/12,775 tok @N=64 | `trunc_kvdrop/e1{a,b}/20260725_*_evalonly/` (125554/55) |
+| E2 eval-only truncate@12 | **FAIL ×3: 0.047 / 0.040 / 0.019** (in-dist150 / N32 / N64; pf 0 — format survives, evidence gone; band Δ vs 1.000/0.987/0.981) | `trunc_at12/{indist150,N32,N64}/` (125562/63/64) |
+| E3 eval-only truncate@L, N=32 | flat-low: 0.033 (L14) / 0.107 (L16) / 0.073 (L20) / 0.073 (L24) | `trunc_sweep/L{14,16,20,24}/` (125565/71/72/73) |
+| E4 deploy-matched retrain, caption t12 | TF-count 0.999 but tf-exact plateaus ≤0.165; exams **in-dist 0.133 / N32 0.073 / N64 0.096 = FAIL** (greedy all-or-nothing) | `trunc_retrain/carrier_caption_trunc12/` + `exam_{indist150,N32,N64}/` (125570, 125605/06) |
+| E4b scan retry, t12 | tf-exact ~0.10–0.12; exam **in-dist 0.093 = FAIL** — presence-only verdicts don't fix addressing | `trunc_retrain/carrier_scan_trunc12/` + `exam_scan_indist150/` (125609) |
+| E4c L*=20 + truncate@20 | tf-exact 0.223 by ep2; exams **0.153 / 0.140 / 0.115 = FAIL** | `trunc_retrain/carrier_caption_trunc20/` + `exam_t20_{indist150,N32,N64}/` (125628) |
+| Fallback: truncated carriers + EXTERNAL gate→tally | **FAILS: per-frame err 0.33–0.35, tally exact 0.051–0.059** @L12/16/20 (truncated cache) | `trunc_retrain/hybrid_dump_N32/…/gate_tally_L{12,16,20}/` |
+| Saturation depth (NON-truncated cache) | per-frame gate err **0.339 (L12) → 0.306 (L13) → 0.216 (L14) → 0.173 (L16) → 0.0082 (L20) → 0.0051 (L24)**; external tally 0.843 @L20 · **0.909 ± 0.016 @L24**; truncated@12 reference stays ~0.33–0.37 at all layers | `trunc_retrain/hybrid_dump_N32_notrunc/…/saturation_probe_report.txt` + `saturation_curve.png` (dumps 125615/21) |
+| E5 chunked prefill | **STRUCTURAL PASS**: L0 delta exactly 0; carriers ≤0.21 abs; question dq=34 = bf16 noise on attention-sink dims (~0.7% rel); tail Δ real (prereg'd); E4-ckpt rerun: question 8.36 / carriers 0.126 | `trunc_bench/chunkverify{,_e4}/` (125566, 125568/69 dbg) |
+| E6 bench (winner ckpt, cached-fast EXACT path) | speedup base/fast **1.9× (N=8) · 32.3× (N=32) · 95.4× (N=64) · 311.4× (N=128)** (decode s/sample 5.2→2.7 · 96.4→3.0 · 667.3→7.0 · 3546.9→11.4); VRAM ≈ base; n=3/cell — engineering numbers | `trunc_bench/runA_N{8,32,64,128}/` |
+
+- **Verdict chain:** frames were never hidden from decode rows → the winner reads frames at decode →
+  dropping frame KV after L* fails every route: eval-only (E2/E3), retrained in-model (E4/E4b/E4c —
+  per-slot carrier verdicts unreliable even teacher-forced, tf-exact ≤0.223, although the info is
+  linearly present in carriers pre-truncation: gate→tally 0.99 non-truncated), and external readout
+  on truncated carriers (err ~0.35). Measured reason: per-frame evidence consolidates into carriers
+  through layers 12–19 via the retained carrier→own-frame edges — truncating at 12 removes frames
+  before the gate is written; the earliest viable L_trunc is ≥20, where E4c still fails the readout.
+- **E7** (N=256 supply + the 0.88 prediction) was gated on E4 GO → **gated-out, not run**. runB/C t20
+  deploy benches recorded for timing only (decode 13.9 / 95.2 s/sample @N=32/128; chunked arm 14.1
+  vs 18.0 GiB VRAM) — their acc cells reflect the E4c FAIL and are not additional evidence.
+- **What survives for the thesis:** (1) the two-channel mechanism finding (prefill aggregation vs
+  decode readout); (2) the saturation-depth curve — where the gate gets written; (3) the exact
+  cached-fast decode (fast≡mask, no accuracy trade) with 16–311× decode speedups and keep=103/12,775
+  tokens @N=64; (4) the honest negative: one-token-per-frame KV compression is not reachable for
+  this ckpt family by truncation.
+
+## [2026-07-27] ✅📊 POSRESET DOSE-RESPONSE (N=2→32) + BEHAVIORAL NECESSITY — the posreset supply advantage GROWS with N (replica d′ @L16: 8.05 / 9.70 / 12.06 / 12.57 with reset vs 7.77 / 8.45 / 9.05 / 8.51 without; late-copy decay is the no-reset fingerprint), and the caption winner evaluated WITHOUT reset COLLAPSES: N=32 0.313 (pf 0.207) vs 0.987 · N=64 0.000 (pf 0.923) vs 0.981
+
+> Supply probes (Q-first blockfence, in-run joint anchors, L14/L16):
+> `outputs/ladder/image_longN/posreset_qf_N{2,4,16,32}/20260727_*/` vs `noreset_N{2,4,16,32}/20260727_*/`.
+> Behavioral: `fmtC_noreset_eval_N{32,64}/20260727_*_evalonly/` — the `carrier_fmt_caption` winner
+> ckpt with reset OFF at eval, identical arm-A dirs-files. Also produced: a carrier-states depth dump
+> `carrier_depth_L12_N32/20260727_220340_L12_r8_evalonly/` (n=150, layers 2–24,
+> replica_gate_tally-compatible; decode≤48 dump artifact — its acc row is meaningless by design).
+> Logged during the 2026-07-29 migration — this wave (post-STATE, 2026-07-27) was recorded nowhere.
+
+| N | with posreset d′ (L16) | without (L16) | Δ | no-reset per-copy tail (L16) |
+|---|---|---|---|---|
+| 2 | 8.05 ± 0.35 | 7.77 ± 0.02 | +0.3 | flat |
+| 4 | 9.70 ± 0.16 | 8.45 ± 0.16 | +1.2 | mild decay |
+| 16 | 12.06 ± 0.09 | 9.05 ± 0.19 | +3.0 | 7.9 → 5.0–5.9 |
+| 32 | 12.57 ± 0.52 | 8.51 ± 0.23 | +4.1 | 7.8 → 4.1–5.6 |
+
+- Extends [2026-07-20] POSRESET NECESSITY (N=8/64 spot cells) into a monotone dose-response with
+  matched in-run joint anchors; per-copy decay under no-reset reproduces the A2 position-tax
+  fingerprint at every N, while with-reset per-copy stays flat (~7–8 @N=32).
+- The behavioral rows are the train-eval consistency requirement made visible: the winner was
+  trained WITH reset; disabling it at eval alone destroys the readout (N=64 pf 0.923 = format
+  collapse) — posreset is part of the deployed contract, not an optional nicety.
+
+## [2026-07-29] 🔧 MIGRATION NOTE — plans/results_migration_DRAFT.md merged; its pending list resolved; N=128 full-34 addendum
+
+- Provenance: the [2026-07-24] P3b/P4.3/P3a and [2026-07-25] P4 entries above are pasted verbatim
+  from `plans/results_migration_DRAFT.md` (p0p2 campaign staging file). P1.1, P2a-LOTO, the TRUNC
+  campaign, and the [2026-07-27] posreset wave were written during this migration directly from
+  run-dir reports + campaign STATE files (`plans/p0p2_STATE.md`, `plans/trunc_STATE.md`) — those
+  campaigns ended without logging. Every number above was re-read from the cited `report.txt` files.
+- Draft "still pending" list, resolved: format-sweep B/C N=48/64 cells → landed in [2026-07-24]
+  FORMAT SWEEP (jobs 125194–99) · L12 extra seeds → P1.1 above · LOTO → P2a above · MLVU leg →
+  [2026-07-24] P2b · N=128 full-34 reports: **l12v2 landed** —
+  `tallyL12v2_eval_N128/20260721_235843_L12_r8_evalonly/report.txt`: **acc 0.235 (8/34), parse-fail
+  0.176, MAE 3.64** (g0–g2 6/6 · g4 1/2 · g32 1/2 · g48+ mostly parse-fail; consistent with, and
+  superseding, the PARTIAL 0.286@n=14 reading in the l12v2 entry). **E-G full-34 (job 124924) never
+  landed** — both `tallyPC8_eval_N128` run dirs are empty; the E-G refutation rests on the PARTIAL
+  0.154 + the N=32/64 cells (verdict unchanged).
+- The one-screen campaign summaries stay in `plans/` (to be archived intact, never deleted, in the
+  docs restructure); run dirs + SLURM logs (being copied into run dirs) are the primary provenance.
+
