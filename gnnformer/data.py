@@ -252,6 +252,32 @@ def frame_attr_labels(task: str, q0: str, states: Sequence[Dict[str, Any]], evid
     return out
 
 
+# ------------------------------------------------------------------ prompt builders
+
+def build_count_prompt(question: str, num_frames: int) -> str:
+    """The canonical MMRED counting prompt (PROMPT-CRITICAL: results depend on this
+    exact wording; ported byte-identical from legacy patching_core.build_prompt)."""
+    return (
+        f"You will be shown {num_frames} frames describing steps in a house.\n"
+        f"Respond with a single integer from 0 to {num_frames} (0 is allowed). "
+        "Output only the integer.\n"
+        f"Question: {question}\n"
+        "Answer: "
+    )
+
+
+def build_prompt_inputs(processor: Any, frames: Sequence[Any], prompt: str):
+    """[frames..., prompt] chat-templated tensor inputs (images first, then the text)."""
+    messages = [{
+        "role": "user",
+        "content": ([{"type": "image", "image": im} for im in frames]
+                    + [{"type": "text", "text": prompt}]),
+    }]
+    return dict(processor.apply_chat_template(
+        messages, add_generation_prompt=True, tokenize=True,
+        return_dict=True, return_tensors="pt"))
+
+
 def probe_evidence(task: str, q0: str, states, gold: int, rooms: Sequence[str]):
     """Supply-probe labels: -> (evidence_frame_set, locus_word) or None.
     steps: locus = the queried room word; cooc: locus = the SECOND character name."""
