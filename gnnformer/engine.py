@@ -457,7 +457,10 @@ class CarrierEngine:
             if e_len:
                 text = self.text_model.embed_tokens(torch.tensor([tgt_ids], device=self.dev))
                 emb = torch.cat([emb, text.to(emb.dtype)], dim=1)
-            lo4 = mask_lo.to(self.dev).to(emb.dtype).view(1, 1, seq + e_len, seq + e_len)
+            # fp32 mask (NOT emb.dtype): unquantized norms are fp32 in this runtime, so
+            # queries upcast to fp32 inside the layer; SDPA rejects bf16-mask+fp32-query.
+            # Matches every other mask cast in this file (decode, EFFICIENT, top_hidden).
+            lo4 = mask_lo.to(self.dev).to(torch.float32).view(1, 1, seq + e_len, seq + e_len)
             cos_, sin_ = self.text_model.rotary_emb(emb, pos.to(self.dev))
             pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
             h = emb
