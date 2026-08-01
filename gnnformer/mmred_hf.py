@@ -255,9 +255,16 @@ def recompute_answer(qtype: str, question: str, states: Sequence[Dict[str, Any]]
 def probe_evidence_mmred(qtype: str, question: str, states: Sequence[Dict[str, Any]]):
     """Supply-probe labels -> (evidence_frame_set, locus_word) or None.
 
-    steps_in_room: evidence = frames with char-in-room, locus = the room word (the
-    direct analog of our 'steps' task). NIAH app-tasks: evidence = the single answer
-    frame, locus = the queried room. room/char_at_frame: evidence = the queried frame.
+    Labels are the LOCAL per-frame fact the carrier must supply — the first/last/
+    positional selection is the READOUT's job and must not leak into the labels
+    (2026-08-01 first_at_room probe: single-answer-frame labels gave pooled d' 0.98
+    while index-0 per-copy read 4.33 — first-ness is global, occupancy is local).
+
+    steps_in_room: frames with char-in-room, locus = room (our 'steps' analog).
+    first/last_at_room: frames where the room is OCCUPIED, locus = room.
+    *_on_char_*_app: frames where the trigger char is in the trigger room, locus = it.
+    room_at_frame: positional query — no content label; returns None (unsuitable
+    for a supply probe).
     """
     g = _match(qtype, question)
     if qtype == "steps_in_room":
@@ -266,19 +273,15 @@ def probe_evidence_mmred(qtype: str, question: str, states: Sequence[Dict[str, A
         return evid, room
     if qtype in ("char_on_char_first_app", "char_on_char_final_app"):
         _, b, room = g
-        t = _app_step(states, b, room, final=qtype.endswith("final_app"))
-        return None if t is None else ({t}, room)
+        evid = {t for t, st in enumerate(states) if b in _rooms(st).get(room, [])}
+        return (evid, room) if evid else None
     if qtype in ("room_on_char_first_app", "room_on_char_final_app",
                  "n_room_on_char_first_app", "n_room_on_char_final_app"):
         _, char, room_1 = g
-        t = _app_step(states, char, room_1, final=qtype.endswith("final_app"))
-        return None if t is None else ({t}, room_1)
+        evid = {t for t, st in enumerate(states) if char in _rooms(st).get(room_1, [])}
+        return (evid, room_1) if evid else None
     if qtype in ("first_at_room", "last_at_room"):
         room = g[0]
-        hits = [t for t, st in enumerate(states) if _rooms(st).get(room, [])]
-        if not hits:
-            return None
-        return {hits[-1] if qtype == "last_at_room" else hits[0]}, room
-    if qtype == "room_at_frame":
-        return {int(g[1]) - 1}, g[0]
+        evid = {t for t, st in enumerate(states) if _rooms(st).get(room, [])}
+        return (evid, room) if evid else None
     return None

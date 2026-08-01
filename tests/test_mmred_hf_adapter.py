@@ -58,20 +58,27 @@ def main():
     )
     print(f"answer parity: {len(rows)} samples, 24 qtypes, 0 mismatches")
 
-    # probe evidence consistency (where defined)
+    # probe evidence consistency: labels are LOCAL facts; the first/last selection
+    # over them must reproduce the gold-relevant frame
     n_evid = 0
     for row in rows:
         states = row_states(row)
-        pe = probe_evidence_mmred(row["qtype"], row["question"], states)
+        qt = row["qtype"]
+        pe = probe_evidence_mmred(qt, row["question"], states)
         if pe is None:
             continue
         evid, locus = pe
         assert isinstance(locus, str) and locus
+        assert evid or (qt == "steps_in_room" and row["answer"] == "0"), row["qid"]
         assert all(0 <= t < row["seq_len"] for t in evid), row["qid"]
-        if row["qtype"] == "steps_in_room":
+        if qt == "steps_in_room":
             assert len(evid) == int(row["answer"]), (row["qid"], evid, row["answer"])
-        else:
-            assert len(evid) == 1, (row["qid"], row["qtype"], evid)
+        elif qt in ("first_at_room", "last_at_room"):
+            t = max(evid) if qt == "last_at_room" else min(evid)
+            occ = states[t]["rooms"][locus]
+            assert row["answer"] in occ or (row["answer"] == "Nobody" and not occ), row["qid"]
+        else:  # *_on_char_*_app: local match-frames; first/last must be the trigger step
+            assert all(locus in states[t]["rooms"] for t in evid), row["qid"]
         n_evid += 1
     print(f"probe evidence: {n_evid} samples consistent")
 
