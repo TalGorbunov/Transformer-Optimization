@@ -43,6 +43,7 @@ from gnnformer.data import (
 )
 from gnnformer.engine import CarrierEngine
 from gnnformer.metrics import format_gold_histogram
+from gnnformer.mmred_hf import parse_answer_mmred, probe_evidence_mmred, qtype_from_dirname
 from gnnformer.runtime import get_layers, load_runtime
 
 
@@ -61,6 +62,10 @@ def main() -> int:
                     help="override the ckpt's stored format (poslist/scan/caption/chunked)")
     ap.add_argument("--alien-task", action="store_true",
                     help="accept non-MMRED questions (decode-only scoring; e.g. MLVU-AC)")
+    ap.add_argument("--task", choices=("park", "mmred_hf"), default="park",
+                    help="mmred_hf: MMReD-HF materialized dirs — qtype from the dir-name "
+                         "prefix, word golds allowed (EM on parse_answer_mmred), evidence "
+                         "labels for --dump-carrier-states via probe_evidence_mmred")
     ap.add_argument("--no-reset-positions", action="store_true",
                     help="eval-time posreset ablation — a TRAIN/TEST MISMATCH by design; "
                          "report it as such, not as an architectural verdict")
@@ -147,17 +152,25 @@ def main() -> int:
             continue
         try:
             _sid, frames, q0, states, a0 = load_mmred_sample(sd)
-            gold = int(str(a0).strip())
+            gold = str(a0).strip() if args.task == "mmred_hf" else int(str(a0).strip())
         except Exception:
             n_skip += 1
             continue
-        pt = parse_task_labels(q0, states, gold)
-        if pt is None and args.alien_task:
-            pt = ("steps", set(), None)
-        if pt is None:
-            n_skip += 1
-            continue
-        task, evid, _aux = pt
+        if args.task == "mmred_hf":
+            task = qtype_from_dirname(sd.name)
+            if task is None:
+                n_skip += 1
+                continue
+            pe_ = probe_evidence_mmred(task, q0, states)
+            evid = pe_[0] if pe_ is not None else set()
+        else:
+            pt = parse_task_labels(q0, states, gold)
+            if pt is None and args.alien_task:
+                pt = ("steps", set(), None)
+            if pt is None:
+                n_skip += 1
+                continue
+            task, evid, _aux = pt
         rec = eng.prepare_sample(frames, q0, gold=gold, task=task, resize=args.resize,
                                  posreset=not args.no_reset_positions,
                                  with_masks=True, with_trunc_cols=trunc_flags)
@@ -181,7 +194,9 @@ def main() -> int:
             for L in dump_layers:
                 dump["rep"][L].append(cD[0][L][a0d:a0d + NF].float().cpu().numpy().astype(np.float16))
             dump["labels"].append(np.array([1 if t in evid else 0 for t in range(NF)], dtype=np.int64))
-            dump["gold"].append(gold)
+            # word golds (mmred_hf) -> -1 in the int64 dump; gate_tally is only
+            # meaningful for numeric-tally qtypes anyway
+            dump["gold"].append(int(gold) if str(gold).isdigit() else -1)
             dump["sd"].append(str(sd))
             del cD
 
@@ -280,6 +295,8 @@ def main() -> int:
                         dropkv=(args.drop_frame_kv or args.truncate_at is not None),
                         trunc=args.truncate_at)
                     ndec = len(dtoks)
+                if args.task == "mmred_hf":  # word/number anchors: total|answer|max|min
+                    val = parse_answer_mmred(txt)
                 dec_toks += ndec
                 if n < args.dump_decodes:
                     print(f"  [decode-sample] gold={gold} parsed={val} text={txt!r}", flush=True)
@@ -297,8 +314,8 @@ def main() -> int:
         n += 1
         golds.append(gold)
         acc_raw += int(val == gold)
-        if val is not None:
-            mae_sum += abs(val - gold)
+        if val is not None and str(val).lstrip("-").isdigit() and str(gold).lstrip("-").isdigit():
+            mae_sum += abs(int(val) - int(gold))
             mae_n += 1
         pg = per_count.setdefault(gold, [0, 0])
         pg[0] += int(val == gold)
