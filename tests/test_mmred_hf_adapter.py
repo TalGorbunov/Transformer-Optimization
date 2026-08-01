@@ -18,9 +18,12 @@ sys.path.insert(0, str(REPO_ROOT))
 from gnnformer.mmred_hf import (  # noqa: E402
     DC_QTYPES,
     NIAH_QTYPES,
+    build_scan_mmred,
     load_index,
     load_mmred_hf_sample,
+    parse_answer_mmred,
     probe_evidence_mmred,
+    qtype_from_dirname,
     recompute_answer,
     row_states,
 )
@@ -81,6 +84,39 @@ def main():
             assert all(locus in states[t]["rooms"] for t in evid), row["qid"]
         n_evid += 1
     print(f"probe evidence: {n_evid} samples consistent")
+
+    # gold-scan round-trip (formats.md): build from states only, parse back, must
+    # reproduce the published answer; slot count == seq_len; running tallies monotone
+    import re as _re
+    scan_ok = 0
+    scan_skip = defaultdict(int)
+    for row in rows:
+        states = row_states(row)
+        qt = row["qtype"]
+        tgt = build_scan_mmred(qt, row["question"], states, str(row["answer"]))
+        if tgt is None:
+            scan_skip[qt] += 1
+            continue
+        assert tgt.startswith(" scan: ") and tgt.endswith(" END"), (qt, tgt[:60])
+        n_slots = len(_re.findall(r"\bf\d+:", tgt))
+        assert n_slots == row["seq_len"], (qt, n_slots, row["seq_len"])
+        if " | total: " in tgt:
+            tallies = [int(m) for m in _re.findall(r"\((\d+)\)", tgt.split(" | total: ")[0])]
+            assert tallies == sorted(tallies), (qt, tallies)
+        got = parse_answer_mmred(tgt)
+        assert str(got) == str(row["answer"]), (qt, row["qid"], got, row["answer"], tgt[-80:])
+        scan_ok += 1
+    # builder may only skip where the generator's uniqueness/trigger guarantee is
+    # absent; on published data that must be zero
+    assert not dict(scan_skip), f"scan builder skips: {dict(scan_skip)}"
+    print(f"scan round-trip: {scan_ok} samples, 24 qtypes, 0 mismatches")
+
+    # dir-name qtype dispatch (materialize_dirs convention)
+    for qt in NIAH_QTYPES + DC_QTYPES:
+        assert qtype_from_dirname(f"{qt}_K3_q00042") == qt
+        assert qtype_from_dirname(f"{qt}_AKitchen_q00042") == qt
+    assert qtype_from_dirname("not_a_qtype_K3_x") is None
+    print("qtype_from_dirname: 24 qtypes OK")
 
     # frame loading (only if a render exists yet)
     for images_root in (REPO_ROOT / "data/mmred_hf/images/seq_len_8_test",

@@ -41,6 +41,7 @@ from gnnformer.data import (
     parse_task_labels,
 )
 from gnnformer.engine import CarrierEngine
+from gnnformer.mmred_hf import build_scan_mmred, qtype_from_dirname
 from gnnformer.runtime import get_layers, load_runtime
 from gnnformer.scratchpad import (
     SCRATCHPAD_FORMATS,
@@ -64,6 +65,10 @@ def main() -> int:
     ap.add_argument("--epochs", type=int, default=15)
     ap.add_argument("--lr-lora", type=float, default=1e-4)
     ap.add_argument("--carrier-ckpt", required=True, help="distilled carrier_best.pt (e_c FROZEN)")
+    ap.add_argument("--task", choices=("park", "mmred_hf"), default="park",
+                    help="mmred_hf: MMReD-HF materialized dirs — qtype from the dir-name "
+                         "prefix, gold scans via gnnformer.mmred_hf.build_scan_mmred "
+                         "(formats.md; word golds allowed); park defaults untouched")
     ap.add_argument("--scratchpad", action="store_true")
     ap.add_argument("--running-tally", action="store_true", help="implies --scratchpad")
     ap.add_argument("--pos-couple", action="store_true", help="E-G (refuted); implies --running-tally")
@@ -92,6 +97,8 @@ def main() -> int:
         args.scratchpad = True
     if args.truncate_at is not None and args.truncate_at != args.l_open:
         raise SystemExit(f"--truncate-at must equal --l-open, got {args.truncate_at} vs {args.l_open}")
+    if args.task == "mmred_hf" and args.scratchpad_format not in ("scan", "caption"):
+        raise SystemExit("--task mmred_hf requires --scratchpad-format scan|caption")
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
@@ -132,27 +139,41 @@ def main() -> int:
                 break
             try:
                 _sid, frames, q0, states, a0 = load_mmred_sample(sd)
-                gold = int(str(a0).strip())
             except Exception:
                 n_skip += 1
                 continue
-            parsed = parse_task_labels(q0, states, gold)
-            if parsed is None or (gold > 9 and not args.scratchpad):
-                n_skip += 1
-                continue
-            task, evid, aux = parsed
             tgt_ids: list = []
             anch = None
+            if args.task == "mmred_hf":
+                qtype = qtype_from_dirname(sd.name)
+                tgt_str = (build_scan_mmred(qtype, q0, states, str(a0).strip())
+                           if qtype else None)
+                if tgt_str is None:
+                    n_skip += 1
+                    continue
+                gold, task = str(a0).strip(), qtype
+            else:
+                try:
+                    gold = int(str(a0).strip())
+                except Exception:
+                    n_skip += 1
+                    continue
+                parsed = parse_task_labels(q0, states, gold)
+                if parsed is None or (gold > 9 and not args.scratchpad):
+                    n_skip += 1
+                    continue
+                task, evid, aux = parsed
+                if args.scratchpad:
+                    if args.scratchpad_format != "poslist":
+                        labels = (frame_attr_labels(task, q0, states, evid)
+                                  if (args.scratchpad_format in ("caption", "chunked") or task == "rooms")
+                                  else None)
+                        tgt_str = build_target_fmt(args.scratchpad_format, task, evid, aux,
+                                                   gold, NF=len(frames), labels=labels)
+                    else:
+                        tgt_str = (build_target_tally if args.running_tally else build_target)(
+                            task, evid, aux, gold)
             if args.scratchpad:
-                if args.scratchpad_format != "poslist":
-                    labels = (frame_attr_labels(task, q0, states, evid)
-                              if (args.scratchpad_format in ("caption", "chunked") or task == "rooms")
-                              else None)
-                    tgt_str = build_target_fmt(args.scratchpad_format, task, evid, aux,
-                                               gold, NF=len(frames), labels=labels)
-                else:
-                    tgt_str = (build_target_tally if args.running_tally else build_target)(
-                        task, evid, aux, gold)
                 tgt_ids = tok(tgt_str, add_special_tokens=False).input_ids + [tok.eos_token_id]
                 if args.pos_couple and task != "rooms":
                     anch = couple_offsets([tok.decode([t]) for t in tgt_ids], len(frames))
@@ -168,7 +189,12 @@ def main() -> int:
             d = eng.build_training_cache(rec, tgt_ids, anch=anch,
                                          truncate=args.truncate_at is not None)
             # readout slice at the tail of tgt_ids (count tokens + EOS)
-            ans_sfx = f" {gold}" if args.scratchpad_format == "poslist" else f" {gold} END"
+            if args.scratchpad_format == "poslist":
+                ans_sfx = f" {gold}"
+            elif args.task == "mmred_hf":
+                ans_sfx = " " + tgt_str.rsplit(": ", 1)[-1]  # value END after the anchor
+            else:
+                ans_sfx = f" {gold} END"
             d["ans_k"] = (len(tok(ans_sfx, add_special_tokens=False).input_ids) + 1
                           if tgt_ids else 0)
             d["sd"] = str(sd)
@@ -212,8 +238,8 @@ def main() -> int:
                     ptxt = tok.decode(preds[-ak:-1]).strip()
                     if ptxt.endswith("END"):
                         ptxt = ptxt[:-3].strip()
-                    if ptxt.isdigit():
-                        mae += abs(int(ptxt) - g)
+                    if ptxt.isdigit() and str(g).isdigit():
+                        mae += abs(int(ptxt) - int(g))
                         mae_n += 1
                     ok = cnt_ok
                 else:

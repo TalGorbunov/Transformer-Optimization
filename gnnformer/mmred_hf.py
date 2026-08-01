@@ -250,6 +250,217 @@ def recompute_answer(qtype: str, question: str, states: Sequence[Dict[str, Any]]
     raise ValueError(f"unknown qtype: {qtype}")
 
 
+# ------------------------------------------------------------------ scan targets
+# Gold caption-scan builders per outputs/mmred_hf/formats.md: one slot per frame,
+# lowercase payload words, `-` = null, `+` joins multi-word slots, `(k)` running
+# counters, `*` trigger marks, anchors total:/answer:/max:/min: + END.
+
+ROOM_ORDER = ["Kitchen", "Bathroom", "Garden", "Office", "Bedroom", "Hallway"]
+CHAR_ORDER = ["Daniel", "John", "Mary", "Michael", "Sandra"]
+ROOM_ABBR = {"Kitchen": "k", "Bathroom": "b", "Garden": "g", "Office": "o",
+             "Bedroom": "be", "Hallway": "h"}
+CHAR_ABBR = {"Daniel": "da", "John": "jo", "Mary": "ma", "Michael": "mi", "Sandra": "sa"}
+_CANON = {w.lower(): w for w in ROOM_ORDER + CHAR_ORDER}
+_CANON["nobody"] = NOBODY
+
+_ALL_QTYPES = sorted(NIAH_QTYPES + DC_QTYPES, key=len, reverse=True)
+
+
+def qtype_from_dirname(name: str) -> Optional[str]:
+    """materialize_dirs names are <qtype>_[KA]<answer>_<qid>; longest-prefix match
+    (several qtypes are prefixes of others, e.g. first_app / first_at_room share none,
+    but n_room_on_char_first_app vs room_on_char_first_app do collide on substring)."""
+    for qt in _ALL_QTYPES:
+        if name.startswith(qt + "_"):
+            return qt
+    return None
+
+
+def _join(words) -> str:
+    return "+".join(w.lower() for w in words) if words else "-"
+
+
+def build_scan_mmred(qtype: str, question: str, states: Sequence[Dict[str, Any]],
+                     answer: str) -> Optional[str]:
+    """-> ' scan: f1:<slot> ... | <anchor>: <value> END' or None when the scan's own
+    reduction fails to reproduce the published answer (parse_task_labels-style sanity
+    gate — the caller counts a skip). The scan is built from states ONLY."""
+    g = _match(qtype, question)
+    N = len(states)
+    ans = str(answer)
+    slots: List[str] = []
+    anchor = "answer"
+
+    if qtype == "steps_in_room":
+        char, room = g
+        k = 0
+        for st in states:
+            if char in _rooms(st).get(room, []):
+                k += 1
+                slots.append(f"{room.lower()}({k})")
+            else:
+                slots.append("-")
+        anchor, value, tailval = "total", str(k), str(k)
+    elif qtype == "crowd_count":
+        m = int(g[0])
+        k = 0
+        for st in states:
+            crowded = [r for r in ROOM_ORDER if len(_rooms(st).get(r, [])) >= m]
+            if crowded:
+                k += 1
+                slots.append(f"{_join(crowded)}({k})")
+            else:
+                slots.append("-")
+        anchor, value, tailval = "total", str(k), str(k)
+    elif qtype == "rooms_visited":
+        char = g[0]
+        seen: List[str] = []
+        for st in states:
+            r = _char_room(st, char)
+            if r not in seen:
+                seen.append(r)
+            slots.append(f"{r.lower()}({len(seen)})")
+        anchor, value, tailval = "total", str(len(seen)), str(len(seen))
+    elif qtype in ("first_app", "final_app", "char_at_frame"):
+        char = g[0]
+        rooms_c = [_char_room(st, char) for st in states]
+        slots = [r.lower() for r in rooms_c]
+        t = 0 if qtype == "first_app" else (N - 1 if qtype == "final_app" else int(g[1]) - 1)
+        value = rooms_c[t]
+        tailval = value.lower()
+    elif qtype in ("first_at_room", "last_at_room", "room_at_frame"):
+        room = g[0]
+        occs = [_rooms(st).get(room, []) for st in states]
+        slots = [_join(o) for o in occs]
+        if qtype == "room_at_frame":
+            o = occs[int(g[1]) - 1]
+        else:
+            hits = [t for t in range(N) if occs[t]]
+            o = occs[hits[-1] if qtype == "last_at_room" else hits[0]] if hits else []
+        if len(o) > 1:
+            return None  # generator guarantees a single occupant at the selected frame
+        value = o[0] if o else NOBODY
+        tailval = value.lower()
+    elif qtype == "char_on_char_at_frame":
+        char, k = g[0], int(g[1])
+        others_per = []
+        for st in states:
+            room = _char_room(st, char)
+            others_per.append([c for c in _rooms(st).get(room, []) if c != char])
+        slots = [_join(o) for o in others_per]
+        o = others_per[k - 1]
+        if len(o) > 1:
+            return None
+        value = o[0] if o else NOBODY
+        tailval = value.lower()
+    elif qtype == "n_char_at_frame":
+        char, k = g[0], int(g[1])
+        ns = []
+        for st in states:
+            room = _char_room(st, char)
+            ns.append(len(_rooms(st).get(room, [])) - 1)
+        slots = [str(n) for n in ns]
+        value = tailval = str(ns[k - 1])
+    elif qtype == "n_empty":
+        k = int(g[0])
+        ns = [sum(1 for occ in _rooms(st).values() if not occ) for st in states]
+        slots = [str(n) for n in ns]
+        value = tailval = str(ns[k - 1])
+    elif qtype in ("char_on_char_first_app", "char_on_char_final_app",
+                   "room_on_char_first_app", "room_on_char_final_app",
+                   "n_room_on_char_first_app", "n_room_on_char_final_app"):
+        final = qtype.endswith("final_app")
+        if qtype.startswith("char_on_char"):
+            a, trig_char, trig_room = g
+            payloads = [_char_room(st, a).lower() for st in states]
+        else:
+            room0, trig_char, trig_room = g
+            if qtype.startswith("n_room"):
+                payloads = [str(len(_rooms(st).get(room0, []))) for st in states]
+            else:
+                payloads = [_join(_rooms(st).get(room0, [])) for st in states]
+        trig = [trig_char in _rooms(st).get(trig_room, []) for st in states]
+        slots = [p + ("*" if tr else "") for p, tr in zip(payloads, trig)]
+        hits = [t for t in range(N) if trig[t]]
+        if not hits:
+            return None
+        t = hits[-1] if final else hits[0]
+        if qtype.startswith("char_on_char"):
+            value = _char_room(states[t], a)
+            tailval = value.lower()
+        elif qtype.startswith("n_room"):
+            value = tailval = payloads[t]
+        else:
+            o = _rooms(states[t]).get(room0, [])
+            if len(o) > 1:
+                return None
+            value = o[0] if o else NOBODY
+            tailval = value.lower()
+    else:  # multi-counter arg-max/min family
+        if qtype == "where_spend":
+            char, cmp_w = g
+            keys, abbr, want_max = ROOM_ORDER, ROOM_ABBR, cmp_w == "most"
+            score = lambda st: [_char_room(st, char)]  # noqa: E731
+        elif qtype == "who_spend":
+            cmp_w, room = g
+            keys, abbr, want_max = CHAR_ORDER, CHAR_ABBR, cmp_w == "most"
+            score = lambda st: list(_rooms(st).get(room, []))  # noqa: E731
+        elif qtype == "spend_alone":
+            keys, abbr, want_max = CHAR_ORDER, CHAR_ABBR, g[0] == "most"
+            score = lambda st: [occ[0] for occ in _rooms(st).values() if len(occ) == 1]  # noqa: E731
+        elif qtype == "spend_together":
+            char, cmp_w = g
+            keys = [c for c in CHAR_ORDER if c != char]
+            abbr, want_max = CHAR_ABBR, cmp_w == "most"
+            score = lambda st: [c for c in _rooms(st).get(_char_room(st, char), [])  # noqa: E731
+                                if c != char]
+        elif qtype == "room_empty":
+            keys, abbr, want_max = ROOM_ORDER, ROOM_ABBR, g[0] == "more"
+            score = lambda st: [r for r in ROOM_ORDER if not _rooms(st).get(r, [])]  # noqa: E731
+        elif qtype == "crowded_room":
+            m = int(g[0])
+            keys, abbr, want_max = ROOM_ORDER, ROOM_ABBR, True
+            score = lambda st: [r for r in ROOM_ORDER if len(_rooms(st).get(r, [])) >= m]  # noqa: E731
+        else:
+            raise ValueError(f"unknown qtype: {qtype}")
+        counts = {kx: 0 for kx in keys}
+        for st in states:
+            scored = [w for w in score(st) if w in counts]
+            for w in scored:
+                counts[w] += 1
+            slots.append(_join(scored) + " "
+                         + " ".join(f"{abbr[kx]}{counts[kx]}" for kx in keys))
+        win = _argcmp(counts, want_max)
+        if win is None:
+            return None
+        anchor = "max" if want_max else "min"
+        value = win
+        tailval = f"{win.lower()}({counts[win]})"
+
+    if str(value) != ans:
+        return None
+    body = " ".join(f"f{t + 1}:{s}" for t, s in enumerate(slots))
+    return f" scan: {body} | {anchor}: {tailval} END"
+
+
+def parse_answer_mmred(text: str) -> Optional[str]:
+    """Eval parser: anchor on the LAST total:/answer:/max:/min:, read the value before
+    END, map back to canonical case (Kitchen/Sandra/Nobody) for EM scoring."""
+    mm = list(re.finditer(r"\b(total|answer|max|min):", text))
+    if not mm:
+        return None
+    kind = mm[-1].group(1)
+    seg = text[mm[-1].end():].split("END")[0]
+    if kind == "total":
+        nums = re.findall(r"\d+", seg)
+        return nums[-1] if nums else None
+    m2 = re.search(r"[A-Za-z]+|\d+", seg)
+    if not m2:
+        return None
+    w = m2.group(0)
+    return _CANON.get(w.lower(), w)
+
+
 # ------------------------------------------------------------------ probe evidence
 
 def probe_evidence_mmred(qtype: str, question: str, states: Sequence[Dict[str, Any]]):

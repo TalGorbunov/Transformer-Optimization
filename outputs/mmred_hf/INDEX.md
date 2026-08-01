@@ -7,4 +7,4 @@
 | experiment | canonical run | headline |
 |-----------|----------------|----------|
 | render (all 11 config×splits) | `render/` (jobs 127765–127775, 2026-08-01) | ~20 KB/frame, deterministic, capped-worker driver |
-| frozen fidelity anchor (arm A, seq8 test, 3 qtypes) | pending job 127776 | — |
+| frozen fidelity anchor (arm A, seq8 test, 34/qtype) | `frozen/seq_len_8_test_127776/` | final_app 0.765 / steps_in_room 0.559 / where_spend 0.353 → Phase-0 GO |
