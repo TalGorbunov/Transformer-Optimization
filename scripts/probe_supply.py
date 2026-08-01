@@ -23,6 +23,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from pathlib import Path
@@ -51,6 +52,7 @@ from gnnformer.fencing import (
     reset_positions,
 )
 from gnnformer.metrics import dprime_pair, format_gold_histogram
+from gnnformer.mmred_hf import probe_evidence_mmred
 from gnnformer.runtime import (
     attention_dims,
     dequantize_linear_weight,
@@ -69,7 +71,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=300)
     ap.add_argument("--layers", default="14,16")
     ap.add_argument("--resize", type=int, default=392)
-    ap.add_argument("--task", choices=("steps", "cooc"), default="steps")
+    ap.add_argument("--task", choices=("steps", "cooc", "mmred_niah"), default="steps",
+                    help="mmred_niah: MMReD-HF materialized dirs, qtype from the dir-name "
+                         "prefix, evidence via gnnformer.mmred_hf (gold may be non-numeric)")
     ap.add_argument("--natural", action="store_true")
     ap.add_argument("--no-mask", action="store_true")
     ap.add_argument("--fence-frames", action="store_true")
@@ -117,12 +121,24 @@ def main() -> int:
                 frames, q0, gold, evid, room = load_natural_sample(sd)
             else:
                 _sid, frames, q0, states, a0 = load_mmred_sample(sd)
-                gold = int(str(a0).strip())
-                pe_ = probe_evidence(args.task, q0, states, gold, ROOMS)
-                if pe_ is None:
-                    n_skip += 1
-                    continue
-                evid, room = pe_
+                if args.task == "mmred_niah":
+                    mq = re.match(r"(.+?)_(?:K\d+|A[A-Za-z]+)_\d+$", sd.name)
+                    if mq is None:
+                        n_skip += 1
+                        continue
+                    pe_ = probe_evidence_mmred(mq.group(1), q0, states)
+                    if pe_ is None:
+                        n_skip += 1
+                        continue
+                    evid, room = pe_
+                    gold = len(evid)  # evidence count stands in for the histogram
+                else:
+                    gold = int(str(a0).strip())
+                    pe_ = probe_evidence(args.task, q0, states, gold, ROOMS)
+                    if pe_ is None:
+                        n_skip += 1
+                        continue
+                    evid, room = pe_
         except Exception:
             n_skip += 1
             continue
