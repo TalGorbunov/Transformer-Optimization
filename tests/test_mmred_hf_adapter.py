@@ -111,6 +111,21 @@ def main():
     assert not dict(scan_skip), f"scan builder skips: {dict(scan_skip)}"
     print(f"scan round-trip: {scan_ok} samples, 24 qtypes, 0 mismatches")
 
+    # grammar legality: every gold scan must fullmatch its syntax pattern
+    # (scan_grammar constrains decoding; false blocking would corrupt arm C)
+    import regex as _rx2
+    from gnnformer.scan_grammar import build_scan_regex
+    gr_ok = 0
+    for row in rows:
+        states = row_states(row)
+        tgt = build_scan_mmred(row["qtype"], row["question"], states, str(row["answer"]))
+        if tgt is None:
+            continue
+        pat = build_scan_regex(row["qtype"], row["question"], row["seq_len"])
+        assert pat is not None and _rx2.fullmatch(pat, tgt), (row["qtype"], row["qid"])
+        gr_ok += 1
+    print(f"grammar legality: {gr_ok} gold scans fullmatch their patterns")
+
     # dir-name qtype dispatch (materialize_dirs convention)
     for qt in NIAH_QTYPES + DC_QTYPES:
         assert qtype_from_dirname(f"{qt}_K3_q00042") == qt

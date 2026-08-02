@@ -373,9 +373,12 @@ class CarrierEngine:
             lg0 = self.model.lm_head(hn[0, -1].to(self.model.lm_head.weight.dtype)).float()
         return caches, lg0, lo_t, hi_t, pos_k, pos[:, :, -1:]
 
-    def decode_fast(self, d, *, decode_tokens: int, fmt: str, trunc=None, chunked=False):
+    def decode_fast(self, d, *, decode_tokens: int, fmt: str, trunc=None, chunked=False,
+                    selector=None):
         """Cached incremental greedy decode — mathematically equal to drop-frame-kv
-        (+truncate) with a real speedup. -> (parsed, text, toks, prefill_seconds)."""
+        (+truncate) with a real speedup. -> (parsed, text, toks, prefill_seconds).
+        selector(lg, toks)->token_id optionally replaces plain argmax (grammar
+        constraints; see gnnformer.scan_grammar.make_token_selector)."""
         torch.cuda.synchronize() if torch.cuda.is_available() else None
         tp = time.time()
         caches, lg0, lo_t, hi_t, pos_k, pos_last = (
@@ -410,7 +413,7 @@ class CarrierEngine:
                         hh = hout[:, k:]
                     hn = self.text_model.norm(hh)
                     lg = self.model.lm_head(hn[0, -1].to(self.model.lm_head.weight.dtype)).float()
-                t = int(lg.argmax())
+                t = selector(lg, toks) if selector is not None else int(lg.argmax())
                 if t == self.tok.eos_token_id:
                     break
                 toks.append(t)

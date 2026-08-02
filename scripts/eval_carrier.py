@@ -44,6 +44,7 @@ from gnnformer.data import (
 from gnnformer.engine import CarrierEngine
 from gnnformer.metrics import format_gold_histogram
 from gnnformer.mmred_hf import parse_answer_mmred, probe_evidence_mmred, qtype_from_dirname
+from gnnformer.scan_grammar import build_scan_regex, make_token_selector
 from gnnformer.runtime import get_layers, load_runtime
 
 
@@ -62,6 +63,9 @@ def main() -> int:
                     help="override the ckpt's stored format (poslist/scan/caption/chunked)")
     ap.add_argument("--alien-task", action="store_true",
                     help="accept non-MMRED questions (decode-only scoring; e.g. MLVU-AC)")
+    ap.add_argument("--grammar", action="store_true",
+                    help="mmred_hf + --fast-decode only: syntax-constrained decoding "
+                         "(scan grammar as a logit filter; gnnformer.scan_grammar)")
     ap.add_argument("--task", choices=("park", "mmred_hf"), default="park",
                     help="mmred_hf: MMReD-HF materialized dirs — qtype from the dir-name "
                          "prefix, word golds allowed (EM on parse_answer_mmred), evidence "
@@ -283,9 +287,15 @@ def main() -> int:
                         torch.cuda.reset_peak_memory_stats()
                         torch.cuda.synchronize()
                     tf0 = time.time()
+                    sel = None
+                    if args.grammar:
+                        pat = build_scan_regex(task, q0, len(rec["cpos"]))
+                        if pat is not None:
+                            sel = make_token_selector(pat, rt.tokenizer)
                     val, txt, dtoks, pf_s = eng.decode_fast(
                         rec, decode_tokens=decode_tokens, fmt=sfmt,
-                        trunc=args.truncate_at, chunked=args.chunked_prefill)
+                        trunc=args.truncate_at, chunked=args.chunked_prefill,
+                        selector=sel)
                     if cuda:
                         torch.cuda.synchronize()
                     if fastt is None:
