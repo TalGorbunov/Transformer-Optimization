@@ -218,9 +218,14 @@ def main() -> int:
 
                     (vB, xB, kB), tB, pB = _arm(lambda: eng.decode_scratchpad(
                         rec, decode_tokens=decode_tokens, fmt=sfmt))
-                    (vM, _xM, kM), tM, _ = _arm(lambda: eng.decode_scratchpad(
+                    (vM, xM, kM), tM, _ = _arm(lambda: eng.decode_scratchpad(
                         rec, decode_tokens=decode_tokens, fmt=sfmt,
                         dropkv=True, trunc=args.truncate_at))
+                    if args.task == "mmred_hf":
+                        # int-only parses are None for word answers, making the
+                        # answer-equal comparison vacuous (None==None) — the 2026-08-02
+                        # trunc regression hid behind exactly this. Re-parse both arms.
+                        vB, vM = parse_answer_mmred(xB), parse_answer_mmred(xM)
                     if exact is None:
                         exact = {"n": 0, "ident": 0, "ans": 0, "fident": 0, "fans": 0,
                                  "nf": 0, "tB": 0.0, "tM": 0.0, "tF": 0.0, "pB": 0.0, "pF": 0.0}
@@ -233,8 +238,10 @@ def main() -> int:
                     line = (f"  [exact] gold={gold} N={len(rec['cpos'])} base({vB},{len(kB)}t,"
                             f"{tB:.1f}s) mask({vM},{len(kM)}t,{tM:.1f}s) ident={kB == kM}")
                     if args.fast_decode:
-                        (vF, _xF, kF, pf_s), tF, pF = _arm(lambda: eng.decode_fast(
+                        (vF, xF, kF, pf_s), tF, pF = _arm(lambda: eng.decode_fast(
                             rec, decode_tokens=decode_tokens, fmt=sfmt, trunc=args.truncate_at))
+                        if args.task == "mmred_hf":
+                            vF = parse_answer_mmred(xF)
                         exact["nf"] += 1
                         exact["fident"] += int(kF == kM)
                         exact["fans"] += int(vF == vM)

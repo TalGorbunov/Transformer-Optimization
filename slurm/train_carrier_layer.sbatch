@@ -10,7 +10,7 @@
 # Knobs: ROOTS (default $ROOTS_INLENGTH from lib/roots_inlength.txt) CARRIER_CKPT FMT
 #        LIMIT EPOCHS L_OPEN SEED SPLIT_SEED JITTER OUTPUT
 #        ROOTS_FILE (roots list file, comma-joined here — beats ROOTS; use for lists
-#        too long / comma-unsafe for --export)  TASK (park|mmred_hf)
+#        too long / comma-unsafe for --export)  TASK (park|mmred_hf)  EXTRA
 source "${SLURM_SUBMIT_DIR:-.}/slurm/lib/common.sh"
 OUTPUT="${OUTPUT:-outputs/carrier/train}"
 if [ -n "${ROOTS_FILE:-}" ]; then
@@ -23,5 +23,5 @@ run_logged "$OUTPUT" python -u scripts/train_carrier_layer.py \
   --scratchpad-format "${FMT:-caption}" --running-tally \
   --jitter-gap "${JITTER:-16}" --grad-ckpt \
   --l-open "${L_OPEN:-12}" --limit "${LIMIT:-900}" --epochs "${EPOCHS:-5}" \
-  --seed "${SEED:-0}" ${SPLIT_SEED:+--split-seed "$SPLIT_SEED"} \
+  --seed "${SEED:-0}" ${SPLIT_SEED:+--split-seed "$SPLIT_SEED"} ${EXTRA:-} \
   --output "$OUTPUT"
