@@ -496,3 +496,69 @@ def probe_evidence_mmred(qtype: str, question: str, states: Sequence[Dict[str, A
         evid = {t for t, st in enumerate(states) if _rooms(st).get(room, [])}
         return (evid, room) if evid else None
     return None
+
+
+# ------------------------------------------------------------------ v4 targets
+# The caption scans demanded per-frame CONTENT identity from the carriers — the
+# VoCo-style compression property our method does not claim (2026-08-03 finding:
+# truncated free decode degenerates on exactly the content payloads, while the
+# relevance bits read at 99%/frame). v4 asks carriers only for what the thesis
+# claims they carry: verdict scans (relevance bit / question-conditioned count +
+# running tally) for the aggregation qtypes, DIRECT short answers for everything
+# else (single-fact read at the answer position — no generative cascade).
+
+V4_VERDICT_QTYPES = {
+    "steps_in_room", "crowd_count", "n_char_at_frame", "n_empty",
+    "n_room_on_char_first_app", "n_room_on_char_final_app",
+}
+
+
+def _v4_scan(slots: List[str], tail: str) -> str:
+    return " scan: " + " ".join(f"f{t + 1}:{s}" for t, s in enumerate(slots)) + tail
+
+
+def build_target_v4(qtype: str, question: str, states: Sequence[Dict[str, Any]],
+                    answer: str) -> Optional[str]:
+    """v4 gold target: verdict scan (aggregation qtypes) or ' answer: <v> END'.
+    None when the scan's own reduction fails to reproduce the published answer."""
+    g = _match(qtype, question)
+    ans = str(answer)
+
+    if qtype in ("steps_in_room", "crowd_count"):
+        k = 0
+        slots = []
+        for st in states:
+            if qtype == "steps_in_room":
+                hit = g[0] in _rooms(st).get(g[1], [])
+            else:
+                hit = any(len(occ) >= int(g[0]) for occ in _rooms(st).values())
+            if hit:
+                k += 1
+                slots.append(f"x({k})")
+            else:
+                slots.append("-")
+        return _v4_scan(slots, f" | total: {k} END") if str(k) == ans else None
+    if qtype in ("n_char_at_frame", "n_empty"):
+        if qtype == "n_char_at_frame":
+            char, kq = g[0], int(g[1])
+            ns = [len(_rooms(st).get(_char_room(st, char), [])) - 1 for st in states]
+        else:
+            kq = int(g[0])
+            ns = [sum(1 for occ in _rooms(st).values() if not occ) for st in states]
+        if str(ns[kq - 1]) != ans:
+            return None
+        return _v4_scan([str(n) for n in ns], f" | answer: {ns[kq - 1]} END")
+    if qtype in ("n_room_on_char_first_app", "n_room_on_char_final_app"):
+        room0, char, room1 = g
+        ns = [len(_rooms(st).get(room0, [])) for st in states]
+        trig = [char in _rooms(st).get(room1, []) for st in states]
+        hits = [t for t in range(len(states)) if trig[t]]
+        if not hits:
+            return None
+        t = hits[-1] if qtype.endswith("final_app") else hits[0]
+        if str(ns[t]) != ans:
+            return None
+        slots = [f"{n}{'*' if tr else ''}" for n, tr in zip(ns, trig)]
+        return _v4_scan(slots, f" | answer: {ns[t]} END")
+    # direct answer for everything else (content/selection + set/argmax stretch cells)
+    return f" answer: {ans if ans.isdigit() else ans.lower()} END"

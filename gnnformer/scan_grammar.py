@@ -18,7 +18,7 @@ from typing import List, Optional
 
 import regex as _rx
 
-from .mmred_hf import CHAR_ABBR, CHAR_ORDER, ROOM_ABBR, ROOM_ORDER, _match
+from .mmred_hf import CHAR_ABBR, CHAR_ORDER, ROOM_ABBR, ROOM_ORDER, _match  # noqa
 
 NUM = r"\d{1,3}"
 _R = "|".join(r.lower() for r in ROOM_ORDER)
@@ -131,3 +131,34 @@ def make_token_selector(pattern: str, tok, top_k: int = 256):
         return int(lg.argmax())  # fail-open
 
     return selector
+
+
+def build_scan_regex_v4(qtype: str, question: str, n_frames: int) -> Optional[str]:
+    """Pattern for the v4 targets (verdict scans / direct answers) — syntax only."""
+    from .mmred_hf import V4_VERDICT_QTYPES
+    try:
+        _match(qtype, question)
+    except Exception:
+        return None
+    if qtype in V4_VERDICT_QTYPES:
+        if qtype in ("steps_in_room", "crowd_count"):
+            slot, tail = rf"(?:-|x\({NUM}\))", rf" \| total: {NUM} END"
+        elif qtype in ("n_char_at_frame", "n_empty"):
+            slot, tail = NUM, rf" \| answer: {NUM} END"
+        else:  # n_room_on_char_*: digit + optional trigger star
+            slot, tail = rf"{NUM}\*?", rf" \| answer: {NUM} END"
+        return " scan:" + "".join(rf" f{t}:{slot}" for t in range(1, n_frames + 1)) + tail
+    # direct answers
+    if qtype in ("first_app", "final_app", "char_at_frame", "char_on_char_first_app",
+                 "char_on_char_final_app", "where_spend", "room_empty", "crowded_room"):
+        val = rf"(?:{_R})"
+    elif qtype in ("first_at_room", "last_at_room", "room_at_frame",
+                   "char_on_char_at_frame", "room_on_char_first_app",
+                   "room_on_char_final_app", "who_spend", "spend_alone",
+                   "spend_together"):
+        val = rf"(?:nobody|{_C})"
+    elif qtype == "rooms_visited":
+        val = NUM
+    else:
+        return None
+    return rf" answer: {val} END"

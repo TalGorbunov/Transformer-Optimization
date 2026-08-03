@@ -41,7 +41,7 @@ from gnnformer.data import (
     parse_task_labels,
 )
 from gnnformer.engine import CarrierEngine
-from gnnformer.mmred_hf import build_scan_mmred, qtype_from_dirname
+from gnnformer.mmred_hf import build_scan_mmred, build_target_v4, qtype_from_dirname
 from gnnformer.runtime import get_layers, load_runtime
 from gnnformer.scratchpad import (
     SCRATCHPAD_FORMATS,
@@ -69,6 +69,9 @@ def main() -> int:
                     help="mmred_hf: MMReD-HF materialized dirs — qtype from the dir-name "
                          "prefix, gold scans via gnnformer.mmred_hf.build_scan_mmred "
                          "(formats.md; word golds allowed); park defaults untouched")
+    ap.add_argument("--mmred-target", choices=("caption", "v4"), default="caption",
+                    help="v4: verdict scans for aggregation qtypes + DIRECT answers "
+                         "for content qtypes (build_target_v4; 2026-08-03 rescope)")
     ap.add_argument("--scratchpad", action="store_true")
     ap.add_argument("--running-tally", action="store_true", help="implies --scratchpad")
     ap.add_argument("--pos-couple", action="store_true", help="E-G (refuted); implies --running-tally")
@@ -146,7 +149,8 @@ def main() -> int:
             anch = None
             if args.task == "mmred_hf":
                 qtype = qtype_from_dirname(sd.name)
-                tgt_str = (build_scan_mmred(qtype, q0, states, str(a0).strip())
+                _builder = build_target_v4 if args.mmred_target == "v4" else build_scan_mmred
+                tgt_str = (_builder(qtype, q0, states, str(a0).strip())
                            if qtype else None)
                 if tgt_str is None:
                     n_skip += 1

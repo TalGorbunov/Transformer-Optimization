@@ -126,6 +126,20 @@ def main():
         gr_ok += 1
     print(f"grammar legality: {gr_ok} gold scans fullmatch their patterns")
 
+    # v4 targets (verdict scans / direct answers): parse-back + grammar legality
+    from gnnformer.mmred_hf import build_target_v4, parse_answer_mmred as _pam
+    from gnnformer.scan_grammar import build_scan_regex_v4
+    v4_ok = 0
+    for row in rows:
+        tgt = build_target_v4(row["qtype"], row["question"], row_states(row),
+                              str(row["answer"]))
+        assert tgt is not None, (row["qtype"], row["qid"])
+        assert str(_pam(tgt)) == str(row["answer"]), (row["qtype"], row["qid"], tgt[:60])
+        pat = build_scan_regex_v4(row["qtype"], row["question"], row["seq_len"])
+        assert pat is not None and _rx2.fullmatch(pat, tgt), (row["qtype"], row["qid"])
+        v4_ok += 1
+    print(f"v4 targets: {v4_ok} parse-back + legality OK")
+
     # dir-name qtype dispatch (materialize_dirs convention)
     for qt in NIAH_QTYPES + DC_QTYPES:
         assert qtype_from_dirname(f"{qt}_K3_q00042") == qt
