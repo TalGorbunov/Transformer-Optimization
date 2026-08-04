@@ -42,6 +42,12 @@ def main() -> int:
     ap.add_argument("--lr", type=float, default=2e-3)
     ap.add_argument("--train-frac", type=float, default=0.75)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--aux-ce", type=float, default=0.0,
+                    help=">0: add aux-CE loss from per-fact linear heads on h (direct "
+                         "decodability gradient to e_c; heads discarded at eval)")
+    ap.add_argument("--student-layer", type=int, default=12, choices=(12, 16),
+                    help="16: run open phase 12-15 (hi mask) and match h@L16 — "
+                         "depth-aligned with the L16 teacher read")
     ap.add_argument("--carrier-ckpt", default="checkpoints/carrier_token_room_k1_best.pt")
     ap.add_argument("--output", default="outputs/mmred_hf/stage3/run")
     args = ap.parse_args()
@@ -51,7 +57,7 @@ def main() -> int:
     e0 = (tk["e_c"] if isinstance(tk, dict) else tk.e_c).float()
     eng = CarrierEngine(rt, l_open=12, e_c=e0.to(rt.device))
     dev = rt.device
-    layers = get_layers(rt.model)[:12]
+    layers = get_layers(rt.model)[: args.student_layer]
 
     # ---- load targets, group per sample
     by_sample = {}
@@ -83,9 +89,12 @@ def main() -> int:
         tmap = by_sample[key]
         tgt = np.stack([tmap[t][0] for t in sorted(tmap)])
         tidx = sorted(tmap)
+        fact = ("roomofc" if "char_at_frame" in root else
+                "occofr" if "room_at_frame" in root else
+                "trig" if "char_on_char" in root else "empty")
         cache.append(dict(emb=rec["emb"].cpu(), pos=rec["pos"].cpu(),
-                          lo=rec["lo"], cpos=rec["cpos"], seq=rec["seq"],
-                          tgt=torch.tensor(tgt), tidx=tidx,
+                          lo=rec["lo"], hi=rec["hi"], cpos=rec["cpos"], seq=rec["seq"],
+                          tgt=torch.tensor(tgt), tidx=tidx, fact=fact,
                           y=[tmap[t][1] for t in tidx], key=key))
         if len(cache) % 100 == 0:
             print(f"  prep {len(cache)} {time.time()-t0:.0f}s", flush=True)
@@ -97,20 +106,32 @@ def main() -> int:
     tr_idx, ev_idx = order[:n_tr], order[n_tr:]
 
     e_c = torch.nn.Parameter(e0.clone().to(dev))
-    opt = torch.optim.Adam([e_c], lr=args.lr)
+    # affine bridge: optimize LINEAR DECODABILITY, not raw state==target geometry
+    # (raw MSE just shrinks norms: ep1-5 control showed loss down, cos/probe flat)
+    W = torch.nn.Linear(e0.numel(), e0.numel(), bias=True).to(dev)
+    torch.nn.init.eye_(W.weight)
+    torch.nn.init.zeros_(W.bias)
+    n_cls = {"roomofc": 6, "occofr": 7, "trig": 2, "empty": 2}
+    heads = torch.nn.ModuleDict({f: torch.nn.Linear(e0.numel(), n)
+                                 for f, n in n_cls.items()}).to(dev)
+    opt = torch.optim.Adam([{"params": [e_c], "lr": args.lr},
+                            {"params": W.parameters(), "lr": 1e-4},
+                            {"params": heads.parameters(), "lr": 1e-3}])
 
     def student_states(c, grad):
         emb = c["emb"].to(dev).unsqueeze(0).clone().to(torch.bfloat16)
         cp = torch.tensor(c["cpos"], device=dev)
         emb[0, cp] = (e_c if grad else e_c.detach()).to(torch.bfloat16)
         lo = c["lo"].to(dev).to(torch.float32).view(1, 1, c["seq"], c["seq"])
+        hi = c["hi"].to(dev).to(torch.float32).view(1, 1, c["seq"], c["seq"])
         pos = c["pos"].to(dev)
         cos_, sin_ = eng.text_model.rotary_emb(emb, pos)
         pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
         h = emb
         with sdpa_kernel(SDPA_BACKENDS):
-            for ly in layers:
-                h = ly(h, attention_mask=lo, position_embeddings=pe)[0]
+            for li, ly in enumerate(layers):
+                h = ly(h, attention_mask=(lo if li < 12 else hi),
+                       position_embeddings=pe)[0]
         return h[0, cp][c["tidx"]]
 
     out = _REPO / args.output
@@ -124,37 +145,54 @@ def main() -> int:
             c = cache[i]
             opt.zero_grad()
             hs = student_states(c, True).float()
-            loss = torch.nn.functional.mse_loss(hs, c["tgt"].to(dev))
+            loss = torch.nn.functional.mse_loss(W(hs), c["tgt"].to(dev))
+            if args.aux_ce > 0:
+                yy = torch.tensor(c["y"], device=dev)
+                loss = loss + args.aux_ce * torch.nn.functional.cross_entropy(
+                    heads[c["fact"]](hs), yy)
             loss.backward()
             opt.step()
             tot += float(loss.detach())
             nb += 1
         # eval: cosine + probe on held-out
         with torch.no_grad():
-            HS, TG, YY = [], [], []
+            HS, WHS, TG, YY, FE = [], [], [], [], []
             for i in ev_idx:
                 c = cache[i]
-                hs = student_states(c, False).float().cpu()
+                hs_raw = student_states(c, False).float()
+                hs = hs_raw.cpu()
                 HS.append(hs)
+                WHS.append(W(hs_raw).detach().cpu())
                 TG.append(c["tgt"])
                 YY += c["y"]
+                FE += [c["fact"]] * len(c["y"])
             HS = torch.cat(HS).numpy()
+            WH = torch.cat(WHS).numpy()
             TG = torch.cat(TG).numpy()
             y = np.array(YY)
-        cos = float(np.mean(np.sum(HS * TG, 1) /
-                            (np.linalg.norm(HS, axis=1) * np.linalg.norm(TG, axis=1) + 1e-8)))
-        idx = np.random.default_rng(0).permutation(len(y))
-        h = len(y) // 2
-        clf = LogisticRegression(max_iter=1000).fit(HS[idx[:h]], y[idx[:h]])
-        acc = float(clf.score(HS[idx[h:]], y[idx[h:]]))
-        clf_t = LogisticRegression(max_iter=1000).fit(TG[idx[:h]], y[idx[:h]])
-        zs = float(clf_t.score(HS[idx[h:]], y[idx[h:]]))  # teacher-head on student
+        cos = float(np.mean(np.sum(WH * TG, 1) /
+                            (np.linalg.norm(WH, axis=1) * np.linalg.norm(TG, axis=1) + 1e-8)))
+        facts_ev = np.array(FE)
+        per = []
+        accs_all = []
+        for f in sorted(set(facts_ev)):
+            m = facts_ev == f
+            ym, Hm = y[m], HS[m]
+            if len(ym) < 40 or len(set(ym)) < 2:
+                continue
+            idx = np.random.default_rng(0).permutation(len(ym))
+            hh = len(ym) // 2
+            clf = LogisticRegression(max_iter=1000).fit(Hm[idx[:hh]], ym[idx[:hh]])
+            a = float(clf.score(Hm[idx[hh:]], ym[idx[hh:]]))
+            per.append(f"{f}:{a:.3f}")
+            accs_all.append(a)
+        acc = float(np.mean(accs_all)) if accs_all else 0.0
         print(f"[ep {ep}] loss {tot/max(nb,1):.4f} cos {cos:.3f} "
-              f"probe {acc:.3f} teacherhead->student {zs:.3f}", flush=True)
+              f"probe(mean) {acc:.3f} [{' '.join(per)}]", flush=True)
         if acc > best:
             best = acc
-            torch.save({"e_c": e_c.detach().cpu(), "epoch": ep, "probe": acc,
-                        "cos": cos}, out / "e_c_best.pt")
+            torch.save({"e_c": e_c.detach().cpu(), "W": W.state_dict(),
+                        "epoch": ep, "probe": acc, "cos": cos}, out / "e_c_best.pt")
     print(f"BEST probe {best:.3f} -> {out}/e_c_best.pt")
     return 0
 
