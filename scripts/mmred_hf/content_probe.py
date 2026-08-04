@@ -38,6 +38,9 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=200)
     ap.add_argument("--layer", type=int, default=16)
     ap.add_argument("--resize", type=int, default=392)
+    ap.add_argument("--trunc", type=int, default=None,
+                    help="truncation layer for the capture (default: l_open=12); "
+                         "16 keeps the frame->text extraction window (layers 12-15)")
     ap.add_argument("--carrier-ckpt", default="checkpoints/carrier_token_room_k1_best.pt")
     ap.add_argument("--layer-ckpt", default=None,
                     help="optional carrier_layer ckpt: probe POST-LoRA states instead")
@@ -77,7 +80,9 @@ def main() -> int:
         if rec is None:
             continue
         with torch.no_grad():
-            caches, *_ = eng.prefill_capture(rec, args.layer if args.layer <= l_open else l_open)
+            caches, *_ = eng.prefill_capture(
+                rec, args.trunc if args.trunc is not None
+                else (args.layer if args.layer <= l_open else l_open))
         kk = rec["keep"]
         car_k = [kk.index(c) for c in rec["cpos"]]
         # states at the probe layer: caches[L] rows are keep-columns (truncated coords)
@@ -110,7 +115,7 @@ def main() -> int:
     maj = float(np.bincount(y).max()) / len(y)
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
-    line = (f"CONTENT PROBE (room-of-C, 6-way, L{args.layer}, rs{args.resize}, "
+    line = (f"CONTENT PROBE (room-of-C, 6-way, L{args.layer}, trunc{args.trunc or 12}, rs{args.resize}, "
             f"lora={'ON' if args.layer_ckpt else 'OFF'}, n_frames={len(y)}): "
             f"acc {np.mean(accs):.3f}±{np.std(accs):.3f} (majority {maj:.3f})")
     (out / "report.txt").write_text(line + "\n")

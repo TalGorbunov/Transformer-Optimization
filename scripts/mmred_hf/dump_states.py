@@ -42,6 +42,7 @@ def main() -> int:
     ap.add_argument("--limit-per-qtype", type=int, default=100)
     ap.add_argument("--limit", type=int, default=100000)
     ap.add_argument("--layer", type=int, default=12)
+    ap.add_argument("--trunc", type=int, default=12)
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--carrier-ckpt", default="checkpoints/carrier_token_room_k1_best.pt")
     ap.add_argument("--out", required=True)
@@ -81,7 +82,7 @@ def main() -> int:
             n_skip += 1
             continue
         with torch.no_grad():
-            caches, *_ = eng.prefill_capture(rec, 12)
+            caches, *_ = eng.prefill_capture(rec, args.trunc)
         kk = rec["keep"]
         st_l = caches[min(args.layer, len(caches) - 1)]
         for t, c in enumerate([kk.index(p) for p in rec["cpos"]]):
