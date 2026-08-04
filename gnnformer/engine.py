@@ -135,6 +135,7 @@ class CarrierEngine:
 
         rec: Dict[str, Any] = {
             "emb": emb[0].to(torch.bfloat16),
+            "ids": ids,
             "pos": pos,
             "cpos": cpos,
             "blocks": blocks,

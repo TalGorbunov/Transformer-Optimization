@@ -55,6 +55,11 @@ def main() -> int:
     ap.add_argument("--layers", default="12,16")
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--output", default="outputs/mmred_hf/stage2")
+    ap.add_argument("--root", default=None,
+                    help="override sample-dir root (e.g. seq_len_16_train_<qtype>)")
+    ap.add_argument("--save-targets", default=None,
+                    help="npz path: save per-frame L16 span-mean messages as stage-3 "
+                         "distillation targets (plus sid/fidx/labels/q_pf)")
     args = ap.parse_args()
 
     rt = load_runtime()
@@ -68,10 +73,16 @@ def main() -> int:
     hooks = FenceHooks(layers, capture_layers=Ls).install()
 
     root_name, qtype = TASKS[args.task]
-    dirs = sorted((_REPO / f"data/mmred_hf/dirs/{root_name}").iterdir())[: args.limit]
+    if args.root:
+        root_name = args.root
+    import random as _rnd
+    dirs = sorted((_REPO / f"data/mmred_hf/dirs/{root_name}").iterdir())
+    _rnd.Random(0).shuffle(dirs)
+    dirs = dirs[: args.limit]
 
     feats = {(L, v): [] for L in Ls for v in ("last", "mean")}
     ys = []
+    tg_sid, tg_fidx, tg_qpf = [], [], []
     n_done = n_skip = 0
     t0 = time.time()
     for si, sd in enumerate(dirs):
@@ -160,6 +171,9 @@ def main() -> int:
                 feats[(L, "last")].append(np.asarray(m_last[t], dtype=np.float32))
                 feats[(L, "mean")].append(np.asarray(out_mean[t], dtype=np.float32))
         ys += [labs[t] for t in keep]
+        tg_sid += [sd.name] * len(keep)
+        tg_fidx += [t for t in keep]
+        tg_qpf += [q_pf] * len(keep)
         n_done += 1
         if n_done % 25 == 0:
             print(f"  {n_done} samples ({n_skip} skip) {time.time()-t0:.0f}s", flush=True)
@@ -183,6 +197,13 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     (out / f"{args.task}.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
+    if args.save_targets:
+        tp = Path(args.save_targets)
+        tp.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(tp, target=np.stack(feats[(16, "mean")]).astype(np.float16),
+                            y=y, sid=np.array(tg_sid), fidx=np.array(tg_fidx),
+                            q_pf=np.array(tg_qpf), root=root_name)
+        print(f"saved targets -> {tp}")
     return 0
 
 
