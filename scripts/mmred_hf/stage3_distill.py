@@ -42,6 +42,10 @@ def main() -> int:
     ap.add_argument("--lr", type=float, default=2e-3)
     ap.add_argument("--train-frac", type=float, default=0.75)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--truncate-student", action="store_true",
+                    help="drop frame rows at L12 in the student forward (deployment-"
+                         "matched open phase; fixes the 0.997-full vs 0.667-truncated "
+                         "probe gap of the frames-visible student)")
     ap.add_argument("--aux-ce", type=float, default=0.0,
                     help=">0: add aux-CE loss from per-fact linear heads on h (direct "
                          "decodability gradient to e_c; heads discarded at eval)")
@@ -83,7 +87,7 @@ def main() -> int:
         except Exception:
             continue
         rec = eng.prepare_sample(frames, q_pf, gold=0, task="x", resize=392,
-                                 with_masks=True, with_trunc_cols=False)
+                                 with_masks=True, with_trunc_cols=True)
         if rec is None:
             continue
         tmap = by_sample[key]
@@ -94,6 +98,7 @@ def main() -> int:
                 "trig" if "char_on_char" in root else "empty")
         cache.append(dict(emb=rec["emb"].cpu(), pos=rec["pos"].cpu(),
                           lo=rec["lo"], hi=rec["hi"], cpos=rec["cpos"], seq=rec["seq"],
+                          keep=rec["keep"],
                           tgt=torch.tensor(tgt), tidx=tidx, fact=fact,
                           y=[tmap[t][1] for t in tidx], key=key))
         if len(cache) % 100 == 0:
@@ -128,6 +133,22 @@ def main() -> int:
         cos_, sin_ = eng.text_model.rotary_emb(emb, pos)
         pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
         h = emb
+        if args.truncate_student:
+            from gnnformer.carriers import truncated_masks
+            kt = torch.tensor(c["keep"], device=dev)
+            pos_k = pos.index_select(2, kt)
+            cpos_k = [c["keep"].index(p_) for p_ in c["cpos"]]
+            _, hi_t = truncated_masks(list(range(len(c["keep"]))), cpos_k)
+            hi_t4 = hi_t.to(dev).to(torch.float32).view(1, 1, len(c["keep"]), len(c["keep"]))
+            with sdpa_kernel(SDPA_BACKENDS):
+                for li, ly in enumerate(layers):
+                    if li == 12:
+                        h = h.index_select(1, kt)
+                        cos_t, sin_t = eng.text_model.rotary_emb(h, pos_k)
+                        pe = (cos_t.to(h.dtype), sin_t.to(h.dtype))
+                    h = ly(h, attention_mask=(lo if li < 12 else hi_t4),
+                           position_embeddings=pe)[0]
+            return h[0, torch.tensor(cpos_k, device=dev)][c["tidx"]]
         with sdpa_kernel(SDPA_BACKENDS):
             for li, ly in enumerate(layers):
                 h = ly(h, attention_mask=(lo if li < 12 else hi),
