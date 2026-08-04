@@ -104,7 +104,9 @@ NEEDS = {
     "where_spend": ["roomofc"], "rooms_visited": ["roomofc"],
     "room_at_frame": ["occofr"], "first_at_room": ["occofr"], "last_at_room": ["occofr"],
     "who_spend": [f"inr_{i}" for i in range(5)],
-    "n_char_at_frame": ["nwithc"], "n_empty": ["nempty"],
+    "n_char_at_frame": ["nwithc"],
+    "n_empty": [f"empty_{i}" for i in range(6)],  # derive count from per-room bits
+    #   (the direct nempty head caps ~0.7; the six bits fit at 1.000)
     "char_on_char_first_app": ["trig", "payl_room"],
     "char_on_char_final_app": ["trig", "payl_room"],
     "room_on_char_first_app": ["trig", "payl_occ"],
@@ -153,7 +155,8 @@ def reduce_answer(qt: str, g, preds: dict, N: int):
     if qt == "n_char_at_frame":
         return str(int(preds["nwithc"][int(g[1]) - 1]))
     if qt == "n_empty":
-        return str(int(preds["nempty"][int(g[0]) - 1]))
+        k = int(g[0]) - 1
+        return str(int(sum(int(preds[f"empty_{i}"][k]) for i in range(6))))
     if qt in ("char_on_char_first_app", "char_on_char_final_app",
               "room_on_char_first_app", "room_on_char_final_app",
               "n_room_on_char_first_app", "n_room_on_char_final_app"):
@@ -263,6 +266,7 @@ def main() -> int:
         for i, s in enumerate(d["sid"]):
             by_sid[str(s)].append(i)
         acc = defaultdict(lambda: [0, 0])
+        mae = defaultdict(lambda: [0, 0, 0])
         pred_cache: dict = {}
         for sid, idxs in by_sid.items():
             qt = str(d["qtype"][idxs[0]])
@@ -283,11 +287,20 @@ def main() -> int:
             hit = int(ans is not None and str(ans) == str(gold))
             acc[qt][0] += hit
             acc[qt][1] += 1
+            if ans is not None and str(ans).isdigit() and str(gold).isdigit():
+                d_ = abs(int(ans) - int(gold))
+                mae[qt][0] += d_
+                mae[qt][1] += 1
+                mae[qt][2] += int(d_ <= 1)
         tot = [sum(a for a, _ in acc.values()), sum(n for _, n in acc.values())]
         print(f"== {cfg_split}: overall {tot[0]}/{tot[1]} = {tot[0]/max(tot[1],1):.3f}")
         for qt, (a, n) in sorted(acc.items()):
             rows.append((cfg_split, qt, n, a / max(n, 1)))
-            print(f"   {qt:28s} {a:3d}/{n:3d} = {a/max(n,1):.3f}")
+            extra = ""
+            if mae[qt][1]:
+                extra = (f"  MAE {mae[qt][0]/mae[qt][1]:.2f}"
+                         f"  ±1-acc {mae[qt][2]/mae[qt][1]:.3f}")
+            print(f"   {qt:28s} {a:3d}/{n:3d} = {a/max(n,1):.3f}{extra}")
         rows.append((cfg_split, "_all", tot[1], tot[0] / max(tot[1], 1)))
 
     with open(out / f"armB_grid_{args.head}.csv", "w", newline="") as f:
