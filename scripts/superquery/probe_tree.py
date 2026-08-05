@@ -14,13 +14,20 @@ Failure-signal ladder (zero training; linear probes on SQ hidden states, split b
   top.csv    per (N, arm, layer, feat): top-node gold regression R2/MAE + composed tally
              (sum of level-1 count predictions == gold)
 
+Features are dumped to <output>/feats_N<k>.npz right after each N's capture (crash-safe;
+fp16). Fits standardize features (lbfgs converges ~50 iters vs max-iter crawl unscaled).
+
 Usage:
   python scripts/superquery/probe_tree.py --output outputs/superquery/<ts> [--ns 8,16]
+  python scripts/superquery/probe_tree.py --fit-npz 'outputs/superquery/<ts>/feats_N*.npz' \
+      --output <dir>   # CPU-only refit from dumps
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import glob as _glob
+import re
 import sys
 import time
 from pathlib import Path
@@ -32,22 +39,7 @@ _REPO = Path(__file__).resolve().parents[2]
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
-from gnnformer.constants import MASK_MIN, ROOMS
-from gnnformer.data import iter_sample_dirs_shuffled, load_mmred_sample, probe_evidence
-from gnnformer.fencing import (
-    build_replica_probe_mask,
-    find_question_spans,
-    frame_blocks,
-    reset_positions,
-)
 from gnnformer.metrics import dprime_pair
-from gnnformer.runtime import (
-    get_layers,
-    get_rope_index_fn,
-    image_token_groups,
-    load_runtime,
-    move_to_device,
-)
 
 NS = [(8, "data/mmred_images_park/seq_len_8/all_uniform", 120),
       (16, "data/mmred_longN_park/seq_len_16/all_uniform", 120),
@@ -80,19 +72,148 @@ def leaf_sets(levels):
     return out
 
 
+def build_arms(NF: int):
+    arms = {"flat": [[list(range(NF))]]}
+    for b in BRANCHINGS:
+        if b < NF:
+            arms[f"b{b}"] = tree_levels(NF, b)
+    return arms
+
+
+def _std_fit(Xtr, Xev):
+    mu = Xtr.mean(0, keepdims=True)
+    sd = Xtr.std(0, keepdims=True) + 1e-6
+    return (Xtr - mu) / sd, (Xev - mu) / sd
+
+
+def run_fits(NF_target, feats, Y, G, fit_layers, feat_kinds, node_rows, top_rows):
+    """feats: dict (arm, lv, L, feat) -> (n, nodes, H) float array."""
+    from sklearn.linear_model import LogisticRegression, Ridge
+
+    arms = build_arms(NF_target)
+    arm_leaves = {a: leaf_sets(lv) for a, lv in arms.items()}
+    n = len(G)
+    splits = []
+    for seed in range(5):
+        idx = np.random.default_rng(seed).permutation(n)
+        splits.append((idx[: n // 2], idx[n // 2:]))
+
+    for arm, levels in arms.items():
+        lsets = arm_leaves[arm]
+        for lv in range(len(levels)):
+            cnt = np.stack([[int(Y[s, sorted(ls)].sum()) for ls in lsets[lv]]
+                            for s in range(n)])            # (n, nodes)
+            fan = float(np.mean([len(g) for g in levels[lv]]))
+            for L in fit_layers:
+                for feat in feat_kinds:
+                    X = feats[(arm, lv, L, feat)].astype(np.float32)
+                    _, nn, H = X.shape
+                    dp, _, _ = dprime_pair(X, (cnt > 0).astype(np.int64))
+                    acc, pm1, r2s, tally = [], [], [], []
+                    for tr, ev in splits:
+                        Xtr, Xev = _std_fit(X[tr].reshape(-1, H), X[ev].reshape(-1, H))
+                        clf = LogisticRegression(max_iter=1000).fit(
+                            Xtr, cnt[tr].reshape(-1))
+                        pr = clf.predict(Xev).reshape(len(ev), nn)
+                        acc.append(float((pr == cnt[ev]).mean()))
+                        pm1.append(float((np.abs(pr - cnt[ev]) <= 1).mean()))
+                        rg = Ridge(alpha=10.0).fit(Xtr, cnt[tr].reshape(-1))
+                        pv = rg.predict(Xev).reshape(len(ev), nn)
+                        sse = float(((pv - cnt[ev]) ** 2).sum())
+                        sst = float(((cnt[ev] - cnt[ev].mean()) ** 2).sum())
+                        r2s.append(1 - sse / max(sst, 1e-9))
+                        tally.append(float((pr.sum(1) == G[ev]).mean()))
+                    node_rows.append([NF_target, arm, lv + 1, fan, L, feat, nn,
+                                      np.mean(acc), np.mean(pm1), np.mean(r2s), dp,
+                                      np.mean(tally)])
+                    print(f"[N={NF_target} {arm} lvl{lv+1} fan{fan:.1f} L{L} {feat}] "
+                          f"count {np.mean(acc):.3f} +-1 {np.mean(pm1):.3f} "
+                          f"R2 {np.mean(r2s):.2f} d' {dp:.2f} "
+                          f"tally {np.mean(tally):.3f}", flush=True)
+        # top node: gold regression
+        lv_top = len(levels) - 1
+        for L in fit_layers:
+            for feat in feat_kinds:
+                X = feats[(arm, lv_top, L, feat)].astype(np.float32)[:, 0]
+                mae, r2s, acc = [], [], []
+                for tr, ev in splits:
+                    Xtr, Xev = _std_fit(X[tr], X[ev])
+                    rg = Ridge(alpha=10.0).fit(Xtr, G[tr])
+                    pv = rg.predict(Xev)
+                    mae.append(float(np.abs(pv - G[ev]).mean()))
+                    sst = float(((G[ev] - G[ev].mean()) ** 2).sum())
+                    r2s.append(1 - float(((pv - G[ev]) ** 2).sum()) / max(sst, 1e-9))
+                    clf = LogisticRegression(max_iter=1000).fit(Xtr, G[tr])
+                    acc.append(float((clf.predict(Xev) == G[ev]).mean()))
+                top_rows.append([NF_target, arm, L, feat, np.mean(acc), np.mean(mae),
+                                 np.mean(r2s)])
+                print(f"[N={NF_target} {arm} TOP L{L} {feat}] gold-acc "
+                      f"{np.mean(acc):.3f} MAE {np.mean(mae):.2f} "
+                      f"R2 {np.mean(r2s):.2f}", flush=True)
+
+
+def write_csvs(out: Path, node_rows, top_rows):
+    with open(out / "nodes.csv", "w", newline="") as f:
+        csv.writer(f).writerows([["N", "arm", "level", "fan_in", "L", "feat", "n_nodes",
+                                  "count_acc", "pm1", "r2", "gate_dp", "tally"], *node_rows])
+    with open(out / "top.csv", "w", newline="") as f:
+        csv.writer(f).writerows([["N", "arm", "L", "feat", "gold_acc", "mae", "r2"],
+                                 *top_rows])
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--read-layers", default="12,16,20")
+    ap.add_argument("--read-layers", default="12,16,20", help="layers captured to npz")
+    ap.add_argument("--fit-layers", default="16,20", help="layers actually probed")
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--task", default="steps")
     ap.add_argument("--ns", default="8,16,32,64")
     ap.add_argument("--shuffle-dirs", type=int, default=0)
+    ap.add_argument("--fit-npz", default=None,
+                    help="glob of feats_N*.npz — CPU-only refit, no model load")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
     read_layers = [int(x) for x in args.read_layers.split(",")]
-    L_TOP = max(read_layers)
-    ns_want = {int(x) for x in args.ns.split(",")}
+    fit_layers = [int(x) for x in args.fit_layers.split(",")]
+    out = Path(args.output)
+    out.mkdir(parents=True, exist_ok=True)
+    node_rows, top_rows = [], []
 
+    if args.fit_npz:
+        for p in sorted(_glob.glob(args.fit_npz)):
+            d = np.load(p)
+            NF_target = int(re.search(r"feats_N(\d+)", p).group(1))
+            feats = {}
+            for k in d.files:
+                if "|" in k:
+                    arm, lv, L, feat = k.split("|")
+                    feats[(arm, int(lv), int(L), feat)] = d[k]
+            avail = {kk[2] for kk in feats}
+            run_fits(NF_target, feats, d["Y"], d["G"],
+                     [L for L in fit_layers if L in avail],
+                     sorted({kk[3] for kk in feats}), node_rows, top_rows)
+        write_csvs(out, node_rows, top_rows)
+        print("wrote", out)
+        return 0
+
+    from gnnformer.constants import MASK_MIN, ROOMS
+    from gnnformer.data import iter_sample_dirs_shuffled, load_mmred_sample, probe_evidence
+    from gnnformer.fencing import (
+        build_replica_probe_mask,
+        find_question_spans,
+        frame_blocks,
+        reset_positions,
+    )
+    from gnnformer.runtime import (
+        get_layers,
+        get_rope_index_fn,
+        image_token_groups,
+        load_runtime,
+        move_to_device,
+    )
+
+    ns_want = {int(x) for x in args.ns.split(",")}
+    L_TOP = max(read_layers)
     rt = load_runtime()
     model, processor, tok = rt.model, rt.processor, rt.tokenizer
     layers = get_layers(model)
@@ -100,21 +221,11 @@ def main() -> int:
     dev = model.device
     rope_fn = get_rope_index_fn(model)
     vs_id = int(model.config.vision_start_token_id)
-    out = Path(args.output)
-    out.mkdir(parents=True, exist_ok=True)
 
-    from sklearn.linear_model import LogisticRegression, Ridge
-
-    node_rows, top_rows = [], []
     for NF_target, root, limit in [x for x in NS if x[0] in ns_want]:
-        arms = {"flat": [[list(range(NF_target))]]}
-        for b in BRANCHINGS:
-            if b < NF_target:
-                arms[f"b{b}"] = tree_levels(NF_target, b)
-        arm_leaves = {a: leaf_sets(lv) for a, lv in arms.items()}
+        arms = build_arms(NF_target)
         n_nodes_total = sum(len(g) for lv in arms.values() for g in lv)
 
-        # feats[(arm, level, L, feat)] -> list over samples of (n_nodes_at_level, H)
         feats: dict = {}
         ys, golds = [], []
         n_done = n_skip = 0
@@ -230,70 +341,17 @@ def main() -> int:
 
         Y = np.array(ys)          # (n, NF) evidence bits
         G = np.array(golds)
-        n = len(G)
-        splits = []
-        for seed in range(5):
-            idx = np.random.default_rng(seed).permutation(n)
-            splits.append((idx[: n // 2], idx[n // 2:]))
+        feats = {k: np.stack(v).astype(np.float16) for k, v in feats.items()}
+        np.savez_compressed(out / f"feats_N{NF_target}.npz", Y=Y, G=G,
+                            **{f"{a}|{lv}|{L}|{ft}": arr
+                               for (a, lv, L, ft), arr in feats.items()})
+        print(f"  dumped feats_N{NF_target}.npz "
+              f"({(out / f'feats_N{NF_target}.npz').stat().st_size/2**20:.0f} MB)",
+              flush=True)
+        run_fits(NF_target, feats, Y, G, fit_layers, ["mean", "last"],
+                 node_rows, top_rows)
+        write_csvs(out, node_rows, top_rows)   # rewrite after every N (crash-safe)
 
-        for arm, levels in arms.items():
-            lsets = arm_leaves[arm]
-            for lv in range(len(levels)):
-                cnt = np.stack([[int(Y[s, sorted(ls)].sum()) for ls in lsets[lv]]
-                                for s in range(n)])            # (n, nodes)
-                fan = float(np.mean([len(g) for g in levels[lv]]))
-                for L in read_layers:
-                    for feat in ("mean", "last"):
-                        X = np.stack(feats[(arm, lv, L, feat)]).astype(np.float32)
-                        _, nn, H = X.shape
-                        dp, _, _ = dprime_pair(X, (cnt > 0).astype(np.int64))
-                        acc, pm1, r2s, tally = [], [], [], []
-                        for tr, ev in splits:
-                            clf = LogisticRegression(max_iter=2000).fit(
-                                X[tr].reshape(-1, H), cnt[tr].reshape(-1))
-                            pr = clf.predict(X[ev].reshape(-1, H)).reshape(len(ev), nn)
-                            acc.append(float((pr == cnt[ev]).mean()))
-                            pm1.append(float((np.abs(pr - cnt[ev]) <= 1).mean()))
-                            rg = Ridge(alpha=10.0).fit(X[tr].reshape(-1, H),
-                                                       cnt[tr].reshape(-1))
-                            pv = rg.predict(X[ev].reshape(-1, H)).reshape(len(ev), nn)
-                            sse = float(((pv - cnt[ev]) ** 2).sum())
-                            sst = float(((cnt[ev] - cnt[ev].mean()) ** 2).sum())
-                            r2s.append(1 - sse / max(sst, 1e-9))
-                            tally.append(float((pr.sum(1) == G[ev]).mean()))
-                        node_rows.append([NF_target, arm, lv + 1, fan, L, feat, nn,
-                                          np.mean(acc), np.mean(pm1), np.mean(r2s), dp,
-                                          np.mean(tally)])
-                        print(f"[N={NF_target} {arm} lvl{lv+1} fan{fan:.1f} L{L} {feat}] "
-                              f"count {np.mean(acc):.3f} +-1 {np.mean(pm1):.3f} "
-                              f"R2 {np.mean(r2s):.2f} d' {dp:.2f} "
-                              f"tally {np.mean(tally):.3f}", flush=True)
-            # top node: gold regression
-            lv_top = len(levels) - 1
-            for L in read_layers:
-                for feat in ("mean", "last"):
-                    X = np.stack(feats[(arm, lv_top, L, feat)]).astype(np.float32)[:, 0]
-                    mae, r2s, acc = [], [], []
-                    for tr, ev in splits:
-                        rg = Ridge(alpha=10.0).fit(X[tr], G[tr])
-                        pv = rg.predict(X[ev])
-                        mae.append(float(np.abs(pv - G[ev]).mean()))
-                        sst = float(((G[ev] - G[ev].mean()) ** 2).sum())
-                        r2s.append(1 - float(((pv - G[ev]) ** 2).sum()) / max(sst, 1e-9))
-                        clf = LogisticRegression(max_iter=2000).fit(X[tr], G[tr])
-                        acc.append(float((clf.predict(X[ev]) == G[ev]).mean()))
-                    top_rows.append([NF_target, arm, L, feat, np.mean(acc), np.mean(mae),
-                                     np.mean(r2s)])
-                    print(f"[N={NF_target} {arm} TOP L{L} {feat}] gold-acc "
-                          f"{np.mean(acc):.3f} MAE {np.mean(mae):.2f} "
-                          f"R2 {np.mean(r2s):.2f}", flush=True)
-
-    with open(out / "nodes.csv", "w", newline="") as f:
-        csv.writer(f).writerows([["N", "arm", "level", "fan_in", "L", "feat", "n_nodes",
-                                  "count_acc", "pm1", "r2", "gate_dp", "tally"], *node_rows])
-    with open(out / "top.csv", "w", newline="") as f:
-        csv.writer(f).writerows([["N", "arm", "L", "feat", "gold_acc", "mae", "r2"],
-                                 *top_rows])
     print("wrote", out)
     return 0
 
