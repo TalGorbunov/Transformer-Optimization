@@ -194,3 +194,17 @@ operand: tp_v1 0.24, plain 0.20); no force = no digit within 4 steps (prose).
 WINNER: "Two partial counts are {a} and {b}. What is the total count?" + "Answer: "
 = 1.000 (100/100). tp_v1/plain 0.88, story/plain 0.88, plain-arith/plain 0.60(!).
 v4d (128858) = late chain (Q1@20 0.994, sum2 bound 0.980) + winning pass-2 IN FLIGHT.
+
+## ★ v4d FINAL (128858) — MODEL-EMITTED EXACT COUNT 0.980 @ N=8
+repeater4d_n8/repeater4d.csv. Pass 1 (one vision forward): fenced blocks + b=2 tree,
+Q1@L20 (0.994/node), Q2@L24 (0.990) -> two half-counts, sum bound 0.980.
+Pass 2 (~50 text tokens): counts template + "Answer: " -> model adds and EMITS.
+  EMIT-EM 0.980  MAE 0.02  cond-EM 1.000 (pass-2 lossless)  n=300
+  emitted distribution uniform over golds (no mode collapse).
+The model SAYS the exact count, end to end: 0.980 vs flat-frozen 0.24 (probe) /
+0.55 (native flat text-count) / 0.897 (v2b probe-read) / ~0.29 (arm-C generative).
+Night's mechanism laws: (1) capacity c(fan) length-invariant; (2) hops need vocab
+re-quantization; (3) EMISSION copies layer-0 token identity only -> computed values
+must become REAL tokens (two-pass); (4) 'Answer: ( ' poisons text arithmetic.
+NEXT (morning): N=16/32/64 scaling (chain supports 2 lvls/quantize; pass-2 handles
+any fan via text), MMReD-HF port, lens-based task-agnostic variant of Q heads.
