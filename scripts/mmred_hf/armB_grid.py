@@ -232,9 +232,8 @@ def main() -> int:
         for i, (cfg, qt, sid, fi) in enumerate(fit_meta):
             if qt not in src_qts:
                 continue
-            root = _REPO / f"data/mmred_hf/dirs/{cfg}_train_{qt}"
-            q0, states, _a = sample_meta(f"{cfg}_train_{qt}/{sid}",
-                                         _REPO / "data/mmred_hf/dirs", meta_cache)
+            rel = (f"{cfg}/{sid}" if "headfit" in cfg else f"{cfg}_train_{qt}/{sid}")
+            q0, states, _a = sample_meta(rel, _REPO / "data/mmred_hf/dirs", meta_cache)
             try:
                 ys.append(lab_fn(qt, _match(qt, q0), states, fi))
                 idx.append(i)

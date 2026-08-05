@@ -98,4 +98,4 @@ data/mmred_hf/dirs/seq_len_16_train_spend_together=100
 data/mmred_hf/dirs/seq_len_16_train_steps_in_room=100
 data/mmred_hf/dirs/seq_len_16_train_rooms_visited=100
 data/mmred_hf/dirs/seq_len_16_train_crowd_count=100
-data/mmred_hf/dirs/aug_dense_qa=4800
+data/mmred_hf/dirs/aug_dense_qa=6000

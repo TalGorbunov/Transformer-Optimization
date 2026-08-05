@@ -114,7 +114,8 @@ def main() -> int:
 
     ckc = load_distilled_carrier(Path(args.carrier_ckpt))
     e_c = ckc["e_c"].float().to(dev)  # FROZEN by design
-    print(f"[init] frozen e_c from {args.carrier_ckpt} (distilled d' {ckc.get('dprime'):.2f})", flush=True)
+    _dp = ckc.get("dprime") if ckc.get("dprime") is not None else ckc.get("probe", 0.0)
+    print(f"[init] frozen e_c from {args.carrier_ckpt} (distill metric {_dp:.2f})", flush=True)
     lora = attach_lora(layers, args.l_open, rank=args.rank, alpha=args.alpha, device=dev)
     opt = torch.optim.Adam(lora.parameters(), lr=args.lr_lora)
     print(f"[params] lora {lora.num_parameters()} (e_c frozen)", flush=True)
