@@ -165,3 +165,12 @@ task-agnostic quantizer exists and is ceilinged by the MODEL'S OWN native compet
 (0.71 pair counting), not by our machinery; task-specific ridge (0.983) remains the
 accuracy route. Open: better teachers (restricted/ensembled), support-complete
 training mix, lens-based repeater v3 vs probe-based v2b (0.897).
+
+## NIGHT RUN 2026-08-05/06 (Tal-authorized autonomous)
+### textcount (128853 void: emission artifact — model says '( ' before digit;
+### fixed via forced prefix "Answer: ( "; 128855 canonical)
+textcount2/textcount.csv: NATIVE flat counting of PERFECT clean symbols (text bits,
+gold<=9): 0.892/0.550/0.325/0.317/0.233/0.183 @ N=4/8/16/32/64/128.
+=> "paste codes + aggregate at last token" FAILS at high N even in the model's best
+modality. Staged bounded-fan-in aggregation is NECESSARY. Repeater tree @N=8 (0.897)
+already beats native flat text counting @N=8 (0.550).
