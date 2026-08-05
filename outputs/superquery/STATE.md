@@ -187,3 +187,10 @@ write emission is dead ARCHITECTURALLY; computed values must become REAL INPUT
 TOKENS => TWO-PASS is the principled emission design (pass 2 cost: ~50 text tokens).
 TP_pred arm scored 0.213 vs sum2 0.780 (conditional ~0.27 — template suspect);
 addsanity sweep (128857) hunting the pass-2 phrasing.
+
+### addsanity (128857) — pass-2 template law
+addsanity/addsanity.csv. Force "Answer: ( " POISONS text arithmetic (model echoes
+operand: tp_v1 0.24, plain 0.20); no force = no digit within 4 steps (prose).
+WINNER: "Two partial counts are {a} and {b}. What is the total count?" + "Answer: "
+= 1.000 (100/100). tp_v1/plain 0.88, story/plain 0.88, plain-arith/plain 0.60(!).
+v4d (128858) = late chain (Q1@20 0.994, sum2 bound 0.980) + winning pass-2 IN FLIGHT.
