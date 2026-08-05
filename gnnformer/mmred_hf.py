@@ -562,3 +562,84 @@ def build_target_v4(qtype: str, question: str, states: Sequence[Dict[str, Any]],
         return _v4_scan(slots, f" | answer: {ns[t]} END")
     # direct answer for everything else (content/selection + set/argmax stretch cells)
     return f" answer: {ans if ans.isdigit() else ans.lower()} END"
+
+
+# v5: per-entity COUNTER scans for the argmax/set family (v4's direct-answer stretch
+# cells — the implicit-aggregation failure). Slot = observed entities in canonical
+# order with running counts; tail = complete counts line (zeros included, so 'least'
+# reads work) + local argmax/argmin read-off. rooms_visited = first-visit stars.
+
+V5_COUNTER_QTYPES = {
+    "where_spend", "who_spend", "crowded_room", "room_empty",
+    "spend_alone", "spend_together", "rooms_visited",
+}
+
+
+def _v5_obs(qtype: str, g, states: Sequence[Dict[str, Any]]):
+    """Per-frame observed entity sets + (universe, abbr, want_max)."""
+    rooms = [r for r in ROOM_ORDER if r in _room_names(states)]
+    chars = sorted({c for st in states for occ in _rooms(st).values() for c in occ})
+    chars = [c for c in CHAR_ORDER if c in chars]
+    if qtype == "where_spend":
+        return [{_char_room(st, g[0])} for st in states], rooms, ROOM_ABBR, g[1] == "most"
+    if qtype == "who_spend":
+        return ([set(_rooms(st).get(g[1], [])) for st in states],
+                chars, CHAR_ABBR, g[0] == "most")
+    if qtype == "crowded_room":
+        k = int(g[0])
+        return ([{r for r, occ in _rooms(st).items() if len(occ) >= k} for st in states],
+                rooms, ROOM_ABBR, True)
+    if qtype == "room_empty":
+        return ([{r for r in rooms if not _rooms(st).get(r, [])} for st in states],
+                rooms, ROOM_ABBR, g[0] == "more")
+    if qtype == "spend_alone":
+        return ([{occ[0] for occ in _rooms(st).values() if len(occ) == 1} for st in states],
+                chars, CHAR_ABBR, g[0] == "most")
+    if qtype == "spend_together":
+        char = g[0]
+        return ([{c for c in _rooms(st).get(_char_room(st, char), []) if c != char}
+                 for st in states],
+                [c for c in chars if c != char], CHAR_ABBR, g[1] == "most")
+    return None
+
+
+def build_target_v5(qtype: str, question: str, states: Sequence[Dict[str, Any]],
+                    answer: str) -> Optional[str]:
+    """v5 gold target: counter scan for the argmax family, first-visit stars for
+    rooms_visited, else build_target_v4. None when the scan's own reduction fails
+    to reproduce the published answer."""
+    if qtype == "rooms_visited":
+        g = _match(qtype, question)
+        seen: List[str] = []
+        slots = []
+        for st in states:
+            r = _char_room(st, g[0])
+            if r in seen:
+                slots.append(ROOM_ABBR[r])
+            else:
+                seen.append(r)
+                slots.append(f"{ROOM_ABBR[r]}*({len(seen)})")
+        if str(len(seen)) != str(answer):
+            return None
+        return _v4_scan(slots, f" | total: {len(seen)} END")
+    if qtype not in V5_COUNTER_QTYPES:
+        return build_target_v4(qtype, question, states, answer)
+    obs = _v5_obs(qtype, _match(qtype, question), states)
+    if obs is None:
+        return None
+    per_frame, universe, abbr, want_max = obs
+    cnt = {e: 0 for e in universe}
+    slots = []
+    for members in per_frame:
+        parts = []
+        for e in universe:
+            if e in members:
+                cnt[e] += 1
+                parts.append(f"{abbr[e]}({cnt[e]})")
+        slots.append("".join(parts) if parts else "-")
+    win = _argcmp(cnt, want_max)
+    if win is None or win.lower() != str(answer).lower():
+        return None
+    counts_line = " ".join(f"{abbr[e]}{cnt[e]}" for e in universe)
+    kind = "max" if want_max else "min"
+    return _v4_scan(slots, f" | counts: {counts_line} | {kind}: {win.lower()} END")

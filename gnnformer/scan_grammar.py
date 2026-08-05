@@ -162,3 +162,28 @@ def build_scan_regex_v4(qtype: str, question: str, n_frames: int) -> Optional[st
     else:
         return None
     return rf" answer: {val} END"
+
+
+_RA = "|".join(sorted(ROOM_ABBR.values(), key=len, reverse=True))
+_CA = "|".join(sorted(CHAR_ABBR.values(), key=len, reverse=True))
+
+
+def build_scan_regex_v5(qtype: str, question: str, n_frames: int) -> Optional[str]:
+    """Pattern for the v5 counter scans (argmax family) — syntax only; v4 otherwise."""
+    from .mmred_hf import V5_COUNTER_QTYPES
+    try:
+        _match(qtype, question)
+    except Exception:
+        return None
+    if qtype == "rooms_visited":
+        slot = rf"(?:{_RA})(?:\*\({NUM}\))?"
+        tail = rf" \| total: {NUM} END"
+        return " scan:" + "".join(rf" f{t}:{slot}" for t in range(1, n_frames + 1)) + tail
+    if qtype not in V5_COUNTER_QTYPES:
+        return build_scan_regex_v4(qtype, question, n_frames)
+    ab, val = ((_RA, _R) if qtype in ("crowded_room", "room_empty", "where_spend")
+               else (_CA, _C))
+    slot = rf"(?:-|(?:(?:{ab})\({NUM}\))+)"
+    tail = (rf" \| counts:(?: (?:{ab}){NUM})+"
+            rf" \| (?:max|min): (?:{val}) END")
+    return " scan:" + "".join(rf" f{t}:{slot}" for t in range(1, n_frames + 1)) + tail

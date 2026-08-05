@@ -52,6 +52,10 @@ def main() -> int:
     ap.add_argument("--student-layer", type=int, default=12, choices=(12, 16),
                     help="16: run open phase 12-15 (hi mask) and match h@L16 — "
                          "depth-aligned with the L16 teacher read")
+    ap.add_argument("--full-fence", action="store_true",
+                    help="keep the block-diagonal lo mask through ALL student layers "
+                         "(no open phase) — matches an l_open=16 deployment and the "
+                         "PCW teacher's isolated windows")
     ap.add_argument("--carrier-ckpt", default="checkpoints/carrier_token_room_k1_best.pt")
     ap.add_argument("--output", default="outputs/mmred_hf/stage3/run")
     args = ap.parse_args()
@@ -151,7 +155,7 @@ def main() -> int:
             return h[0, torch.tensor(cpos_k, device=dev)][c["tidx"]]
         with sdpa_kernel(SDPA_BACKENDS):
             for li, ly in enumerate(layers):
-                h = ly(h, attention_mask=(lo if li < 12 else hi),
+                h = ly(h, attention_mask=(lo if (args.full_fence or li < 12) else hi),
                        position_embeddings=pe)[0]
         return h[0, cp][c["tidx"]]
 

@@ -44,7 +44,12 @@ from gnnformer.data import (
 from gnnformer.engine import CarrierEngine
 from gnnformer.metrics import format_gold_histogram
 from gnnformer.mmred_hf import parse_answer_mmred, probe_evidence_mmred, qtype_from_dirname
-from gnnformer.scan_grammar import build_scan_regex, build_scan_regex_v4, make_token_selector
+from gnnformer.scan_grammar import (
+    build_scan_regex,
+    build_scan_regex_v4,
+    build_scan_regex_v5,
+    make_token_selector,
+)
 from gnnformer.runtime import get_layers, load_runtime
 
 
@@ -63,7 +68,7 @@ def main() -> int:
                     help="override the ckpt's stored format (poslist/scan/caption/chunked)")
     ap.add_argument("--alien-task", action="store_true",
                     help="accept non-MMRED questions (decode-only scoring; e.g. MLVU-AC)")
-    ap.add_argument("--mmred-target", choices=("caption", "v4"), default="caption",
+    ap.add_argument("--mmred-target", choices=("caption", "v4", "v5"), default="caption",
                     help="which target grammar the ckpt was trained on (picks the "
                          "--grammar pattern + decode budget expectations)")
     ap.add_argument("--grammar", action="store_true",
@@ -292,8 +297,8 @@ def main() -> int:
                     tf0 = time.time()
                     sel = None
                     if args.grammar:
-                        _bre = (build_scan_regex_v4 if args.mmred_target == "v4"
-                                else build_scan_regex)
+                        _bre = {"v4": build_scan_regex_v4, "v5": build_scan_regex_v5,
+                                "caption": build_scan_regex}[args.mmred_target]
                         pat = _bre(task, q0, len(rec["cpos"]))
                         if pat is not None:
                             sel = make_token_selector(pat, rt.tokenizer)

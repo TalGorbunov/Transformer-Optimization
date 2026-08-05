@@ -41,7 +41,12 @@ from gnnformer.data import (
     parse_task_labels,
 )
 from gnnformer.engine import CarrierEngine
-from gnnformer.mmred_hf import build_scan_mmred, build_target_v4, qtype_from_dirname
+from gnnformer.mmred_hf import (
+    build_scan_mmred,
+    build_target_v4,
+    build_target_v5,
+    qtype_from_dirname,
+)
 from gnnformer.runtime import get_layers, load_runtime
 from gnnformer.scratchpad import (
     SCRATCHPAD_FORMATS,
@@ -50,6 +55,28 @@ from gnnformer.scratchpad import (
     build_target_tally,
     couple_offsets,
 )
+
+
+def verdict_weights(tgt_str: str, tgt_ids: list, tok, w_hi: float) -> list:
+    """Per-token CE weights: w_hi on tokens overlapping an informative char span
+    (the slot after each 'fN:', the value after 'total:/answer:'), 1.0 elsewhere.
+    Char spans -> token spans via cumulative per-token decode lengths (targets are
+    pure ASCII; prep asserts decode roundtrip)."""
+    import re
+    spans = [m.span(1) for m in re.finditer(r"f\d+:(\S+)", tgt_str)]
+    m = re.search(r"counts: (.+?) \|", tgt_str)
+    if m:
+        spans.append(m.span(1))
+    m = re.search(r"(?:total|answer|max|min): (.+?) END", tgt_str)
+    if m:
+        spans.append(m.span(1))
+    w, pos = [], 0
+    for t in tgt_ids:
+        piece = tok.decode([t])
+        a, b = pos, pos + len(piece)
+        w.append(w_hi if any(a < e and s < b for s, e in spans) else 1.0)
+        pos = b
+    return w
 
 
 def main() -> int:
@@ -69,7 +96,12 @@ def main() -> int:
                     help="mmred_hf: MMReD-HF materialized dirs — qtype from the dir-name "
                          "prefix, gold scans via gnnformer.mmred_hf.build_scan_mmred "
                          "(formats.md; word golds allowed); park defaults untouched")
-    ap.add_argument("--mmred-target", choices=("caption", "v4"), default="caption",
+    ap.add_argument("--verdict-weight", type=float, default=1.0, metavar="W",
+                    help="mmred_hf scratchpad: CE weight on the informative target "
+                         "tokens (per-frame verdict slots + the final value) vs 1.0 "
+                         "on copyable boilerplate (' scan:', 'fN:', '| total:'). "
+                         "Counters the all-x/all– verdict collapse in free decode")
+    ap.add_argument("--mmred-target", choices=("caption", "v4", "v5"), default="caption",
                     help="v4: verdict scans for aggregation qtypes + DIRECT answers "
                          "for content qtypes (build_target_v4; 2026-08-03 rescope)")
     ap.add_argument("--scratchpad", action="store_true")
@@ -150,7 +182,8 @@ def main() -> int:
             anch = None
             if args.task == "mmred_hf":
                 qtype = qtype_from_dirname(sd.name)
-                _builder = build_target_v4 if args.mmred_target == "v4" else build_scan_mmred
+                _builder = {"v4": build_target_v4, "v5": build_target_v5,
+                            "caption": build_scan_mmred}[args.mmred_target]
                 tgt_str = (_builder(qtype, q0, states, str(a0).strip())
                            if qtype else None)
                 if tgt_str is None:
@@ -202,6 +235,8 @@ def main() -> int:
                 ans_sfx = f" {gold} END"
             d["ans_k"] = (len(tok(ans_sfx, add_special_tokens=False).input_ids) + 1
                           if tgt_ids else 0)
+            if args.task == "mmred_hf" and args.scratchpad and args.verdict_weight != 1.0:
+                d["w"] = verdict_weights(tgt_str, tgt_ids, tok, args.verdict_weight)
             d["sd"] = str(sd)
             data.append(d)
             cache_gb += (d["seq"] + d["e"]) * d["h"].shape[-1] * 2 / 1e9
@@ -282,7 +317,13 @@ def main() -> int:
             if args.scratchpad:
                 hs = eng.top_hidden(d, jitter_gap=args.jitter_gap, grad_ckpt=args.grad_ckpt)
                 lg = eng.head(hs[0, d["seq"] - 1 : d["seq"] + d["e"] - 1])
-                loss = F.cross_entropy(lg, torch.tensor(d["tgt"], device=dev))
+                tgt_t = torch.tensor(d["tgt"], device=dev)
+                if "w" in d:
+                    ce = F.cross_entropy(lg, tgt_t, reduction="none")
+                    wt = torch.tensor(d["w"], device=dev, dtype=ce.dtype)
+                    loss = (ce * wt).sum() / wt.sum()
+                else:
+                    loss = F.cross_entropy(lg, tgt_t)
             else:
                 lg = eng.head(eng.top_hidden(d, jitter_gap=args.jitter_gap,
                                              grad_ckpt=args.grad_ckpt)[0, -1])
