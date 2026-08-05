@@ -82,7 +82,7 @@ def main() -> int:
     word_ids = torch.tensor([tok(w, add_special_tokens=False).input_ids[0]
                              for w in WORDS], device=dev)
     # trailing space: the readout position's NATURAL next token is then a bare digit
-    SUFFIXES = [" Answer: ", " Answer:", "Answer: ", "\nAnswer: "]
+    SUFFIXES = [" Answer: (", " Answer: ", " Answer:"]
     suf_ids = [tok(s, add_special_tokens=False).input_ids for s in SUFFIXES]
 
     # hits[(group, L)] = [n_correct, n_total]; digit_frac same shape
@@ -117,7 +117,7 @@ def main() -> int:
             content.append({"type": "text", "text": q0})
         for _ in range(n_nodes):
             content.append({"type": "text", "text": q0})
-            content.append({"type": "text", "text": " Answer: "})
+            content.append({"type": "text", "text": " Answer: ("})
         inputs = processor.apply_chat_template([{"role": "user", "content": content}],
                                                add_generation_prompt=True, tokenize=True,
                                                return_dict=True, return_tensors="pt")
