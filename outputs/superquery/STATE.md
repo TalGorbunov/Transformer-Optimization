@@ -69,3 +69,15 @@ linear probe -> write digit embedding into the SQ span (no LoRA, no backprop).
 NEXT: repeater-tree probe (N=8 b=2, quantize lvl1@~L16, lvl2@~L24, root read @27;
 probes calibrated on quantized-input states). Depth budget: ~7 layers/level -> ~3
 levels/forward; deeper N needs fan-4 or multi-pass — real architectural constraint.
+
+## REPEATER TREE (128824) — FIRST FULLY IN-MODEL EXACT COUNT
+repeater_n8/repeater.csv. N=8 b=2, ONE frozen forward, quantize @L20 (Q1, predicted
+counts -> digit embeddings) and @L24 (Q2), root read @L27:
+  Q1 0.887/node -> sum(Q1) bound 0.550 -> sum(Q2) 0.550 (HOP 1 LOSSLESS)
+  -> ROOT exact 0.517 (+-1 0.928, MAE 0.59) — at the bound within probe noise.
+  vs flat frozen 0.239. Trained params: two linear heads. No LoRA, no generation.
+Loss fully attributed to Q1 miscalibration (head fit on multi-arm capture layout,
+applied to b2-only layout; unregularized). Known fixes -> expected ~0.75-0.8.
+NEXT: (a) in-layout calibrated + regularized Q1 (+soft quantization: sum_k p_k e_k);
+(b) scale to N=16-64 (fan-4 stages or multi-pass — depth budget ~7 layers/stage);
+(c) benchmark task port (MMReD-HF steps_in_room via mmred evidence labels).
