@@ -172,9 +172,12 @@ def write_csvs(out: Path, node_rows, top_rows):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--read-layers", default="12,16,20", help="layers captured to npz")
-    ap.add_argument("--fit-layers", default="16,20",
-                    help="layers actually probed; 'none' = capture+dump only")
+    ap.add_argument("--read-layers", default="12,16,20,24,27",
+                    help="layers captured to npz (24/27: multi-level trees pipeline "
+                         "through depth — level l matures ~4 layers after level l-1)")
+    ap.add_argument("--fit-layers", default="16,20,24,27",
+                    help="layers actually probed (missing-from-npz layers are skipped "
+                         "in --fit-npz mode); 'none' = capture+dump only")
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--task", default="steps")
     ap.add_argument("--ns", default="8,16,32,64")
@@ -189,7 +192,8 @@ def main() -> int:
     args = ap.parse_args()
     read_layers = [int(x) for x in args.read_layers.split(",")]
     fit_layers = ([] if args.fit_layers == "none"
-                  else [int(x) for x in args.fit_layers.split(",")])
+                  else [int(x) for x in args.fit_layers.split(",")
+                        if int(x) in read_layers])
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     node_rows, top_rows = [], []
