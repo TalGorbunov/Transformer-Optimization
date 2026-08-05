@@ -80,21 +80,30 @@ def build_arms(NF: int):
     return arms
 
 
-def _std_fit(Xtr, Xev):
+def _std_fit(Xtr, Xev, pca=True):
     mu = Xtr.mean(0, keepdims=True)
     sd = Xtr.std(0, keepdims=True) + 1e-6
-    return (Xtr - mu) / sd, (Xev - mu) / sd
+    Xtr, Xev = (Xtr - mu) / sd, (Xev - mu) / sd
+    if pca:
+        from sklearn.decomposition import PCA
+        k = min(512, Xtr.shape[0] - 1, Xtr.shape[1])
+        p = PCA(n_components=k, random_state=0).fit(Xtr)
+        Xtr, Xev = p.transform(Xtr), p.transform(Xev)
+    return Xtr, Xev
 
 
 def run_fits(NF_target, feats, Y, G, fit_layers, feat_kinds, node_rows, top_rows):
-    """feats: dict (arm, lv, L, feat) -> (n, nodes, H) float array."""
+    """feats: dict (arm, lv, L, feat) -> (n, nodes, H) float array.
+    Probes run on standardized PCA-512 features (linear probe on a linear projection
+    is still a linear probe — a lower bound either way; ~15x faster than raw 3584d)."""
+    from sklearn.decomposition import PCA
     from sklearn.linear_model import LogisticRegression, Ridge
 
     arms = build_arms(NF_target)
     arm_leaves = {a: leaf_sets(lv) for a, lv in arms.items()}
     n = len(G)
     splits = []
-    for seed in range(5):
+    for seed in range(3):
         idx = np.random.default_rng(seed).permutation(n)
         splits.append((idx[: n // 2], idx[n // 2:]))
 
@@ -164,7 +173,8 @@ def write_csvs(out: Path, node_rows, top_rows):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--read-layers", default="12,16,20", help="layers captured to npz")
-    ap.add_argument("--fit-layers", default="16,20", help="layers actually probed")
+    ap.add_argument("--fit-layers", default="16,20",
+                    help="layers actually probed; 'none' = capture+dump only")
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--task", default="steps")
     ap.add_argument("--ns", default="8,16,32,64")
@@ -174,7 +184,8 @@ def main() -> int:
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
     read_layers = [int(x) for x in args.read_layers.split(",")]
-    fit_layers = [int(x) for x in args.fit_layers.split(",")]
+    fit_layers = ([] if args.fit_layers == "none"
+                  else [int(x) for x in args.fit_layers.split(",")])
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     node_rows, top_rows = [], []
