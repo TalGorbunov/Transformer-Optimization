@@ -109,3 +109,18 @@ decodable -> quantize before the pair read; expected sum bound 0.92-0.95+),
 512px capture (+3 measured), 300-calib; then distilled SQ embedding (trained).
 Scaling (N=32/64): multi-pass or fan-4 staging + multi-digit codes + fan-2
 addition-vs-magnitude curve.
+
+## RIDGE-ROUND REANALYSIS (128845) — CAPACITY LAW CORRECTED (Tal's challenge)
+reanalysis_rr.csv. LR probes systematically understated exactness (deconfound.py:
+ridge->round >> logistic on every noisy cell; P2 two-hop 0.294->0.967(!)).
+CORRECTED frozen level-1 capacity c(fan) @L20 (rr, N=8/16/32/64):
+  fan-2 : 0.983/0.990/0.984/0.968   (length-invariant ~0.98)
+  fan-4 : 0.872/0.918/0.903/0.798
+  fan-8 : 0.672/0.675/0.633/0.562
+  fan-16: 0.444   fan-32: 0.208   fan-64: 0.117
+=> "counts to ~4 nearly exactly, halves per doubling beyond." Flat@N=8 was 0.67
+not 0.24. b2 lvl1 + external sum (rr-tally): 0.933/0.922/0.892/0.667.
+Natural hop (lvl2 fan-2, rr): 0.65/0.67/0.61/0.54 — still THE bottleneck vs 0.98
+leaf reads; quantized hops (P2 1.000, two-hop 0.967) still THE fix. Global-gain
+jitter falsified (dirnorm no-op); residual hop noise mechanism open (per-read).
+Repeater v2b (0.897 in-model @N=8) ~ matches external compose 0.933.
