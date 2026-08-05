@@ -53,7 +53,7 @@ from gnnformer.runtime import (  # noqa: E402
 NF = 8
 ROOT = "data/mmred_images_park/seq_len_8/all_uniform"
 SUFFIX = " Answer: ("
-FORCE_TXT = "Answer: ("
+FORCE_TXT = "Answer: ( "
 ARMS = {
     #        Q1_L  Q2_L  rootQ_L  tail_reads
     "A_late":  (20, 24, None, "lvl2"),

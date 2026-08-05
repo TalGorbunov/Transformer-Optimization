@@ -45,7 +45,7 @@ def main() -> int:
     dig_ids = torch.tensor([tok(f"{k}", add_special_tokens=False).input_ids[0]
                             for k in range(10)], device=dev)
     dig_set = set(dig_ids.tolist())
-    force_ids = tok("Answer: (", add_special_tokens=False).input_ids
+    force_ids = tok("Answer: ( ", add_special_tokens=False).input_ids
 
     rng = np.random.default_rng(0)
     rows = []
@@ -69,11 +69,25 @@ def main() -> int:
             it["attention_mask"] = torch.cat([it["attention_mask"],
                                               torch.ones_like(force)], 1)
             with torch.no_grad():
-                h = model(**it, output_hidden_states=True).hidden_states[-1][0, -1]
-                lg = (final_norm(h.unsqueeze(0)).float() @ W_U.T)[0]
-            top1 = int(lg.argmax().item())
-            pr = int(lg[dig_ids].argmax().item())
-            em += int(top1 == int(dig_ids[k].item()))
+                # greedy decode up to 3 steps; score the FIRST emitted digit
+                top1 = None
+                first_digit = None
+                for _step in range(3):
+                    h = model(**it, output_hidden_states=True).hidden_states[-1][0, -1]
+                    lg = (final_norm(h.unsqueeze(0)).float() @ W_U.T)[0]
+                    t = int(lg.argmax().item())
+                    if top1 is None:
+                        top1 = t
+                        pr = int(lg[dig_ids].argmax().item())
+                    if t in dig_set:
+                        first_digit = t
+                        pr = int(lg[dig_ids].argmax().item())
+                        break
+                    nt = torch.tensor([[t]], device=dev)
+                    it["input_ids"] = torch.cat([it["input_ids"], nt], 1)
+                    it["attention_mask"] = torch.cat(
+                        [it["attention_mask"], torch.ones_like(nt)], 1)
+            em += int(first_digit == int(dig_ids[k].item()))
             em_r += int(pr == k)
             mae.append(abs(pr - k))
             digf += int(top1 in dig_set)
