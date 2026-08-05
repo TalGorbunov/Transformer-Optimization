@@ -137,3 +137,17 @@ off the shelf. Task-agnostic ladder for the quantizer decision:
   count-head 0.983 (tiny but task-specific — current repeater).
 Day closed. Next session: tuned-lens quantizer test; N=16-64 repeater staging
 (one quantize per TWO levels now justified); MMReD-HF port.
+
+## SELFQ v3 (128848, merge-safe ' Answer: (' cue) — PARAMETER-FREE ROUTE CLOSED
+selfq_v3_n8/selfq.csv. Fixed readout position + digit/word candidates + top-1 log:
+frame verdicts 0.844 max (+words @L20), pairs 0.519 @L27 (top-1 digit only 48%),
+lvl2/root ~chance. Top-1 narrative: mid-layers = logit-lens noise; L24 =
+<|object_ref_start|>; L27 = <|im_end|> — the model wants to END THE TURN at inner
+node positions, never enters answering mode. (v2 run 128847 was void: trailing-space
+suffix merged into next question's first token -> all samples skipped; tokenizer
+merge-safety now checked in-script.)
+=> Quantizer decision function requires training. NEXT BUILD: self-distilled answer
+lens W (affine, vocab codomain via frozen LM head): teacher = model's own alone-pass
+answer distribution; loss = KL + aux-CE on TEACHER-ARGMAX (Tal: plain distillation
+would let W absorb bulk gradients — stage3 lesson). Steps task first, no gold labels,
+task-agnostic by construction.
