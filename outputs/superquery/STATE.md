@@ -95,3 +95,17 @@ Root-read gap (0.778 vs 0.883): probe-budget suspect -> repeater2b (128831,
 budget (~3 quantize stages/forward -> multi-pass or fan-4), multi-digit codes,
 fan-2 ADDITION vs operand magnitude (needs its own capacity curve); stage-1
 perception compounds 0.967^(N/2) regardless (exact-metric ceiling ~0.34@64).
+
+## REPEATER v2b (128831, 150 calib / 480 eval) — N=8 RESULT FINAL
+repeater2b_n8/repeater2.csv.
+  hard: Q1 0.983/node -> sum(Q1) 0.938 = sum(Q2) 0.938 (lossless x2)
+        ROOT last 0.897 exact / +-1 0.992 / MAE 0.12   (mean 0.892)
+  soft: 0.893 root, relay 0.931 — soft confirmed inferior; HARD is canonical.
+v1's root gap was probe budget (60->240 fit rows: 0.639->0.892). Bottom line @N=8:
+FROZEN MODEL + 3 LINEAR PROBES = 0.897 exact in-model counting vs 0.239 flat (3.8x),
+5 pts off the external-compose bound; residual = Q1 perception ceiling.
+Next levers (kept seq8): level-0 VERDICT quantizers (frame verdicts 0.985-0.999
+decodable -> quantize before the pair read; expected sum bound 0.92-0.95+),
+512px capture (+3 measured), 300-calib; then distilled SQ embedding (trained).
+Scaling (N=32/64): multi-pass or fan-4 staging + multi-digit codes + fan-2
+addition-vs-magnitude curve.
