@@ -151,3 +151,17 @@ lens W (affine, vocab codomain via frozen LM head): teacher = model's own alone-
 answer distribution; loss = KL + aux-CE on TEACHER-ARGMAX (Tal: plain distillation
 would let W absorb bulk gradients — stage3 lesson). Steps task first, no gold labels,
 task-agnostic by construction.
+
+## ANSWER LENS (128849 void teacher / 128850 forced-prefix teacher) — WORKS, TEACHER-LIMITED
+lens2_n8/lens.csv (+lens_data.npz, per-layer ckpts). Teacher = model's own answer
+distribution at a FORCED assistant prefix "Answer: (" (first attempt without forcing:
+teacher top1==digit 0.000 — chat prose; run 128849 void). Teacher sanity: 0.710.
+Lens (affine per layer, KL + aux-CE-on-teacher-argmax, pair-trained, no gold labels):
+  pair-acc 0.786 @L27 (kl+ce; kl 0.740) — STUDENT EXCEEDS TEACHER (0.71);
+  top1-is-digit ~1.0 (answer-mode restored); FRAME TRANSFER 0.964 zero-shot;
+  lvl2 transfer 0.375 (support mismatch — trained digits 0-2 only).
+Aux-CE > plain KL again (Tal's stage-3 lesson generalizes). CONCLUSION: the
+task-agnostic quantizer exists and is ceilinged by the MODEL'S OWN native competence
+(0.71 pair counting), not by our machinery; task-specific ridge (0.983) remains the
+accuracy route. Open: better teachers (restricted/ensembled), support-complete
+training mix, lens-based repeater v3 vs probe-based v2b (0.897).
