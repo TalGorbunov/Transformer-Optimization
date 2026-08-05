@@ -95,8 +95,8 @@ def main() -> int:
     W_emb = text_model.embed_tokens.weight
     cnt_tok = {}
     for k in (0, 1, 2):
-        ids_k = tok(f" {k}", add_special_tokens=False).input_ids
-        assert len(ids_k) == 1, f"count word ' {k}' not a single token"
+        ids_k = tok(f"{k}", add_special_tokens=False).input_ids
+        assert len(ids_k) == 1, f"count word '{k}' not a single token"
         cnt_tok[k] = ids_k[0]
 
     feats: dict = {}     # (P, lv, L, feat) -> list of (nodes, H)
