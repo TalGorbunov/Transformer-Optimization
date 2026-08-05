@@ -179,6 +179,10 @@ def main() -> int:
     ap.add_argument("--task", default="steps")
     ap.add_argument("--ns", default="8,16,32,64")
     ap.add_argument("--shuffle-dirs", type=int, default=0)
+    ap.add_argument("--no-prefix", action="store_true",
+                    help="drop the leading q0 (no question-conditioning of image "
+                         "tokens; blocks get the question only via their replica) — "
+                         "layout-robustness ablation")
     ap.add_argument("--fit-npz", default=None,
                     help="glob of feats_N*.npz — CPU-only refit, no model load")
     ap.add_argument("--output", required=True)
@@ -264,7 +268,7 @@ def main() -> int:
                 continue
             if args.resize > 0:
                 frames = [f.resize((args.resize, args.resize)) for f in frames]
-            content = [{"type": "text", "text": q0}]
+            content = [] if args.no_prefix else [{"type": "text", "text": q0}]
             for f in frames:
                 content.append({"type": "image", "image": f})
                 content.append({"type": "text", "text": q0})
@@ -278,13 +282,14 @@ def main() -> int:
             seq = len(ids)
             fg = image_token_groups(inputs["input_ids"][0].cpu(), expected_num_frames=NF,
                                     processor=processor)
-            spans = find_question_spans(ids, tok, q0, NF + 1 + n_nodes_total)
+            n_pre = 0 if args.no_prefix else 1
+            spans = find_question_spans(ids, tok, q0, NF + n_pre + n_nodes_total)
             vstarts = [p for p, t in enumerate(ids) if t == vs_id]
             if len(fg) != NF or spans is None or len(vstarts) != NF:
                 n_skip += 1
                 continue
-            rep_spans = spans[1 : NF + 1]
-            sq_spans = spans[NF + 1 :]
+            rep_spans = spans[n_pre : NF + n_pre]
+            sq_spans = spans[NF + n_pre :]
             fin_start = sq_spans[0][0]
             blocks = frame_blocks(vstarts, fin_start)
             vis = [torch.tensor(sorted(int(p) for p in g), dtype=torch.long) for g in fg]
