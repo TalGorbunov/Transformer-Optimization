@@ -208,6 +208,12 @@ def main() -> int:
                                                    add_generation_prompt=True, tokenize=True,
                                                    return_dict=True, return_tensors="pt")
                 it = move_to_device(it, dev)
+                # force the assistant to the answer position: next token = bare digit
+                force = torch.tensor([tok("Answer: (", add_special_tokens=False)
+                                      .input_ids], device=dev)
+                it["input_ids"] = torch.cat([it["input_ids"], force], 1)
+                it["attention_mask"] = torch.cat(
+                    [it["attention_mask"], torch.ones_like(force)], 1)
                 lg = model(**it).logits[0, -1].float()
                 pr = torch.softmax(lg, -1)
                 tv, ti = torch.topk(pr, TOPK)
