@@ -84,9 +84,17 @@ def main() -> int:
     ]
     modes = ("lr", "ridge_round", "lr_dirnorm", "rr_dirnorm", "lr_ratio")
     print(f"{'cell':22s}" + "".join(f"{m:>12s}" for m in modes))
+    import csv
+    out = _REPO / "outputs/superquery/deconfound"
+    out.mkdir(parents=True, exist_ok=True)
+    rows = []
     for name, X, y in cells:
         row = [evaluate(X.astype(np.float32), y, m) for m in modes]
+        rows.append([name, *row])
         print(f"{name:22s}" + "".join(f"{v:12.3f}" for v in row), flush=True)
+    with open(out / "deconfound.csv", "w", newline="") as f:
+        csv.writer(f).writerows([["cell", *modes], *rows])
+    print("wrote", out / "deconfound.csv")
     return 0
 
 
