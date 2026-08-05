@@ -124,3 +124,16 @@ Natural hop (lvl2 fan-2, rr): 0.65/0.67/0.61/0.54 — still THE bottleneck vs 0.
 leaf reads; quantized hops (P2 1.000, two-hop 0.967) still THE fix. Global-gain
 jitter falsified (dirnorm no-op); residual hop noise mechanism open (per-read).
 Repeater v2b (0.897 in-model @N=8) ~ matches external compose 0.933.
+
+## SELF-QUANTIZATION PROBE (128844) — RAW LOGIT LENS INSUFFICIENT
+selfq_n8/selfq.csv. Model's own final-norm+LM-head applied mid-forward at the
+" Answer:"-cued node positions: frame verdicts 0.752@L27 (linear probe: 0.985),
+lvl1 pairs 0.535 max (ridge: 0.983), lvl2 0.258, root 0.117; unrestricted top-1
+is NEVER a digit -> mid-layer states are not emission-ready under this layout
+(the classic raw-logit-lens failure). Parameter-free quantization does NOT work
+off the shelf. Task-agnostic ladder for the quantizer decision:
+  raw LM head 0.535 (free) < tuned-lens translator (affine/layer, trained on
+  GENERIC text, no task labels — untested, the principled middle) < linear
+  count-head 0.983 (tiny but task-specific — current repeater).
+Day closed. Next session: tuned-lens quantizer test; N=16-64 repeater staging
+(one quantize per TWO levels now justified); MMReD-HF port.
