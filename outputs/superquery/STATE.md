@@ -174,3 +174,16 @@ gold<=9): 0.892/0.550/0.325/0.317/0.233/0.183 @ N=4/8/16/32/64/128.
 => "paste codes + aggregate at last token" FAILS at high N even in the model's best
 modality. Staged bounded-fan-in aggregation is NECESSARY. Repeater tree @N=8 (0.897)
 already beats native flat text counting @N=8 (0.550).
+
+### repeater v4b/v4c (128854/128856) — EMISSION MECHANISM ISOLATED
+v4b (far-span codes): quantizer chain best-ever IN-FORWARD (A_late Q1 0.994,
+sum bounds 0.967-0.980) but EMIT-EM ~0.13 all arms — decode position doesn't
+read mid-layer codes in far spans. v4c tail registers: even GOLD codes 3-8 tokens
+before the reader emit at 0.113 — model emits '0', THE REGISTER'S ORIGINAL TOKEN.
+=> MECHANISM: the copy/emission circuit keys on the source token's EARLY-LAYER
+identity (embedding-level), not its overwritten mid-layer state. Probes read late
+states; the model's own copying reads layer-0 identity. Single-forward mid-layer-
+write emission is dead ARCHITECTURALLY; computed values must become REAL INPUT
+TOKENS => TWO-PASS is the principled emission design (pass 2 cost: ~50 text tokens).
+TP_pred arm scored 0.213 vs sum2 0.780 (conditional ~0.27 — template suspect);
+addsanity sweep (128857) hunting the pass-2 phrasing.
