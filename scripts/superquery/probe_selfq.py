@@ -78,13 +78,19 @@ def main() -> int:
     vs_id = int(model.config.vision_start_token_id)
     dig = {k: tok(f"{k}", add_special_tokens=False).input_ids[0] for k in range(NF + 1)}
     dig_ids = torch.tensor([dig[k] for k in range(NF + 1)], device=dev)
-    SUFFIXES = [" Answer:", "Answer:", "\nAnswer:", " answer:"]
+    WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight"]
+    word_ids = torch.tensor([tok(w, add_special_tokens=False).input_ids[0]
+                             for w in WORDS], device=dev)
+    # trailing space: the readout position's NATURAL next token is then a bare digit
+    SUFFIXES = [" Answer: ", " Answer:", "Answer: ", "\nAnswer: "]
     suf_ids = [tok(s, add_special_tokens=False).input_ids for s in SUFFIXES]
 
     # hits[(group, L)] = [n_correct, n_total]; digit_frac same shape
-    from collections import defaultdict
+    from collections import Counter, defaultdict
     hits = defaultdict(lambda: [0, 0])
+    hits_w = defaultdict(lambda: [0, 0])      # digit OR count-word candidates
     dfrac = defaultdict(lambda: [0, 0])
+    top1_ctr = defaultdict(Counter)           # what the model actually wanted to say
     n_done = n_skip = 0
     t0 = time.time()
     for sd in iter_sample_dirs_shuffled(Path(ROOT), args.shuffle_dirs):
@@ -111,7 +117,7 @@ def main() -> int:
             content.append({"type": "text", "text": q0})
         for _ in range(n_nodes):
             content.append({"type": "text", "text": q0})
-            content.append({"type": "text", "text": " Answer:"})
+            content.append({"type": "text", "text": " Answer: "})
         inputs = processor.apply_chat_template([{"role": "user", "content": content}],
                                                add_generation_prompt=True, tokenize=True,
                                                return_dict=True, return_tensors="pt")
@@ -206,9 +212,14 @@ def main() -> int:
                         pred = int(torch.argmax(lg[gi2, cand]).item())
                         hits[(gname, li)][0] += int(pred == y)
                         hits[(gname, li)][1] += 1
+                        # digit-or-word: value k scored by max(logit_digit, logit_word)
+                        sc = torch.maximum(lg[gi2, cand], lg[gi2, word_ids[: mx + 1]])
+                        hits_w[(gname, li)][0] += int(int(torch.argmax(sc).item()) == y)
+                        hits_w[(gname, li)][1] += 1
                         dfrac[(gname, li)][0] += int(top1[gi2].item() in
                                                      set(dig_ids.tolist()))
                         dfrac[(gname, li)][1] += 1
+                        top1_ctr[(gname, li)][tok.decode([int(top1[gi2])])] += 1
         n_done += 1
         if n_done % 20 == 0:
             print(f"  {n_done}/{args.limit} (skip {n_skip}) {time.time()-t0:.0f}s",
@@ -218,13 +229,18 @@ def main() -> int:
     for gname in ("frame", "lvl1", "lvl2", "root"):
         for L in READ:
             c, t = hits[(gname, L)]
+            cw, _tw = hits_w[(gname, L)]
             dc, dt = dfrac[(gname, L)]
-            rows.append([gname, L, c / max(t, 1), dc / max(dt, 1), t])
+            tops = "; ".join(f"{w!r}:{n2}" for w, n2 in
+                             top1_ctr[(gname, L)].most_common(5))
+            rows.append([gname, L, c / max(t, 1), cw / max(t, 1), dc / max(dt, 1),
+                         t, tops])
             print(f"[selfq {gname} L{L}] digit-acc {c/max(t,1):.3f} "
-                  f"top1-is-digit {dc/max(dt,1):.3f} (n={t})", flush=True)
+                  f"+words {cw/max(t,1):.3f} top1-is-digit {dc/max(dt,1):.3f} "
+                  f"(n={t}) top1s: {tops}", flush=True)
     with open(out / "selfq.csv", "w", newline="") as f:
-        csv.writer(f).writerows([["group", "L", "digit_acc", "top1_digit_frac", "n"],
-                                 *rows])
+        csv.writer(f).writerows([["group", "L", "digit_acc", "digitword_acc",
+                                  "top1_digit_frac", "n", "top1_tokens"], *rows])
     print("wrote", out)
     return 0
 
