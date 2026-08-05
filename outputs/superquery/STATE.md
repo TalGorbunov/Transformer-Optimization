@@ -55,3 +55,17 @@ P0 control / P1 count-centroid (denoise, same subspace) / P2 digit-token embeddi
 norm-matched @L20 (vocab-code test) / P3 input-level text patch (ceiling). Whichever
 arm rescues lvl2 names the minimal repeater: P1->linear denoiser, P2->quantizer to
 token space, P3->carrier-style distilled SQ. All-fail -> LoRA the hop read.
+
+## PATCH EXPERIMENT (128816) — MECHANISM NAILED: hops need RE-QUANTIZATION
+patch_n8/patch.csv. Children patched @L20 w/ GOLD pair counts; lvl2/lvl3 probed @L24/27.
+  P0 raw-state control:      lvl2 0.43, lvl3 0.08
+  P1 denoised centroids:     lvl2 0.47          -> NOISE IS NOT THE PROBLEM
+  P2 digit-token embeddings: lvl2 1.000 (!),    -> VOCAB CODE TRANSFERS PERFECTLY
+                             lvl3 0.29 R2 0.99  -> but its OUTPUT is state-code again
+  P3 input-text ceiling:     lvl2 0.98, lvl3 0.41
+LAW: frozen attention moves vocab-coded content losslessly, state-coded content only
+as analog (R2~0.99, exactness ~0.3) — at EVERY hop. Minimal repeater = per-level
+linear probe -> write digit embedding into the SQ span (no LoRA, no backprop).
+NEXT: repeater-tree probe (N=8 b=2, quantize lvl1@~L16, lvl2@~L24, root read @27;
+probes calibrated on quantized-input states). Depth budget: ~7 layers/level -> ~3
+levels/forward; deeper N needs fan-4 or multi-pass — real architectural constraint.
