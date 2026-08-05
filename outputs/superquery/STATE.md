@@ -81,3 +81,17 @@ applied to b2-only layout; unregularized). Known fixes -> expected ~0.75-0.8.
 NEXT: (a) in-layout calibrated + regularized Q1 (+soft quantization: sum_k p_k e_k);
 (b) scale to N=16-64 (fan-4 stages or multi-pass — depth budget ~7 layers/stage);
 (c) benchmark task port (MMReD-HF steps_in_room via mmred evidence labels).
+
+## REPEATER v2 (128829) — CALIBRATION WORKS; HARD BEATS SOFT
+repeater2_n8/repeater2.csv. In-layout calibrated Q1 (C=0.5): 0.887 -> 0.967/node.
+  hard: Q1 0.967, sum(Q1) 0.883 = sum(Q2) 0.883 (hop lossless AGAIN),
+        ROOT last 0.778 (+-1 0.939, MAE 0.32) — 3.3x flat frozen (0.239).
+  soft (sum_k p_k e_k): relay slightly LOSSIER (sum(Q2) 0.858), root 0.772 —
+        soft quantization adds nothing; the clean discrete symbol is the point.
+Losslessness explained: per-hop error on vocab codes at fan-2 ~ 0 -> nothing to
+compound; total error = Q1's 0.967^4 ~ 0.874 (cancellation -> 0.883 measured).
+Root-read gap (0.778 vs 0.883): probe-budget suspect -> repeater2b (128831,
+150 calib / 480 eval) in flight. Scaling stresses identified for N=32/64: depth
+budget (~3 quantize stages/forward -> multi-pass or fan-4), multi-digit codes,
+fan-2 ADDITION vs operand magnitude (needs its own capacity curve); stage-1
+perception compounds 0.967^(N/2) regardless (exact-metric ceiling ~0.34@64).
