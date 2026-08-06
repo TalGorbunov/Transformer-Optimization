@@ -233,3 +233,14 @@ Single-forward arithmetic: best overlap combo (chain sum 0.78-0.98 x write@20
 acceptance 0.60) caps ~0.5-0.6 vs two-pass 0.980 => two-pass stays the quality
 architecture; claim softened to 'overlap window exists but too lossy for exact'.
 (Third Tal-control correction of the campaign: trunc@16, ridge-round, deadline.)
+
+## COMPRESSED SINGLE-FORWARD (128885, Tal's schedule) — WORKS AT 0.635
+compressed_n8/compressed.csv.
+  pair maturity gap-fill (rr): 0.904/0.943/0.978/0.978/0.986 @ L16-20 (mature by 18)
+  RELAY IS 1-LAYER: Q2 at +1 after Q1 writes = 0.949 (+2/+3 add nothing)
+  e2e A (Q1@16->Q2@17->reg@18): EM 0.635 (chain 0.720, acceptance@18 0.88)
+  e2e B (...reg@19): 0.510 (acceptance@19 0.71)
+=> Single-forward model-emitted counting EXISTS: 0.635. Capped ~0.63-0.68 by the
+maturity(L16 0.904)-vs-acceptance(0.88@18->0.60@20) collision; schedule sliding
+cannot beat the product plateau. THESIS ROWS: single-forward 0.635 / two-pass 0.980;
+the 0.345 gap = measured cost of the computation-emission timing conflict.
