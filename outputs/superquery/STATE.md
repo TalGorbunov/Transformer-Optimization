@@ -221,3 +221,15 @@ closed (reverts to original register identity). (3) Tree counts mature @L20-24 >
 deadline => NO overlap window: a frozen transformer can say what it READ, not what
 it just COMPUTED. Single-forward emission PROVABLY impossible for this computation;
 two-pass (~50-token text epilogue) is the theorem-shaped consequence, not a hack.
+
+## DEADLINE v2 (128883) — TAL'S SAME-SEQUENCE CONTROL REVISES THE DEADLINE
+deadline2_n8/deadline2.csv. Run-A ceiling 0.980. Same-sequence donor patches:
+  self:     0.98/1.00/1.00/1.00/0.80/0.12 @ L4/8/12/16/20/24
+  template (leave-one-out per-digit avg): 1.00/1.00/1.00/0.89/0.60/0.12
+=> v1 'deadline @L8-12' was largely HARVEST-CONTEXT MISMATCH (late-layer codes are
+context-dependent; foreign-prompt codes look alien with depth). TRUE deadline
+~L20-24; mouth fully open through L16 even for averaged template codes (L12: 1.00).
+Single-forward arithmetic: best overlap combo (chain sum 0.78-0.98 x write@20
+acceptance 0.60) caps ~0.5-0.6 vs two-pass 0.980 => two-pass stays the quality
+architecture; claim softened to 'overlap window exists but too lossy for exact'.
+(Third Tal-control correction of the campaign: trunc@16, ridge-round, deadline.)
