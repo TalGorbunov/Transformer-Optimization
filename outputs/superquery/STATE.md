@@ -244,3 +244,16 @@ compressed_n8/compressed.csv.
 maturity(L16 0.904)-vs-acceptance(0.88@18->0.60@20) collision; schedule sliding
 cannot beat the product plateau. THESIS ROWS: single-forward 0.635 / two-pass 0.980;
 the 0.345 gap = measured cost of the computation-emission timing conflict.
+
+## LAYER LOOPING (128888, Tal's window-stretch) — COMPUTE GAINS, CLOCK TAXES
+layerloop_n8/layerloop.csv. Repeating frozen layers as extra aggregation rounds:
+  base/L16x2/L16x3/[13-16]x2: pair-rr 0.893/0.912/0.919/0.936,
+  chain 0.687/0.807/0.833/0.853, e2e-EM 0.633/0.667/0.673/0.673,
+  emission-eff 0.92/0.83/0.81/0.79.
+=> (1) Frozen layers CAN be re-run as extra message-passing rounds (+17pts chain,
+no blow-up, relays ~0.99). (2) THE DEADLINE FOLLOWS PROCESSING COUNT, not layer
+index: every added step also advances the tail's answer-plan crystallization —
+compute and crystallization share one clock; e2e saturates ~0.67.
+Single-forward ceiling: 0.673 (looped) vs two-pass 0.980. Emission story complete:
+what (vocab codes), where (near real-token positions), when (<~20 steps), and why
+the window cannot be stretched.
