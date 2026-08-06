@@ -255,7 +255,7 @@ def main() -> int:
                     v = q1(span_X(0))
                     preds[0] = v.tolist()
                     h = write_digits(h, rec, 0, v)
-                if step in cap1 or cap1 == "q1":
+                if cap1 == "q1":
                     caps1[step] = span_X(0)
             if q2 is not None and step == q1_step + 1:
                 v = q2(span_X(1))
