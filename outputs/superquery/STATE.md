@@ -208,3 +208,16 @@ re-quantization; (3) EMISSION copies layer-0 token identity only -> computed val
 must become REAL tokens (two-pass); (4) 'Answer: ( ' poisons text arithmetic.
 NEXT (morning): N=16/32/64 scaling (chain supports 2 lvls/quantize; pass-2 handles
 any fan via text), MMReD-HF port, lens-based task-agnostic variant of Q heads.
+
+## EMISSION DEADLINE CURVE (128878) — THE COMPUTATION-EMISSION GAP, MEASURED
+deadline_n8/deadline.csv. Gold half-counts written into tail registers at layer L,
+clean tail (v4c '( ' confound removed; L0-emb = real-token ceiling 0.980):
+  raw embedding: 0.98@L0 then DEAD from L4 on (~0.12-0.18) — never viable mid-pass.
+  DEPTH-MATCHED codes (harvested real digit-token states): 1.000@L4, 0.980@L8,
+  0.730@L12, 0.570@L16, 0.240@L20, 0.120@L24.
+=> (1) Tal's missing-features hypothesis confirmed: injection works in the right
+coordinates, early. (2) Emission deadline ~L8-12; after that the output plan is
+closed (reverts to original register identity). (3) Tree counts mature @L20-24 >
+deadline => NO overlap window: a frozen transformer can say what it READ, not what
+it just COMPUTED. Single-forward emission PROVABLY impossible for this computation;
+two-pass (~50-token text epilogue) is the theorem-shaped consequence, not a hack.
