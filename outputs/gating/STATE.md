@@ -16,7 +16,7 @@ gain is evidence for *interference*, not *capacity*.
 | phase | status | jobs | run dir | gate met? | verdict |
 |---|---|---|---|---|---|
 | P0 1B text triple | **done** | 129124 | `p0_text_triple/20260807_212129_129124` | yes | G1-headwise raises tally decodability (R²) consistently but modestly; gain does NOT grow with N |
-| P1 sink diagnostic 7B | running | 129125 (failed), 129126 | `p1_sink_7b/` | | |
+| P1 sink diagnostic 7B | **done** | 129133 (129125/129126 died on mask dtype) | `p1_sink_7b/20260807_214956_129133` | **gate NOT met** | our 7B has essentially no sink (F-Attn ≤ 0.05 everywhere); P3 is now a falsification, not a hope |
 | P2 gating.py + CPU tests | **done** | — (CPU) | `gnnformer/gating.py`, `tests/test_gating.py` | yes | all 6 suites green |
 | P3 main ablation N=8 | smokes running | 129127–129132 | `outputs/_scratch/gating_smoke/` | | |
 | P3.5 discriminator | not started | | | | |
@@ -123,6 +123,65 @@ have to touch. P3's G2 arm is now the load-bearing experiment.
 
 ---
 
+## P1 — is there a sink worth filtering in OUR model? (job 129133, l40s-public/2h_2g)
+
+Run dir: `outputs/gating/p1_sink_7b/20260807_214956_129133/`
+Script: `scripts/gating/probe_sink_7b.py` · wrapper `slurm/gating_probe_sink_7b.sbatch`
+Frozen Qwen2.5-VL-7B (4-bit nf4), MMReD park N=8, n=8 samples per arm, LoRA + e_c from
+`checkpoints/carrier_layer_fmt_caption_best.pt` (L*=12). Attention recomputed from the
+captured q/k projections (sdpa returns no weights), head-averaged over all 28 heads.
+
+Two jobs died first on an sdpa mask-dtype error. Cause, worth remembering: **the query
+dtype is not constant down this stack** — bf16 below L*, fp32 at/above it where the LoRA
+hooks sit — so an fp32 additive mask is rejected by the memory-efficient kernel below L*
+and a bf16 one is rejected by sdpa's frontend check above it. The probe now tries
+bool/fp32/bf16 per layer and caches which form that layer accepted; bool is exact here
+because these masks only ever hold 0.0 or MASK_MIN.
+
+### Result — there is NO sink to filter
+
+| arm | F-Attn range over 28 layers | read row → sink | read row → frames |
+|---|---|---|---|
+| plain (causal, count prompt) | 0.0004 – **0.0499** | 0.001 | 0.079 |
+| deployed (fence + posreset + carriers) | 0.0004 – **0.0386** | carriers 0.004 (below L*) · tail 0.001 (at/above L*) | carriers → own frame 0.240 |
+
+For scale, the 1B baseline in P0 puts **0.74** of its attention on token 0 in deep layers.
+Qwen2.5-VL-7B puts at most 0.05, in either layout. The mechanism the paper's G1 removes is
+not present in our model on this task.
+
+Three secondary findings worth keeping:
+
+1. **Massive activations without a sink.** M-Act jumps from 35 to 5152 at layer 4 and sits
+   at ~7000 for the rest of the stack in BOTH arms, while F-Attn stays ≤ 0.05. So massive
+   activations and attention sink are dissociated here — the paper's Table 4 treats them as
+   co-symptoms, and in our model they are not.
+2. **A mild sink does switch on late, only for carriers.** `car>sink` rises 0.002 → 0.094
+   (L24) → 0.063 (L27) exactly as the carriers' own-frame mass collapses (0.25 → 0.035).
+   If any gating arm helps, this is the only place the sink story could bite, and it is a
+   deep-layer effect, not the aggregation window.
+3. **The read rows are dominated by the question prefix, not by frames or carriers.**
+   Below L* the carriers spend 0.53–0.85 on the prefix vs 0.24 on their own frame; at/above
+   L* the tail row spends 0.44 on the prefix, 0.26 on frames and **0.014 on the carriers**.
+   (Per token the carriers are ~100× more attended than frame tokens — 8 tokens vs ~1500 —
+   so this is not evidence the carriers are ignored, but it does say the aggregate mass a
+   gate would be reweighting is mostly question-prefix mass.)
+
+### Gate: NOT MET (recorded, as the brief requires)
+
+The read rows are not losing a meaningful share of mass to a sink. Per the brief, P3 is
+therefore **run as a falsification rather than a hope**: the interference-via-sink
+mechanism is absent in our model, so the prior for any gated arm beating the LoRA control
+is low, and a null there is the expected outcome rather than a surprise. Combined with
+P0's finding that the G1 advantage *shrinks* with N, two independent lines now point at
+capacity rather than interference — before a single trainer has run.
+
+Caveat on the metric: "sink" is defined as mass on **token 0**, which in our prompts is the
+chat template's `<|im_start|>`. If Qwen2.5-VL parks its sink on a different fixed token,
+this measurement would miss it. That is the paper's own definition, so we keep it, but the
+claim to make is "no token-0 sink", not "no sink of any kind".
+
+---
+
 ## P2 — implementation + CPU parity (no GPU)
 
 New standalone module `gnnformer/gating.py` (imports nothing from `fencing`/`engine`/
@@ -169,6 +228,99 @@ would be frozen at its identity init and the arm would silently be a no-op.
 schema is unchanged and `eval_carrier` can still load the result; the gate state rides in
 the ckpt `extra` under `"gate"`. Arm 1 of P3 is the regression test for all of this.
 New wrapper: `slurm/gating_train_arm.sbatch` (DRY_RUN-checked both ways).
+
+---
+
+## P3 — sizing from the smokes (before launching the full arms)
+
+Smokes: `outputs/_scratch/gating_smoke/<arm>/`, jobs 129127 (arm 1) and 129134–129138.
+`--limit 40` per root over the 16-root mixture → n=640, 320 train steps, `--epochs 2`.
+Two rounds were needed; round 1 (129128–129132) died on `attention_dims`'s key being
+`hidden_size`, not `hidden`, and the five failures then **hung in CUDA teardown** rather
+than exiting, holding their GPUs until `scancel`. Round 1 also lost ~16 min to seven jobs
+importing torch/transformers off the same NFS venv at once (RSS 332 MB after 8 min, CPU
+16 s; actual shard load is ~8 s once through). Stagger trainer submissions.
+
+### Identity init verified on the real model
+
+`[ep 0]` is `acc 0.000 MAE 4.33` for arm 1 (no gate), arm 2 (`g1_headwise`) and arm 3
+(`g2_literal`) alike — the gate really is a no-op at init on Qwen2.5-VL-7B, not just on
+the CPU stand-in. Arm 4 reports `MAE 4.67` at ep 0, and the reason matters: it ran on an
+**L40S** while arms 1–3 ran on an **A100**. `acc` and `tf-exact` are 0.000 in every arm;
+only MAE differs, and MAE at ep 0 is an argmax over an untrained readout, so single-ulp
+kernel differences flip it. **Consequence: all five full arms must run on the same GPU
+type**, or cross-arm deltas inherit a hardware term.
+
+### Cost estimate (the number the brief asks for before launch)
+
+Scaling unit = frame-units (Σ N_i · n_i over the mixture), since both prep and step cost
+track sequence length: smoke 10 360, full mixture (`--limit 900`, n≈8772) 113 464 →
+**×10.95**.
+
+| | smoke (measured) | full arm (extrapolated) |
+|---|---|---|
+| prep | 950 s | ≈ 2.9 h |
+| epoch (train+eval) | 822 s | ≈ 2.5 h |
+| 5 epochs + prep | — | **≈ 15.4 h on A100, ≈ 20 h on L40S** |
+| host RAM for the cached lo phase | 15.4 GB | **≈ 169 GB** |
+
+Consistent with the `slurm/train_carrier_layer.sbatch` note ("~14 h on a100 at full
+mixture"). **5 arms ≈ 75–100 GPU-h.**
+
+Plan: all five on **L40S** (`l40s-shared` + `l40s-public`; athena-post and n314 have
+2.3 TB RAM against n310's ~278 GB free, and 5 × 169 GB does not fit on the A100 node),
+`--mem=300G`, `--time=23:50:00`, four on `24h_1g` + one on `24h_4g`. A walltime kill is
+recoverable: the trainer saves `carrier_layer_best.pt` on every improvement and every
+epoch's acc / tf-exact / gate-mean is in the run dir's `runner-*.log`; only `report.txt`
+would be missing and it can be rebuilt from that log.
+
+### Gate LR selection (the brief's {3e-4, 1e-3} sweep) — 1e-3 wins everywhere
+
+2 epochs, n=640, arms 2–4 train the GATE ONLY (LoRA frozen at B=0). acc / tf-exact:
+
+| arm | trainable params | 3e-4 | 1e-3 | chosen |
+|---|---|---|---|---|
+| 1 · LoRA control | 2.9 M | 0.931 / 0.159 | — | — |
+| 2 · `g1_headwise` L12–27 | 1.6 M | 0.931 / 0.131 | **0.959 / 0.163** | 1e-3 |
+| 3 · `g2_literal` L12–27 | 29 M | 0.966 / 0.216 | **0.991 / 0.241** | 1e-3 |
+| 4 · `g1_elementwise` L12 only | 12.8 M | 0.466 / 0.059 | **0.516 @ep1** | 1e-3 |
+
+⚠ Two confounds to carry: (a) `g2_literal` has **10× the trainable parameters** of the
+LoRA control, so arm 3 > arm 1 is not a clean position effect. The clean comparison is
+arm 2 — `g1_headwise` has FEWER parameters than the control (1.6 M vs 2.9 M) and still
+edges it. (b) This is 2 epochs at 7 % scale; the ranking may partly reflect effective
+learning rates rather than final quality.
+
+**A live gate, verified on GPU:** `[ep 1] gate mean/layer L12:0.8773` (arm 4, 1e-3) — the
+gate attenuates ~12 % and is demonstrably not stuck at its identity init. This line only
+exists because of a bug fixed mid-campaign: `Gate.reset_stats()` rebound `_stats` while
+the hooks closed over the original dict, so every gate score went to an orphaned object
+and the trainer printed "no forwards recorded" for gates that were training fine. Training
+was unaffected (the smoke accuracies above stand), but the brief's mandatory VOID-vs-null
+check would have been unusable. Fixed to `clear()` in place; `tests/test_gating.py::
+test_stats_survive_reset` pins it and was verified to fail on the old code.
+
+**Note the tension:** the smoke ordering is G2 > G1 > LoRA, i.e. the inversion this
+campaign hypothesised — but P0 (gain shrinking with N) and P1 (no sink to filter) both
+point the other way, at capacity. P3.5 is the experiment that resolves this; do not call
+the direction from the smokes.
+
+### Full arms launched (2026-08-07)
+
+All five on **L40S** (`l40s-shared`), `--mem=256G` (`24h_1g`/`4d_1g` cap memory at 275 G —
+a 300 G submission is rejected with `QOSMaxMemoryPerJob`), `--time=23:50:00`, `--limit 900
+--epochs 5` over `slurm/lib/roots_inlength.txt`, `--split-seed 0` so every arm sees a
+byte-identical train/eval split.
+
+| job | arm | config | QOS |
+|---|---|---|---|
+| 129144 | 1 | `GATE=none` (the anchor regression test) | 24h_1g |
+| 129145 | 2 | `g1_headwise`, L12–27, gate-only, lr 1e-3 | 24h_1g |
+| 129146 | 3 | `g2_literal`, L12–27, gate-only, lr 1e-3 | 24h_1g |
+| 129147 | 5 | `g2_literal` + LoRA trained jointly, lr 1e-3 / 1e-4 | 24h_1g |
+| 129152 | 4 | `g1_elementwise`, L12 only, gate-only, lr 1e-3 | 24h_4g |
+
+Run dirs: `outputs/gating/p3_arms/<arm>/<stamp>_<jobid>/`.
 
 ---
 
