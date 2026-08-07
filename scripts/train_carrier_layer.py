@@ -210,7 +210,7 @@ def main() -> int:
     if args.gate != "none":
         gl = parse_gate_layers(args.gate_layers, args.l_open, len(layers))
         dims = attention_dims(rt.model)
-        gate = attach_gate(layers, gl, args.gate, hidden=dims["hidden"],
+        gate = attach_gate(layers, gl, args.gate, hidden=dims["hidden_size"],
                            n_heads=dims["n_heads"], n_kv=dims["n_kv"],
                            head_dim=dims["head_dim"], device=dev, b0=args.gate_b0)
         groups.append({"params": gate.parameters(), "lr": args.gate_lr})

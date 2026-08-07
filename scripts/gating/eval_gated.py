@@ -121,7 +121,7 @@ def main() -> int:
     if gstate is not None and not args.no_gate:
         dims = attention_dims(rt.model)
         gate = attach_gate(layers, gstate["layer_ids"], gstate["variant"],
-                           hidden=dims["hidden"], n_heads=dims["n_heads"],
+                           hidden=dims["hidden_size"], n_heads=dims["n_heads"],
                            n_kv=dims["n_kv"], head_dim=dims["head_dim"],
                            device=dev, state=gstate)
         print(f"[gate] {gstate['variant']} on {gstate['layer_ids']} b0={gstate.get('b0')} "

@@ -78,6 +78,36 @@ def head_avg_attention(qr, kr, madd, n_heads: int, hd: int) -> torch.Tensor:
     return A / n_heads
 
 
+def mask_variants(m2d: torch.Tensor, seq: int, hdtype: torch.dtype) -> List[torch.Tensor]:
+    """The same mask in the three forms sdpa might accept here.
+
+    Which one works depends on the QUERY dtype at that layer, and that is not constant
+    down the stack: below L* the query is bf16 (an fp32 additive bias is rejected by the
+    memory-efficient kernel), at/above L* the LoRA hooks leave it fp32 (a bf16 bias is
+    rejected by sdpa's frontend check). A bool mask is accepted against either, and is
+    exactly equivalent because these masks only ever hold 0.0 or MASK_MIN."""
+    return [(m2d == 0.0).view(1, 1, seq, seq),
+            m2d.to(torch.float32).view(1, 1, seq, seq),
+            m2d.to(hdtype).view(1, 1, seq, seq)]
+
+
+def run_layer(layer: Any, h: torch.Tensor, masks: List[torch.Tensor], pe: Any,
+              choice: Dict[int, int], li: int) -> torch.Tensor:
+    """Run one decoder layer, remembering which mask form this layer accepted."""
+    order = ([choice[li]] + [i for i in range(len(masks)) if i != choice[li]]
+             if li in choice else list(range(len(masks))))
+    last: Optional[Exception] = None
+    for i in order:
+        try:
+            with sdpa_kernel(SDPA_BACKENDS):
+                out = layer(h, attention_mask=masks[i], position_embeddings=pe)[0]
+            choice[li] = i
+            return out
+        except RuntimeError as e:
+            last = e
+    raise RuntimeError(f"no accepted mask dtype at layer {li}: {last}")
+
+
 def mass(A: torch.Tensor, rows: torch.Tensor, cols: torch.Tensor) -> float:
     """Mean over `rows` of the attention mass they place on `cols`."""
     if rows.numel() == 0 or cols.numel() == 0:
@@ -126,6 +156,8 @@ def main() -> int:
     # accumulators: arm -> key -> [n_layers]
     acc: Dict[str, Dict[str, np.ndarray]] = {}
     n_done: Dict[str, int] = {a: 0 for a in args.arms}
+    mask_choice: Dict[int, int] = {}        # deployed arm: layer -> accepted mask form
+    mask_choice_plain: Dict[int, int] = {}
 
     def bump(arm: str, key: str, li: int, v: float) -> None:
         acc.setdefault(arm, {}).setdefault(key, np.zeros(n_layers))[li] += v
@@ -164,17 +196,16 @@ def main() -> int:
                 with torch.no_grad():
                     emb = d["emb"].to(dev).unsqueeze(0).clone()
                     emb[0, row_car] = e_c.to(torch.bfloat16)
-                    # masks in the hidden dtype: sdpa rejects an fp32 bias against a bf16
-                    # query (the fused kernels' check), and the diagnostic only needs
-                    # MASK_MIN to zero the forbidden entries. Same as
-                    # scripts/presentation_diagnostics/probe_attention_map.py.
-                    lo = d["lo"].to(dev).to(emb.dtype).view(1, 1, seq, seq)
-                    hi = d["hi"].to(dev).to(emb.dtype).view(1, 1, seq, seq)
+                    lo2d = d["lo"].to(dev).float()
+                    hi2d = d["hi"].to(dev).float()
+                    lo = mask_variants(lo2d, seq, emb.dtype)
+                    hi = mask_variants(hi2d, seq, emb.dtype)
                     cos_, sin_ = text_model.rotary_emb(emb, d["pos"].to(dev))
                     pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
                     h = emb
                     for li in range(n_layers):
-                        mask4 = lo if li < eng.l_open else hi
+                        m2d = lo2d if li < eng.l_open else hi2d
+                        masks = lo if li < eng.l_open else hi
                         ln = layers[li].input_layernorm(h)
                         at = layers[li].self_attn
                         q = at.q_proj(ln).view(1, seq, n_heads, hd).transpose(1, 2)
@@ -183,7 +214,7 @@ def main() -> int:
                             q.float(), k.float(), pe[0].float(), pe[1].float(),
                             dims["mrope_section"])
                         A = head_avg_attention(qr[0], repeat_kv(kr, n_heads // n_kv)[0],
-                                               mask4[0, 0].float(), n_heads, hd)
+                                               m2d, n_heads, hd)
                         bump("deployed", "f_attn", li, float(A[1:, 0].mean()))
                         bump("deployed", "m_act", li, float(h.abs().max()))
                         bump("deployed", "car_sink", li, mass(A, row_car, col_sink))
@@ -196,8 +227,7 @@ def main() -> int:
                         bump("deployed", "tail_car", li, mass(A, row_tail, col_car))
                         bump("deployed", "tail_tail", li, mass(A, row_tail, col_tail))
                         del A, qr, kr, q, k, ln
-                        with sdpa_kernel(SDPA_BACKENDS):
-                            h = layers[li](h, attention_mask=mask4, position_embeddings=pe)[0]
+                        h = run_layer(layers[li], h, masks, pe, mask_choice, li)
                 n_done["deployed"] += 1
                 ok = True
 
@@ -230,7 +260,7 @@ def main() -> int:
                     causal = torch.zeros(seq, seq, dtype=torch.float32, device=dev)
                     causal.masked_fill_(torch.triu(torch.ones(seq, seq, dtype=torch.bool,
                                                               device=dev), 1), MASK_MIN)
-                    mask4 = causal.to(emb.dtype).view(1, 1, seq, seq)
+                    masks = mask_variants(causal, seq, emb.dtype)
                     cos_, sin_ = text_model.rotary_emb(emb, pos.to(dev))
                     pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
                     h = emb
@@ -251,8 +281,7 @@ def main() -> int:
                         bump("plain", "read_pre", li, mass(A, row_last, col_pre))
                         bump("plain", "read_tail", li, mass(A, row_last, col_tail))
                         del A, qr, kr, q, k, ln
-                        with sdpa_kernel(SDPA_BACKENDS):
-                            h = layers[li](h, attention_mask=mask4, position_embeddings=pe)[0]
+                        h = run_layer(layers[li], h, masks, pe, mask_choice_plain, li)
                 n_done["plain"] += 1
                 ok = True
 
