@@ -15,6 +15,11 @@ Usage:
   python scripts/train_carrier_layer.py --carrier-ckpt checkpoints/carrier_token_room_k1_best.pt \
       --data_root <comma roots, each optionally path=LIMIT> --scratchpad-format caption \
       --running-tally --jitter-gap 16 --grad-ckpt --l-open 12 --epochs 5 --output outputs/carrier/train
+
+Gated-attention ablation (2026-08-07, outputs/gating/): --gate/--gate-layers/--gate-lr/
+--gate-b0/--gate-only attach a gnnformer.gating adapter. ALL DEFAULT OFF and every gate
+code path is skipped at --gate none, so the anchor recipe above is bit-identical to before
+the edit — arm 1 of that campaign's P3 is the regression test for exactly this.
 """
 from __future__ import annotations
 
@@ -41,13 +46,14 @@ from gnnformer.data import (
     parse_task_labels,
 )
 from gnnformer.engine import CarrierEngine
+from gnnformer.gating import GATE_VARIANTS, attach_gate
 from gnnformer.mmred_hf import (
     build_scan_mmred,
     build_target_v4,
     build_target_v5,
     qtype_from_dirname,
 )
-from gnnformer.runtime import get_layers, load_runtime
+from gnnformer.runtime import attention_dims, get_layers, load_runtime
 from gnnformer.scratchpad import (
     SCRATCHPAD_FORMATS,
     build_target,
@@ -77,6 +83,32 @@ def verdict_weights(tgt_str: str, tgt_ids: list, tok, w_hi: float) -> list:
         w.append(w_hi if any(a < e and s < b for s, e in spans) else 1.0)
         pos = b
     return w
+
+
+def parse_gate_layers(spec: str, l_open: int, n_layers: int) -> list:
+    """'open' -> l_open..end | 'ge:L' -> L..end | 'A-B' -> inclusive range | 'L' -> one.
+
+    Hard-rejects anything below l_open: layers 0..l_open-1 run ONCE at prep and their
+    output is cached, so a gate placed there would be frozen at its identity init and the
+    arm would silently be a no-op."""
+    s = spec.strip()
+    if s in ("open", ""):
+        out = list(range(l_open, n_layers))
+    elif s.startswith("ge:"):
+        out = list(range(int(s[3:]), n_layers))
+    elif "-" in s:
+        a, b = s.split("-", 1)
+        out = list(range(int(a), int(b) + 1))
+    else:
+        out = [int(s)]
+    if not out:
+        raise SystemExit(f"--gate-layers {spec!r} selected no layers")
+    if min(out) < l_open:
+        raise SystemExit(f"--gate-layers {spec!r} -> {out}: layers below --l-open "
+                         f"({l_open}) sit in the cached lo phase and would never train")
+    if max(out) >= n_layers:
+        raise SystemExit(f"--gate-layers {spec!r} -> {out}: model has {n_layers} layers")
+    return out
 
 
 def main() -> int:
@@ -121,6 +153,25 @@ def main() -> int:
                     help="pin the train/eval dir split while --seed varies init/jitter/shuffle")
     ap.add_argument("--model", default=None)
     ap.add_argument("--output", default="outputs/carrier/train")
+    # --- gated attention (arXiv:2505.06708) ablation; OFF by default, and every code
+    # --- path below is skipped when --gate none, so behaviour is bit-identical unused.
+    ap.add_argument("--gate", default="none", choices=("none",) + GATE_VARIANTS,
+                    help="attach a gated-attention adapter (gnnformer/gating.py). "
+                         "g1_* gate after SDPA (query-side, post-sum); g2_literal gates "
+                         "v_proj (message-side, pre-sum)")
+    ap.add_argument("--gate-layers", default="open", metavar="SPEC",
+                    help="'open' = L_OPEN..end (default) | 'ge:L' | 'A-B' | 'L'. "
+                         "Every gated layer must be >= --l-open: layers below it are "
+                         "cached ONCE at prep, so a gate there would never see training")
+    ap.add_argument("--gate-lr", type=float, default=3e-4,
+                    help="gate LR (different geometry from LoRA's 1e-4)")
+    ap.add_argument("--gate-b0", type=float, default=2.0,
+                    help="identity-init bias: g = sigmoid(xW+b)/sigmoid(b). Do NOT use "
+                         "6.0 (sigma'(6)=0.0025, the gate cannot learn in our budget)")
+    ap.add_argument("--gate-only", action="store_true",
+                    help="train the gate alone: LoRA stays attached at its B=0 init "
+                         "(bit-identical to absent) so the ckpt schema is unchanged, but "
+                         "is excluded from the optimizer")
     args = ap.parse_args()
     if args.pos_couple:
         args.running_tally = True
@@ -134,6 +185,8 @@ def main() -> int:
         raise SystemExit(f"--truncate-at must equal --l-open, got {args.truncate_at} vs {args.l_open}")
     if args.task == "mmred_hf" and args.scratchpad_format not in ("scan", "caption"):
         raise SystemExit("--task mmred_hf requires --scratchpad-format scan|caption")
+    if args.gate == "none" and args.gate_only:
+        raise SystemExit("--gate-only needs --gate <variant>")
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
@@ -149,8 +202,25 @@ def main() -> int:
     _dp = ckc.get("dprime") if ckc.get("dprime") is not None else ckc.get("probe", 0.0)
     print(f"[init] frozen e_c from {args.carrier_ckpt} (distill metric {_dp:.2f})", flush=True)
     lora = attach_lora(layers, args.l_open, rank=args.rank, alpha=args.alpha, device=dev)
-    opt = torch.optim.Adam(lora.parameters(), lr=args.lr_lora)
-    print(f"[params] lora {lora.num_parameters()} (e_c frozen)", flush=True)
+    groups = ([] if args.gate_only else [{"params": lora.parameters(), "lr": args.lr_lora}])
+    if args.gate_only:
+        for p in lora.parameters():
+            p.requires_grad_(False)  # B=0 stays 0 -> the LoRA hook contributes exactly 0
+    gate = None
+    if args.gate != "none":
+        gl = parse_gate_layers(args.gate_layers, args.l_open, len(layers))
+        dims = attention_dims(rt.model)
+        gate = attach_gate(layers, gl, args.gate, hidden=dims["hidden"],
+                           n_heads=dims["n_heads"], n_kv=dims["n_kv"],
+                           head_dim=dims["head_dim"], device=dev, b0=args.gate_b0)
+        groups.append({"params": gate.parameters(), "lr": args.gate_lr})
+        print(f"[gate] {args.gate} on layers {gl} b0={args.gate_b0} lr={args.gate_lr} "
+              f"params {gate.num_parameters()} "
+              f"(lora {'FROZEN at B=0' if args.gate_only else 'trained'})", flush=True)
+    opt = torch.optim.Adam(groups)
+    print(f"[params] lora {lora.num_parameters()}"
+          f"{' (frozen)' if args.gate_only else ''} "
+          f"gate {gate.num_parameters() if gate else 0} (e_c frozen)", flush=True)
     eng = CarrierEngine(rt, l_open=args.l_open, e_c=e_c, pos_couple=args.pos_couple)
     digit_ids = eng.digit_ids
 
@@ -303,7 +373,9 @@ def main() -> int:
              f"n={n_done}, train={len(tr_idx)}, scratchpad={args.scratchpad}, "
              f"fmt={args.scratchpad_format}, jitter={args.jitter_gap}, "
              f"noqfirst={args.no_qfirst}, noposreset={args.no_posreset}, "
-             f"trunc={args.truncate_at}, roots={args.data_root}) ===",
+             f"trunc={args.truncate_at}, roots={args.data_root}, "
+             f"gate={args.gate}@{args.gate_layers} b0={args.gate_b0} lr={args.gate_lr} "
+             f"gate_only={args.gate_only}) ===",
              f"ep0 acc {acc0:.3f} mae {mae0:.2f} [{pt0}]"]
     # model selection: (TF-count acc, tf-exact) lexicographic — TF-count saturates early
     # and acc-only selection picked weaker-transcript ckpts (2026-07-21 lesson)
@@ -312,6 +384,8 @@ def main() -> int:
         rng.shuffle(tr_idx)
         tot = 0.0
         te = time.time()
+        if gate is not None:
+            gate.reset_stats()
         for step, i in enumerate(tr_idx):
             d = data[i]
             if args.scratchpad:
@@ -336,23 +410,35 @@ def main() -> int:
                 opt.zero_grad()
         opt.step()
         opt.zero_grad()
+        gline = ""
+        if gate is not None:
+            # MANDATORY instrumentation: a gate still sitting at ~1.0 learned nothing and
+            # that arm is VOID, not a null result. Read BEFORE evaluate() so the number
+            # reflects the training forwards only.
+            gline = gate.stats_line()
+            print(f"[ep {ep}] {gline}", flush=True)
         acc, mae, pts, ex = evaluate()
         print(f"[ep {ep}] loss {tot/len(tr_idx):.4f} acc {acc:.3f} MAE {mae:.2f} [{pts}] "
               f"({time.time()-te:.0f}s/ep)", flush=True)
         lines.append(f"ep{ep} loss {tot/len(tr_idx):.4f} acc {acc:.3f} mae {mae:.2f} [{pts}]")
+        if gline:
+            lines.append(f"ep{ep} {gline}")
         if (acc, ex) > best[0]:
             best = ((acc, ex), ep)
             save_carrier_layer_ckpt(
                 out / "carrier_layer_best.pt", e_c=e_c, lora=lora, epoch=ep, acc=acc,
                 scratchpad=args.scratchpad, scratchpad_format=args.scratchpad_format,
                 running_tally=args.running_tally, pos_couple=args.pos_couple,
-                jitter_gap=args.jitter_gap, truncate_at=args.truncate_at)
+                jitter_gap=args.jitter_gap, truncate_at=args.truncate_at,
+                **({"gate": gate.state(), "gate_only": args.gate_only} if gate else {}))
     lines.append(f"BEST acc {best[0][0]:.3f} (tf-exact {best[0][1]:.3f}) @ ep {best[1]} "
                  f"(scaffold 0.998; frozen 0.219)")
     (out / "report.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines[-2:]))
     print("wrote", out)
     lora.remove()
+    if gate is not None:
+        gate.remove()
     return 0
 
 

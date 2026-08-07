@@ -1,0 +1,12 @@
+# P3.5 capacity axis — N fixed at 8, evidence count (== the gold answer) varies 0..8.
+# 100 samples per cell, verified 2026-08-07: every dir in exact_e has answer == e and
+# seq_len == 8. This is the pure capacity sweep the brief asks for.
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_0/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_1/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_2/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_3/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_4/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_5/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_6/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_7/all_uniform
+data/mmred_images_park/seq_len_8/by_evidence_count/exact_8/all_uniform

@@ -1,0 +1,6 @@
+# Text MMReD tally roots for the gating P0 probe (one per line — never a comma list,
+# sbatch --export splits on commas). N sweep spanning the two text generators.
+data/mmred_text_longN/seq_len_16/all_uniform
+data/mmred_text_longN/seq_len_24/all_uniform
+data/mmred_text_longN/seq_len_40/all_uniform
+data/mmred_text_arch/seq_len_64/all_uniform
