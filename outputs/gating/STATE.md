@@ -19,7 +19,7 @@ gain is evidence for *interference*, not *capacity*.
 | P1 sink diagnostic 7B | **done** | 129133 (129125/129126 died on mask dtype) | `p1_sink_7b/20260807_214956_129133` | **gate NOT met** | our 7B has essentially no sink (F-Attn ≤ 0.05 everywhere); P3 is now a falsification, not a hope |
 | P2 gating.py + CPU tests | **done** | — (CPU) | `gnnformer/gating.py`, `tests/test_gating.py` | yes | all 6 suites green |
 | P3 main ablation N=8 | smokes running | 129127–129132 | `outputs/_scratch/gating_smoke/` | | |
-| P3.5 discriminator | not started | | | | |
+| P3.5 discriminator | evaluator validated; **grid redesigned** | 129156 (smoke) | `outputs/_scratch/gating_eval_smoke/` | — | the brief's N≤8 grid is SATURATED (tf_acc 1.000 everywhere); moved to tf_exact + a high-N grid |
 | P4 G2-expanded + N-transfer | **gated — ask Tal** | | | | |
 | P5 verdict & figures | not started | | | | |
 | P6 Qwen3.5 landscape | **gated — ask Tal** | | | | |
@@ -324,6 +324,69 @@ Run dirs: `outputs/gating/p3_arms/<arm>/<stamp>_<jobid>/`.
 
 ---
 
+## P3.5 — evaluator validated, and the brief's grid had to be redesigned
+
+Smoke: job 129156, `outputs/_scratch/gating_eval_smoke/20260807_231110_129156/`, running
+`scripts/gating/eval_gated.py` against the **gated** arm-3 smoke ckpt. It confirmed the one
+path nothing else exercises — a gate restored from a checkpoint:
+
+    [gate] g2_literal on [12..27] b0=2.0 params 29360128
+    [seq_len_2/all_uniform] per-gold 5 -> 15 dirs ({0: 5, 1: 5, 2: 5})
+    [root] seq_len_2: n=15 tf_acc 1.000 tf_exact 0.600 gate_mean 0.8531
+
+Gate loads with the right shape, `--per-gold` gives the balanced grid, and the restored
+gate is active (0.853, not 1.0).
+
+### The problem it exposed: the specified grid cannot discriminate
+
+`tf_acc` is **1.000 in every cell** of `seq_len_2..8`:
+
+| root | tf_acc | tf_exact |
+|---|---|---|
+| seq_len_2 | 1.000 | 0.600 |
+| seq_len_4 | 1.000 | 0.440 |
+| seq_len_6 | 1.000 | 0.286 |
+| seq_len_8 | 1.000 | 0.222 |
+
+The teacher-forced COUNT metric is at ceiling — which is not a bug, it is the trainer's own
+documented behaviour ("TF-count saturates early", the reason model selection is
+lexicographic on (acc, tf-exact)). **N≤8 is a solved regime for THE method**, so a
+capacity-vs-interference discriminator run there measures nothing: every arm scores 1.000
+and every gain is exactly 0. Reporting that as "gating is flat on both axes" would be an
+artifact dressed as the honest-null verdict.
+
+Note `tf_exact` falls monotonically with N (0.600 → 0.222) — but the caption transcript has
+one entry per frame, so whole-transcript exactness declines with N mechanically. It is a
+usable *between-arm* metric at matched N; it is NOT a clean N-scaling curve on its own.
+
+### Fixes applied (committed `ca6bd17`)
+
+1. `per_gold` now records `[n, count ok, tf_exact ok, decoded ok]`, so the grid carries the
+   harder metrics instead of only the saturated one. The plotter takes `--metric`
+   (default `tf_exact`) and prints `[SATURATED — cannot discriminate]` when a grid is at
+   ceiling, so this failure can never again be mistaken for a null result.
+2. `eval_gated --fast-decode` uses `engine.decode_fast` (16–311×), which is safe with a
+   gate: it re-runs every layer over `[cache || appended]`, so the hooks fire and the gate —
+   a pointwise function of X — applies identically to cached and appended rows.
+   `--exactness-n K` verifies token identity against the plain decode on the first K
+   samples of each root, so that reasoning is checked rather than trusted.
+3. New `slurm/lib/roots_gating_highN.txt`: the distractor axis where the method is still
+   losing — N = 8, 16, 32, 64, **128**. `seq_len_16/32/64` are in the training mixture
+   (matched-data between-arm comparison only, not generalization); **`seq_len_128`
+   (510 samples, golds 0..128) is HELD OUT** and is the only uncontaminated hard cell we
+   have.
+
+The plotter was verified on synthetic grids to recover a distractor-only gain correctly
+(0 at N=8/16, +0.05 at N=32, +0.10 at N=64/128, flat across evidence count).
+
+### Plan when the arms land
+
+Run BOTH grids per arm: the brief's `roots_gating_grid.txt` (N=2..8, `--per-gold 40`, to
+document the saturation on the record) and `roots_gating_highN.txt` (`--per-gold 15`,
+≈1.5–2 h/arm in tf mode), plus `roots_gating_capacity.txt` for the pure capacity axis.
+
+---
+
 ## Open items / decisions taken
 
 - **P3 training mixture.** The brief's arm-1 anchor requirement ("reproduces the anchor
@@ -332,4 +395,8 @@ Run dirs: `outputs/gating/p3_arms/<arm>/<stamp>_<jobid>/`.
   Running it as the anchor specifies. ⚠ This collides with P4's "train N=8 → eval N=16"
   anti-memorisation control, because `mmred_longN_park/seq_len_16` **is already in the
   training mixture**. To be resolved with Tal when P4 is proposed — the N-transfer control
-  needs either a held-out N or a mixture without the N=16 root.
+  needs either a held-out N or a mixture without the N=16 root. **Resolution found:**
+  `data/mmred_longN_park/seq_len_128/all_uniform` (510 samples) is held out of the mixture
+  entirely, so it is a clean N-transfer target requiring no retraining and no generator
+  change. Recommend P4 evaluate N=128-held-out instead of (or alongside) the contaminated
+  N=16. Still Tal's call, since it changes what the P4 headline claim can say.
