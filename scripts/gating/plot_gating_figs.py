@@ -67,8 +67,16 @@ def parse_arm(run_dir: Path) -> Dict[str, Any]:
     return out
 
 
-def parse_grid(run_dir: Path) -> Dict[str, Any]:
-    """cells.csv -> {(N, gold): (hits, n)} plus the per-root headline accuracy."""
+METRIC_IDX = {"tf_acc": 1, "tf_exact": 2, "dec_acc": 3}
+
+
+def parse_grid(run_dir: Path, metric: str = "tf_exact") -> Dict[str, Any]:
+    """cells.csv -> {(N, gold): (hits, n)} for `metric`, plus per-root headline accuracy.
+
+    per_gold rows are [n, count-token ok, tf-exact ok, decoded ok]. The count metric
+    saturates at 1.000 for every arm at N<=8, so it cannot discriminate there — default to
+    tf_exact and prefer dec_acc when the run decoded."""
+    idx = METRIC_IDX[metric]
     grid: Dict[Tuple[int, int], Tuple[int, int]] = {}
     roots: Dict[int, float] = {}
     for r in csv.DictReader((run_dir / "cells.csv").open()):
@@ -76,13 +84,19 @@ def parse_grid(run_dir: Path) -> Dict[str, Any]:
         if not m:
             continue
         N = int(m.group(1))
-        key = "tf_acc" if r["tf_acc"] not in ("", "nan") else "dec_acc"
-        roots[N] = float(r[key])
-        for g, (hits, n) in json.loads(r["per_gold"]).items():
+        if r.get(metric, "") not in ("", "nan"):
+            roots[N] = float(r[metric])
+        for g, v in json.loads(r["per_gold"]).items():
+            if len(v) < 4:
+                raise SystemExit(
+                    f"{run_dir}/cells.csv uses the pre-2026-08-07 per_gold format "
+                    f"{v} ([hits, n]); it carries only the count metric, which saturates. "
+                    "Re-run scripts/gating/eval_gated.py to get [n, count, tf_exact, dec].")
+            n, hits = v[0], v[idx]
             k = (N, int(g))
             prev = grid.get(k, (0, 0))
             grid[k] = (prev[0] + hits, prev[1] + n)
-    return {"grid": grid, "roots": roots, "run_dir": str(run_dir)}
+    return {"grid": grid, "roots": roots, "run_dir": str(run_dir), "metric": metric}
 
 
 def acc(grid: Dict[Tuple[int, int], Tuple[int, int]], N: int, g: int) -> Optional[float]:
@@ -109,13 +123,17 @@ def main() -> int:
     ap.add_argument("--evidence", type=int, nargs="+", default=[1, 2],
                     help="evidence counts held fixed for the distractor axis")
     ap.add_argument("--capacity-n", type=int, default=8, help="N held fixed for the capacity axis")
+    ap.add_argument("--metric", choices=tuple(METRIC_IDX), default="tf_exact",
+                    help="grid metric. tf_acc (count token) SATURATES at 1.000 for every "
+                         "arm at N<=8 and cannot discriminate there")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     arms = {k: parse_arm(v) for k, v in kv(args.arms).items()} if args.arms else {}
-    grids = {k: parse_grid(v) for k, v in kv(args.grid).items()} if args.grid else {}
+    grids = ({k: parse_grid(v, args.metric) for k, v in kv(args.grid).items()}
+             if args.grid else {})
     summary: List[str] = []
 
     # ---------------------------------------------------------------- fig 1: per arm
@@ -183,17 +201,20 @@ def main() -> int:
                              "CAPACITY axis")):
             ax.axhline(0, color="k", lw=1)
             ax.set_xlabel(xl)
-            ax.set_ylabel(f"accuracy gain vs {ctrl}")
+            ax.set_ylabel(f"{args.metric} gain vs {ctrl}")
             ax.set_title(ttl, fontsize=11)
-            ax.legend(fontsize=8)
+            if ax.get_legend_handles_labels()[0]:
+                ax.legend(fontsize=8)
         fig.suptitle("Fig 2 — capacity vs interference: where (if anywhere) gating helps")
         fig.tight_layout()
         for ext in ("png", "pdf"):
             fig.savefig(out / f"fig2_discriminator.{ext}", dpi=300)
-        summary.append(f"\n--- Fig 2: (N x evidence) accuracy grid, control = {ctrl}")
+        summary.append(f"\n--- Fig 2: (N x evidence) {args.metric} grid, control = {ctrl}")
         for lab in grids:
             g = grids[lab]["grid"]
-            summary.append(f"  {lab}")
+            sat = [v for v in (acc(g, N, e) for N, e in g) if v is not None]
+            flag = "  [SATURATED — cannot discriminate]" if sat and min(sat) >= 0.999 else ""
+            summary.append(f"  {lab}{flag}")
             hdr = "    N \\ e " + " ".join(f"{e:>6}" for e in
                                           sorted({gg for _, gg in g}))
             summary.append(hdr)

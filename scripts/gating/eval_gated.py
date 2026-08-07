@@ -89,6 +89,15 @@ def main() -> int:
     ap.add_argument("--shuffle-dirs", type=int, default=0, metavar="SEED")
     ap.add_argument("--mode", choices=("tf", "decode", "both"), default="tf")
     ap.add_argument("--decode-tokens", type=int, default=320)
+    ap.add_argument("--fast-decode", action="store_true",
+                    help="cached incremental decode (16-311x). Safe with a gate: "
+                         "decode_fast re-runs every layer over [cache || appended], so "
+                         "the hooks fire and the gate — a pointwise function of X — is "
+                         "applied identically to cached and appended rows. --exactness-n "
+                         "verifies that against the plain decode")
+    ap.add_argument("--exactness-n", type=int, default=0, metavar="K",
+                    help="check decode_fast against decode_scratchpad on the first K "
+                         "samples of each root and report token identity")
     ap.add_argument("--no-gate", action="store_true", help="ablate the ckpt's gate at eval time")
     ap.add_argument("--model", default=None)
     ap.add_argument("--output", required=True)
@@ -160,6 +169,7 @@ def main() -> int:
         tf_hits = tf_exact = dec_hits = dec_parse_fail = 0
         mae = 0.0
         per_gold: Dict[int, List[int]] = {}
+        exact_checks: List[Any] = []
         if gate is not None:
             gate.reset_stats()
         for sd in dirs:
@@ -179,7 +189,7 @@ def main() -> int:
             if rec is None:
                 n_skip += 1
                 continue
-            ok_tf = None
+            ok_tf = ok_ex = ok_dec = None
             if args.mode in ("tf", "both"):
                 tgt_str = build_caption_target(fmt, running_tally, task, q0, states, evid,
                                                aux, gold, len(frames))
@@ -192,20 +202,34 @@ def main() -> int:
                     lg = eng.head(hs[0, d["seq"] - 1 : d["seq"] + d["e"] - 1])
                 preds = lg.argmax(-1).tolist()
                 ok_tf = preds[-ak:-1] == d["tgt"][-ak:-1]
+                ok_ex = preds == d["tgt"]
                 tf_hits += int(ok_tf)
-                tf_exact += int(preds == d["tgt"])
+                tf_exact += int(ok_ex)
                 del d, hs, lg
             if args.mode in ("decode", "both"):
                 with torch.no_grad():
-                    val, _txt, _dt = eng.decode_scratchpad(
-                        rec, decode_tokens=args.decode_tokens, fmt=fmt)
+                    if args.fast_decode:
+                        val, _txt, dt, _pf = eng.decode_fast(
+                            rec, decode_tokens=args.decode_tokens, fmt=fmt)
+                        if n < args.exactness_n:
+                            vS, _tS, dS = eng.decode_scratchpad(
+                                rec, decode_tokens=args.decode_tokens, fmt=fmt)
+                            exact_checks.append((dt == dS, val == vS))
+                    else:
+                        val, _txt, dt = eng.decode_scratchpad(
+                            rec, decode_tokens=args.decode_tokens, fmt=fmt)
                 dec_parse_fail += int(val is None)
-                dec_hits += int(val == gold)
+                ok_dec = val == gold
+                dec_hits += int(ok_dec)
                 if val is not None:
                     mae += abs(int(val) - gold)
-            pg = per_gold.setdefault(gold, [0, 0])
-            pg[1] += 1
-            pg[0] += int(ok_tf) if ok_tf is not None else int(val == gold)
+            # [n, count-token ok, tf-exact ok, decoded ok] — the count metric saturates
+            # at N<=8, so the grid must carry the harder ones too
+            pg = per_gold.setdefault(gold, [0, 0, 0, 0])
+            pg[0] += 1
+            pg[1] += int(bool(ok_tf))
+            pg[2] += int(bool(ok_ex))
+            pg[3] += int(bool(ok_dec))
             n += 1
             if n % 25 == 0:
                 print(f"  [{root}] {n}/{len(dirs)} ({time.time()-t0:.0f}s)", flush=True)
@@ -221,8 +245,15 @@ def main() -> int:
                "gold_mean": float(np.mean([g for g, v in per_gold.items() for _ in range(v[1])])),
                "gate_mean": (float(np.mean(list(gate.mean_scores().values())))
                              if gate is not None and gate.mean_scores() else float("nan")),
+               "fast_exact_ok": (f"{sum(1 for a, _ in exact_checks if a)}/{len(exact_checks)}"
+                                 if exact_checks else ""),
                "per_gold": json.dumps({str(g): v for g, v in sorted(per_gold.items())})}
         rows.append(row)
+        if exact_checks:
+            bad = [i for i, (tok_id, _) in enumerate(exact_checks) if not tok_id]
+            print(f"[exactness] {root}: decode_fast token-identical to decode_scratchpad "
+                  f"on {len(exact_checks)-len(bad)}/{len(exact_checks)}"
+                  + (f" MISMATCH at {bad}" if bad else ""), flush=True)
         print(f"[root] {root}: n={n} tf_acc {row['tf_acc']:.3f} tf_exact {row['tf_exact']:.3f} "
               f"dec {row['dec_acc']:.3f} gate_mean {row['gate_mean']:.4f}", flush=True)
 
