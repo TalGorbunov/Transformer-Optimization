@@ -140,6 +140,25 @@ def test_gradient_reaches_w() -> None:
     print(f"ok  gradient reaches W; b0=2 is {ratio:.0f}x b0=6 (the reason b0=+6 is banned)")
 
 
+def test_stats_survive_reset() -> None:
+    """reset_stats() must keep recording afterwards. The hooks close over the stats dict,
+    so rebinding it (rather than clearing) silently orphans every later gate score and the
+    trainer reports 'no forwards recorded' for a gate that is training fine."""
+    layers = build()
+    x = torch.randn(2, 7, HID)
+    g = attach_gate(layers, [1, 2], "g2_literal", **DIMS)
+    run(layers, x)
+    assert g.mean_scores(), "no stats before reset"
+    g.reset_stats()
+    assert not g.mean_scores(), "reset_stats did not clear"
+    run(layers, x)
+    ms = g.mean_scores()
+    assert set(ms) == {1, 2}, f"stats lost after reset_stats: {ms}"
+    assert "no forwards recorded" not in g.stats_line()
+    g.remove()
+    print("ok  gate stats keep recording across reset_stats()")
+
+
 def test_state_roundtrip() -> None:
     layers = build()
     x = torch.randn(2, 7, HID)
@@ -176,6 +195,7 @@ def main() -> int:
     test_identity_at_init()
     test_shapes()
     test_gradient_reaches_w()
+    test_stats_survive_reset()
     test_state_roundtrip()
     test_gate_is_attenuating_only()
     print("\nALL GATING TESTS PASSED")

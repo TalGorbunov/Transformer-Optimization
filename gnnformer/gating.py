@@ -108,7 +108,11 @@ class Gate:
         }
 
     def reset_stats(self) -> None:
-        self._stats = {}
+        # clear() and NOT `self._stats = {}` — the hooks close over THIS dict object, so
+        # rebinding orphans it and every subsequent gate score is written somewhere
+        # mean_scores() can never see it ("gate: no forwards recorded" for a gate that was
+        # in fact training fine — caught in the 2026-08-07 P3 smokes).
+        self._stats.clear()
 
     def mean_scores(self) -> Dict[int, float]:
         """Mean gate score per layer since the last reset ({} if no forward ran)."""
