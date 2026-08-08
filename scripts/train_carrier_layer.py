@@ -168,6 +168,14 @@ def main() -> int:
     ap.add_argument("--gate-b0", type=float, default=2.0,
                     help="identity-init bias: g = sigmoid(xW+b)/sigmoid(b). Do NOT use "
                          "6.0 (sigma'(6)=0.0025, the gate cannot learn in our budget)")
+    ap.add_argument("--select-metric", choices=("count", "tf_exact"), default="count",
+                    help="checkpoint selection. 'count' (default, unchanged) is the "
+                         "legacy lexicographic (TF-count acc, tf-exact). Use 'tf_exact' "
+                         "when TF-count is SATURATED: with every arm at 0.98-0.999 the "
+                         "legacy rule is decided by a few samples of noise in a ceiling-"
+                         "bound metric, and can discard a far better transcript ckpt "
+                         "(2026-08-08: the gating arm3 g2_literal run kept ep1 tf-exact "
+                         "0.403 over ep5 0.936)")
     ap.add_argument("--gate-only", action="store_true",
                     help="train the gate alone: LoRA stays attached at its B=0 init "
                          "(bit-identical to absent) so the ckpt schema is unchanged, but "
@@ -378,8 +386,14 @@ def main() -> int:
              f"gate_only={args.gate_only}) ===",
              f"ep0 acc {acc0:.3f} mae {mae0:.2f} [{pt0}]"]
     # model selection: (TF-count acc, tf-exact) lexicographic — TF-count saturates early
-    # and acc-only selection picked weaker-transcript ckpts (2026-07-21 lesson)
-    best = ((acc0, ex0), 0)
+    # and acc-only selection picked weaker-transcript ckpts (2026-07-21 lesson).
+    # --select-metric tf_exact inverts the key for the case where TF-count is so saturated
+    # that the lexicographic rule is decided by noise (see the flag's help).
+    def sel_key(a: float, e: float):
+        return (e, a) if args.select_metric == "tf_exact" else (a, e)
+
+    best = (sel_key(acc0, ex0), 0)
+    best_pair = (acc0, ex0)
     for ep in range(1, args.epochs + 1):
         rng.shuffle(tr_idx)
         tot = 0.0
@@ -423,16 +437,25 @@ def main() -> int:
         lines.append(f"ep{ep} loss {tot/len(tr_idx):.4f} acc {acc:.3f} mae {mae:.2f} [{pts}]")
         if gline:
             lines.append(f"ep{ep} {gline}")
-        if (acc, ex) > best[0]:
-            best = ((acc, ex), ep)
+        extra_ck = {"gate": gate.state(), "gate_only": args.gate_only} if gate else {}
+        common = dict(e_c=e_c, lora=lora, epoch=ep, acc=acc, scratchpad=args.scratchpad,
+                      scratchpad_format=args.scratchpad_format,
+                      running_tally=args.running_tally, pos_couple=args.pos_couple,
+                      jitter_gap=args.jitter_gap, truncate_at=args.truncate_at)
+        # ALWAYS keep the last epoch too: `best` overwrites one file, so a selection rule
+        # that peaks early makes the later (often far better) weights unrecoverable
+        # without a full re-run — which is exactly what cost the gating campaign arm 3.
+        save_carrier_layer_ckpt(out / "carrier_layer_last.pt", tf_exact=ex, **common,
+                                **extra_ck)
+        if sel_key(acc, ex) > best[0]:
+            best = (sel_key(acc, ex), ep)
+            best_pair = (acc, ex)
             save_carrier_layer_ckpt(
-                out / "carrier_layer_best.pt", e_c=e_c, lora=lora, epoch=ep, acc=acc,
-                scratchpad=args.scratchpad, scratchpad_format=args.scratchpad_format,
-                running_tally=args.running_tally, pos_couple=args.pos_couple,
-                jitter_gap=args.jitter_gap, truncate_at=args.truncate_at,
-                **({"gate": gate.state(), "gate_only": args.gate_only} if gate else {}))
-    lines.append(f"BEST acc {best[0][0]:.3f} (tf-exact {best[0][1]:.3f}) @ ep {best[1]} "
+                out / "carrier_layer_best.pt", tf_exact=ex, **common, **extra_ck)
+    lines.append(f"BEST acc {best_pair[0]:.3f} (tf-exact {best_pair[1]:.3f}) @ ep {best[1]} "
                  f"(scaffold 0.998; frozen 0.219)")
+    lines.append(f"LAST acc {acc:.3f} (tf-exact {ex:.3f}) @ ep {args.epochs} "
+                 f"-> carrier_layer_last.pt (select-metric={args.select_metric})")
     (out / "report.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines[-2:]))
     print("wrote", out)
