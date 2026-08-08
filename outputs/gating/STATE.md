@@ -363,6 +363,49 @@ help", not as evidence about G2.
 tidies interference in a regime the method already solves" while the capacity wall at high
 N is untouched. P3.5's high-N grid is the experiment that separates these.
 
+### INTERIM — epoch 2, and a reframing of the campaign's central question
+
+| arm | trains | position | gate scores/token | layers | acc | tf-exact ep1→ep2 |
+|---|---|---|---|---|---|---|
+| 1 · LoRA control | LoRA | — | — | — | 0.996 | 0.331 → **0.938** |
+| 2 · `g1_headwise` | gate | G1 | 28 | 16 | 0.994 | 0.279 → 0.318 |
+| 3 · `g2_literal` | gate | **G2** | 512 | 16 | 0.997 | 0.403 → 0.516 |
+| 4 · `g1_elementwise` @L12 | gate | G1 | 3584 | **1** | 0.993 | 0.357 → **0.604** |
+| 5 · `g2_literal` + LoRA | both | G2 | 512 | 16 | 0.998 | 0.909 → 0.991 |
+
+Two things changed the reading, both away from the epoch-1 story:
+
+**1. The split is LoRA-vs-gate, not G1-vs-G2.** Only the LoRA-bearing arms reach high
+tf-exact (0.938, 0.991); both gate-only arms stalled far below (0.318, 0.516) even as the
+control leapt 0.331 → 0.938. Meanwhile ALL arms sit at 0.993–0.998 on count accuracy.
+So: **a gate alone drives the tally as well as LoRA does, but cannot produce the
+transcript.** That is exactly what attenuation-only predicts — a multiplicative mask in
+(0,1) can suppress what the readout sees but cannot write new token-level behaviour, which
+the caption scratchpad requires and LoRA's additive update supplies.
+
+**2. "G2 > G1" does NOT survive arm 4 — the ordering is GRANULARITY, not position.**
+A G1 variant (`g1_elementwise`, 0.604) now beats the G2 arm (0.516). tf-exact is perfectly
+monotone in gate scores per token:
+
+    28 (g1_headwise) -> 512 (g2_literal) -> 3584 (g1_elementwise)
+    0.318            -> 0.516            -> 0.604
+
+⚠ **The brief's design confounds position with granularity and contains no cell that
+separates them.** Its G1 arm is head-wise (28 scores) and its G2 arm is forced to 512 by
+GQA (`v_proj` is KV-width). Any G1-vs-G2 claim from P3 as designed is therefore
+uninterpretable as a *position* result. Note also arm 4 achieves the best gate-only score
+gating a SINGLE layer (L12, the aggregation point) against arm 3's sixteen — per-token
+expressiveness at the aggregation layer beats depth of coverage.
+
+**Consequence for P4:** its rationale ("gating after `repeat_kv` gives the only variant
+both inside the sum AND head-specific") assumes position is the operative axis. On this
+evidence granularity is. A re-scoped P4 should hold granularity fixed and vary position —
+e.g. a 3584-score G1 vs a 3584-score G2-expanded at the same layer — otherwise it will
+re-measure granularity a third time. To raise with Tal at the P4 gate.
+
+Hold all of this loosely until epoch 5: arm 2's ordering already flipped sign between the
+smoke and epoch 1, and again between epoch 1 and epoch 2.
+
 **Operational note for P3.5:** the high-N grid must run in `tf` mode. `eval_gated` only
 builds attention masks when mode ≠ `tf`; at N=128 the sequence is ~25 k tokens, so a dense
 seq² mask is ~1.25 GB per record and ~2.5 GB fp32 on GPU in the decode path. TF mode skips
