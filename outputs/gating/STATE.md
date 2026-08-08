@@ -18,7 +18,7 @@ gain is evidence for *interference*, not *capacity*.
 | P0 1B text triple | **done** | 129124 | `p0_text_triple/20260807_212129_129124` | yes | G1-headwise raises tally decodability (R²) consistently but modestly; gain does NOT grow with N |
 | P1 sink diagnostic 7B | **done** | 129133 (129125/129126 died on mask dtype) | `p1_sink_7b/20260807_214956_129133` | **gate NOT met** | our 7B has essentially no sink (F-Attn ≤ 0.05 everywhere); P3 is now a falsification, not a hope |
 | P2 gating.py + CPU tests | **done** | — (CPU) | `gnnformer/gating.py`, `tests/test_gating.py` | yes | all 6 suites green |
-| P3 main ablation N=8 | smokes running | 129127–129132 | `outputs/_scratch/gating_smoke/` | | |
+| P3 main ablation N=8 | **arms done; gate PASSED**; arms 2+3 re-running | 129144–7, 129152; v2 129722–3 | `p3_arms/`, `p3_arms_v2/` | arm 1 = 0.999/0.996 = anchor ✓ | see below — the split is LoRA-vs-gate, and the arm design confounds 4 factors |
 | P3.5 discriminator | evaluator validated; **grid redesigned** | 129156 (smoke) | `outputs/_scratch/gating_eval_smoke/` | — | the brief's N≤8 grid is SATURATED (tf_acc 1.000 everywhere); moved to tf_exact + a high-N grid |
 | P4 G2-expanded + N-transfer | **gated — ask Tal** | | | | |
 | P5 verdict & figures | not started | | | | |
@@ -410,6 +410,73 @@ smoke and epoch 1, and again between epoch 1 and epoch 2.
 builds attention masks when mode ≠ `tf`; at N=128 the sequence is ~25 k tokens, so a dense
 seq² mask is ~1.25 GB per record and ~2.5 GB fp32 on GPU in the decode path. TF mode skips
 masks entirely and caches only h at L\* (~180 MB/sample).
+
+---
+
+## P3 — FINAL (5 arms, jobs 129144–7 + 129152, ~12.5 h each on L40S)
+
+### The phase gate PASSED
+
+**Arm 1 = `BEST acc 0.999 (tf-exact 0.996) @ ep 5`** against the anchor's ~0.999 / ~0.99.
+The OFF-by-default trainer edit is inert and every downstream comparison rests on a
+validated control. All four gated arms had live, non-saturated gates — no arm is VOID.
+
+### Per-epoch tf-exact (the metric with dynamic range; count acc is 0.982–0.999 throughout)
+
+| arm | ep1 | ep2 | ep3 | ep4 | ep5 | selected |
+|---|---|---|---|---|---|---|
+| 1 · LoRA control | 0.331 | 0.938 | 0.982 | 0.988 | **0.996** | ep5 |
+| 2 · `g1_headwise` (28/tok) | 0.279 | 0.318 | 0.324 | 0.348 | 0.464 | ep4 ⚠ |
+| 3 · `g2_literal` (512/tok) | 0.403 | 0.516 | 0.774 | 0.896 | **0.936** | **ep1** ⚠⚠ |
+| 4 · `g1_elementwise` (3584/tok, L12 only) | 0.357 | 0.604 | 0.775 | 0.846 | **0.873** | ep5 |
+| 5 · `g2_literal` + LoRA | 0.909 | 0.991 | 0.994 | 0.989 | 0.995 | ep3 |
+
+### What P3 actually establishes
+
+1. **Adding a gate to LoRA buys convergence speed and nothing else.** Arm 5's margin over
+   the control: **+0.578 → +0.053 → +0.012 → +0.001 → −0.001** across epochs. Final
+   selected 0.994 vs the control's 0.996. Reading epoch 1 (or the smokes) would have
+   claimed a large gain that is purely an artifact of partial convergence. **This is
+   verdict (b)** for the gate+LoRA comparison.
+2. **Count accuracy — the aggregation-sensitive metric — is 0.982–0.999 for EVERY arm**,
+   including the gate-only ones. Gating neither helps nor hurts the tally at N≤8.
+   The arms separate only on transcript fidelity, i.e. not on aggregation at all.
+3. **28 gate scores per token is below a usable threshold** (arm 2 tops out at 0.464 with
+   loss stuck at 0.05 vs the control's 0.0001); ≥512 works.
+4. **Gate-only arms stay below the additive LoRA baseline** (0.936 / 0.873 vs 0.996).
+
+### ⚠ What P3 CANNOT establish — the arm design confounds four factors
+
+Position (G1/G2), granularity (28/512/3584 scores per token), depth (1 vs 16 layers) and
+parameter count (1.6 M–29 M) all vary together, and **no two arms differ in exactly one
+factor**. The gate-only ordering flipped at nearly every epoch (G2>G1 at ep1, monotone in
+granularity at ep2, tied at ep3, G2>G1 at ep4/5), which is what an underdetermined design
+looks like. **P3 as specified cannot support a G1-vs-G2 *position* claim**, and the
+campaign's headline question is not answerable from it. Also note arm 4 reaches 0.873
+gating a SINGLE layer against arm 3's sixteen.
+
+### ⚠⚠ Model-selection defect (found 2026-08-08, fixed, arms 2+3 re-running)
+
+Selection is lexicographic on (TF-count acc, tf-exact). TF-count is **saturated**, so the
+rule is decided by a few samples out of 4386 of noise:
+
+* **arm 3 kept its ep1 checkpoint (tf-exact 0.403) over ep5 (0.936)** because ep1's count
+  acc was 0.9984 vs 0.997 — about 4 samples. Since `best` overwrites one file, the ep5
+  weights were **unrecoverable**.
+* arm 2 kept ep4 (0.348) over ep5 (0.464).
+* Arms 1/4/5 selected ep5/ep5/ep3 and are unaffected.
+
+Running P3.5 on those files would have compared **arm 3 at epoch 1 against arm 1 at epoch
+5** — and arms 2+3 are exactly the G1-vs-G2 gate-only pair. Fix (commit `0f0045c`):
+`--select-metric {count,tf_exact}` (default `count`, bit-identical to before) plus
+**`carrier_layer_last.pt` is now ALWAYS written**, so an early-peaking selection can never
+again make the final weights unrecoverable. Verified on arm 3's real per-epoch numbers:
+`count`→ep1 (0.403), `tf_exact`→ep5 (0.936). Arms 2+3 re-running as jobs 129722/129723
+into `p3_arms_v2/` (Tal approved the targeted re-run, 2026-08-08). P3.5 for arms 1/4/5
+runs in parallel so the re-run costs no calendar time.
+
+Same root cause as the P3.5 saturation catch: **the TF-count metric cannot bear the weight
+this campaign puts on it.**
 
 ---
 

@@ -9,7 +9,7 @@
 # P3 of the gating campaign: one ablation arm of the production carrier trainer.
 # Same recipe as slurm/train_carrier_layer.sbatch (caption / running-tally / jitter 16 /
 # grad-ckpt / L*=12) plus the OFF-by-default gate flags. GATE=none reproduces the anchor.
-# Knobs: GATE GATE_LAYERS GATE_LR GATE_B0 GATE_ONLY ROOTS_FILE LIMIT EPOCHS SEED OUTPUT
+# Knobs: GATE GATE_LAYERS GATE_LR GATE_B0 GATE_ONLY SELECT_METRIC ROOTS_FILE LIMIT EPOCHS SEED OUTPUT
 # NOTE: every partition defaults to a 2h walltime -- always submit with an explicit --time.
 source "${SLURM_SUBMIT_DIR:-.}/slurm/lib/common.sh"
 OUTPUT="${OUTPUT:-outputs/gating/p3_arms/${GATE:-none}}/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}"
@@ -22,6 +22,7 @@ run_logged "$OUTPUT" python -u scripts/train_carrier_layer.py \
   --jitter-gap "${JITTER:-16}" --grad-ckpt \
   --l-open "${L_OPEN:-12}" --limit "${LIMIT:-900}" --epochs "${EPOCHS:-5}" \
   --seed "${SEED:-0}" --split-seed "${SPLIT_SEED:-0}" \
+  ${SELECT_METRIC:+--select-metric "$SELECT_METRIC"} \
   --gate "${GATE:-none}" --gate-layers "${GATE_LAYERS:-open}" \
   --gate-lr "${GATE_LR:-3e-4}" --gate-b0 "${GATE_B0:-2.0}" \
   ${GATE_ONLY:+--gate-only} \
