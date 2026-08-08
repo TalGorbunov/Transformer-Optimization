@@ -322,6 +322,52 @@ byte-identical train/eval split.
 
 Run dirs: `outputs/gating/p3_arms/<arm>/<stamp>_<jobid>/`.
 
+### INTERIM — epoch 1 of 5 (all five arms; not the verdict)
+
+Prep verified at exactly the predicted size: n=8772, **cache 169.2 GB** (estimate was
+169 GB), identical gold histogram in every arm — `--split-seed 0` gives a byte-identical
+split, so cross-arm deltas are clean. Measured epoch cost 7476–7701 s → ≈ 12.4 h/arm
+total, better than the 20 h L40S estimate.
+
+| arm | trainable | acc | tf-exact | Δ tf-exact vs control | gate span @ep1 |
+|---|---|---|---|---|---|
+| 1 · LoRA control | 2.9 M | 0.992 | 0.331 | — | (no gate) |
+| 2 · `g1_headwise` | 1.6 M | 0.990 | **0.279** | **−0.052** | 0.717–0.879 |
+| 3 · `g2_literal` | 29 M | 0.998 | **0.403** | **+0.072** | 0.767–0.881 |
+| 4 · `g1_elementwise` @L12 | 12.8 M | 0.983 | 0.357 | +0.026 | 0.664 (single layer) |
+| 5 · `g2_literal` + LoRA | 32 M | 0.999 | 0.909 | +0.578 | 0.767–0.895 |
+
+**Arm 1 hits acc 0.992 at epoch 1** — already in the anchor band, which is the strongest
+evidence so far that the OFF-by-default trainer edit is genuinely inert.
+
+**Every gated arm has a live gate; none is VOID.** All four learned the same shape:
+attenuation is weakest around L15 and deepens toward L24–27 — the same band where P1 found
+the carriers' late-layer sink onset. Suggestive, not yet load-bearing.
+
+**G2 > G1 holds at full scale**, and G1 is *below* the LoRA control. That is the inversion
+of the paper's language-modelling ranking, and the direction this campaign predicted (only
+a write-side gate can act on aggregation). Note this contradicts the smoke ranking for
+arm 2, which had G1 above control — 5× more data changed the sign, so the smokes were not
+predictive and were right not to be trusted.
+
+⚠ **What this does NOT establish.** `g2_literal` carries 10× the control's trainable
+parameters, so arm 3 > arm 1 may be capacity rather than position. Arm 2 vs arm 3 differs
+by 17× in the other direction, so it does not isolate position either. **No clean
+parameter-matched G1-vs-G2 comparison exists in the current design** — it would need e.g.
+`g1_elementwise` across L12–27 (≈206 M) or a rank-constrained G2. Any claim of a position
+effect must state this. Arm 5 is confounded by construction (gate + LoRA = strictly more
+capacity than any other arm) and is only interpretable as "does adding a gate to LoRA
+help", not as evidence about G2.
+
+⚠ **Still unreconciled with P0/P1.** A position effect at N≤8 is compatible with "gating
+tidies interference in a regime the method already solves" while the capacity wall at high
+N is untouched. P3.5's high-N grid is the experiment that separates these.
+
+**Operational note for P3.5:** the high-N grid must run in `tf` mode. `eval_gated` only
+builds attention masks when mode ≠ `tf`; at N=128 the sequence is ~25 k tokens, so a dense
+seq² mask is ~1.25 GB per record and ~2.5 GB fp32 on GPU in the decode path. TF mode skips
+masks entirely and caches only h at L\* (~180 MB/sample).
+
 ---
 
 ## P3.5 — evaluator validated, and the brief's grid had to be redesigned
