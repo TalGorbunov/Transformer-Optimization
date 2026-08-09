@@ -480,6 +480,74 @@ this campaign puts on it.**
 
 ---
 
+## ⚠⚠⚠ THE HEADLINE METRIC IS LARGELY A COPY DETECTOR (2026-08-09, Tal's challenge)
+
+Tal flagged the LoRA control's 0.965 count accuracy on the held-out N=128 root as
+implausible. It is. **The caption scratchpad carries a RUNNING TALLY, and the final answer
+is always a verbatim copy of the last tally value already in the transcript** — verified
+120/120 on N=128:
+
+    scan: f1:- f2:Kitchen(1) f3:Kitchen(2) ... f7:Kitchen(5) f8:- | total: 5 END
+                                        ^^^                            ^ same number
+
+Under teacher forcing the model is FED that transcript and only predicts ` G END`. So a
+pure copier scores 1.000 without aggregating anything.
+
+**Decisive test** (`scripts/gating/probe_tally_copy.py`, job 129886): shift every running
+tally by +3, leave the gold `total:` alone. A counter ignores the corruption and still
+says gold; a copier follows the tally and says gold+3.
+
+| root | n | clean acc | predicts **gold** (counts) | predicts **gold+3** (copies) |
+|---|---|---|---|---|
+| N=8 | 40 | 1.000 | 0.125 | **0.600** |
+| N=32 | 40 | 1.000 | **0.000** | **0.850** |
+| N=128 | 40 | 0.975 | 0.050 | **0.650** |
+
+**At N=32 the LoRA control produces the true count 0% of the time and follows the
+corrupted tally 85% of the time.** `tf_acc` — the trainer's headline `acc`, the P3 arm
+comparison, and every P3.5 grid — is substantially measuring copy ability, not counting.
+
+### Scope of the damage
+
+| phase | readout | affected? |
+|---|---|---|
+| P0 (1B triple) | ridge probe on hidden states | **clean** |
+| P1 (sink) | attention statistics only | **clean** |
+| P3 (ALL five arms incl. G1 and G2) | teacher-forced caption scratchpad | **affected** |
+| P3.5 (all grids) | same, `MODE=tf` | **affected** |
+
+It hits every arm identically, so cross-arm *relative* comparisons degrade less than the
+absolute numbers — but the count metric had no resolution anyway (0.982–0.999 everywhere).
+
+### The deeper problem, which is not fixable by changing the metric alone
+
+**The caption scratchpad exists precisely to BYPASS in-model aggregation.** It converts
+"aggregate N messages" into "per frame, decide evidence and increment a *visible*
+counter". That is why THE METHOD works. Consequently neither teacher-forced metric probes
+the aggregation bottleneck:
+
+* `tf_acc` → copy the last tally;
+* `tf_exact` → per-frame evidence detection + increment from a visible prefix.
+
+Neither requires holding N messages in the residual stream. **We were testing whether
+gating relieves an aggregation bottleneck using a method engineered to avoid that
+bottleneck.** This, not the copying, is the primary reason P3/P3.5 could not detect an
+aggregation effect either way.
+
+### Fix for any future gating claim
+
+1. **Digit readout** (`--scratchpad` off): the model emits the count directly from the
+   aggregated state — nothing to copy. Anchors: frozen 0.219, scaffold 0.998. Constraint:
+   `digit_ids` are single tokens "0".."9" and the trainer skips `gold > 9`, so it caps at
+   counts ≤ 9 (fine for N≤8; needs a multi-digit head for long N).
+2. **Free-decode exam** (`MODE=decode`): the model generates its own scan, so the tally is
+   its own. This is the anchor's metric (N=32 exam 0.987). Costly at long N without
+   `--truncate-at`.
+3. Report `tf_exact`, never `tf_acc`, if teacher forcing is used at all.
+4. Run `probe_tally_copy.py` alongside any scratchpad metric to quantify copy reliance.
+
+---
+
 ## P3.5 — evaluator validated, and the brief's grid had to be redesigned
 
 Smoke: job 129156, `outputs/_scratch/gating_eval_smoke/20260807_231110_129156/`, running

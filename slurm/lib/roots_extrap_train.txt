@@ -1,0 +1,11 @@
+# EXTRAPOLATION TRAINING MIXTURE: lengths 8 and 16 ONLY.
+# Same task composition as roots_inlength.txt (steps / cooc / rooms / which / union) so
+# that LENGTH is the only thing removed -- every root with N in {2..7, 32, 48, 64} is
+# dropped. Test lengths 32 / 64 / 128 are then all genuinely out-of-distribution, giving
+# an 8x extrapolation range instead of the 2x the main campaign could offer.
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_cooc_balanced/seq_len_8/all_uniform
+data/mmred_rooms_balanced/seq_len_8/all_uniform
+data/mmred_niah_which/seq_len_8/all_uniform
+data/mmred_union_or/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform
