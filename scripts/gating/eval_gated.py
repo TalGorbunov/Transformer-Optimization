@@ -87,8 +87,14 @@ def main() -> int:
                          "capacity")
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--shuffle-dirs", type=int, default=0, metavar="SEED")
-    ap.add_argument("--mode", choices=("tf", "decode", "both"), default="tf")
+    ap.add_argument("--mode", choices=("tf", "decode", "both", "digit"), default="tf")
     ap.add_argument("--decode-tokens", type=int, default=320)
+    ap.add_argument("--digit-free", action="store_true",
+                    help="digit mode: ALSO run a free-running greedy digit decode (no "
+                         "teacher forcing anywhere). Needs masks, so it costs a few full "
+                         "forwards per sample -- affordable up to about N=64")
+    ap.add_argument("--digit-tokens", type=int, default=4,
+                    help="max digits to decode in --digit-free (4 covers counts to 999)")
     ap.add_argument("--fast-decode", action="store_true",
                     help="cached incremental decode (16-311x). Safe with a gate: "
                          "decode_fast re-runs every layer over [cache || appended], so "
@@ -185,11 +191,38 @@ def main() -> int:
                 continue
             task, evid, aux = parsed
             rec = eng.prepare_sample(frames, q0, gold=gold, task=task, resize=args.resize,
-                                     with_masks=(args.mode != "tf"))
+                                     with_masks=args.mode in ("decode", "both") or (args.mode == "digit" and args.digit_free))
             if rec is None:
                 n_skip += 1
                 continue
             ok_tf = ok_ex = ok_dec = None
+            if args.mode == "digit":
+                # THE CLEAN AGGREGATION PROBE: no scratchpad, no transcript, nothing in
+                # the context contains the answer, so unlike the caption readout this
+                # cannot be solved by copying. The target is the number's digit sequence
+                # (Qwen splits 128 -> '1','2','8'), so ANY count works, not just 0-9.
+                tgt_ids = tok(str(gold), add_special_tokens=False).input_ids + [tok.eos_token_id]
+                d = eng.build_training_cache(rec, tgt_ids)
+                ak = len(tgt_ids)
+                with torch.no_grad():
+                    hs = eng.top_hidden(d)
+                    lg = eng.head(hs[0, d["seq"] - 1 : d["seq"] + d["e"] - 1])
+                preds = lg.argmax(-1).tolist()
+                ok_tf = ok_ex = (preds[-ak:-1] == d["tgt"][-ak:-1])
+                ptxt = tok.decode(preds[-ak:-1]).strip()
+                tf_hits += int(ok_tf)
+                tf_exact += int(ok_ex)
+                mae += abs(int(ptxt) - gold) if ptxt.lstrip("-").isdigit() else gold
+                del d, hs, lg
+                if args.digit_free:
+                    # free-running greedy digit decode: no teacher forcing at all, so the
+                    # model must produce every digit itself (engine.decode_answer stops at
+                    # the first non-digit and parses the int)
+                    with torch.no_grad():
+                        val, _fd = eng.decode_answer(rec, decode_tokens=args.digit_tokens)
+                    ok_dec = val == gold
+                    dec_hits += int(ok_dec)
+                    dec_parse_fail += int(val is None)
             if args.mode in ("tf", "both"):
                 tgt_str = build_caption_target(fmt, running_tally, task, q0, states, evid,
                                                aux, gold, len(frames))
@@ -237,11 +270,13 @@ def main() -> int:
             print(f"[warn] no usable samples in {root}", flush=True)
             continue
         row = {"root": root, "n": n, "skip": n_skip,
-               "tf_acc": tf_hits / n if args.mode != "decode" else float("nan"),
-               "tf_exact": tf_exact / n if args.mode != "decode" else float("nan"),
-               "dec_acc": dec_hits / n if args.mode != "tf" else float("nan"),
+               "digit_acc": tf_hits / n if args.mode == "digit" else float("nan"),
+               "tf_acc": tf_hits / n if args.mode in ("tf", "both") else float("nan"),
+               "tf_exact": tf_exact / n if args.mode in ("tf", "both") else float("nan"),
+               "dec_acc": (dec_hits / n if args.mode in ("decode", "both")
+                           or (args.mode == "digit" and args.digit_free) else float("nan")),
                "parse_fail": dec_parse_fail / n if args.mode != "tf" else float("nan"),
-               "mae": mae / max(dec_hits or n, 1) if args.mode != "tf" else float("nan"),
+               "mae": mae / max(n, 1) if args.mode != "tf" else float("nan"),
                "gold_mean": float(np.mean([g for g, v in per_gold.items() for _ in range(v[1])])),
                "gate_mean": (float(np.mean(list(gate.mean_scores().values())))
                              if gate is not None and gate.mean_scores() else float("nan")),
@@ -254,8 +289,10 @@ def main() -> int:
             print(f"[exactness] {root}: decode_fast token-identical to decode_scratchpad "
                   f"on {len(exact_checks)-len(bad)}/{len(exact_checks)}"
                   + (f" MISMATCH at {bad}" if bad else ""), flush=True)
-        print(f"[root] {root}: n={n} tf_acc {row['tf_acc']:.3f} tf_exact {row['tf_exact']:.3f} "
-              f"dec {row['dec_acc']:.3f} gate_mean {row['gate_mean']:.4f}", flush=True)
+        print(f"[root] {root}: n={n} skip={n_skip} digit {row['digit_acc']:.3f} "
+              f"tf_acc {row['tf_acc']:.3f} tf_exact {row['tf_exact']:.3f} "
+              f"dec {row['dec_acc']:.3f} mae {row['mae']:.2f} "
+              f"gate_mean {row['gate_mean']:.4f}", flush=True)
 
     lora.remove()
     if gate is not None:
@@ -267,12 +304,12 @@ def main() -> int:
         w.writerows(rows)
     lines = [f"=== GATED EVAL (ckpt={args.ckpt}, mode={args.mode}, limit={args.limit}, "
              f"gate={'none' if gate is None else gate.variant}) ===",
-             f"{'root':<62} {'n':>4} {'tf_acc':>7} {'tf_exact':>9} {'dec_acc':>8} "
-             f"{'pfail':>6} {'gold_mu':>8} {'gate_mu':>8}"]
+             f"{'root':<58} {'n':>4} {'skip':>5} {'digit':>7} {'tf_acc':>7} {'tf_exact':>9} "
+             f"{'dec':>6} {'mae':>6} {'gold_mu':>8} {'gate_mu':>8}"]
     for r in rows:
-        lines.append(f"{r['root']:<62} {r['n']:>4} {r['tf_acc']:>7.3f} {r['tf_exact']:>9.3f} "
-                     f"{r['dec_acc']:>8.3f} {r['parse_fail']:>6.3f} {r['gold_mean']:>8.2f} "
-                     f"{r['gate_mean']:>8.4f}")
+        lines.append(f"{r['root']:<58} {r['n']:>4} {r['skip']:>5} {r['digit_acc']:>7.3f} "
+                     f"{r['tf_acc']:>7.3f} {r['tf_exact']:>9.3f} {r['dec_acc']:>6.3f} "
+                     f"{r['mae']:>6.2f} {r['gold_mean']:>8.2f} {r['gate_mean']:>8.4f}")
     (out / "report.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     (out / "ABOUT.md").write_text(

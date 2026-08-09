@@ -168,6 +168,14 @@ def main() -> int:
     ap.add_argument("--gate-b0", type=float, default=2.0,
                     help="identity-init bias: g = sigmoid(xW+b)/sigmoid(b). Do NOT use "
                          "6.0 (sigma'(6)=0.0025, the gate cannot learn in our budget)")
+    ap.add_argument("--digit-multi", action="store_true",
+                    help="DIGIT readout for ANY count, not just 0-9. The legacy digit path "
+                         "does one-position argmax over the single tokens '0'..'9', so it "
+                         "skips gold>9; Qwen splits numbers into digit tokens (128 -> "
+                         "'1','2','8'), so the answer is a short digit SEQUENCE. This "
+                         "trains CE on that sequence. There is still no scratchpad and "
+                         "nothing in the context contains the answer, so unlike the "
+                         "caption readout it cannot be solved by copying")
     ap.add_argument("--select-metric", choices=("count", "tf_exact"), default="count",
                     help="checkpoint selection. 'count' (default, unchanged) is the "
                          "legacy lexicographic (TF-count acc, tf-exact). Use 'tf_exact' "
@@ -188,6 +196,13 @@ def main() -> int:
         if args.pos_couple:
             raise SystemExit("--pos-couple is poslist-only")
     if args.running_tally:
+        args.scratchpad = True
+    if args.digit_multi:
+        # reuse the teacher-forced target machinery, but the target is JUST the number --
+        # no scan, no tally, nothing to copy.
+        if args.scratchpad or args.scratchpad_format != "poslist":
+            raise SystemExit("--digit-multi is a no-scratchpad readout; drop "
+                             "--scratchpad/--running-tally/--scratchpad-format")
         args.scratchpad = True
     if args.truncate_at is not None and args.truncate_at != args.l_open:
         raise SystemExit(f"--truncate-at must equal --l-open, got {args.truncate_at} vs {args.l_open}")
@@ -279,7 +294,9 @@ def main() -> int:
                     n_skip += 1
                     continue
                 task, evid, aux = parsed
-                if args.scratchpad:
+                if args.digit_multi:
+                    tgt_str = str(gold)  # the whole target IS the answer
+                elif args.scratchpad:
                     if args.scratchpad_format != "poslist":
                         labels = (frame_attr_labels(task, q0, states, evid)
                                   if (args.scratchpad_format in ("caption", "chunked") or task == "rooms")
@@ -305,14 +322,18 @@ def main() -> int:
             d = eng.build_training_cache(rec, tgt_ids, anch=anch,
                                          truncate=args.truncate_at is not None)
             # readout slice at the tail of tgt_ids (count tokens + EOS)
-            if args.scratchpad_format == "poslist":
-                ans_sfx = f" {gold}"
-            elif args.task == "mmred_hf":
-                ans_sfx = " " + tgt_str.rsplit(": ", 1)[-1]  # value END after the anchor
+            if args.digit_multi:
+                # the whole target is the answer, so every token is a readout token
+                d["ans_k"] = len(tgt_ids)
             else:
-                ans_sfx = f" {gold} END"
-            d["ans_k"] = (len(tok(ans_sfx, add_special_tokens=False).input_ids) + 1
-                          if tgt_ids else 0)
+                if args.scratchpad_format == "poslist":
+                    ans_sfx = f" {gold}"
+                elif args.task == "mmred_hf":
+                    ans_sfx = " " + tgt_str.rsplit(": ", 1)[-1]  # value END after the anchor
+                else:
+                    ans_sfx = f" {gold} END"
+                d["ans_k"] = (len(tok(ans_sfx, add_special_tokens=False).input_ids) + 1
+                              if tgt_ids else 0)
             if args.task == "mmred_hf" and args.scratchpad and args.verdict_weight != 1.0:
                 d["w"] = verdict_weights(tgt_str, tgt_ids, tok, args.verdict_weight)
             d["sd"] = str(sd)
