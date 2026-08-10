@@ -8,12 +8,26 @@ pre-normalization*. In a Qwen2/Qwen2.5-VL decoder layer that is exactly the inpu
 `self_attn` (the layer applies `input_layernorm` before calling it), so X is taken from a
 pre-hook on `self_attn` and never re-normalized.
 
-Positions (their numbering):
+Positions (their numbering), all five implemented:
   G1  after SDPA, before o_proj — gates what the QUERY reads out of the collapsed sum
   G2  on the value path        — gates what each SOURCE token writes into the sum
+  G3  on the key path          — gates how attractive each source token is to attend to
+  G4  on the query path        — gates what the reader matches on
+  G5  after o_proj             — gates the whole attention block's contribution
 
-Only G2 can act on over-squashing; G1 filters an already-collapsed aggregate. That is the
-whole point of the ablation this module exists for.
+G1/G2/G5 only rescale outputs or values: they cannot change WHICH tokens are attended to,
+because a layer's output gate cannot alter that same layer's attention weights. **G3 and
+G4 can** — keys and queries feed q.k, so gating them reshapes the softmax itself. G3 in
+particular lets an irrelevant source token suppress its own attractiveness, which reduces
+effective fan-in, and is therefore the one position that could plausibly act on a
+CAPACITY-shaped bottleneck rather than an interference-shaped one. The paper found G3/G4/G5
+worthless for LM loss (6.016 / 5.981 / 6.017 vs 6.026 baseline); that says nothing about
+an aggregation-limited task.
+
+Granularity is confounded with position unless you group by it — these are the
+granularity-matched comparisons the arm design otherwise cannot make:
+    512 scores/token : g2_literal (value)  vs  g3_key (key)
+   3584 scores/token : g1_elementwise (post-SDPA) vs g4_query vs g5_output
 
 Variants (Qwen2.5-VL-7B: hidden 3584, 28 q heads, 4 kv heads, head_dim 128):
 
@@ -46,8 +60,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 import torch
 import torch.nn as nn
 
-GATE_VARIANTS = ("g1_headwise", "g1_headshared", "g1_elementwise", "g2_literal")
+GATE_VARIANTS = ("g1_headwise", "g1_headshared", "g1_elementwise", "g2_literal",
+                 "g3_key", "g4_query", "g5_output")
 DEFAULT_GATE_B0 = 2.0
+
+# Which module each variant hooks, and whether the gate reads that module's OWN input
+# (which is already X) or needs X stashed from the attention pre-hook.
+#   g2/g3/g4 hook v_proj/k_proj/q_proj — their input IS X, so they are self-contained.
+#   g1 gates o_proj's INPUT (the SDPA output); g5 gates o_proj's OUTPUT. Both need the stash.
+_SELF_INPUT_HOOK = {"g2_literal": "v_proj", "g3_key": "k_proj", "g4_query": "q_proj"}
 
 
 def gate_out_features(variant: str, *, hidden: int, n_heads: int, n_kv: int, head_dim: int) -> int:
@@ -60,6 +81,12 @@ def gate_out_features(variant: str, *, hidden: int, n_heads: int, n_kv: int, hea
         return n_heads * head_dim
     if variant == "g2_literal":
         return n_kv * head_dim
+    if variant == "g3_key":
+        return n_kv * head_dim          # k_proj is KV-width, same as v_proj
+    if variant == "g4_query":
+        return n_heads * head_dim       # q_proj is full width
+    if variant == "g5_output":
+        return hidden                   # after o_proj
     raise ValueError(f"unknown gate variant {variant!r} (known: {GATE_VARIANTS})")
 
 
@@ -187,15 +214,41 @@ def attach_gate(
                     stats.setdefault(li, []).append(float(g.detach().mean()))
             return _rec
 
-        if variant == "g2_literal":
-            def mk_v(li=li, W=W, b=b, rec=record()):
+        if variant in _SELF_INPUT_HOOK:
+            # v_proj / k_proj / q_proj: the module's own input already IS X, so one
+            # forward hook suffices and nothing has to be stashed.
+            def mk_self(li=li, W=W, b=b, rec=record()):
                 def hook(_m, inp, o):
                     g = gate_scores(inp[0], W, b)
                     rec(g)
                     return apply_gate(o, g, variant, head_dim=head_dim)
                 return hook
 
-            handles.append(attn.v_proj.register_forward_hook(mk_v()))
+            handles.append(getattr(attn, _SELF_INPUT_HOOK[variant])
+                           .register_forward_hook(mk_self()))
+        elif variant == "g5_output":
+            # after o_proj: the gate still reads X, but o_proj's input is the SDPA
+            # output, so X has to come from the attention pre-hook.
+            stash5: Dict[str, torch.Tensor] = {}
+
+            def mk_stash5(stash=stash5):
+                def pre(_m, args, kwargs):
+                    stash["x"] = args[0] if args else kwargs["hidden_states"]
+                    return None
+                return pre
+
+            def mk_out(li=li, W=W, b=b, stash=stash5, rec=record()):
+                def hook(_m, _inp, o):
+                    x = stash.get("x")
+                    if x is None:
+                        return None
+                    g = gate_scores(x, W, b)
+                    rec(g)
+                    return apply_gate(o, g, variant, head_dim=head_dim)
+                return hook
+
+            handles.append(attn.register_forward_pre_hook(mk_stash5(), with_kwargs=True))
+            handles.append(attn.o_proj.register_forward_hook(mk_out()))
         else:
             stash: Dict[str, torch.Tensor] = {}
 
