@@ -135,10 +135,19 @@ def majority_control(y: np.ndarray, tr: np.ndarray, te: np.ndarray) -> Dict[str,
 # ------------------------------------------------------------------------ extraction
 
 @torch.no_grad()
-def extract_hiddens(model, tok, prompts: List[str], device, max_len: int) -> Tuple[np.ndarray, np.ndarray, List[int]]:
-    """-> (H_last [n, L+1, D], H_mean [n, L+1, D], token counts). One forward per sample
-    (the sequences differ in length; batching would need padding and change the mean pool)."""
-    last_rows, mean_rows, ntoks = [], [], []
+def extract_hiddens(model, tok, prompts: List[str], device, max_len: int,
+                    digit_ids: Optional[List[int]] = None):
+    """-> (H_last [n, L+1, D], H_mean [n, L+1, D], token counts, emitted answers). One
+    forward per sample (the sequences differ in length; batching would need padding and
+    change the mean pool).
+
+    `emitted` is what the model actually SAYS, not what a probe can decode from it:
+    (a) argmax restricted to the single tokens '0'..'9' at the answer position, and
+    (b) a free greedy digit decode (up to 4 tokens, stop at the first non-digit) so
+    multi-digit counts are reachable. These are base LMs with no instruction tuning, so a
+    low emitted score can mean "cannot follow the format" rather than "does not know" —
+    which is exactly why the probe exists alongside it."""
+    last_rows, mean_rows, ntoks, emitted = [], [], [], []
     for i, p in enumerate(prompts):
         ids = tok(p, return_tensors="pt", truncation=True, max_length=max_len).to(device)
         out = model(**ids, output_hidden_states=True, use_cache=False)
@@ -146,10 +155,23 @@ def extract_hiddens(model, tok, prompts: List[str], device, max_len: int) -> Tup
         last_rows.append(torch.stack([h[0, -1] for h in hs]).float().cpu().numpy())
         mean_rows.append(torch.stack([h[0].mean(0) for h in hs]).float().cpu().numpy())
         ntoks.append(int(ids["input_ids"].shape[1]))
+        if digit_ids is not None:
+            lg = out.logits[0, -1]
+            single = int(np.argmax([float(lg[t]) for t in digit_ids]))
+            seq = ids["input_ids"]
+            toks: List[int] = []
+            for _ in range(4):
+                nxt = int(model(input_ids=seq, use_cache=False).logits[0, -1].argmax())
+                if not tok.decode([nxt]).strip().isdigit():
+                    break
+                toks.append(nxt)
+                seq = torch.cat([seq, torch.tensor([[nxt]], device=device)], dim=1)
+            txt = tok.decode(toks).strip()
+            emitted.append((single, int(txt) if txt.isdigit() else None))
+        del out, hs
         if (i + 1) % 50 == 0:
             print(f"    hidden {i+1}/{len(prompts)}", flush=True)
-        del out, hs
-    return np.stack(last_rows), np.stack(mean_rows), ntoks
+    return np.stack(last_rows), np.stack(mean_rows), ntoks, emitted
 
 
 @torch.no_grad()
@@ -186,6 +208,9 @@ def main() -> int:
     ap.add_argument("--attn-samples", type=int, default=6,
                     help="samples for the eager F-Attn/M-Act pass (smallest root only); 0 to skip")
     ap.add_argument("--attn-max-len", type=int, default=1536)
+    ap.add_argument("--emit", action="store_true",
+                    help="also measure what the model ACTUALLY EMITS (digit argmax + free "
+                         "greedy digit decode), not just what a probe can decode from it")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -218,6 +243,7 @@ def main() -> int:
 
     smallest = min(cells, key=lambda k: len(cells[k]["prompts"][0]))
     rows: List[Dict[str, Any]] = []
+    emit_rows: List[Dict[str, Any]] = []
     sink: Dict[str, Any] = {}
     meta: Dict[str, Any] = {}
 
@@ -242,8 +268,22 @@ def main() -> int:
         }
         print(f"[model] {var} {meta[var]} ({time.time()-t0:.0f}s)", flush=True)
 
+        digit_ids = [tok(str(d), add_special_tokens=False).input_ids[0] for d in range(10)]
         for r, c in cells.items():
-            H_last, H_mean, ntoks = extract_hiddens(model, tok, c["prompts"], dev, args.max_len)
+            H_last, H_mean, ntoks, emitted = extract_hiddens(
+                model, tok, c["prompts"], dev, args.max_len,
+                digit_ids=(digit_ids if args.emit else None))
+            if args.emit:
+                te = c["te"]
+                y = c["y"]
+                e1 = float(np.mean([emitted[i][0] == y[i] for i in te]))
+                ef = float(np.mean([emitted[i][1] == y[i] for i in te]))
+                nofmt = float(np.mean([emitted[i][1] is None for i in te]))
+                emit_rows.append({"model": var, "root": r, "n_test": len(te),
+                                  "emit_digit_argmax": e1, "emit_free": ef,
+                                  "no_number_emitted": nofmt})
+                print(f"  [{var} {r}] EMITTED digit-argmax {e1:.3f}  free-decode {ef:.3f} "
+                      f"(no number: {nofmt:.3f})", flush=True)
             print(f"  [{var} {r}] tokens min/med/max "
                   f"{min(ntoks)}/{int(np.median(ntoks))}/{max(ntoks)}", flush=True)
             ctrl = majority_control(c["y"], c["tr"], c["te"])
@@ -275,6 +315,10 @@ def main() -> int:
         w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
+    if emit_rows:
+        with (out / "emitted.csv").open("w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=list(emit_rows[0].keys()))
+            w.writeheader(); w.writerows(emit_rows)
     (out / "sink_stats.json").write_text(json.dumps({"sink": sink, "meta": meta,
                                                      "attn_root": smallest}, indent=2))
 

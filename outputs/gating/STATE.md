@@ -611,6 +611,133 @@ document the saturation on the record) and `roots_gating_highN.txt` (`--per-gold
 
 ---
 
+## P7 — THE RE-RUN THAT MATTERS: digit readout, no scratchpad anywhere (2026-08-09/11)
+
+Tal's call after the copy-detector finding: drop the scratchpad from the campaign entirely
+and score the model on the number it actually emits. `--digit-multi` trains CE on the
+answer's DIGIT SEQUENCE (Qwen splits 128 -> '1','2','8'), so any count works — the legacy
+digit path capped at 9. Nothing in the context contains the answer, so unlike the caption
+readout it cannot be solved by copying, and unlike the caption readout it does not let the
+model externalise the aggregation into a visible tally.
+
+**The metric finally has resolution.** Under the caption scratchpad every arm scored
+0.99+; here they spread 0.58–0.97.
+
+### P7a — full mixture, 5 epochs (`outputs/gating/p7_digit/`, jobs 129918–922)
+
+| arm | digit acc |
+|---|---|
+| LoRA control | **0.924** |
+| `g2_literal` + LoRA | 0.916 |
+| `g2_literal` | 0.854 |
+| `g1_elementwise` | 0.747 |
+| `g1_headwise` | 0.615 |
+
+### P7b — extrapolation mixture (trained N∈{8,16} ONLY), 14 epochs (`p7_digit_extrap14/`)
+
+5 epochs was NOT converged here (half the gradient steps of the full mixture); at ep4
+`g2+LoRA` led by +0.123, at ep5 by +0.035, at ep6 by +0.092, and by ep14 it had **lost**.
+Three seeds on the key contrast (jobs 130046–049, 130073–076, 130363–365):
+
+| arm | position | width | layers | seed0 | seed1 | seed2 | mean |
+|---|---|---|---|---|---|---|---|
+| LoRA control | — | — | — | 0.966 | 0.942 | 0.957 | **0.955 ± 0.012** |
+| `g2_literal`+LoRA | G2 | 512 | 12–27 | 0.937 | 0.953 | 0.934 | **0.941 ± 0.010** |
+| `g2_literal` | G2 | 512 | 12–27 | 0.816 | | | 0.816 |
+| `g3_key` | G3 | 512 | 12–27 | 0.778 | | | 0.778 |
+| `g1_elementwise` | G1 | 3584 | 12 | 0.699 | | | 0.699 |
+| `g5_output` | G5 | 3584 | 12 | 0.641 | | | 0.641 |
+| `g4_query` | G4 | 3584 | 12 | 0.584 | | | 0.584 |
+
+**Granularity-matched position comparison** — the one the P3 arm design could not make.
+Bold pairs differ ONLY in position:
+* 512/token, L12–27: **value 0.816 > key 0.778**
+* 3584/token, L12: **post-SDPA 0.699 > post-o_proj 0.641 > query 0.584**
+
+So position does matter at matched width, ordering value ≳ key > post-SDPA > post-o_proj >
+query — but none of them beats plain LoRA. Note this does NOT reproduce the paper's
+ranking (they had G1 best, G3/G4/G5 ≈ nothing).
+
+⚠ **Run-to-run noise measured**: identical config/seed reruns drift ≤0.008 for the LoRA
+control but up to **0.073** for gated arms. Gates destabilise training; single-run margins
+under ~0.07 are not interpretable.
+
+## P8 — accuracy per sequence length (`outputs/gating/p8_digit_seqlen*/`)
+
+### Trained on the FULL mixture (N=2…8,16,32,48,64; only N=128 held out)
+
+| variant | N=2 | N=4 | N=8 | N=16 | N=32 | N=64 | **N=128** |
+|---|---|---|---|---|---|---|---|
+| LoRA control | 1.000 | 1.000 | **1.000** | **0.886** | **0.942** | **0.767** | 0.157 |
+| `g2`+LoRA | 1.000 | 1.000 | 0.991 | 0.856 | 0.795 | 0.722 | **0.358** |
+| `g2_literal` | 1.000 | 0.983 | 0.963 | 0.818 | 0.776 | 0.644 | 0.294 |
+| `g1_elementwise` | 1.000 | 0.967 | 0.824 | 0.727 | 0.583 | 0.444 | 0.216 |
+| `g1_headwise` | 1.000 | 0.917 | 0.750 | 0.591 | 0.506 | 0.389 | 0.137 |
+| *chance* | *0.333* | *0.200* | *0.111* | *0.091* | *0.077* | *0.067* | *0.059* |
+
+### Trained on N∈{8,16} ONLY — everything else out-of-distribution
+
+| variant | N=2 | N=4 | **N=8** | **N=16** | N=32 | N=64 | N=128 |
+|---|---|---|---|---|---|---|---|
+| lora | 0.333 | 0.367 | **1.000** | **0.894** | **0.603** | **0.289** | 0.123 |
+| g1 | 0.417 | 0.417 | 0.676 | 0.652 | 0.327 | 0.083 | 0.020 |
+| g2 | 0.389 | 0.667 | 0.861 | 0.818 | 0.321 | 0.139 | 0.157 |
+| g3 | 0.333 | 0.317 | 0.861 | 0.523 | 0.141 | 0.106 | 0.093 |
+| g4 | 0.611 | 0.583 | 0.611 | 0.576 | 0.071 | 0.072 | 0.010 |
+| g5 | 0.639 | 0.550 | 0.741 | 0.553 | 0.205 | 0.028 | 0.000 |
+| g2+lora | 0.333 | 0.483 | **1.000** | 0.674 | 0.474 | 0.183 | 0.137 |
+| *chance* | *0.333* | *0.200* | *0.111* | *0.091* | *0.077* | *0.067* | *0.059* |
+
+**Readings.** (a) Plain LoRA wins at every trained and near-OOD length in both regimes; no
+gate position beats it above N=8. (b) The wall is stark and monotone: 1.000 → 0.123 as N
+goes 8 → 128. (c) The two regimes DISAGREE far off-distribution — on the full mixture the
+gated arms beat the control at held-out N=128 (0.358 vs 0.157, ~6.7 binomial SE at n=204),
+on the N∈{8,16} regime they do not. Every far-OOD cell is near the floor, so these are
+differences between "bad" and "less bad". (d) Downward extrapolation also fails: trained on
+N∈{8,16}, the control scores 0.333 at N=2 = exactly chance, MAE 2.67 on a task whose
+answers are 0–2. The model emits numbers from its training-length prior rather than
+counting. (e) g4/g5 fall BELOW chance at N=64–128.
+
+## P0 addendum — what the 1B checkpoints actually EMIT (jobs 130887, 130894)
+
+P0 originally reported only ridge-probe decodability. Tal asked for emitted accuracy — the
+number comparable to how our own arms are scored. Free greedy digit decode:
+
+| N | chance | baseline | G1 headwise | G1 elementwise | n_test |
+|---|---|---|---|---|---|
+| 2 | 0.333 | 0.453 | 0.367 | **0.480** | 150 |
+| 4 | 0.200 | 0.252 | 0.232 | **0.332** | 250 |
+| 8 | 0.111 | 0.127 | 0.124 | 0.133 | 450 |
+| 16 | 0.030 | 0.060 | 0.060 | 0.060 | 100 |
+| 24 | 0.030 | 0.040 | 0.020 | 0.030 | 100 |
+| 40 | 0.030 | 0.040 | 0.020 | 0.040 | 100 |
+| 64 | 0.037 | 0.075 | 0.063 | 0.075 | 80 |
+
+`no_number_emitted = 0.000` everywhere — they always produce a digit, so this is not a
+format-following failure. **All three are at or near chance from N=8 up**; the only real
+margin is `elementwise` at N=2/4. `headwise`, the paper's preferred variant, never beats
+baseline at any length. Meanwhile the ridge probe finds the count decodable at R² 0.58–0.70
+— so the information is IN the representation and the model cannot use it. Gating moves
+neither fact.
+
+N=2/4/8 use the park roots' `qa.txt` (identical grammar to the text roots, verified; a
+text-only model just never sees the PNGs) — our text-native roots start at N=16.
+⚠ First attempt at those rows was DEGENERATE: `limit=200` with name-sorted park dirs
+grabbed only the e0/e1 buckets, giving golds {0,1} and chance 0.46, under which
+`elementwise` scored 0.72 and looked like a large gating win. Re-run with full root
+coverage (300/500/900) for proper 1/(N+1) chance. Same failure family as the tally-copy
+artifact: a number that looks like performance but is the task being easier than advertised.
+
+## The paper's scope, confirmed (2026-08-11)
+
+arXiv:2505.06708 is **text-only LLMs** — 15B MoE and 1.7B dense, 30 variants, 3.5T tokens,
+no vision-language models anywhere. The released checkpoints corroborate it: all three are
+`Qwen3ForCausalLM`, hidden 2048, no vision tower, no `vision_config`. Every axis differs
+from our setting (modality, frozen-vs-pretrained, scale, task), so the honest framing is
+"the module ports, the training dynamics do not" — NOT "we refuted the paper".
+
+---
+
 ## Open items / decisions taken
 
 - **P3 training mixture.** The brief's arm-1 anchor requirement ("reproduces the anchor
