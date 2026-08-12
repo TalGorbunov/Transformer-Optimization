@@ -11,7 +11,7 @@ never amplify, so a gain is evidence for **interference**, not **capacity**.
 | experiment | canonical run | headline |
 |---|---|---|
 | P0 · 1B G1 triple (baseline / headwise / elementwise), text MMReD tally probe | `p0_text_triple/20260807_212129_129124` | G1-headwise raises ridge R² at 48/64 layer-matched cells (+0.119 at N=16 → +0.059 at N=40); **the gain does not grow with N**; sink killed (F-Attn 0.74 → 0.006, M-Act 1.4e4 → 621) |
-| P1 · sink diagnostic, frozen Qwen2.5-VL-7B, plain vs deployed | `p1_sink_7b/` | _running_ |
+| P1 · sink diagnostic, frozen Qwen2.5-VL-7B, plain vs deployed | `p1_sink_7b/20260807_214956_129133` | **gate NOT met** — our 7B has no token-0 sink (F-Attn ≤0.05 vs 0.74 for the 1B); massive activations WITHOUT a sink |
 | P3 · main ablation, 5 arms (caption scratchpad) | `p3_arms/`, `p3_arms_v2/` | anchor reproduced (0.999/0.996) — but the readout turned out copyable, see below |
 | ⚠ metric audit · tally-copy probe | `p35_tallycopy/` | the caption `tf_acc` is largely a COPY DETECTOR: shift the tally +3 and the model follows it 85% of the time at N=32, counts 0% |
 | P7 · **digit readout, no scratchpad** (the campaign's real result) | `p7_digit/`, `p7_digit_extrap14/` | LoRA control 0.955±0.012 vs best gate+LoRA 0.941±0.010 (3 seeds); all 5 gate positions below plain LoRA |
