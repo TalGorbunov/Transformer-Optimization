@@ -805,3 +805,299 @@ per-task gate (3.6k params, ~150 samples) is the remaining task-specific piece.
 - The one-screen campaign summaries stay in `plans/` (to be archived intact, never deleted, in the
   docs restructure); run dirs + SLURM logs (being copied into run dirs) are the primary provenance.
 
+
+## [2026-07-31] ✅📊 PRESENTATION INSTRUMENT BATTERY (GNN framing, 7 cells) — same sum-readout before/after: joint 0.468→0.077 @N=8→128 vs fenced/carrier 0.98–1.00 FLAT to 128; Jacobian: 52% of the joint read-out's sensitivity flows through OTHER frames, fenced cross-frame EXACTLY 0.00; q/kv swap 2×2: the joint-context tax splits ~50/50 (query/value) and the two repairs SYNERGIZE (+1.0 d′ interaction); anchor sweep: the room-token distillation target WINS (8.93 vs mean 7.00 / last 4.80 / char 4.39 / first 3.31)
+
+> **Motivation:** peer-presentation instruments for the GNN narrative — render logged findings
+> in the field-standard vocabulary (rewiring seen as attention maps; over-squashing as Jacobian
+> sensitivity; the external readout as a DeepSets/GIN sum), plus two never-measured cells: the
+> distillation-anchor choice (was a hand-picked heuristic) and the direct q-vs-kv decomposition
+> of the joint-context tax (inferred, not measured, in [2026-07-14]).
+> **Scripts:** `scripts/presentation_diagnostics/` (presentation_figs, probe_attention_map,
+> probe_attnmap_deployed, probe_sensitivity, probe_anchor_sweep, probe_qkv_swap) + matching
+> `slurm/*.sbatch`. All figure cells are CPU refits on frozen caches (`checkpoints/` symlinks +
+> `outputs_legacy/`); probe cells are 1-GPU 2h_2g jobs, park seq8, 392px, steps task.
+> **Runs (all `outputs/presentation/`, per-group INDEX.md):** figures jobs 127489–91 →
+> `pca/20260731_202940` · `curves/20260731_202940` · `saturation/20260731_202507`; probes
+> jobs 127555/127556/127560/127571/127582 → `attnmap/20260731_211330` ·
+> `sensitivity/20260731_211330` · `anchor_sweep/20260731_213558` ·
+> `attnmap_deployed/20260731_215003` · `qkv_swap/20260731_220735`. (Failed, no artifacts:
+> 127553/4 + first attnmap_deployed pair + 127580 — mask-dtype and cell-indexing bugs.)
+
+| cell | headline |
+|---|---|
+| curves — SAME gate→tally on 3 graphs vs N | joint 0.468/0.229/0.152/0.088/0.077 @N=8..128; fenced 0.998/1.000/0.984; carrier 0.976/1.000/0.988 @N=8/32/128 |
+| pca + discriminant histograms @L16 N=8 | joint d′ 1.90 (clouds overlap) vs fenced 5.65 / carrier 5.06 (separated; 1-D discriminant view added because PCA understates carrier separation) |
+| saturation (deployed stack, N=32, 10 layers) | gate err ~0.28–0.33 flat L2–L12 → 0.0087 @L20 / 0.0080 @L24; tally 0.08 → 0.82/0.85; write window = open+LoRA phase, reproduces [2026-07-25] |
+| attnmap @L16 (probe layout) | joint = dense lower triangle; fenced = f_i↔c_i islands + Q column (probe mask hides replicas from fin by design) |
+| attnmap deployed (e_c+LoRA, L\*=12) @L8 vs @L20 | the two-level hierarchy: islands below L\*, coarse carrier graph above (fin reads carriers) |
+| sensitivity (Jacobian, L≤16, fit n=64 / grad n=12) | joint own-frame share 0.480 (uniform 0.125) — 52% cross-frame; fenced 1.000, cross EXACTLY 0.00 (structural) |
+| anchor sweep (teacher config, 5 variants, n=150) | room d′ 8.93 / tally 0.997 ≫ mean 7.00/0.963 > last 4.80 > char 4.39 > first 3.31/0.432 |
+| q/kv swap 2×2 (mask-only fence vs unmasked, shared positions, own-frame softmax keys, n=150) | qC_kvC 6.64 (0.981) · qC_kvD 4.66 (0.845) · qD_kvC 4.71 (0.893) · qD_kvD 3.74 (0.781) |
+
+**Readings.**
+1. **The curves figure is the controlled before/after**: readout held fixed (logistic gate + sum,
+   the gate_tally protocol), only the graph changes. Joint messages cap it at any N; rewired
+   graphs stay at ceiling to N=128. Fenced N=8 reproduces the 0.998 anchor exactly.
+2. **Sensitivity is the GNN-literature over-squashing measure we lacked**: in joint attention,
+   52% of ∂(read-out signal for frame f)/∂(embeddings) lies on OTHER frames (causal → earlier
+   frames); the fence zeroes cross-frame Jacobians structurally (measured 0.00, not small).
+   Caveat: the joint direction was fit at the final-question anchor of the Q-first replica
+   layout (d′ 0.60 there) — weaker locus than the plain-joint anchor (~2.0); shares are
+   row-normalized so the interference reading stands.
+3. **The 2×2 turns the [2026-07-14] inference into a paired measurement**: from the joint corner,
+   clean queries alone +0.97 d′, clean values alone +0.92 — the tax is HALF reader, HALF read —
+   and the interaction is +1.01 (6.64−4.66−4.71+3.74): each repair alone recovers ~⅓, both
+   together the full 2.90. The fence is the one intervention that does both at once. External
+   consistency: dirty-dirty 3.74 ≈ the unmasked band 3.56; clean-clean 6.64 = mask-only band
+   (posreset deliberately OFF for position-consistent q/k mixing).
+4. **The room-token anchor is now an ablation winner, not a guess** (it was the one hand-picked
+   knob never swept): room ≫ span-mean > last > char > first. The per-frame verdict binds at the
+   question's content word; span-mean dilutes it, span-first barely carries it. Also reproduces
+   the teacher band (~9 @n=150) as its top cell.
+5. **Estimator discipline:** all d′ in these figures are held-out logistic-axis d′ (conservative);
+   RESULTS headline d′ values elsewhere are the probe's d′_w — same ordering, different scale,
+   do not cross-quote. Fresh joint fits also show a mild d′ decay with N (1.90→1.12 @8→128)
+   where the older d′_w band read ≈flat — same caveat class.
+
+**Caveats.** Steps task, park domain only; attn/sens/2×2/anchor cells are N=8 single-batch
+(q/kv swap at N=16/32/64 launched as follow-up); carrier long-N cells in `curves` are the
+proxy_room_k1 chain (only chain with long-N caches; distill N=8 cell in curves.csv: 0.976);
+sensitivity grad phase n=12; no paired tests run on the 2×2 (same-sample by construction).
+
+## [2026-07-31b] ✅📊 Q/KV SWAP vs N (16/32/64) — the VALUE-only repair collapses with graph size (+0.97 → +0.64 → +0.09 → −0.47 d′ @N=8/16/32/64) while QUERY-only stays ~+1 everywhere; interaction ~+2 at long N: at scale, the tax is only recoverable by repairing BOTH sides — which is what the fence does
+
+> Follow-up to the [2026-07-31] battery's 2×2 cell. Same script/protocol
+> (`scripts/presentation_diagnostics/probe_qkv_swap.py`: mask-only fence vs unmasked, shared
+> base positions, own-frame softmax keys, L16), data `mmred_longN_park/seq_len_{16,32,64}`,
+> n=150/100/50. **Runs:** jobs 127586/127587/127588 → N=32 `qkv_swap/20260731_221639` ·
+> N=64 `qkv_swap/20260731_222127`; 127586's artifacts (N=16) were clobbered by a same-second
+> run-dir collision with 127587 — deterministic rerun job 127589 →
+> `qkv_swap/20260731_222936_127589` (numbers identical to 127586's log). Wrappers now suffix
+> `_${SLURM_JOB_ID}` to the default OUTPUT (collision closed). Scaling figure + per-N CSV:
+> `qkv_scaling/20260731_223504_local` (CPU, parses the four reports).
+
+| N | qC_kvC | qC_kvD | qD_kvC | qD_kvD | q-only gain | kv-only gain | total | interaction |
+|---|---|---|---|---|---|---|---|---|
+| 8 | 6.64 (0.98) | 4.66 (0.85) | 4.71 (0.89) | 3.74 (0.78) | +0.92 | +0.97 | +2.90 | +1.01 |
+| 16 | 7.84 (0.99) | 5.09 (0.91) | 4.72 (0.84) | 4.08 (0.85) | +1.01 | +0.64 | +3.76 | +2.11 |
+| 32 | 7.39 (0.94) | 5.27 (0.84) | 4.12 (0.66) | 4.03 (0.72) | +1.24 | +0.09 | +3.36 | +2.03 |
+| 64 | 6.49 (0.86) | 5.09 (0.67) | 3.57 (0.46) | 4.04 (0.55) | +1.05 | **−0.47** | +2.45 | +1.87 |
+
+**Readings.** (1) The N=8 ~50/50 split was small-graph behavior: as N grows, cleaning the frame
+values without cleaning the read-position query buys nothing (N=32) then hurts (N=64) — the
+QUERY side is the binding constraint at scale, independently corroborating the [2026-07-13]
+trained-query NO-GO ("the query half is architecturally irreducible") with a patching
+instrument, and explaining why Q-first + fence (the two query-side repairs) is the winning
+recipe. (2) Interaction stabilizes ~+2 at long N: most of the tax is recoverable only jointly.
+(3) The joint corner's d′ stays flat (~3.7–4.1) across N while its tally decays 0.78→0.55 —
+per-frame supply flat, task accuracy compounding — consistent with the flat-d′-vs-N verdict.
+**Caveats:** n shrinks with N (150/100/50; N=64 noisiest, clean-corner tally ±0.15); single
+seed batches; steps task, longN_park domain; no posreset anywhere by design.
+
+## [2026-07-31c] ✅📊 WATERFALL GRID (N=8..128) + fenced-supply length cells — the A3 fence band HOLDS at length (replica d′ 10.67 @N=16 / 10.23 @N=64, joint anchors 3.91 / 2.64); the repair staircase is monotone N=8–64 with the addressing rung growing into the dominant step (+0.31 @N=8 → +0.46 @N=64); fence rung 0.96–1.00 at every N
+
+> Completes the [2026-07-31b] decomposition into the presentation summary figure: one
+> 5-rung staircase per length (joint single-locus readout → +reader per frame → +clean
+> readers → +clean frames → full fence), same held-out gate→tally readout everywhere.
+> **Runs:** A3 supply probes (fence+posreset+Q-first, `probe_supply`, L16) jobs 127597/127598
+> → `outputs/presentation/fenced_supply/N16/…` (n=150) · `…/N64/…` (n=50); q/kv swap N=128
+> job 127599 → `qkv_swap/…_127599` (n=25); grid figure + per-cell CSV →
+> `waterfall_grid/20260731_234426_local` (auto-assembles curves + qkv + fenced cells;
+> missing cells rendered n/a, never interpolated).
+
+| N | joint | +reader/frame | +clean readers | +clean frames | full fence | carrier |
+|---|---|---|---|---|---|---|
+| 8 | 0.47 | 0.78 | 0.84 | 0.98 | 1.00 | 0.98 |
+| 16 | 0.23 | 0.85 | 0.91 | 0.99 | 0.98 | — |
+| 32 | 0.15 | 0.72 | 0.84 | 0.94 | 1.00 | 1.00 |
+| 64 | 0.09 | 0.55 | 0.67 | 0.86 | 0.96 | — |
+| 128 | 0.08 | (0.41) | (0.71) | (0.52) | 0.98 | 0.99 |
+
+**Readings.** (1) The fence rung is flat 0.96–1.00 at every length while every partial
+configuration decays — supply repair does not bend with N. (2) The per-frame-reader rung's
+share of the total climb grows with N (+0.31 of 0.53 @N=8 → +0.46 of 0.87 @N=64): the
+single-locus addressing/competition failure becomes the dominant component at scale,
+consistent with [2026-07-31b]. (3) N=16/64 fenced cells are NEW A3 probe runs on longN_park
+(d′ 10.67/10.23 — squarely in the fence band; also fresh joint anchors 3.91/2.64 for this
+layout). **Caveats:** N=128 qkv rungs (parenthesized) are n=25 (~13 eval samples/seed) —
+tally cells non-monotone (CD 0.71 > CC 0.52) from quantization noise though the d′ ordering
+is sane (5.14 > 3.89 > 3.07 > 2.57); DO NOT cite the parenthesized cells without the n≈80
+rerun; grid stitches two instruments (qkv probe protocol for rungs 2–4), stated on-figure.
+
+## [2026-08-01] ❌📊 SUPER-CARRIER NO-GO — ONE frozen reader over the N coarse nodes fails at every N (tally 0.25 @N=8 → 0.07 @N=64, ferr 0.21–0.29, d′ 1.3–2.1), and restricting its softmax to carrier keys only changes NOTHING (coarse ≈ full at every cell): one query cannot address N items regardless of how few keys compete
+
+> **Motivation:** Tal's two-level-hierarchy proposal — after the fence builds N carrier
+> nodes, can a single aggregator token read them (competition over N instead of N·m)?
+> **Design:** `scripts/presentation_diagnostics/probe_supercarrier.py` (job 127738, run
+> `outputs/presentation/supercarrier/…_127738`): Q-first replica layout, deployed phase-1
+> (full fence + posreset) below L*=12; above L* the fence lifts and the FINAL question's
+> room token acts as the reader. Two arms differ only in the reader rows' keys above L*:
+> `coarse` = {question + replica/carrier tokens} only; `full` = plain causal (control).
+> Reader message decomposed per source carrier at L16/L20 → held-out gate→tally.
+> Zero training. N=8/16/32/64 (n=120/120/80/40), park + longN_park.
+
+| N | coarse reader | full reader | per-frame readers (rung-2 ref) |
+|---|---|---|---|
+| 8 | 0.25 | 0.25–0.28 | 0.78 |
+| 16 | 0.13 | 0.10–0.14 | 0.85 |
+| 32 | 0.09 | 0.09 | 0.72 |
+| 64 | 0.07 | 0.07 | 0.55 |
+
+**Readings.** (1) The single-reader failure is NOT about softmax key count: with only ~N
+carrier keys available the reader does no better than over the full N·m context (cells
+numerically identical at N=32/64) — the binding constraint is ONE QUERY addressing N
+distinguishable items. (2) Completes the query-side triad: joint anchor (N·m keys, 1
+reader) 0.09 · coarse super-reader (N keys, 1 reader) 0.07 · per-frame readers (N
+readers) 0.55 — every working configuration in the method (replicas, carriers, serial
+scratchpad steps) has ONE READER PER ITEM, in space or in time. (3) Kills the "one
+aggregator token" shortcut zero-shot; consistent with the [2026-07-13] trained-query
+NO-GO (0.36–0.48). **Caveats:** frozen zero-shot reader (final-question room token); a
+TRAINED super-carrier embedding is untested (prognosis poor per [2026-07-13]); d′ at L20
+lower than L16 in both arms (reader-locus property, not investigated).
+
+## [2026-08-01b] ✅📊 POSRESET DOSE-RESPONSE, ACCURACY EDITION — 10 fresh matched A3 cells (only --reset-positions differs): reset flat 0.996–1.000 to N=32 / 0.950 @64 vs no-reset drifting 0.984 → 0.830; the supply-level position tax is MODEST and monotone (gap 0.013 @N=4 → 0.120 @N=64) — the deployed decode's collapse without reset (0.313/0.000 @N=32/64, [2026-07-27]) is train-eval inconsistency AMPLIFYING it, not raw supply loss
+
+> **Motivation:** Tal wanted the position tax in task currency (gate→tally acc, not d′)
+> across N. **Runs:** `slurm/posreset_sweep.sbatch` groups A/B (jobs 127736/127737) →
+> `outputs/presentation/posreset_sweep/N{4,8,16,32,64}_{reset,noreset}/…` (probe_supply,
+> Q-first + block fence in BOTH arms, L16, n=150/150/120/100/40, park + longN_park);
+> figure + CSV `outputs/presentation/posreset_dose/20260801_164109_local/`
+> (`plot_posreset_dose.py`).
+
+| N | with reset | without | gap |
+|---|---|---|---|
+| 4 | 0.997 | 0.984 | 0.013 |
+| 8 | 0.997 | 0.992 | 0.005 |
+| 16 | 1.000 | 0.963 | 0.037 |
+| 32 | 0.996 | 0.944 | 0.052 |
+| 64 | 0.950 | 0.830 | 0.120 |
+
+**Readings.** (1) Monotone widening, measurable from N=16 — matches the d′ dose-response
+[2026-07-27] in a second currency with matched fresh cells. (2) The two-number story to
+present TOGETHER: supply gap @N=32 is ~0.05 while the caption winner evaluated without
+reset scores 0.313 — the trained readout's addressing assumes positionally identical
+islands, so no-reset at eval is a distribution break, not just weaker supply; posreset is
+part of the deployed contract. **Caveats:** N=64 cells n=40 (largest error bars, reset
+0.950±0.077); single seed batch per cell; steps task only.
+
+## [2026-08-09→11] ✅📊 NINV CAMPAIGN, PHASE 0 — the cross-N head-transfer leak is POSITIONAL and the node-posreset closes it: N=8→64 transfer 0.320 → 0.998 (park, same generator family) / 0.990 (MMReD-HF benchmark, all six N-pair cells pass the gap-based gate)
+
+> **Motivation:** tree-register states must carry an N-invariant count code before any
+> training. Baseline leak (cached features, runs 128773/128790): ridge head fit on N=8
+> pair-node states transferred to N=16/32/64 at 0.643/0.445/0.320 (in-N 0.979).
+> **Fix:** node posreset — every SQ node span gets identical canonical positions
+> (`scripts/ninv/probe_tree_ninv.py`, copy-only). **Instruments:**
+> `scripts/ninv/transfer_test.py`, `transfer_matrix.py` (+`metrics_skew.py`: every gate
+> reports raw/majority/c2/balanced after the ridge-under-skew artifact below).
+> **Runs:** park captures `outputs/ninv/20260809_231331_cap{8,64}`,
+> `20260809_231854_cap{16,32}`, `20260809_232635_cap64_n200` (n=200 recapture),
+> `20260809_232635_cap32_park2` (third-generator control); HF captures
+> `outputs/ninv/20260809_234057_hf{8,16,64}` (train roots ×200, seq_len_64_test ×50).
+
+| cell (park, longN family) | cross-N | in-N(test) | gap |
+|---|---|---|---|
+| 16→32 / 16→64 | 0.998 / 0.998 | 0.989 / 0.999 | −0.009 / +0.001 |
+| 32→16 / 32→64 | 0.996 / 0.997 | 0.994 / 0.999 | −0.002 / +0.002 |
+| 64→16 / 64→32 | 1.000 / 1.000 | 0.994 / 0.989 | −0.006 / −0.011 |
+
+| cell (MMReD-HF) | raw | in-N(test) | balanced | c2 |
+|---|---|---|---|---|
+| 8→16 / 8→64 | 0.974 / 0.971 | 0.973 / 0.956 | 0.960 / 0.939 | 0.910 / 0.861 |
+| 16→8 / **16→64** | 0.995 / **0.990** | 0.961 / 0.956 | 0.989 / 0.981 | 0.968 / 0.947 |
+| 64→8 / 64→16 | 0.989 / 0.981 | 0.961 / 0.973 | 0.990 / 0.978 | 1.000 / 0.959 |
+
+**Readings.** (1) Headline park cell N=16→64 = 0.9978, cluster-bootstrap CI
+[0.9966, 0.9989] @n=200. (2) The literal original gate (N=8 images_park → N=64 longN)
+reads 0.940 and FAILS 0.95 — cross-DOMAIN, not cross-length (equal 4× ratio:
+within-domain 0.998 vs cross-domain 0.959; park2 fixed-N control: cross-root costs
+~0.02 while the images_park N=8 head is erratic, 0.959→park / 0.597→park2).
+(3) MMReD-HF adapter `scripts/ninv/load_hf_sample.py` self-check 320/320 across 13
+pools. **Caveats:** HF N=64 pool is the full 50 test dirs; c2 columns here are ridge
+(see the readout-artifact entry below for why balanced/c2 must accompany raw).
+
+## [2026-08-10a] ⚠️📊 READOUT-ARTIFACT RETRACTION + THE MARGIN FINDING — the "HF merge anomaly" (c2 recall 0.82 vs park 0.98) was mostly MY INSTRUMENT: ridge+round shrinks toward the 0.8 zero-prior; a logistic readout on identical states recovers c2 0.822→0.950 with park untouched; what SURVIVES is a verdict-MARGIN gap (failures at min-child margin +3.98 vs +7.96) that 512px largely closes
+
+> **Runs:** leaf captures `outputs/ninv/20260809_235142_hf8_leaf{392,512}` + park leaf
+> `outputs/ninv/20260810_000358_park{8,16}_leaf`; instruments `leaf_probe.py`,
+> `merge_anatomy.py`. Leaf evidence-recall 0.995 @392 / 1.000 @512 (perception ruled
+> out; sqrt-law prediction of leaf ~0.90 refuted). OR-vs-SUM refuted ("exactly two"
+> decodes ≥ "at least one" everywhere). Ridge→logistic on identical states: HF c2
+> +0.058…+0.128, park +0.000/+0.001. Park margins +10.0/+10.4 with ZERO c2 failures
+> (0/681, 0/727); HF failures are its low-margin tail; 392→512 cuts c2 failures 46→6
+> of 258. **Caveat:** logistic is NOT uniformly better (buys c2, drops c1/balanced) —
+> the binary decomposition is the trustworthy read; campaign instrument unchanged.
+
+## [2026-08-10b] ✅📊 FROZEN TWO-PASS ON THE MMReD-HF BENCHMARK — EMIT-EM 0.960 @512px / 0.920 @392px on the untouched seq_len_8_test pool (park anchor 0.980; cond-EM 1.000 both arms: pass-2 never fails, ALL error is pass-1 quantization) + THE CAPACITY LAW OVER CODES: fan-8 merge 0.527 (raw analog) → 0.887 (quantized leaves)
+
+> **Runs:** `outputs/ninv/20260810_151238_twopass_hf{392,512}` (calib = 200 train dirs
+> strided, eval = the 50-dir benchmark test pool, zero training;
+> `scripts/ninv/frozen_twopass_hf.py`, byte-faithful v4d port). Majority(predict-0)
+> 0.620; EM-on-gold>0 0.842/0.947; MAE 0.12/0.04. Capacity-over-codes:
+> `outputs/ninv/20260810_151952_hf8_quantcap` vs `..._hf8_rawL14` (same 200 dirs, codes
+> written at L14 from a held-half-fit probe): fan-4 0.857→0.917, fan-8 (flat arm)
+> 0.527→0.887 (+0.360), acc-on-count>0 0.433→0.750. Quantize-at-L14 does NOT fix the
+> b2 margin tail (codes inherit the L14 probe's own errors: L14 evidence-recall 0.952
+> vs L20 0.995 — quantize where the decision is ripe). **Caveats:** n=50 eval pool
+> (±0.02/sample); pre-registered "fan-4 ≥0.95" not met (0.917).
+
+## [2026-08-10→11a] ✅📊 THE FIVE-ARM TABLE — WHY the trained register tree fails or works: stability of the leaf interface fixes the MERGE (C), learned token-quantization completes the READOUT and eliminates per-level decay (D flat at 1.000), and the recipe fixes (N-mixture + answer-CE balance) buy ~2× training efficiency (V2: EM 0.920, the ≥0.90 gate PASSED)
+
+> **Runs (all 512px, HF roots, identical seed/val, majority-emission baseline 0.510
+> unless noted):** A/B `outputs/ninv/20260810_150229_p1_arm{A,B}` + evals
+> `20260810_1658…/20260810_1702…`; C/D `20260810_201213_p1_arm{C,D}` + evals
+> `20260810_230152_evalC`/`20260810_231226_evalD`; V2 `20260810_215334_p1_v2` + eval
+> `20260811_013156_evalV2` (val majority 0.427). Trainer
+> `scripts/ninv/train_registers.py` (row-masked LoRA `attach_masked_lora`;
+> `--token-anchor`; `ROOT_PRESETS v2mix`; `--ans-balance`).
+
+| arm | mechanism | lv1/lv2/lv3/root probes (in-length) | emitted EM | N=64 transfer (lv1…root) | lv5/6 @N=64 |
+|---|---|---|---|---|---|
+| A | none | 1.000/0.890/dead/dead | 0.510 (=maj) | 1.000/0.921/dead/dead | dead |
+| B | injected leaf codes | 0.989/0.981/0.968/0.926 | 0.730 | 0.976/0.960/0.932/0.880 | dead |
+| C | frozen leaves (row-masked LoRA) | 0.998/0.994/0.961/0.778 | 0.510 (=maj) | 0.999/0.995/0.970/0.700 | dead |
+| D | learned token-anchor | 1.000/1.000/1.000/1.000 | 0.870 | 1.000/1.000/0.998/0.975 | dead |
+| **V2** | D + N-mix + ans-balance | **1.000 flat** | **0.920** | 0.999/0.999/0.998/0.990 | dead |
+
+**Readings.** (1) LENGTH-invariance of trained components: proven (every trained level
+transfers to 4× length ≥0.97 in D/V2). (2) DEPTH does not extrapolate — never-trained
+levels are dead under every mechanism incl. shared alphabet + 4-depth role mixing; the
+emitted number at N=64 stays at majority for all arms (0.03–0.08). (3) Per-level
+re-quantization eliminates error compounding (B decays ×0.99/×0.99/×0.96 per level;
+D/V2 flat). (4) The A/C EM sits at the majority-emission attractor — EM must ALWAYS be
+read against the val gold-0 fraction (a smoke-scale "EM 0.562" equalled its val
+baseline exactly). **Caveats:** smoke-scale readings (≤18 optimizer steps) predicted
+BOTH C and D wrongly — full-scale only; C's readout never flipped within 15 epochs
+(root crossed the CE~1.8 breakout threshold one epoch before budget end).
+
+## [2026-08-11a] ✅ CANARY, CORRECTED — no leak: mask CPU-verified, positions symmetric in ALL THREE M-RoPE channels, T0 identity replay bit-exact (0.000e+00), 0/10 answer flips under content-preserving swaps; the pre-registered BIT-IDENTITY canary demanded an invariant unachievable in bf16 (content permutation reorders reductions; ~1e-3 amplifies over 28 layers to O(0.5) logits) and is retired
+
+> **Runs:** `outputs/ninv/20260810_174323_possym` + `20260810_173729_canaryB_T0`.
+> Corrected canary of record: structural checks + T0 replay + answer stability.
+
+## [2026-08-11b] ✅📊 P1.5 + THE INTERFACE LAW (LAW 7) — synthetic digit-leaf training brings levels 5–6 ALIVE on synthetic trees (lv5 CE 11.2→1.36) at zero cost in-length (EM 0.925, probes 1.000 flat, N=64 lv1–4 transfer 1.000/1.000/0.998/1.000 — best of campaign) BUT they stay DEAD on real trees (emitted 0.054 ≈ majority): states that DECODE to the same digit are NOT interchangeable inputs — soft token-alignment ≠ substitutability
+
+> **Runs:** trainer `outputs/ninv/20260811_105241_p15` (`--synthetic-n 400
+> --init-ckpt` v2; image-free samples, literal '0'/'1' single-token leaves,
+> bit-order verified per sample), eval `20260811_132203_evalP15`. Both regimes' lv4
+> children emit their digits (node_tok CE ~0.03) yet lv5 accepts only the synthetic
+> ones — the merge reads more of the child state than its token projection; the other
+> ~3,583 dimensions carry regime-specific residue that SGD exploited. **Caveat:**
+> lv5/6 probes reuse the lv4 head (range-clamped); the emitted collapse is
+> head-independent.
+
+## [2026-08-11c] ✅📊 THE FLAT-IN-N EMITTED CURVE — hard-requant cascade (one fenced forward → probe-read the depth-4 subtree counts → validated text adder, all stages at measured ≥0.99): EM(GT≤16) 0.925 (N≤16) / 0.875 (N=32) / 0.811 (N=64) vs majority 0.42/0.16/0.04, every trained component blind to N>16 — LAW 7 CONFIRMED ON THE TRAINED SYSTEM (same ckpt: 0.054 in-embedding vs 0.811 as decoded numbers at N=64)
+
+> **Runs:** `outputs/ninv/20260811_145257_cascade_p15c` (`scripts/ninv/eval_cascade.py`,
+> P1.5 ckpt, benchmark test pools n=50/N). lv4 subtree fidelity 0.990/0.995 with the
+> probe head HELDOUT-validated at 1.000 (160/40); pairwise-composed v4d adder.
+> **Instrument history logged in STATE:** run A died on a stale row-mask; run B's head
+> was silently clipped to 0..2 by a reused pair-count helper (also invalidates the
+> capped-eval probe numbers, `20260811_112520_capped_v2c`) and under-fit at n=120
+> (heldout resolves 160 suffice); the zero-training capped/flat-top route measured
+> DIRECT 0.42 @N=32 but dead @N=64 — bounded, superseded by the cascade.
+> **Caveats:** the interface head is a fitted 3584→17 linear component (same class as
+> the frozen-twopass quantizers; all-model-emitted variant needs node_tok hardening at
+> long context — open); GT≤16 primary per pre-registration; 6/50 and 9/50 samples lost
+> to adder-chain decode -1s (each an automatic miss) — harness, not model; N=128
+> untested.

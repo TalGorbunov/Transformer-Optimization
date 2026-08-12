@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""Tree-superquery probe: divide-and-conquer readout over fenced replica blocks.
+"""Tree-superquery probe + NODE POSRESET (ninv campaign Phase 0).
+
+COPY of scripts/superquery/probe_tree.py with ONE behavioural change: every SQ
+node span is given the SAME canonical position ids (start = block-0 max + 1),
+so a node's RoPE phase no longer depends on how many nodes precede it (i.e. on
+N). Legal because node rows attend only {prefix, self, children} — nodes never
+see each other, so identical positions cannot collide (same argument as the
+per-block posreset). Everything else is identical to the original.
+
+Baseline leak this fixes (2026-08-09): ridge head fit on N=8 pair-node states
+transfers to N=16/32/64 at 0.643/0.445/0.320 (in-N 0.979). Gate: N=8 -> N=64
+>= 0.95 via scripts/ninv/transfer_test.py.
+
+--- original docstring ---
+Tree-superquery probe: divide-and-conquer readout over fenced replica blocks.
 
 Layout (the professor's proposal, 2026-08-05): [q0][frame_i + q_i]xN fenced blocks with
 per-block posreset, FENCED AT ALL LAYERS (fence never lifts). After the blocks, one
@@ -182,6 +196,26 @@ def main() -> int:
     ap.add_argument("--task", default="steps")
     ap.add_argument("--ns", default="8,16,32,64")
     ap.add_argument("--shuffle-dirs", type=int, default=0)
+    ap.add_argument("--hf", action="store_true",
+                    help="read MMReD-HF dirs via scripts/ninv/load_hf_sample.py "
+                         "(DIRECTIVE 2026-08-09: the campaign runs on "
+                         "data/mmred_hf/dirs). Filters sample dirs to steps_in_room* "
+                         "— the test/val pools mix all 18 question types — and uses "
+                         "the HF room vocab. Requires --root")
+    ap.add_argument("--root", default=None, metavar="PATH",
+                    help="override the NS table's data root (single --ns value only). "
+                         "The Phase 0 gate as written trains at N=8 on "
+                         "data/mmred_images_park and tests at N=64 on "
+                         "data/mmred_longN_park, so DOMAIN is confounded with N. "
+                         "This lets you capture a second root at a length you already "
+                         "have, which measures the domain gap at FIXED N")
+    ap.add_argument("--limit", type=int, default=0, metavar="K",
+                    help="override the per-N sample caps in the NS table (0 = table). "
+                         "The table's N=64 cap of 40 makes the Phase 0 gate "
+                         "underpowered: 40 samples x 32 pair-nodes gives a cluster-"
+                         "bootstrap 95%% CI of about +-0.03 on the transfer number, so "
+                         "0.943 and the 0.95 gate are not distinguishable. Raise it to "
+                         "decide the gate instead of guessing")
     ap.add_argument("--no-prefix", action="store_true",
                     help="drop the leading q0 (no question-conditioning of image "
                          "tokens; blocks get the question only via their replica) — "
@@ -232,6 +266,14 @@ def main() -> int:
         move_to_device,
     )
 
+    if args.hf:
+        if not args.root:
+            raise SystemExit("--hf requires --root (an MMReD-HF sample-dir pool)")
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from load_hf_sample import evidence_bits as hf_bits
+        from load_hf_sample import iter_hf_sample_dirs as hf_iter_dirs
+        from load_hf_sample import load_hf_sample as hf_load
+
     ns_want = {int(x) for x in _split(args.ns)}
     L_TOP = max(read_layers)
     rt = load_runtime()
@@ -242,7 +284,12 @@ def main() -> int:
     rope_fn = get_rope_index_fn(model)
     vs_id = int(model.config.vision_start_token_id)
 
+    if args.root and len(ns_want) != 1:
+        raise SystemExit("--root overrides a single N's root; pass exactly one --ns")
     for NF_target, root, limit in [x for x in NS if x[0] in ns_want]:
+        limit = args.limit or limit
+        root = args.root or root
+        print(f"[capture] N={NF_target} root={root} limit={limit}", flush=True)
         arms = build_arms(NF_target)
         n_nodes_total = sum(len(g) for lv in arms.values() for g in lv)
 
@@ -250,17 +297,35 @@ def main() -> int:
         ys, golds = [], []
         n_done = n_skip = 0
         t0 = time.time()
-        for sd in iter_sample_dirs_shuffled(Path(root), args.shuffle_dirs):
+        sample_iter = (hf_iter_dirs(Path(root)) if args.hf
+                       else iter_sample_dirs_shuffled(Path(root), args.shuffle_dirs))
+        for sd in sample_iter:
             if n_done >= limit:
                 break
             try:
-                _sid, frames, q0, states, a0 = load_mmred_sample(sd)
-                gold = int(str(a0).strip())
-                pe_ = probe_evidence(args.task, q0, states, gold, ROOMS)
-                if pe_ is None:
-                    n_skip += 1
-                    continue
-                evid, _room = pe_
+                if args.hf:
+                    # MMReD-HF: own loader + own room vocab (Hallway, no Park), see
+                    # scripts/ninv/load_hf_sample.py. gnnformer is never touched.
+                    _sid, frames, q0, states, a0 = hf_load(sd)
+                    gold = int(str(a0).strip())
+                    bits = hf_bits(q0, states)
+                    if bits is None:
+                        n_skip += 1
+                        continue
+                    # the adapter's self-check pins sum(bits) == gold for steps_in_room;
+                    # re-assert per sample so a bad sample is skipped, never mislabelled
+                    if sum(bits) != gold:
+                        n_skip += 1
+                        continue
+                    evid = {t for t, b in enumerate(bits) if b}
+                else:
+                    _sid, frames, q0, states, a0 = load_mmred_sample(sd)
+                    gold = int(str(a0).strip())
+                    pe_ = probe_evidence(args.task, q0, states, gold, ROOMS)
+                    if pe_ is None:
+                        n_skip += 1
+                        continue
+                    evid, _room = pe_
             except Exception:
                 n_skip += 1
                 continue
@@ -327,7 +392,22 @@ def main() -> int:
                 base_pos, _ = rope_fn(inputs["input_ids"],
                                       image_grid_thw=inputs.get("image_grid_thw"),
                                       attention_mask=inputs.get("attention_mask"))
-                pos = reset_positions(base_pos, blocks, fin_start).clone().to(dev)
+                pos = reset_positions(base_pos, blocks, fin_start).clone()
+                # NODE POSRESET (ninv, the ONLY behavioural change vs the original):
+                # every SQ node span starts at block-0's max position + 1, so a
+                # node's RoPE phase is independent of how many nodes precede it.
+                _s0, _e0 = blocks[0]
+                node_pos_start = int(pos[:, :, _s0:_e0].max()) + 1
+                for (_a, _b) in sq_spans:
+                    pos[:, :, _a:_b] = node_pos_start + torch.arange(_b - _a)
+                if n_done == 0:
+                    _pp = lambda sp: pos[0, 0, sp[0]:sp[1]].tolist()
+                    print(f"  [node-posreset] start={node_pos_start} "
+                          f"n_spans={len(sq_spans)} first{tuple(sq_spans[0])}="
+                          f"{_pp(sq_spans[0])} last{tuple(sq_spans[-1])}="
+                          f"{_pp(sq_spans[-1])} identical="
+                          f"{_pp(sq_spans[0]) == _pp(sq_spans[-1])}", flush=True)
+                pos = pos.to(dev)
                 emb = text_model.embed_tokens(inputs["input_ids"])
                 img = model.model.get_image_features(inputs["pixel_values"],
                                                      inputs["image_grid_thw"])
@@ -343,6 +423,17 @@ def main() -> int:
                     h = layers[li](h, attention_mask=m4, position_embeddings=pe)[0]
                     if li in read_layers:
                         hf = h[0].float().cpu()
+                        # LEAF (level-0) states: the per-frame question-replica spans.
+                        # These are NOT in `arms` (those are merge nodes only), so they
+                        # were never dumped and the per-frame verdict could not be
+                        # probed. Without them a class-2 pair error is ambiguous
+                        # between "a leaf never perceived its frame" and "the fan-2
+                        # merge lost one of two". Dumped under the pseudo-arm "leaf"
+                        # -> key "leaf|0|<L>|mean"; run_fits ignores it (it iterates
+                        # build_arms), so every existing number is unchanged.
+                        feats.setdefault(("leaf", 0, li, "mean"), []).append(
+                            torch.stack([hf[a:b].mean(0)
+                                         for (a, b) in rep_spans]).numpy())
                         for arm, levels in arms.items():
                             for lv in range(len(levels)):
                                 for feat in ("mean", "last"):

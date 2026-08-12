@@ -30,7 +30,7 @@ logs/
 # ---- outputs: run artifacts are untracked, but the hand-maintained INDEX.md files ARE
 # tracked (they are the "where is the canonical result" record — CLAUDE.md convention).
 # output*/** also keeps the archived trees (outputs_kitkat, outputs_olds, ...) fully ignored.
-output*/**
+output*/
 !outputs/*/
 !outputs/*/INDEX.md
 
