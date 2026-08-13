@@ -1,0 +1,4 @@
+# Tally-copy probe: an in-distribution length and the held-out extreme.
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_32/all_uniform
+data/mmred_longN_park/seq_len_128/all_uniform

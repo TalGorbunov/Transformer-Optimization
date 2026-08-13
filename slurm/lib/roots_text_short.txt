@@ -1,0 +1,7 @@
+# Short + very long text roots for the 1B triple. The 1B checkpoints are TEXT-ONLY, and
+# our text-native roots start at N=16 -- but the park image datasets carry a qa.txt in
+# exactly the same grammar (verified 2026-08-11), so a text model can read them directly
+# and simply never sees the PNGs. That gives N=2/4/8 without generating new data.
+data/mmred_images_park/seq_len_2/all_uniform
+data/mmred_images_park/seq_len_4/all_uniform
+data/mmred_images_park/seq_len_8/all_uniform

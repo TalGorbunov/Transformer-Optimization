@@ -1,0 +1,8 @@
+# Per-sequence-length sweep for the digit readout.
+data/mmred_images_park/seq_len_2/all_uniform
+data/mmred_images_park/seq_len_4/all_uniform
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform
+data/mmred_longN_park/seq_len_32/all_uniform
+data/mmred_longN_park/seq_len_64/all_uniform
+data/mmred_longN_park/seq_len_128/all_uniform

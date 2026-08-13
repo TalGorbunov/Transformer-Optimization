@@ -1,9 +1,0 @@
-torch
-transformers
-nnsight
-datasets
-pillow
-torchvision
-num2words
-huggingface-hub>=0.34.0,<1.0
-matplotlib

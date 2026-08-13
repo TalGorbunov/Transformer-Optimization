@@ -1,0 +1,16 @@
+# P3.5 distractor axis WITH HEADROOM.
+#
+# The brief's grid (seq_len_2..8) is saturated: teacher-forced count accuracy is 1.000 in
+# every cell for a trained arm, so it cannot separate arms there (verified 2026-08-07 on
+# the arm3 smoke ckpt, outputs/_scratch/gating_eval_smoke/). N<=8 is a solved regime for
+# THE method; a discriminator needs the regime where the method is still losing.
+#
+# seq_len_16/32/64 are IN the training mixture (slurm/lib/roots_inlength.txt) — fine for a
+# matched-data comparison between arms, but train-set performance, not generalization.
+# seq_len_128 is HELD OUT of the mixture (510 samples, golds 0..128) and is the only
+# uncontaminated hard cell we have. It is also the honest N-transfer target for P4.
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform
+data/mmred_longN_park/seq_len_32/all_uniform
+data/mmred_longN_park/seq_len_64/all_uniform
+data/mmred_longN_park/seq_len_128/all_uniform

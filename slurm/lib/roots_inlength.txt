@@ -1,0 +1,19 @@
+# The 16-root in-length training mixture (the l12v2 / caption-winner recipe).
+# Joined with commas into $ROOTS_INLENGTH by lib/common.sh. Per-root caps can be
+# appended as =LIMIT (train_carrier_layer.py supports path=LIMIT).
+data/mmred_images_park/seq_len_2/all_uniform
+data/mmred_images_park/seq_len_3/all_uniform
+data/mmred_images_park/seq_len_4/all_uniform
+data/mmred_images_park/seq_len_5/all_uniform
+data/mmred_images_park/seq_len_6/all_uniform
+data/mmred_images_park/seq_len_7/all_uniform
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_cooc_balanced/seq_len_8/all_uniform
+data/mmred_rooms_balanced/seq_len_8/all_uniform
+data/mmred_niah_which/seq_len_8/all_uniform
+data/mmred_union_or/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform
+data/mmred_longN_park/seq_len_32/all_uniform
+data/mmred_longN_park/seq_len_64/all_uniform
+data/mmred_longN_park2/seq_len_32/all_uniform
+data/mmred_longN_park2/seq_len_48/all_uniform

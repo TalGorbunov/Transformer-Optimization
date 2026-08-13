@@ -1,0 +1,14 @@
+# P3.5 discriminator grid — ONE sweep gives both axes when run with --per-gold K.
+#
+# seq_len_N/all_uniform is uniform over golds 0..N (100 per gold), so sweeping N alone
+# grows the evidence count too (mean gold 1.0 at N=2 -> 4.0 at N=8). --per-gold K caps
+# each gold value inside each root, producing a balanced (N x evidence) grid:
+#   distractor axis = fixed gold, read ACROSS roots (more irrelevant frames)
+#   capacity axis   = fixed N,    read ACROSS golds within a root (more evidence)
+data/mmred_images_park/seq_len_2/all_uniform
+data/mmred_images_park/seq_len_3/all_uniform
+data/mmred_images_park/seq_len_4/all_uniform
+data/mmred_images_park/seq_len_5/all_uniform
+data/mmred_images_park/seq_len_6/all_uniform
+data/mmred_images_park/seq_len_7/all_uniform
+data/mmred_images_park/seq_len_8/all_uniform
