@@ -132,6 +132,96 @@ def test_no_mask_arm_is_plain_causal():
     assert torch.equal(m, causal)
 
 
+# ---- LEARNMASK parity (outputs/learnmask/): the relation-gate assembly must contain
+# ---- the hand fence exactly — fence init bit-for-bit, hand design expressible.
+
+# carrier layouts (single carrier, last token of each block):
+#  A: prefix 10 | 3 blocks of 8 | tail 6  (the test_carrier_masks layout)
+#  B: prefix 3 | 20 blocks of 2 | tail 4  (block distances up to 19 -> all Δ-buckets)
+_CARRIER_LAYOUTS = [
+    (40, [(10, 18), (18, 26), (26, 34)], [17, 25, 33], 34),
+    (47, [(3 + 2 * i, 5 + 2 * i) for i in range(20)], [4 + 2 * i for i in range(20)], 43),
+]
+
+
+def test_learnmask_fence_init_parity():
+    """Hard assembly at the fence init == build_block_mask(hide_cols=carriers) ==
+    make_masks lo, BIT-FOR-BIT, at every layer, with and without appended rows."""
+    from gnnformer.carriers import ext_mask, make_masks
+    from gnnformer.learnmask import fence_open, hard_mask, relation_cell_map
+
+    for seq, blocks, cpos, fin in _CARRIER_LAYOUTS:
+        lo = build_block_mask(seq, blocks, hide_cols=list(cpos))
+        assert torch.equal(lo, make_masks(seq, blocks, cpos, fin)[0])
+        cm = relation_cell_map(seq, blocks, cpos, fin)
+        assert torch.equal(hard_mask(cm, fence_open()), lo)
+        for e in (1, 5):  # teacher-forced/decode rows: must equal ext_mask semantics
+            cm_e = relation_cell_map(seq, blocks, cpos, fin, e=e)
+            assert torch.equal(hard_mask(cm_e, fence_open()), ext_mask(lo, e))
+
+
+def test_learnmask_replica_span_parity():
+    """Span readers (question replicas): fence init == build_block_mask with the
+    replica spans hidden — on THIS file's replica layout — and the span lo/hi
+    construction reduces to carriers.make_masks bit-for-bit for single-token spans."""
+    from gnnformer.carriers import make_masks
+    from gnnformer.learnmask import (
+        fence_open,
+        hand_open_table,
+        hard_mask,
+        hard_masks_by_layer,
+        make_masks_spans,
+        relation_cell_map,
+    )
+
+    # replica layout (multi-token spans), reusing this file's canonical() reference
+    cm = relation_cell_map(SEQ, BLOCKS, REP_SPANS, FIN)
+    lo, hi = make_masks_spans(SEQ, BLOCKS, REP_SPANS, FIN)
+    assert torch.equal(lo, canonical())          # == build_block_mask(hide_cols=HIDE)
+    assert torch.equal(hard_mask(cm, fence_open()), lo)
+    masks = hard_masks_by_layer(cm, hand_open_table(28, 12))
+    assert torch.equal(masks[0], lo) and torch.equal(masks[12], hi)
+    # replica rows in hi read earlier replicas; tail reads all replicas
+    r2a, _ = REP_SPANS[2]
+    assert (hi[r2a, [p for a, b in REP_SPANS[:2] for p in range(a, b)]] == 0).all()
+    assert (hi[SEQ - 1, [p for a, b in REP_SPANS for p in range(a, b)]] == 0).all()
+    # single-token spans == the anchored carrier construction, bit for bit
+    for seq, blocks, cpos, fin in _CARRIER_LAYOUTS:
+        lo_c, hi_c = make_masks(seq, blocks, cpos, fin)
+        lo_s, hi_s = make_masks_spans(seq, blocks, cpos, fin)
+        assert torch.equal(lo_c, lo_s) and torch.equal(hi_c, hi_s)
+
+
+def test_learnmask_hand_design_expressible():
+    """The deployed hand design is a point in gate space: R4+R7 open at layers >=
+    L_OPEN reproduces make_masks (lo, hi) bit-for-bit — so the learned-mask trainer
+    starts from a family that CONTAINS the baseline."""
+    from gnnformer.carriers import ext_mask, make_masks
+    from gnnformer.learnmask import hand_open_table, hard_masks_by_layer, relation_cell_map
+
+    n_layers, l_open = 28, 12
+    for seq, blocks, cpos, fin in _CARRIER_LAYOUTS:
+        lo, hi = make_masks(seq, blocks, cpos, fin)
+        cm = relation_cell_map(seq, blocks, cpos, fin)
+        masks = hard_masks_by_layer(cm, hand_open_table(n_layers, l_open))
+        for li in range(n_layers):
+            assert torch.equal(masks[li], lo if li < l_open else hi), f"layer {li}"
+        cm_e = relation_cell_map(seq, blocks, cpos, fin, e=3)
+        masks_e = hard_masks_by_layer(cm_e, hand_open_table(n_layers, l_open))
+        assert torch.equal(masks_e[0], ext_mask(lo, 3))
+        assert torch.equal(masks_e[l_open], ext_mask(hi, 3))
+
+
+def test_learnmask_chunking_invariant():
+    """Row-chunked map construction (the P4 large-N path) == one-shot construction."""
+    from gnnformer.learnmask import relation_cell_map
+
+    seq, blocks, cpos, fin = _CARRIER_LAYOUTS[1]
+    full = relation_cell_map(seq, blocks, cpos, fin, e=2)
+    for chunk in (1, 7, 16):
+        assert torch.equal(relation_cell_map(seq, blocks, cpos, fin, e=2, row_chunk=chunk), full)
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

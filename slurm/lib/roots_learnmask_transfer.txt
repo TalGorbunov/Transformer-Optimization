@@ -1,0 +1,4 @@
+# LEARNMASK zero-shot transfer roots (native benchmark test splits), per-root caps.
+# Used via DIRS_FILE by slurm/eval_mask_transfer.sbatch.
+data/mmred_hf/dirs/seq_len_32_test=100
+data/mmred_hf/dirs/seq_len_64_test=60

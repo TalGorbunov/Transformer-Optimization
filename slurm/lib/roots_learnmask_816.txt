@@ -1,0 +1,5 @@
+# LEARNMASK mixed-length training roots (seq 8 + 16, steps_in_room), per-root caps.
+# Used via ROOTS_FILE by slurm/train_mask_gates.sbatch — sbatch --export silently
+# splits comma values, so the list lives here.
+data/mmred_hf/dirs/seq_len_8_train_steps_in_room=150
+data/mmred_hf/dirs/seq_len_16_train_steps_in_room=150

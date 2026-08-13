@@ -173,8 +173,9 @@ class CarrierEngine:
             ext = self.text_model.embed_tokens(torch.tensor([list(extra)], device=self.dev))
             emb = torch.cat([emb, ext.to(emb.dtype)], dim=1)
         emb = emb.clone()
-        stack = self.e_c.unsqueeze(0).repeat(len(d["cpos"]), 1).to(torch.bfloat16)
-        emb[0, torch.tensor(d["cpos"], device=self.dev)] = stack if grad else stack.detach()
+        if d["cpos"]:  # replica-scaffold records (learnmask) carry no carriers
+            stack = self.e_c.unsqueeze(0).repeat(len(d["cpos"]), 1).to(torch.bfloat16)
+            emb[0, torch.tensor(d["cpos"], device=self.dev)] = stack if grad else stack.detach()
         if "lo" in d:
             lo_m, hi_m = d["lo"], d["hi"]
         else:  # training: masks rebuilt lazily (caching seq^2 per sample blows RAM)
