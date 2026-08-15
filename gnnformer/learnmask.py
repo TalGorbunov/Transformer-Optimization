@@ -328,7 +328,7 @@ class MaskGates(nn.Module):
     semantics). Init: ±init_logit by fence value, so hard mode at init == the fence."""
 
     def __init__(self, n_layers: int, arm: str = "s2", estimator: str = "st-gumbel",
-                 init_logit: float = 2.0):
+                 init_logit: float = 2.0, init_open: bool = False):
         super().__init__()
         if arm not in ARM_RELATIONS:
             raise ValueError(f"unknown arm {arm!r} (known: {sorted(ARM_RELATIONS)})")
@@ -336,11 +336,18 @@ class MaskGates(nn.Module):
             raise ValueError(f"unknown estimator {estimator!r} (known: {ESTIMATORS})")
         self.arm, self.estimator = arm, estimator
         self.n_layers, self.init_logit = n_layers, float(init_logit)
+        self.init_open = bool(init_open)
         learn = arm_learn_mask(arm)
         self.register_buffer("learn", learn)
         self.register_buffer("fence_on_learn", FENCE_ON[learn].clone())
         self.channel_names = [c.name for c, m in zip(CHANNELS, learn.tolist()) if m]
-        sign = torch.where(self.fence_on_learn, 1.0, -1.0)
+        # init_open=True: prune-from-open — ALL learnable gates start open and the
+        # deviation penalty prunes; surviving edges = the necessity answer. Chosen
+        # after the 2026-08-14 sweep showed a COORDINATION BARRIER at the fence
+        # init (independent per-gate samples can't discover jointly-valuable
+        # openings; gates retreat into the fence).
+        sign = (torch.ones_like(self.fence_on_learn, dtype=torch.float32)
+                if self.init_open else torch.where(self.fence_on_learn, 1.0, -1.0))
         init = (self.init_logit * sign).view(-1, 1).repeat(1, n_layers)
         self.logits = nn.Parameter(init)
         self.register_buffer("init_sign", sign.clone())
@@ -419,12 +426,14 @@ class MaskGates(nn.Module):
     def state(self) -> Dict[str, Any]:
         return {"logits": self.logits.detach().cpu(), "arm": self.arm,
                 "estimator": self.estimator, "init_logit": self.init_logit,
+                "init_open": self.init_open,
                 "n_layers": self.n_layers, "channel_names": list(self.channel_names)}
 
     @classmethod
     def from_state(cls, st: Dict[str, Any]) -> "MaskGates":
         g = cls(int(st["n_layers"]), arm=st["arm"], estimator=st["estimator"],
-                init_logit=float(st["init_logit"]))
+                init_logit=float(st["init_logit"]),
+                init_open=bool(st.get("init_open", False)))
         with torch.no_grad():
             g.logits.copy_(st["logits"])
         return g
@@ -447,13 +456,16 @@ class FreeTableGates(nn.Module):
     relation channel."""
 
     def __init__(self, cell_map: torch.Tensor, n_layers: int, scope_arm: str = "s2",
-                 estimator: str = "st-gumbel", init_logit: float = 2.0):
+                 estimator: str = "st-gumbel", init_logit: float = 2.0,
+                 share_layers: bool = False):
         super().__init__()
         if estimator not in ESTIMATORS:
             raise ValueError(f"unknown estimator {estimator!r}")
         self.estimator, self.init_logit = estimator, float(init_logit)
         self.n_layers = n_layers
-        self.arm = f"s0[{scope_arm}]"
+        self.share_layers = bool(share_layers)  # ONE mask for all layers (prof.
+        self.arm = (f"s0shared[{scope_arm}]"    # suggestion 2026-08-15): /28 params,
+                    if share_layers else f"s0[{scope_arm}]")  # depth-independent
         learn_ch = arm_learn_mask(scope_arm)
         cm = cell_map.long()
         sel = (cm >= 0) & learn_ch[cm.clamp(min=0)]
@@ -467,8 +479,9 @@ class FreeTableGates(nn.Module):
         base, _ = mask_parts(cell_map, learn_ch, frozen_open)
         self.register_buffer("base", base)
         sign = torch.where(self.fence_on_learn, 1.0, -1.0)
+        cols = 1 if self.share_layers else n_layers
         self.logits = nn.Parameter(
-            (self.init_logit * sign).view(-1, 1).repeat(1, n_layers))
+            (self.init_logit * sign).view(-1, 1).repeat(1, cols))
         self.channel_names = [f"cell[{c.name}]" for c in CHANNELS]
 
     @property
@@ -476,7 +489,10 @@ class FreeTableGates(nn.Module):
         return self.logits.shape[0]
 
     def gate_table(self, tau: float = 1.0, mode: str = "train") -> torch.Tensor:
-        return MaskGates.gate_table(self, tau=tau, mode=mode)  # same estimators
+        t = MaskGates.gate_table(self, tau=tau, mode=mode)  # same estimators
+        # layer-shared: ONE draw per cell, the identical mask at every layer
+        # (expand keeps autograd — layer gradients accumulate into the one logit)
+        return t.expand(-1, self.n_layers) if self.share_layers else t
 
     def p_open(self) -> torch.Tensor:
         return torch.sigmoid(self.logits)
@@ -516,6 +532,7 @@ class FreeTableGates(nn.Module):
     def state(self) -> Dict[str, Any]:
         return {"logits": self.logits.detach().cpu(), "arm": self.arm,
                 "estimator": self.estimator, "init_logit": self.init_logit,
+                "share_layers": self.share_layers,
                 "n_layers": self.n_layers, "cell_map": self.cell_map.cpu(),
                 "flat_idx": self.flat_idx.cpu()}
 

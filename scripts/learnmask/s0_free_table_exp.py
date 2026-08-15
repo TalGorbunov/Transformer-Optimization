@@ -92,7 +92,8 @@ from gnnformer.runtime import load_runtime
 
 # --------------------------------------------------------------------- free table
 
-def build_free_table(cell_map: torch.Tensor, n_layers: int, init_logit: float = 2.0):
+def build_free_table(cell_map: torch.Tensor, n_layers: int, init_logit: float = 2.0,
+                     share_layers: bool = False):
     """One learnable logit per (cell, layer) over the S2-scope cells.
 
     Returns (logits [n_cells, n_layers], flat_idx [n_cells] into the flattened
@@ -107,8 +108,11 @@ def build_free_table(cell_map: torch.Tensor, n_layers: int, init_logit: float = 
     fence_on = FENCE_ON[cm.view(-1)[flat_idx]]
     base, _ = mask_parts(cell_map, learn_ch, FENCE_ON.clone())
     sign = torch.where(fence_on, 1.0, -1.0)
+    # share_layers (peer suggestion): ONE logit per cell, the identical mask applied
+    # at every layer — /28 trainable params, depth-independent by construction.
+    cols = 1 if share_layers else n_layers
     logits = torch.nn.Parameter(
-        (init_logit * sign).view(-1, 1).repeat(1, n_layers))
+        (init_logit * sign).view(-1, 1).repeat(1, cols))
     return logits, flat_idx, base, fence_on
 
 
@@ -141,6 +145,8 @@ def main() -> int:
     ap.add_argument("--lr", type=float, default=3e-2)
     ap.add_argument("--tau0", type=float, default=2.0)
     ap.add_argument("--tau1", type=float, default=0.5)
+    ap.add_argument("--share-layers", action="store_true",
+                    help="one shared mask for ALL layers (/28 params)")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
     torch.manual_seed(args.seed)
@@ -184,12 +190,19 @@ def main() -> int:
     # ---- the free table ----------------------------------------------------------
     d0 = tr[0]
     cm = relation_cell_map(d0["seq"], d0["blocks"], d0["readers"], d0["fin"])
-    logits, flat_idx, base, fence_on = build_free_table(cm, n_layers)
+    logits, flat_idx, base, fence_on = build_free_table(
+        cm, n_layers, share_layers=args.share_layers)
     dev = eng.dev
     logits = torch.nn.Parameter(logits.detach().to(dev))  # leaf on the GPU
     flat_idx, base = flat_idx.to(dev), base.to(dev)
     init = logits.detach().clone()
-    print(f"free table: {flat_idx.numel():,} cells x {n_layers} layers "
+
+    def per_layer(g):  # layer-shared tables expand to [n_cells, n_layers]
+        return g.expand(-1, n_layers) if args.share_layers else g
+
+    print(f"free table: {flat_idx.numel():,} cells x "
+          f"{1 if args.share_layers else n_layers} "
+          f"{'(shared across layers) ' if args.share_layers else 'layers '}"
           f"= {logits.numel():,} gates (causal lower triangle only)")
 
     # ---- eval: thresholded (deploy-semantics) mask + reference regimes ----------
@@ -208,7 +221,7 @@ def main() -> int:
         return hits / len(ev), ce / len(ev)
 
     def hard_masks():
-        g = (logits.detach() > 0).float()
+        g = per_layer((logits.detach() > 0).float())
         return [layer_mask(base, flat_idx, g[:, li], MASK_MIN) for li in range(n_layers)]
 
     for name, table in (("hand fence", hand_open_table(n_layers, 12)),
@@ -229,7 +242,7 @@ def main() -> int:
             d = tr[i]
             tau = args.tau0 * (args.tau1 / args.tau0) ** (gstep / max(step_total - 1, 1))
             gstep += 1
-            g = sample_gates(logits, tau)                       # one hard sample
+            g = per_layer(sample_gates(logits, tau))            # one hard sample
             lg = gated_stack_logits(
                 eng, d, [],
                 lambda li, S: layer_mask(base, flat_idx, g[:, li], SOFT_FORBID))[-1]

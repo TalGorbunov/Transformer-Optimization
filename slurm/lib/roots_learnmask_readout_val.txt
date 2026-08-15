@@ -1,0 +1,5 @@
+# LEARNMASK readout validation roots: full val/test slices at 8/16/32.
+data/mmred_hf/dirs/seq_len_8_val_steps_in_room=50
+data/mmred_hf/dirs/seq_len_16_test=50
+data/mmred_hf/dirs/seq_len_32_test=50
+data/mmred_hf/dirs/seq_len_64_test=50

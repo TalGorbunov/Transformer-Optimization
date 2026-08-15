@@ -22,15 +22,18 @@ if [ -n "${EVAL_ROOTS_FILE:-}" ]; then
 fi
 run_logged "$OUTPUT" python -u scripts/learnmask/train_mask_gates.py \
   --arm "${ARM:-s1}" --estimator "${ESTIMATOR:-st-gumbel}" \
+  --gate-init "${GATE_INIT:-fence}" \
+  ${S0_SHARE:+--s0-share-layers} \
   --scaffold "${SCAFFOLD:-replica}" --target "${TARGET:-class}" \
-  --train "${TRAIN:-gates}" --fixed-regime "${FIXED_REGIME:-nofence}" \
+  --train "${TRAIN:-gates}" --fixed-regime "${FIXED_REGIME:-s2open}" \
   ${READOUT_CKPT:+--readout-ckpt "$READOUT_CKPT"} \
   --data_root "${DATA_ROOT:-data/mmred_hf/dirs/seq_len_8_train_steps_in_room}" \
   ${EVAL_ROOT:+--eval-root "$EVAL_ROOT"} \
   --limit "${LIMIT:-120}" --eval-limit "${EVAL_LIMIT:-60}" \
-  --epochs "${EPOCHS:-8}" --lr-gate "${LR:-3e-2}" \
+  --epochs "${EPOCHS:-8}" --lr-gate "${LR:-3e-2}" --lr-lora "${LR_LORA:-1e-4}" \
   --lam-open "${LAM_OPEN:-1e-2}" --lam-close "${LAM_CLOSE:-0}" \
   --resize "${RESIZE:-512}" \
+  ${QTYPES:+--qtype-filter "$QTYPES"} \
   --tail-style "${TAIL:-canonical}" \
   ${EP0:+--ep0-regimes "$EP0"} \
   ${HINT:+--answer-hint "$HINT"} ${PRIME:+--answer-prime "$PRIME"} \

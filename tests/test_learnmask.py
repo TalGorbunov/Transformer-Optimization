@@ -228,6 +228,34 @@ def test_freetable_s0():
     assert 0.0 < float(full[_CH["R7"], 0]) < 0.5  # fence-OFF learnable cells
 
 
+def test_init_open():
+    """Prune-from-open init: every learnable gate starts open, so the hard table at
+    init equals fence + all learnable channels open (the s2open regime for arm s2)."""
+    g = MaskGates(4, arm="s2", init_open=True)
+    t = g.hard_open_table()
+    want = fence_open().view(-1, 1).repeat(1, 4)
+    want[arm_learn_mask("s2")] = True
+    assert torch.equal(t, want)
+    assert g.flips() == 0  # flips count vs the OPEN init
+    g2 = MaskGates.from_state(g.state())
+    assert g2.init_open and torch.equal(g2.logits, g.logits)
+
+
+def test_freetable_shared_layers():
+    """Layer-shared S0 (one mask for all layers): /28 params, hard init == fence,
+    gate table expands to identical columns."""
+    from gnnformer.learnmask import FreeTableGates, hard_mask
+
+    ft = FreeTableGates(CM, n_layers=3, estimator="ste", share_layers=True)
+    fu = FreeTableGates(CM, n_layers=3, estimator="ste", share_layers=False)
+    assert ft.logits.numel() * 3 == fu.logits.numel()
+    gt = ft.gate_table(mode="hard")
+    assert gt.shape == (ft.n_learn, 3)
+    assert torch.equal(gt[:, 0], gt[:, 2])  # identical mask at every layer
+    lo = hard_mask(CM, fence_open())
+    assert torch.equal(ft.layer_mask(gt[:, 0], MASK_MIN), lo)
+
+
 def test_state_roundtrip():
     g = MaskGates(5, arm="s2", estimator="st-gumbel", init_logit=1.5)
     with torch.no_grad():

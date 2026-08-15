@@ -42,6 +42,8 @@ from gnnformer.engine import CarrierEngine
 from gnnformer.learnmask import (
     N_CH,
     MaskGates,
+    arm_learn_mask,
+    fence_open_table,
     gated_greedy_digits,
     gated_stack_logits,
     hand_open_table,
@@ -67,6 +69,9 @@ def main() -> int:
     ap.add_argument("--scaffold", choices=("replica", "carrier"), default="replica")
     ap.add_argument("--carrier-ckpt", default="checkpoints/carrier_layer_digit_p7a_lora_best.pt",
                     help="carrier scaffold only (frozen e_c+LoRA)")
+    ap.add_argument("--readout-ckpt", default="",
+                    help="replica scaffold: readout_*.pt from --train lora — LoRA "
+                         "attached FROZEN (adds the s2open regime = its native mask)")
     ap.add_argument("--qtype-filter", default="steps_in_room",
                     help="only dirs whose qtype matches (empty = all counting qtypes)")
     ap.add_argument("--resize", type=int, default=512)
@@ -94,10 +99,24 @@ def main() -> int:
             p.requires_grad_(False)
     else:
         e_c = None
+        if args.readout_ckpt:
+            rck = torch.load(args.readout_ckpt, map_location="cpu")
+            lora = attach_lora(layers, int(rck.get("l_open", 0)),
+                               rank=int(rck["rank"]), alpha=float(rck["alpha"]),
+                               device=rt.device, state=rck["lora"])
+            for p in lora.parameters():
+                p.requires_grad_(False)
+            print(f"[readout] frozen LoRA from {args.readout_ckpt} "
+                  f"(regime={rck.get('fixed_regime')} acc={rck.get('acc')})", flush=True)
     eng = CarrierEngine(rt, l_open=args.l_open, e_c=e_c)
     digit_ids = eng.digit_ids
 
-    regimes = [r.strip() for r in args.regimes.split(",") if r.strip()]
+    # '+' also separates: comma lists cannot ride sbatch --export values
+    regimes = [r.strip() for r in args.regimes.replace("+", ",").split(",") if r.strip()]
+    known = {"hand", "init", "nofence", "s2open", "gates"}
+    bad = [r for r in regimes if r not in known]
+    if bad:
+        raise SystemExit(f"unknown regimes {bad} (known: {sorted(known)})")
     gates = None
     if args.gates:
         st = torch.load(args.gates, map_location="cpu")
@@ -114,6 +133,10 @@ def main() -> int:
             return hand_open_table(eng.n_layers, eng.n_layers + 1)  # fence everywhere
         if regime == "nofence":
             return torch.ones(N_CH, eng.n_layers, dtype=torch.bool)
+        if regime == "s2open":  # everything the S2 sweep can reach, open
+            t = fence_open_table(eng.n_layers)
+            t[arm_learn_mask("s2")] = True
+            return t
         return gates.hard_open_table()
 
     lines = [f"=== LEARNMASK TRANSFER (scaffold={args.scaffold} l_open={args.l_open} "

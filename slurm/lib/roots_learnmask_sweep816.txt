@@ -1,0 +1,4 @@
+# LEARNMASK gate-sweep training roots (seq16 capped to fit walltime at the
+# measured ~88 s/step). Used via ROOTS_FILE.
+data/mmred_hf/dirs/seq_len_8_train_steps_in_room=150
+data/mmred_hf/dirs/seq_len_16_train_steps_in_room=100

@@ -16,7 +16,7 @@ if [ -n "${DIRS_FILE:-}" ]; then
 fi
 run_logged "$OUTPUT" python -u scripts/learnmask/eval_mask_transfer.py \
   --dirs "${DIRS:?set DIRS or DIRS_FILE}" \
-  ${GATES:+--gates "$GATES"} \
+  ${GATES:+--gates "$GATES"} ${READOUT_CKPT:+--readout-ckpt "$READOUT_CKPT"} \
   --regimes "${REGIMES:-hand,init,nofence}" \
   --scaffold "${SCAFFOLD:-replica}" --limit "${LIMIT:-100}" \
   --output "$OUTPUT"

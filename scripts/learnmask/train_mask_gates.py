@@ -107,10 +107,14 @@ def main() -> int:
                          "— fresh LoRA on ALL layers, mask PINNED at --fixed-regime "
                          "(the 2026-08-13 existence-test consequence: no mask makes "
                          "the frozen model emit counts; a readout must exist first)")
-    ap.add_argument("--fixed-regime", choices=("nofence", "init", "hand"),
-                    default="nofence",
-                    help="--train lora: the pinned mask regime (nofence = the readout "
-                         "never sees ANY fence — the clean scaffold for gate arms)")
+    ap.add_argument("--fixed-regime", choices=("s2open", "nofence", "init", "hand"),
+                    default="s2open",
+                    help="--train lora: the pinned mask regime. s2open (default) = "
+                         "everything the S2 sweep can REACH, open (frames isolated, "
+                         "R4-R7 open): the sweep then measures pure edge NECESSITY "
+                         "with no train/deploy shift. nofence = truly everything "
+                         "open incl. frame->frame — an edge family the sweep can "
+                         "never restore (reviewer-ablation variant)")
     ap.add_argument("--rank", type=int, default=8)
     ap.add_argument("--alpha", type=float, default=16.0)
     ap.add_argument("--lr-lora", type=float, default=1e-4)
@@ -121,7 +125,14 @@ def main() -> int:
     ap.add_argument("--arm", choices=tuple(sorted(ARM_RELATIONS)) + ("s0",), default="s1",
                     help="s0 = per-cell free table (diagnostic; class target, one "
                          "fixed layout, never a headline)")
+    ap.add_argument("--s0-share-layers", action="store_true",
+                    help="s0: ONE shared mask for all layers (prof. suggestion "
+                         "2026-08-15 — /28 params, depth-independent)")
     ap.add_argument("--estimator", choices=ESTIMATORS, default="st-gumbel")
+    ap.add_argument("--gate-init", choices=("fence", "open"), default="fence",
+                    help="open = prune-from-open: all learnable gates start OPEN and "
+                         "the deviation penalty prunes (the coordination-barrier fix "
+                         "— surviving edges are the necessity answer)")
     ap.add_argument("--init-logit", type=float, default=2.0)
     ap.add_argument("--tau0", type=float, default=2.0)
     ap.add_argument("--tau1", type=float, default=0.5)
@@ -155,8 +166,8 @@ def main() -> int:
                          "generation prompt (e.g. 'Answer:') — the read position "
                          "follows it")
     ap.add_argument("--qtype-filter", default="steps_in_room",
-                    help="only dirs of this qtype (mixed test splits carry all 24; "
-                         "empty = any numeric-answer qtype)")
+                    help="comma/plus list of allowed qtypes (mixed test splits carry "
+                         "all 24; empty = any numeric-answer qtype)")
     ap.add_argument("--shuffle-dirs", type=int, default=0, metavar="SEED",
                     help="stratified round-robin shuffle seed (K0-trap mitigation)")
     ap.add_argument("--seed", type=int, default=0)
@@ -228,8 +239,10 @@ def main() -> int:
                 continue
             qtype = qtype_from_dirname(sd.name)
             gold_s = str(a0).strip()
+            allowed = {q.strip() for q in
+                       args.qtype_filter.replace("+", ",").split(",") if q.strip()}
             if qtype is None or not gold_s.isdigit() or (
-                    args.qtype_filter and qtype != args.qtype_filter):
+                    allowed and qtype not in allowed):
                 n_skip += 1
                 continue
             gold = int(gold_s)
@@ -332,10 +345,12 @@ def main() -> int:
         d00 = tr[0]
         cm00 = relation_cell_map(d00["seq"], d00["blocks"], readers_of(d00), d00["fin"])
         gates = FreeTableGates(cm00, eng.n_layers, estimator=args.estimator,
-                               init_logit=args.init_logit).to(dev)
+                               init_logit=args.init_logit,
+                               share_layers=args.s0_share_layers).to(dev)
     else:
         gates = MaskGates(eng.n_layers, arm=args.arm, estimator=args.estimator,
-                          init_logit=args.init_logit).to(dev)
+                          init_logit=args.init_logit,
+                          init_open=(args.gate_init == "open")).to(dev)
     if args.train == "lora":
         lora = attach_lora(layers, 0, rank=args.rank, alpha=args.alpha, device=dev)
         opt = torch.optim.Adam([{"params": lora.parameters(), "lr": args.lr_lora}])
@@ -390,6 +405,11 @@ def main() -> int:
             return fence_open_table(eng.n_layers)
         if regime == "nofence":
             return torch.ones(N_CH, eng.n_layers, dtype=torch.bool)
+        if regime == "s2open":  # everything the S2 sweep can reach, open
+            from gnnformer.learnmask import arm_learn_mask
+            t = fence_open_table(eng.n_layers)
+            t[arm_learn_mask("s2")] = True
+            return t
         if regime == "supply":  # force the readout THROUGH the supply positions:
             t = fence_open_table(eng.n_layers)   # tail reads replicas, NOT frames
             t[_CH0["R7"], :] = True

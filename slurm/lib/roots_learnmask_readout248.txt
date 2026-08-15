@@ -1,0 +1,5 @@
+# LEARNMASK readout-v2 training roots: ALL steps_in_room train data at the cheap
+# lengths (200 dirs each). Used via ROOTS_FILE.
+data/mmred_hf/dirs/seq_len_2_train_steps_in_room=200
+data/mmred_hf/dirs/seq_len_4_train_steps_in_room=200
+data/mmred_hf/dirs/seq_len_8_train_steps_in_room=200

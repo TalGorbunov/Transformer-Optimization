@@ -1,0 +1,14 @@
+# LEARNMASK readout-v3: P7a-style multi-task numeric mixture, 4 qtypes x 3 cheap
+# lengths, 100/root = 1200 samples. Used via ROOTS_FILE (+ QTYPES filter).
+data/mmred_hf/dirs/seq_len_2_train_steps_in_room=100
+data/mmred_hf/dirs/seq_len_4_train_steps_in_room=100
+data/mmred_hf/dirs/seq_len_8_train_steps_in_room=100
+data/mmred_hf/dirs/seq_len_2_train_crowd_count=100
+data/mmred_hf/dirs/seq_len_4_train_crowd_count=100
+data/mmred_hf/dirs/seq_len_8_train_crowd_count=100
+data/mmred_hf/dirs/seq_len_2_train_n_empty=100
+data/mmred_hf/dirs/seq_len_4_train_n_empty=100
+data/mmred_hf/dirs/seq_len_8_train_n_empty=100
+data/mmred_hf/dirs/seq_len_2_train_rooms_visited=100
+data/mmred_hf/dirs/seq_len_4_train_rooms_visited=100
+data/mmred_hf/dirs/seq_len_8_train_rooms_visited=100
