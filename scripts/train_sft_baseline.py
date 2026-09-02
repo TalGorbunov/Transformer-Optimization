@@ -9,6 +9,12 @@ P1.3 ladder cells via --eval-only-adapter (0.480/0.350/0.220). The PROMPT TEMPLA
 kept byte-identical to the legacy runs, so saved adapters (checkpoints/sft_*_adapter)
 restore and reproduce; --eval-dirs-file pins the comparable cells.
 
+--frames-first (LORAMECH, 2026-08-26): the CANONICAL regime for new adapters — message
+layout = images, then build_count_prompt (question + "Answer: "), token-identical to
+gnnformer.data.build_prompt_inputs (the frozen baseline 0.219 / ARMOR-A plain arm).
+Q-first build_messages stays byte-identical; old adapters restore with the old template.
+--exclude-dirs-file makes exam sets provably unseen by construction (P4 discipline).
+
 vs legacy/experiments/glstm/lora_sft_baseline.py: the dead frame-axis-era arms
 (frame-sup, isolation, decompose, count-holdout, CoT) are gone, and data comes from
 MMRED roots + a seeded split (the carrier trainer's conventions) instead of the retired
@@ -40,6 +46,7 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from gnnformer.data import (
+    build_count_prompt,
     iter_sample_dirs,
     iter_sample_dirs_shuffled,
     load_mmred_sample,
@@ -47,7 +54,7 @@ from gnnformer.data import (
     read_dirs_file,
 )
 from gnnformer.metrics import format_gold_histogram
-from gnnformer.runtime import load_runtime, move_to_device
+from gnnformer.runtime import get_layers, load_runtime, move_to_device
 
 # FLASH first (supports GQA+causal at O(seq) memory), then EFFICIENT, then MATH.
 SFT_SDPA = [SDPBackend.FLASH_ATTENTION, SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
@@ -60,6 +67,14 @@ def build_messages(frames, question):
                 f"showing rooms in a house:")
     return [{"role": "user", "content": [{"type": "text", "text": preamble}]
              + [{"type": "image", "image": im} for im in frames]}]
+
+
+def build_messages_ff(frames, question):
+    """Frames-first canonical layout — token-identical to build_prompt_inputs(processor,
+    frames, build_count_prompt(...)): images, then the counting prompt ending "Answer: "."""
+    return [{"role": "user",
+             "content": [{"type": "image", "image": im} for im in frames]
+             + [{"type": "text", "text": build_count_prompt(question, len(frames))}]}]
 
 
 def main() -> int:
@@ -86,6 +101,14 @@ def main() -> int:
                     help="dirs-file for generate-and-parse eval (repeatable; the comparable cells)")
     ap.add_argument("--eval-only-adapter", type=Path, default=None,
                     help="restore a saved LoRA adapter dir and skip training")
+    ap.add_argument("--frames-first", action="store_true",
+                    help="canonical regime: images, then build_count_prompt (LORAMECH)")
+    ap.add_argument("--attn-logn-sref", type=int, default=0,
+                    help="L5: >0 enables log-N attention-logit scaling at eval "
+                         "(head_dim^-0.5 * ln(S)/ln(S_ref) on LM decoder attention)")
+    ap.add_argument("--exclude-dirs-file", action="append", default=[],
+                    help="dirs-file of sample dirs to EXCLUDE from training data "
+                         "(repeatable; makes exam sets provably unseen)")
     ap.add_argument("--model", default=None)
     ap.add_argument("--output", type=Path, default=Path("outputs/carrier/sft"))
     args = ap.parse_args()
@@ -94,6 +117,8 @@ def main() -> int:
 
     run_dir = args.output / f"{time.strftime('%Y%m%d_%H%M%S')}_lora"
     run_dir.mkdir(parents=True, exist_ok=True)
+    import json
+    (run_dir / "config.json").write_text(json.dumps(vars(args), indent=2, default=str))
     log = (run_dir / "run.log").open("w", encoding="utf-8")
 
     def emit(m):
@@ -103,6 +128,17 @@ def main() -> int:
 
     rt = load_runtime(args.model) if args.model else load_runtime()
     model, processor, tok = rt.model, rt.processor, rt.tokenizer
+    # L5 machinery — attn modules captured PRE-peft-wrap (PeftModel.model trap)
+    _attn_mods = [ly.self_attn for ly in get_layers(model)]
+    _base_scaling = float(_attn_mods[0].scaling)
+
+    def set_logn_scaling(seq_len):
+        import math
+
+        s = _base_scaling * math.log(max(seq_len, 2)) / math.log(args.attn_logn_sref)
+        for m_ in _attn_mods:
+            m_.scaling = s
+
     if args.eval_only_adapter is not None:
         from peft import PeftModel
 
@@ -122,9 +158,17 @@ def main() -> int:
         model = get_peft_model(model, lcfg)
         model.print_trainable_parameters()
 
+    msg_builder = build_messages_ff if args.frames_first else build_messages
+    emit(f"[template] {'frames-first (build_count_prompt layout)' if args.frames_first else 'Q-first (legacy byte-identical)'}")
+
     # ---- data: MMRED roots, validity-gated, seeded split ----
+    excluded = set()
+    for f in args.exclude_dirs_file:
+        excluded.update(str(Path(p).resolve()) for p in read_dirs_file(Path(f)))
+    if excluded:
+        emit(f"[exclude] {len(excluded)} dirs across {len(args.exclude_dirs_file)} file(s)")
     samples = []  # (sd, gold)
-    n_skip = 0
+    n_skip = n_excl = 0
     for root in args.data_root.split(","):
         root = root.strip()
         if not root:
@@ -137,6 +181,9 @@ def main() -> int:
         for sd in iter_sample_dirs_shuffled(Path(root), 0):
             if n_root >= lim:
                 break
+            if excluded and str(Path(sd).resolve()) in excluded:
+                n_excl += 1
+                continue
             try:
                 _sid, _frames, q0, states, a0 = load_mmred_sample(sd)
                 gold = int(str(a0).strip())
@@ -148,7 +195,7 @@ def main() -> int:
                 continue
             samples.append((sd, gold))
             n_root += 1
-    emit(f"[data] {len(samples)} samples (skip {n_skip}); gold-hist "
+    emit(f"[data] {len(samples)} samples (skip {n_skip}, excluded {n_excl}); gold-hist "
          + format_gold_histogram(g for _sd, g in samples))
     split_rng = np.random.default_rng(args.seed if args.split_seed is None else args.split_seed)
     order = split_rng.permutation(len(samples))
@@ -166,7 +213,7 @@ def main() -> int:
         return frames, q0, int(str(a0).strip())
 
     def train_loss(frames, question, gold):
-        msgs = build_messages(frames, question)
+        msgs = msg_builder(frames, question)
         full = processor.apply_chat_template(
             msgs + [{"role": "assistant", "content": [{"type": "text", "text": str(gold)}]}],
             add_generation_prompt=False, tokenize=True, return_dict=True, return_tensors="pt")
@@ -182,10 +229,12 @@ def main() -> int:
 
     @torch.inference_mode()
     def predict(frames, question):
-        inp = processor.apply_chat_template(build_messages(frames, question),
+        inp = processor.apply_chat_template(msg_builder(frames, question),
                                             add_generation_prompt=True, tokenize=True,
                                             return_dict=True, return_tensors="pt")
         inp = move_to_device(dict(inp), rt.device)
+        if args.attn_logn_sref > 0:
+            set_logn_scaling(int(inp["input_ids"].shape[1]))
         with sdpa_kernel(SFT_SDPA):
             g = model.generate(**inp, max_new_tokens=5, do_sample=False)
         txt = tok.decode(g[0, inp["input_ids"].shape[1]:], skip_special_tokens=True)
@@ -261,6 +310,7 @@ def main() -> int:
 
     if args.eval_longn or args.eval_dirs_file:
         lrows = ["source,n,accuracy,parse_fail,mae"]
+        prows = ["source,sample_dir,n_frames,gold,pred"]
         sources = [(r.strip(), None) for r in str(args.eval_longn).split(",") if r.strip()]
         sources += [(f, read_dirs_file(Path(f))) for f in args.eval_dirs_file]
         for src, dirlist in sources:
@@ -284,11 +334,14 @@ def main() -> int:
                 pg = per.setdefault(gold, [0, 0])
                 pg[1] += 1
                 pg[0] += int(pred == gold)
+                prows.append(f"{src},{sd},{len(frames)},{gold},"
+                             f"{'' if pred is None else pred}")
             pc = " ".join(f"g{g}:{c}/{t2}" for g, (c, t2) in sorted(per.items()))
             emit(f"LONGN {src}: n={nn} acc={hits/max(nn,1):.4f} parse_fail={pf/max(nn,1):.3f} "
                  f"mae={mae/max(mn,1):.2f}  {pc}")
             lrows.append(f"{src},{nn},{hits/max(nn,1):.4f},{pf/max(nn,1):.3f},{mae/max(mn,1):.2f}")
         (run_dir / "longn_eval.csv").write_text("\n".join(lrows) + "\n")
+        (run_dir / "longn_predictions.csv").write_text("\n".join(prows) + "\n")
     log.close()
     return 0
 

@@ -48,6 +48,11 @@ from gnnformer.runtime import (
     move_to_device,
 )
 
+_LORAMECH = _REPO / "scripts" / "loramech"
+if str(_LORAMECH) not in sys.path:
+    sys.path.insert(0, str(_LORAMECH))
+from peft_utils import load_peft_frozen  # noqa: E402
+
 NS = [(8, "data/mmred_images_park/seq_len_8/all_uniform", 8),
       (32, "data/mmred_longN_park/seq_len_32/all_uniform", 8)]
 
@@ -59,6 +64,8 @@ def main() -> int:
     ap.add_argument("--task", default="steps")
     ap.add_argument("--shuffle-dirs", type=int, default=0)
     ap.add_argument("--model", default=None)
+    ap.add_argument("--peft-adapter", default=None,
+                    help="saved LoRA adapter dir to restore (frozen) — LORAMECH L4")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
     Ls = sorted(int(x) for x in args.layers.replace(",", " ").split())
@@ -69,7 +76,12 @@ def main() -> int:
     dims = attention_dims(model)
     n_heads, n_kv, hd = dims["n_heads"], dims["n_kv"], dims["head_dim"]
     text_model = model.model.language_model
+    inner_model = model.model  # captured pre-wrap: PeftModel.model resolves elsewhere
     dev = model.device
+    # PEFT wrap LAST — PeftModel.model is the OUTER base model, so model.model.*
+    # captured after wrapping resolves wrong; LoRA injects in-place, refs stay valid.
+    if args.peft_adapter:
+        model = load_peft_frozen(model, args.peft_adapter)
     rope_fn = get_rope_index_fn(model)
     vs_id = int(model.config.vision_start_token_id)
     out = Path(args.output)
@@ -124,7 +136,7 @@ def main() -> int:
                                       image_grid_thw=inputs.get("image_grid_thw"),
                                       attention_mask=inputs.get("attention_mask"))
                 emb = text_model.embed_tokens(inputs["input_ids"])
-                img = model.model.get_image_features(inputs["pixel_values"], inputs["image_grid_thw"])
+                img = inner_model.get_image_features(inputs["pixel_values"], inputs["image_grid_thw"])
                 img = torch.cat(img, dim=0) if isinstance(img, (list, tuple)) else img
                 im_mask = inputs["input_ids"][0] == model.config.image_token_id
                 emb = emb.clone()

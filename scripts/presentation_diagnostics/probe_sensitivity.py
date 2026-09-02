@@ -53,13 +53,18 @@ from gnnformer.fencing import (
 from gnnformer.metrics import dprime_pair
 from gnnformer.runtime import (
     attention_dims,
-    dequantize_linear_weight,
+    dequantize_linear_weight,  # noqa: F401  (kept for parity; effective_linear_weight wraps it)
     get_layers,
     get_rope_index_fn,
     image_token_groups,
     load_runtime,
     move_to_device,
 )
+
+_LORAMECH = _REPO / "scripts" / "loramech"
+if str(_LORAMECH) not in sys.path:
+    sys.path.insert(0, str(_LORAMECH))
+from peft_utils import effective_linear_weight, load_peft_frozen  # noqa: E402
 
 
 def main() -> int:
@@ -77,6 +82,8 @@ def main() -> int:
     ap.add_argument("--task", default="steps")
     ap.add_argument("--shuffle-dirs", type=int, default=0)
     ap.add_argument("--model", default=None)
+    ap.add_argument("--peft-adapter", default=None,
+                    help="saved LoRA adapter dir to restore (frozen) — LORAMECH L2")
     ap.add_argument("--output", required=True)
     args = ap.parse_args()
 
@@ -86,10 +93,16 @@ def main() -> int:
     L = args.layer
     dims = attention_dims(model)
     text_model = model.model.language_model
+    inner_model = model.model  # captured pre-wrap: PeftModel.model resolves elsewhere
     dev = model.device
     rope_fn = get_rope_index_fn(model)
     vs_id = int(model.config.vision_start_token_id)
-    W_O = dequantize_linear_weight(layers[L].self_attn.o_proj)
+    # PEFT wrap LAST — PeftModel.model is the OUTER base model, so model.model.*
+    # captured after wrapping resolves wrong; LoRA injects in-place, refs stay valid.
+    if args.peft_adapter:
+        model = load_peft_frozen(model, args.peft_adapter)
+    # effective = dequantized base + LoRA delta when an adapter is loaded
+    W_O = effective_linear_weight(layers[L].self_attn.o_proj)
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -138,7 +151,7 @@ def main() -> int:
                                   attention_mask=inputs.get("attention_mask"))
             pos_reset = reset_positions(base_pos, blocks, fin_span[0]).clone()
             emb = text_model.embed_tokens(inputs["input_ids"])
-            img = model.model.get_image_features(inputs["pixel_values"], inputs["image_grid_thw"])
+            img = inner_model.get_image_features(inputs["pixel_values"], inputs["image_grid_thw"])
             img = torch.cat(img, dim=0) if isinstance(img, (list, tuple)) else img
             im_mask = inputs["input_ids"][0] == model.config.image_token_id
             emb = emb.clone()

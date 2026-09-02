@@ -181,7 +181,12 @@ def main() -> int:
         counts = sorted({int(x) for x in str(args.counts).replace(",", " ").split()})
         assert all(0 <= k <= N for k in counts), f"--counts values must be in [0,{N}]"
     base = args.out_root / f"seq_len_{N}" / args.split
-    from evaluations.scripts import eval_mmred_rooms_visited_baseline as rv
+    # rv is only used by the rooms_visited/co_occupancy gold asserts; the legacy
+    # `evaluations` package is gone from this tree (REDUX fix, 2026-08-30) — import
+    # lazily so steps_in_room/distinct_* generation works without it.
+    rv = None
+    if args.task in ("rooms_visited", "co_occupancy"):
+        from evaluations.scripts import eval_mmred_rooms_visited_baseline as rv
     n_made = 0
     for K in counts:
         for j in range(args.per_count):

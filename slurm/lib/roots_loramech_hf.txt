@@ -1,0 +1,5 @@
+# LORAMECH P2 fenced-SFT on MMReD-HF: the benchmark's canonical steps_in_room train
+# splits, seq 8 + 16 (200 dirs each, class-skewed K0-heavy — faithful conditions).
+# Train/test disjointness is the benchmark's own; no exclusions needed.
+data/mmred_hf/dirs/seq_len_8_train_steps_in_room
+data/mmred_hf/dirs/seq_len_16_train_steps_in_room

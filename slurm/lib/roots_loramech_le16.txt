@@ -1,0 +1,5 @@
+# LORAMECH P1 fenced-SFT training mixture (seq 8 + 16 only — 48 GB budget, no H200).
+# Joined with commas by loramech_train_fenced.sbatch (ROOTS_FILE knob).
+# exam_ff_N8/N16 excluded via EXCLUDES at submit.
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform

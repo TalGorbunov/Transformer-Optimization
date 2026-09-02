@@ -1101,3 +1101,694 @@ BOTH C and D wrongly — full-scale only; C's readout never flipped within 15 ep
 > long context — open); GT≤16 primary per pre-registration; 6/50 and 9/50 samples lost
 > to adder-chain decode -1s (each an automatic miss) — harness, not model; N=128
 > untested.
+
+## [2026-08-22] ✅📊 N=128 Q/KV SWAP RERUN (n=80) — the [2026-07-31c] parenthesized cells are now citable and MONOTONE: tally CC 0.870 > CD 0.650 > DD 0.400 > DC 0.345; the [2026-07-31b] scaling law extends to N=128 (q-only +1.32, kv-only −0.78, interaction +2.23)
+
+> ARMOR campaign hygiene cell (brief/log: `outputs/armor/`). Job 136124 →
+> `outputs/armor/qkv128/20260822_210658/` (same script/protocol as 127599: L16, steps,
+> `mmred_longN_park/seq_len_128/all_uniform`, LIMIT=80, skip 0).
+
+| N=128 (n=80) | qC_kvC | qC_kvD | qD_kvC | qD_kvD |
+|---|---|---|---|---|
+| d′ | 6.86±0.32 | 5.41±0.09 | 3.31±0.26 | 4.09±0.02 |
+| gate→tally | 0.870±0.037 | 0.650±0.055 | 0.345±0.064 | 0.400±0.042 |
+
+**Readings.** (1) The n=25 tally anomaly (CD 0.708 > CC 0.523) was quantization noise as
+flagged — at n=80 the staircase is monotone and CC is cleanly on top; the waterfall's
+N=128 rungs 2–4 now read 0.400/0.650/0.870. (2) Full gain series across N (8/16/32/64/
+128): q-only +0.92/+1.01/+1.24/+1.05/+1.32 (flat ~+1); kv-only +0.97/+0.64/+0.09/−0.47/
+−0.78 (monotone decline — value-repair-alone is actively harmful at scale); interaction
++1.01/+2.11/+2.03/+1.87/+2.23 (~+2 at long N). The query side stays the binding
+constraint at the largest N; both sides must be repaired jointly — the fence's job.
+
+## [2026-08-22] ✅📊 HAHN O(1/N) MEASURED INSIDE THE PRODUCTION VLM — paired one-frame flips: joint answer-position sensitivity decays as N^−0.72 [0.63,0.78] (r²=0.98, band [0.7,1.3] MET at L20) and is AT the measured bf16 noise floor by N=128, while the fenced per-frame supply is exactly flat (α = 0.00 ± 0.02, ~30× above floor) — the theory-to-model contrast figure
+
+> ARMOR Experiment A. New instrument `scripts/armor/probe_hahn.py`; jobs 136128–136132 →
+> `outputs/armor/hahn/20260822_211457_N{8,16,32,64,128}/` + figure/verdict
+> `…_fig/hahn_figure.png` (50/50/50/50/40 pairs, gold≤8 slice, ~1h50m GPU total). Pairs
+> rendered fresh from states via the deterministic park renderer, ONE non-evidence frame
+> toggled to evidence (gold k→k+1); byte-identity of all other frames hard-asserted per
+> pair. Noise floors MEASURED per the [2026-08-11a] canary lesson: replay (exactly 0
+> everywhere), matched answer-preserving ctrl flip (same frame, wrong-room→wrong-room),
+> fenced block-permutation (bf16 reduction floor — and the fenced per-frame locus is
+> BIT-IDENTICAL under it: the fence provably isolates the per-frame channel).
+
+| locus | α (Δ ∝ N^−α) | 95% CI | r² | band |
+|---|---|---|---|---|
+| joint (plain) L20 final | **0.72** | [0.63, 0.78] | 0.98 | [0.7,1.3] **MET** |
+| joint (plain) L28 final | 0.58 | [0.49, 0.68] | 0.95 | below (post-norm compression) |
+| per-frame readers over JOINT supply (repjoint rep_t L20) | 0.25 | [0.16, 0.30] | 0.97 | — |
+| **fenced rep_t L16/L20/L28** | **0.01 / −0.01 / 0.02** | all CIs ∋ 0 | — | \|α\|<0.2 **MET** |
+
+**Readings.** (1) First direct measurement of the Hahn-class single-symbol sensitivity
+decay in the frozen production VLM: joint L20 median ‖Δh‖ 10.5 → 1.3 (N=8→128); at
+N=128 the answer-relevant flip signal (1.33) equals the answer-preserving ctrl flip
+(1.1) and the measured bf16 floor (~1.2–1.4) — flipping the answer-defining frame moves
+the answer position by no more than numeric noise. (2) The fenced arm is the money
+contrast: per-frame supply flat in N at every layer. (3) The intermediate rungs
+interpolate (repjoint final 0.44, repjoint rep_t 0.25): per-frame readers alone recover
+only part of the invariance; clean supply (the fence) zeroes the slope — consistent
+with the q/kv interaction story. (4) A2 margin: the pre-registered crossing band FAILED
+AS DEFINED but by instrument saturation, logged honestly: the frozen model is already
+below 50% at N=8 on this slice (acc 0.28), so the median margin starts negative (−0.53)
+and "crosses" at the smallest N measured; the informative read is the monotone margin
+slide (−0.23 @16 → −1.91 @128, ctrl-jitter floor 0.02–0.24) with accuracy reaching
+chance at N≈32–64 (0.18/0.12/0.10). **Caveats:** gold≤8 slice (single-digit protocol,
+N-comparable by construction); L28 is post-final-norm; margin conflates multi-digit
+continuations for non-gold mass.
+
+## [2026-08-22→23] ⚠️📊 STATE-PASSING CONTROL (Buitrago & Gu, arXiv:2507.02782) — NOT RESCUED per the pre-registered band (best arm 0.800 @N=64 zero-shot < 0.90), and the intervention DECOMPOSES the drift: SP fixes the state-coverage leg (in-range 0.35→0.94/0.96 at 4×) while the readout-range cap survives exactly intact (GRU gold>16 recall 0.000 — a cliff at the label support); at 8× even the rescued leg erodes (best arm 0.448 vs R1 0.980)
+
+> ARMOR Experiment B (closes RELATED_WORK Top Threat #7). `scripts/armor/train_heads_sp.py`
+> (recagg P2 protocol imported unchanged — fit @{8,16}, zero-shot @{32,64,128}, 20k
+> epochs, 5 seeds, canary; recagg originals untouched). Jobs 136139/136140 (main cells)
+> + 136186/136187 (+N=128 eval) → `outputs/armor/b_statepass/20260822_212000_{hf512,park}/`,
+> `20260823_000332_hf512_128/`, `20260823_000521_park_128/`; N=128 leaf captures
+> `outputs/armor/p1_captures_128/20260822_233338_*/` (p1 protocol, npz sanity passed).
+> SP = detached final state of another training sequence + count-consistent carried
+> target, REJECTED if total >16 — label range held fixed BY DESIGN so state coverage and
+> label range are not confounded. Noise = fitted Gaussian on running final-state stats
+> (paper variant), pre-registered as ill-posed for the pure integrator.
+
+EM_reg @zero-shot (HF@512; majority 0.16/0.08/0.12; R1 sum-probe 0.996/1.000/0.980):
+
+| arm | N32_zs | N64_zs | N128_zs | in≤16 @64 | out>16 @64 | mc@rec≥.5 |
+|---|---|---|---|---|---|---|
+| R2 GRU base | 0.640 | 0.260 | 0.044 | 0.351 | 0.000 | 10 |
+| R2 GRU **+SP** | 0.904 | 0.696 | 0.240 | **0.941** | **0.000** | 15 |
+| R3 SSM base | 0.820 | 0.284 | 0.108 | 0.346 | 0.108 | 18 |
+| R3 SSM **+SP** | 0.936 | **0.800** | 0.448 | **0.962** | 0.338 | 21 |
+| R3 SSM +noise | 0.164 | 0.080 | — | (in-length 0.728!) | — | −1 |
+
+**Readings.** (1) The Buitrago objection is answered by RUNNING their intervention: it
+works exactly on the leg its theory owns — the "unexplored states" drift is real, and SP
+restores within-range accuracy to ~0.95 at 4× the training length (park twin replicates:
+bases 0.40/0.29 → SP 0.68/0.68 @64). (2) What it cannot touch is the Yehudai range cap:
+the GRU emits NOTHING above count 16 in every arm (recall exactly 0.000, max-correct
+pinned at the fit-range max), and the out-of-range mass grows with N (26% @64, 60% @128)
+→ band NOT met. (3) The rescue itself is length-bounded: in-range accuracy falls back to
+0.60/0.77 at 8× (the concat-carry visits ~2–3-sequence virtual horizons, not 8×) — the
+best intervention arm drifts 0.936/0.800/0.448 @2×/4×/8× while R1 probe→sum reads
+0.996/1.000/0.980 (park: 0.994 @8× with perfect recall to gold=128). The drift law is
+intervention-robust; the necessity argument rests on the range leg, which is
+intervention-proof by construction. (4) The noise variant is catastrophic for the pure
+integrator even in-length (0.984→0.728 @N=8) — the pre-registered identifiability
+prediction (a borrowed-looking initial state offsets the integral unrecoverably).
+**Caveats:** for RNN heads SP-by-concatenation ≈ longer virtual training sequences with
+detached gradients (that IS the published intervention; labels capped, so coverage vs
+range is controlled); cls-EM not the verdict metric (support structurally capped at 16);
+N≤64 numbers quoted from the main cells — the +128 reruns differ by 0.01–0.03 there
+(cross-node CPU float accumulation over 20k epochs, seed-level noise).
+
+## [2026-08-22→23] ⚠️📊 MLVU-AC EXTERNAL ANCHOR — composed frozen system (per-frame VLM records → compiled program → exact executor): 32f pre-registered cell 0.301 vs band ≥0.332 = NO-GO, with the miss LOCALIZED (executor 97% faithful, frame-recall 0.928, and the MEASURED 32f faithful-counter ceiling is 0.267 — below the frozen 0.282); at 128f dense the composed system reads 0.408 vs the 0.393 dense baseline — the best MLVU-AC number on record, residual = perception-side overcounting
+
+> ARMOR Experiment C. Captions 136145/136149 → `outputs/armor/mlvu/20260822_213354_captions/`
+> (32f) + `20260822_220806_captions128/` (128f dense); compile+execute 136146/136169 →
+> `20260822_220317_compiled/` (CANONICAL 32f) + `20260822_233323_compiled128/` (dense).
+> Frame selection byte-identical to the [2026-07-11c] frozen protocol and the
+> lookagain_N32 judge keys (verified); qwen14b armC-v3 sandbox (read-only import), P2b
+> nearest-option MCQ rule; exec-fail 0.015 both cells; 0/2 caption parse-fails (32f/128f).
+
+- **32f (pre-registered):** MCQ 0.301 (frozen 0.282, band ≥0.332, chance 0.25); open
+  exact 0.197, MAE 1.62; mean pred 1.35 vs gold 2.93; by-gold g1 0.70 → g5 0.00.
+  **Localization chain:** VLM per-frame recall on judge-positive frames 0.928 (precision
+  0.727) → 97.0% of predictions equal the run-count of the system's own delivered
+  evidence (compile+execute essentially exact) → but 32f sampling delivers 282 visible
+  frames against 603 gold instances (48/206 questions receive ZERO evidence), and an
+  ORACLE judge-evidence run-counter scores 0.267 — **below the frozen baseline**. At 32f
+  the +0.05 band was unreachable by construction for any faithful counter; the frozen
+  model's edge over the faithful ceiling is option-prior guessing, not counting.
+- **128f dense (post-hoc extension, labeled):** composed **0.408** vs dense frozen
+  baseline 0.393 — slightly ahead at matched budget, best MLVU-AC number on record, but
+  short of a +0.05-style margin there too (would need 0.443). Delivery largely cured
+  (zero-evidence questions 48→10; 1198 visible frames) and the residual flips to
+  OVERcounting from per-frame false positives (mean pred 4.76 vs gold 2.93; precision
+  0.727 fragments instances into spurious runs); by-gold flattens to 0.31–0.49 (the
+  delivery gradient is gone). Program note: at 128f the compiled programs diversify
+  (~56% plain run-count semantics, index/gap variants otherwise).
+- The external-validity statement: on real video the composed system's EM tracks
+  perception fidelity in both directions (undercount when starved, overcount from FPs) —
+  no measurable aggregation-side deficit at either budget, mirroring the Arm B
+  factorization on MMReD-HF. Levers not run: per-frame self-consistency, FP-suppressing
+  prompt, judge-style thresholding.
+- **Caveats:** single question type (compile near-degenerate here — this measures the
+  COMPOSED system, not compile generality; armC measured that across 24 types); the
+  baseline had the MCQ options in-prompt, the composed route never sees them (P2b
+  asymmetry, pre-registered); judge scores are themselves model-derived (lookagain),
+  used as a proxy.
+
+
+<!-- ══════════════ TREEFOLD campaign (2026-08-24→25) — logged on Tal's 'log this' 2026-08-26; drafts verbatim from outputs/treefold/STATE.md ══════════════ -->
+
+## [2026-08-24→25] ❌📊 TREEFOLD — the frozen 7B as its own tree-fold executor FAILS the executor swap on every rung: oracle-leaf fan-2 tree ALL ~0.20 flat-below-majority vs armC v3's 0.89 on identical samples (exact execution is worth ~0.68 EM), and the per-level fidelity instrument localizes it: p_merge 0.20–0.70 per op, decaying with TREE DEPTH ~independent of N
+
+> Campaign `outputs/treefold/` (brief + STATE + INDEX). One frozen Qwen2.5-VL-7B nf4 for
+> every stage (Ask/leaf/merge/answer); few-shot Ask primary (Tal's checkpoint decision,
+> armC-matched convention); samples/scoring byte-identical to armC v3 / Arm B.
+> T1 `t1_oracle/20260824_fs/` · T4 `t4_fullstate/20260824_fs/` · figures `figs_20260825/`.
+
+| ALL EM (N=16/32/64/128) | 16 | 32 | 64 | 128 |
+|---|---|---|---|---|
+| T1 tree, oracle records, 7B executor | 0.23 | 0.20 | 0.18 | 0.21 |
+| armC v3: same records, Python executor | 0.89 | 0.92 | 0.85 | 0.90 |
+| T4 tree, Arm B caption records | 0.25 | 0.24 | 0.18 | 0.23 |
+| Arm B: same captions, Python executor | 0.79 | 0.81 | 0.72 | 0.72 |
+| majority | 0.38 | 0.36 | 0.36 | 0.39 |
+
+**Readings.** (1) H1/H4 decisively not met: swapping exact execution for model
+execution costs ~0.5–0.68 EM on identical inputs. (2) The failure is LOCALIZED at the
+interfaces, not the fold: conditional merge fidelity (both children correct) is 0.995
+(2005/2016, ≥0.98 at every level) — the 7B executes left+right essentially perfectly,
+and the per-level fidelity decay (F-C) is pure error propagation. What breaks is
+(a) MAP — per-frame predicate evaluation on clean GT text fails 10–40%/frame (p_leaf
+0.56–0.91; e.g. record "Office: Daniel; Bedroom: Sandra" + rule "count=1 if Daniel is
+in the Bedroom" → count=1), and p_leaf^N alone (0.8^16 ≈ 0.03) explains the collapse;
+(b) ANSWER read-off — 5 of the 8 samples with an exactly-correct root note still
+answered wrong (root {"count": 8} → "Daniel"). (3) The composition check closes:
+p_leaf^N·(cumulative p_merge)^(N−1) ≈ 0 ≈ measured EM on instrumented types.
+(4) Null-propagation programs survive (single-frame lookups 0.75–1.00 flat to N=128) —
+they are single-interface: one predicate evaluation, no accumulation. (5) T1 EM is
+~length-flat — but flat below majority: flatness without competence. **Caveats:**
+few-shot Ask (4 SEEN exemplars, armC parity); 8/cell per type; conditional-fidelity
+n=2016 pooled over count-like types with an identified field; the pre-registered 14B
+control (now aimed at leaf+answer stages, not merge) is proposed, not run.
+
+## [2026-08-25] ❌📊 TREEFOLD fan-in law: EM FLAT in k∈{2,4,8,16,N} at N=128 (0.16–0.21, all at the executor-noise floor) — no over-squashing signature AND no noisy-op inversion; per-level p_merge decays with composition depth ~N-invariantly (L1 0.59–0.69 → L4+ ≤0.29 at every N) — the wall is per-op semantic fidelity, which fan-in cannot route around
+
+> T2 `t2_fan/20260824_fs_k{4,8,16,N}/` (k=2 = T1; leaves reused, k-independent);
+> headline figure F-A + mechanism figure F-C in `figs_20260825/`. k=N ran at BATCH=4
+> after an OOM at 48 (prompts carry 64–128 notes).
+
+- k=N does ONE merge call and suffers ~zero parse deaths (1–2 vs 22–32 at k≤4) yet
+  lands at the same EM — depth mortality and breadth squashing exactly net out.
+- Pre-registered fallback stands: the fan-in/over-squashing link is NOT supported at
+  this scale; the thesis' mechanism evidence remains the in-forward measurements
+  (Hahn α=0.72 joint vs 0.00 fenced; capacity law c(fan)).
+- H5 addendum: zero-shot Ask collapses harder with depth (0.073 vs few-shot 0.208
+  @N=128; merge-parse 70/192 vs 25/192) — program quality depends on demonstrations.
+
+## [2026-08-25] ⚠️📊 TREEFOLD T3 — question-conditioned per-frame JSON notes cost perception: count-like leaf accuracy 0.921 @512 (vs 0.995–1.000 for the 1-bit conditioned verdict, ≈0.913 for Arm B's full-state caption) — structured note EMISSION, not seeing, is the lossy step; end-to-end tree 0.31→0.16 with merge-parse mortality growing with depth (1/9/22/36 per 96)
+
+> Captions `t3_leaves/20260824_fs/` (382 samples, 23,008 frames @512, parse 0.990);
+> tree `t3_tree/20260824_fs/`. H3 not met on both rungs (0.921 < 0.98; ALL ≪ ArmB−0.03).
+> The 0.995→0.92 drop vs the verdict-bit record isolates note-emission cost — relevant
+> to any design that asks the VLM for structured per-frame state instead of a bit.
+
+## [2026-08-25] ✅📊 TREEFOLD EXTENSION — the failure LOCALIZES to the two interfaces and the composition law becomes PREDICTIVE: merge is sound at 7B (conditional 0.995); leaf binding = margin×clutter (7B 0.500→0.984 by prompt-stripping; 14B 1.000 regardless); with repaired interfaces the tree is real at short N (steps_in_room 1.00 @N=16, 7B-ONLY) and decays as p^N — ctrl-B's pre-registered ceiling 0.995^(N−1) predicted 0.93/0.53 @16/128, measured 1.00/0.50
+
+> Stage-swap grid `ctrl14b/` (14B = Qwen2.5-14B venv_arch at LEAF/ANSWER only; merge
+> always 7B) + prompt ablation `leaf_ablate/` (V0 canon 0.500 / V1 minimal 0.984 /
+> 14B both 1.000; FP|room-occupied 0.86→0.02) + repaired arm `t1_minimal/20260825_fs/`
+> (v1 read-off bug — a stray Nobody clause turned correct numeric roots into "Nobody"
+> — caught by the fidelity instrument, artifacts preserved, v2 rescored).
+
+| steps_in_room EM | N=16 | 32 | 64 | 128 |
+|---|---|---|---|---|
+| canonical 7B tree | 0.00 | 0.00 | 0.00 | 0.00 |
+| minimal prompts, 7B-only | 1.00 | 0.75 | 0.38 | 0.50 |
+| 14B interfaces (ctrl-B) | 1.00 | 1.00 | 0.88 | 0.50 |
+| predicted ceiling 0.995^(N−1) | 0.93 | 0.86 | 0.73 | 0.53 |
+
+**Readings.** (1) The 7B *can* divide-and-merge — at short N, with clutter-free
+interfaces; the negative headline becomes a boundary condition, not an impossibility.
+(2) No fixed per-op fidelity survives long N (both repaired arms → 0.50 @128, on the
+predicted merge-noise ceiling); scale only moves the crossover. (3) Answer-stage
+fragility is real and instrument-detectable (Nobody-clause incident: correct roots,
+wrong answers). (4) ALL EM stays ≈majority in every arm — residual is Ask quality on
+the 20 UNSEEN types, not interface fidelity. **Caveats:** 2×2 ablation is
+steps_in_room-only (384 frames); ctrl grids share the 7B merge; first_at_room
+anomaly at 14B leaves (null-propagation schema filled with present-characters) noted.
+
+
+## [2026-08-26→27] ✅📊 LORAMECH P0+C1 — THE REGIME IS THE BASELINE: the peer's "plain LoRA reads N=8 at 1.000" is Q-first-specific — the SAME 23.8M recipe trained FRAMES-FIRST cannot fit even its training lengths (0.600 @8 / 0.480 @16 / 0.313 @32 vs Q-first P4.1 0.967 @32), and a within-pipeline Q-first control isolates the TEMPLATE as the causal factor (+0.33 @8, loss 0.237→0.070)
+
+> LORAMECH campaign (brief `outputs/loramech/CAMPAIGN_BRIEF.md`, log `outputs/loramech/STATE.md`).
+> Trainers: ff_le8 137467 → `outputs/loramech/p0_ff_le8/20260826_161912_lora/`; ff_le32
+> 137465 (h200, 3h08) → `outputs/loramech/p0_ff_le32/20260826_171532_lora/`; C1 Q-first
+> control 137706 → `outputs/loramech/c1_qfirst_le8/`; zero-shot exams 137504/137593.
+> Adapters: `checkpoints/sft_ff_le{8,32}_adapter/`. Trainer delta: `--frames-first`
+> (build_count_prompt layout, token-parity-gated vs build_prompt_inputs by
+> `scripts/loramech/check_ff_template.py`) + `--exclude-dirs-file`. Contamination BY
+> CONSTRUCTION: exam sets (`outputs/loramech/examdirs/`, 150/cell, class-balanced,
+> stratified seed-1) excluded from training + post-hoc overlap 0; N=32 exam = disjoint
+> park2 generation; recipe parity with the E-B/P4.1 anchors verified in-log (23,794,688
+> trainable params = 28 LM layers × q/k/v/o+MLP r=8 + 32 vision-block MLPs via name
+> match; lr/accum/dropout/epoch budget identical to what the anchors actually ran).
+
+| exam (150/cell, pf 0) | ff_le32 (≤32) | ff_le8 (≤8) | Q-first |
+|---|---|---|---|
+| N=8 | 0.600 | 0.540 | C1 **0.867** / E-B 0.998–1.000 |
+| N=16 | 0.480 | 0.333 | — |
+| N=32 | **0.313** | 0.180 | P4.1 **0.967** |
+| N=64 | 0.293 | 0.173 | P4.1 0.787 |
+| N=128 | 0.160 | 0.167 | — |
+
+- **H0 (pre-registered, ≥0.90 in-length) REFUTED below its own 0.80 contingency line** →
+  without question-conditioned encoding, dilution binds already inside the window.
+  Causality: frames-first forbids frame tokens from precomputing question-conditioned
+  verdicts; the read at the answer position over N question-blind frames is the clean
+  Hahn setting. The Q-first 1.000 was the carrier route in disguise.
+- Anatomy separates the arms: ff_le8 at its own length is FLAT per-count (mid 0.548 ≈
+  extremes 0.530 — dilution, not shortcut); far out-of-window both plain arms relapse
+  to the extremes heuristic (N=128 ff_le32: g0 9/9 + g128 8/8, mid 3/116 = 0.026).
+  ff_le32 is extremes-anchored even in-length (N=32 mid 0.192, trained-max g32 11/11).
+- C1 (identical pipeline/split/recipe, template flipped): loss converges anchor-like
+  (0.070) and in-length jumps to 0.867 — the regime isolated as THE learnability
+  factor within one pipeline. Residual 0.13 vs the legacy anchor ≈ sample count
+  (525 vs 630) + val-noise; C2 (15-ep bound) abandoned after 3× h200 preemption
+  (~19 GPU-h), closed by budget-parity + C1.
+- §6 consequence: the canonical SFT baseline row is now FRAMES-FIRST (these numbers);
+  the Q-first 0.967/0.787 stays in the record regime-labelled.
+
+
+## [2026-08-27→28] ✅📊 LORAMECH P1/P1b/P2/N4 — THE ARCHITECTURAL FENCE RESTORES (AND BEATS) Q-FIRST LEARNABILITY, EXTRAPOLATES 2× ZERO-SHOT, AND TRANSFERS TO THE FAITHFUL BENCHMARK AT 1.000: plain LoRA trained under N×[frame+q] blocks + posreset (NO Q-first) reads **1.000 @8 / 0.893 @16 in-length and 0.867 @32 zero-shot** — the first arm on record past the zero-shot length wall — and the park-trained adapter scores **1.000 on the MMReD-HF seq8 test** with zero HF training
+
+> New trainer `scripts/loramech/train_sft_fenced.py` (fencing imported READ-ONLY from
+> gnnformer.fencing: build_block_mask(hide_cols=[]) — replicas visible to the tail —
+> + reset_positions + FenceHooks; exact cache-free greedy decode; 4-D mask ⇒ EFFICIENT/
+> MATH sdpa, N≤16 trains on 48 GB — no H200 anywhere). Runs: P1 137744 (5 ep) →
+> `outputs/loramech/p1_fenced_le16/20260827_131154_fenced/`; P1b 137778 (10 ep, CANONICAL)
+> → `outputs/loramech/p1b_fenced_ep10/20260827_192346_fenced/` + zs 137862; P2 (HF train
+> splits, 320 samples) 137799 → `outputs/loramech/p2_fenced_hf/20260827_193851_fenced/`;
+> N4 cross-domain 137898 → `outputs/loramech/n4_park_on_hf/`. Adapters:
+> `checkpoints/sft_fenced_le16_ep10_adapter/` (canonical), `sft_fenced_le16_adapter/`,
+> `sft_fenced_hf_adapter/`. Same exam files/discipline as P0 (disjoint ×3 each, pf 0).
+
+| N=8-in-length spectrum (one pipeline) | acc |
+|---|---|
+| frozen frames-first | 0.219 |
+| plain ff-LoRA (P0) | 0.540 |
+| Q-first LoRA (C1) | 0.867 |
+| **fenced ff-LoRA (P1b)** | **1.000** |
+| caption method (ref) | 0.987 |
+
+- **Fenced ladder (P1b, train ≤16):** 1.000 @8 · 0.893 @16 · **0.867 @32 (2×, zero-shot)**
+  · 0.340 @64 · 0.230 @128 — LIVE per-count curves in-window (P1 5-ep: mid-range
+  0.988/0.760 @8/16; no extremes crutch), and at 2× the fenced zero-shot BEATS the
+  plain arm trained AT 32 (0.867 vs 0.313; mae 0.16 vs 2.11). Explicit structure beats
+  the layout hack at equal budget (0.993–1.000 vs 0.867): isolated, position-normalized
+  verdict blocks > interfering Q-first stream.
+- **The 4×/8× wall is LAWFUL, not chaotic:** low band fails by growing systematic
+  undercount (unit slope with ≈−1.5 offset @64; slope 0.43 @128; all 23 N=16-residual
+  errors in the 5-ep run were exactly +1) while fraction-1 ("all frames") and trained
+  label-support anchors (g12/g16) stay exact — an analog magnitude code going out of
+  calibration, with ~one octave of slack. (The +1 wobble later vanished under
+  calibrated training — see the L5/P3 entry.)
+- **Benchmark transfer (N4):** the park-trained fenced adapter on the HF test, zero HF
+  training: **1.000 @8 (50/50) · 0.820 @16 · 0.540 @32** — beats the HF-trained P2
+  (0.900/0.660/0.300; its 320-sample skewed split was the limiter — majority floors
+  0.62/0.38, frozen anchor 0.559 is BELOW floor) and lands over the armB structured-GIN
+  ceiling (0.928) at seq8. What transfers is the aggregation program, not the pixels;
+  balanced generator data + structure > in-domain skewed data.
+- Caveats: HF cells are 50/len (benchmark's own splits); N-cells 100–150; single task
+  family + model; val-by-decode is noisy (best-epoch selection rides 60 samples).
+
+
+## [2026-08-27→28] ✅📊 LORAMECH MECHANISM (L1/N2/N3/L5/P3) — GAIN vs STRUCTURE, QUANTIFIED: trained LoRAs keep the frozen sensitivity law (in-window α 0.71/0.73 ≈ frozen 0.72) and only multiply amplitude ×3–6; through the trained fenced layout the per-frame verdict channel is EXACTLY flat (α +0.009 [0.001,0.016]) while the answer read decays (α +0.80 [0.66,0.97]) — supply fixable, gain trainable, the softmax read's 1/N is neither; log-N logit scaling rescues ONLY the fenced read (+0.13 @4×) and FAILS as a training prior (in-window 1.000/1.000 but 2× collapses 0.867→0.420) — token-coded enumeration stands as the unique measured route past the read's horizon
+
+> Instruments: `probe_hahn.py` + `--peft-adapter`/`--arms`/p1fence arm (trained-fenced
+> layout imported from the P1 trainer — single source; no-flag behavior = the ARMOR-A
+> anchors); `--attn-logn-sref` on both trainers (S_ref measured: 3398 fenced-N16 /
+> 6406 plain-N32; scaling verified to reach sdpa in transformers 4.57.6). Runs: L1
+> chains 137821/137822 → `outputs/loramech/l1_hahn/{ff_le32,ff_le8}_N*/` (+_fig);
+> N2 chains 137901/137902 → `outputs/loramech/n2_hahn/{p1fence_ep10,p1fence_frozen}_N*/`
+> (+medians/figs); N3 137899/137900 → `outputs/loramech/n3_logn_{fenced,plain}/`;
+> P3 trained-with-logN 137937 → `outputs/loramech/p3_fenced_logn/` (adapter
+> `checkpoints/sft_fenced_logn_adapter/`, eval-contract: flag required). Same
+> pools/seed/pairs as ARMOR-A (paired vs frozen α=0.72 [0.63,0.78]).
+
+| α (L20, paired one-frame flips, bootstrap CIs) | value |
+|---|---|
+| ff_le32 in-window {8,16,32} | 0.710 [0.36,0.93] |
+| ff_le8 {8,16,32} | 0.732 [0.32,0.93] |
+| trained-fenced VERDICT locus (rep_t), all N | **+0.009 [0.001,0.016] — FLAT**, magnitude ~125 (frozen ~55) |
+| trained-fenced READ (final), {8,16,32} | **+0.802 [0.66,0.97]**, magnitude 26→4.5 (above floor at 128) |
+| frozen-fenced read {8,16,32} | +0.774 [0.70,0.86] (floors ~1.6 by N=32) |
+
+- **L1 (H2):** GAIN confirmed at the α level for both plain adapters — training does
+  not change the decay law, it multiplies the per-frame contribution ×3–6 (29.4 vs
+  10.5 @N=8; 7.4 vs 1.3 @N=128, lifted clear of the bf16 floor while margins still
+  slide −0.60 @64 → −2.42 @128). H1 out-of-window: ff_le8 met (0.593), ff_le32
+  indeterminate (0.287 [0.01,0.63], a 32→64 plateau, logged as-is). Formal L2/L3
+  co-conditions not run (plain-layout probe deltas pending) — α + anatomy carry the
+  verdict.
+- **N2 (the mechanism table):** the fence's supply invariance holds trained AND frozen;
+  training amplifies verdict content ×2.3 and read gain ×6; the read decays Hahn-like
+  in both, and the behavioral undercount onset (fine @2×, −1.5 offset @4×) coincides
+  with the read signal falling 26→6. At N=128 the trained read is far above noise yet
+  acc = 0.23: MARGIN-bound, not noise-bound.
+- **L5 closed in all three configurations:** plain + eval-logN = NULL per the
+  pre-registered H3 (0.250 @64 vs 0.293, no-harm intact) — sharpening cannot rescue a
+  read that must also extract; fenced + eval-logN = real bounded rescue (0.950 @32,
+  0.470 @64 with the low band reviving, 0.230 @128 unchanged); fenced trained WITH
+  logN (P3) = perfect in-window calibration (1.000 @8 AND @16 — the +1 artifact was
+  calibration and is GONE) but the readout learns to depend on compensation and the
+  free octave is spent (0.420 @32; 64/128 cells job 138006 pending, appended on
+  landing). Practical §6 recipe: TRAIN plain (P1b), APPLY logN at eval.
+- **The campaign's closing claim:** counting-over-frames decomposes into conditioning
+  (where verdicts may form — the fence's job), gain (what LoRA training does — margins
+  on an unchanged read), and code (magnitude vs token). The first is fixable, the
+  second trainable, the third is the wall: the count is magnitude-coded in a softmax
+  read and no re-scaling made 4×–8× reachable — the method's caption-scan enumeration
+  (token-coded readout) is the unique measured route past it, which is why the full
+  stack holds 0.981 @64. Every component of the method now traces to a measured
+  failure of a cheaper alternative.
+
+
+## [2026-08-28] 📊 LORAMECH addendum — P3 zero-shot cells land (job 138006, 5 preemption-restarts): trained-with-logN reads **0.310 @64 / 0.170 @128** — below eval-only scaling (0.470/0.230) at every out-of-window length; the mechanism entry's P3 verdict is final: compensation is an eval-time patch, never a training prior
+
+> `outputs/loramech/p3_zs_64_128/` (100/cell, pf 0, flag on per the adapter contract).
+> Complete P3 ladder: 1.000 / 1.000 / 0.420 / 0.310 / 0.170 @ N=8/16/32/64/128.
+> Same anchor anatomy as all fenced arms out-of-window (g0, g12/g16 label-support,
+> and all-frames survive; low band dead). Closes the LORAMECH campaign's last open cell.
+
+<!-- ══════════════ SPARSE campaign (2026-08-30→31) — entries appended at campaign close per Tal's 2026-08-30 pre-authorization; full log outputs/sparse/STATE.md ══════════════ -->
+
+## [2026-08-30→31] ❌📊 SPARSE S0+S1-control — THE k-REGIME IS NOT REACHABLE AT EVAL TIME: no fixed sharpening τ ∈ {1.5,2,3,4} lifts the k≤8 band past ~0.24 @N=64 (bar 0.80) while every τ>1 breaks N=32 by ≥0.37 with mid-band OVERcount; and P1b under the oracle gate without retraining answers ≈N for every k (mse +20.79) — the softmax read's calibration is competitor-mass-specific in BOTH directions
+
+> SPARSE campaign (brief `outputs/sparse/CAMPAIGN_BRIEF.md`, log/verdict
+> `outputs/sparse/STATE.md`, index `outputs/sparse/INDEX.md`). S0 jobs 138976–81 →
+> `outputs/sparse/s0_tau{1.0,1.5,2.0,3.0,4.0}_L12/` + `s0_tau2.0_L0/` (all-layers
+> ctrl); N∈{32,64,128}×100 exam dirs each, pf 0, majority 0.06–0.08. S1-control
+> 138982 → `outputs/sparse/s1_control/` (P1b + oracle gate @N=32, 150 dirs).
+> Instrument: `scripts/sparse/train_sft_gated.py --attn-sharpen τ` (τ=1.0 ref
+> reproduces the P1b ladder 0.850/0.340/0.230 on the 100-slice). Figure
+> `outputs/sparse/fig/F4_s0_sweep.png`.
+
+- **H-S0 → the needs-training side; S6 not triggered.** Best k≤8 band @64 ≈ 0.24
+  (τ1.5: k1-4 0.46, k5-8 0.00) vs the 0.80 bar; every τ>1 fails the N=32
+  side-condition (drop ≥0.37 vs allowed 0.03). Over-sharpening threshold = τ1.5,
+  and sharpening never breaks FORMAT (parse-fail 0 through τ4) — it breaks
+  CALIBRATION: the lawful undercount flips to mid-band overcount (τ2 @64: k5-8
+  mse +7.1) while g0 and in-support anchors survive longest. Layer restriction
+  (≥12 vs all layers) is a wash. A fixed factor fails two lengths at once
+  (τ1.5: +0.67 @32 while still −1.73 @128) — the (N−k) term needs a structural
+  fix, not a constant.
+- **H-S1-control CONFIRMED ×40 over its band** (predicted mse ≥ +0.5): P1b +
+  oracle gate @N=32 reads 0.080 with mse **+20.79**; k1-4 0.000 (+29.5), k5-8
+  0.000 (+25.5); the ONLY intact stratum is g32 "all frames" (11/11) — with the
+  (N−k) competitors hidden, the frozen-calibrated share saturates and the read
+  emits ≈N. The m = k·eˢ/(k·eˢ+(N−k)+C) code, measured from its other side.
+
+## [2026-08-30→31] ✅📊 SPARSE S1 (P1g) + THE MASK/CHECKPOINTING BUG — gated fenced-SFT under the oracle evidence gate: k≤4 EXACT AT EVERY N 8→128 (140/140, 8–16× past training) and in-window 1.000/0.947 (beats P1b's 0.893 @16); H-S1's ≥0.97-every-stratum headline REFUTED by ONE lawful mode — beyond a boundary that CONTRACTS with N (≈8–12 @32 → 6 @64 → 5 @128) the model snaps to answering exactly "N". Found en route: clearing a hook-injected attention mask before .backward() lets gradient checkpointing recompute UNGATED — gradients 22° off truth, two divergent trainings; holding the mask through backward is bit-exact
+
+> Trainer `scripts/sparse/train_sft_gated.py` (`--gate oracle`: hide_cols = union
+> of non-evidence block spans via the canonical build_block_mask, train AND eval
+> forwards; copy-extension per brief §5, loramech untouched; no-flag path
+> re-anchored at exam_ff_N8 = 1.0000 after every delta). THE BUG: diverged runs
+> 138975 (lr 2e-4, val 0.55→0.05) + 139033 (lr 1e-4, val 0.53→0.12) kept at
+> `outputs/sparse/s1_p1g{,_lr1e4}/`; diagnosis chain `outputs/_scratch/
+> sparse_smoke/diag_loss_frozen/` (init losses benign — 139055) → `diag_grad/`
+> (139064: LoRA grads, one gated sample — current pattern vs ground truth cos
+> 0.7767, mask-held vs truth cos 1.000000/max|Δ| 9e-10). ⚠ The same latent
+> pattern exists in `scripts/loramech/train_sft_fenced.py` (evals inference-only
+> = unaffected; P1b converged through the milder plain-fence mismatch); left
+> untouched per scope. CANONICAL fixed run 139066 → `outputs/sparse/s1_p1g_r3/
+> 20260831_011807_gated/` (P1b recipe verbatim, lr 2e-4, ep1 val 1.000, TEST_IID
+> 0.986, 5h07 l40s); ladder 139105 → `outputs/sparse/s1_ladder_64_128/`. Adapter
+> `checkpoints/sft_fenced_gated_adapter` — EVAL CONTRACT: gate required. Figure
+> `outputs/sparse/fig/F1_flatline.png`.
+
+| N (oracle gate, 150/cell) | acc | vs P1b | anatomy |
+|---|---|---|---|
+| 8 | **1.0000** | = | all strata perfect |
+| 16 | **0.9467** | 0.893 | k7/k8 wobble 9/13 (margin-thin), k12/k16 perfect |
+| 32 zs | 0.7800 | 0.867 | **k≤8 PERFECT 95/95** + g32; g12/16/24 = 0, ALL → "32" |
+| 64 zs | **0.5533** | 0.340 | k≤5 perfect 70/70; k8 0; k12-48 → "64"; g64 10/10 |
+| 128 zs | **0.4400** | 0.230 | k≤4 perfect 45/45; k12-64 → "128" (53/53); k96/128 parse-fail/absurd; pf 0.053 |
+
+- **H-S1 headline REFUTED as pre-registered** (k≤8 band @128 = 0.79 < 0.85; the
+  every-stratum clause fails from N=32). What stands: the first arm on record
+  with a **length-independent exact band** (k≤4, 100% at 8–16× zero-shot), and
+  the failure is a single snap-to-N mode + an overflow regime near k≈N at 16×
+  (g128 0/8 where P1b kept it). Diagnosis per the pre-registered escape clause:
+  positional story excluded (posreset; S3 verdict channel flat) — the snap tracks
+  the PROMPT's declared N (every mid-k error is the exact string "N"), i.e. with
+  the competitors gone, k·eˢ competes against fixed prompt mass C and the trained
+  "all" threshold shifts with declared N. Candidate next lever: N-randomized/
+  N-free prompts at training (logged as open).
+- Convergence note: under the gate (with correct gradients) the task is EASIER
+  than ungated — val 1.000 by ep1 vs P1b's ep8 peak.
+
+## [2026-08-31] ✅📊 SPARSE S3 — α_N ≈ 0 UNDER THE GATE, MEASURED: through the gated read the answer-locus sensitivity is FLAT in N (α +0.07 [−0.08,+0.20] vs +0.80 [0.66,0.97] ungated; margins positive O(1) at N=128; a one-frame flip changes the emitted answer 80–98% of the time at every N ∈ {8..128}) and the decay moves to k: Δ ∝ (k+2)^−1.19 [1.16,1.22] — the (N−k) term is gone from the read and the resolution wall is in k
+
+> Instrument `scripts/sparse/probe_hahn_gated.py` (`--gate oracle`, p1fence arm,
+> per-member masks: base hides flip block t, evid member exposes it; no-flag path
+> proven BYTE-IDENTICAL to `scripts/armor/probe_hahn.py` same-arch — 138974; the
+> flagged-superset lineage to the a100 n2_hahn reference was proven by REDUX
+> 138967). Chains 139107/139108 → `outputs/sparse/s3/gate_oracle_N{8..128}/`
+> (N2 pools/limits: 50×4+40 pairs, ctrl 12) + `gate_oracle_N64_k{1,2,4,8,16,32}/`
+> (30/k, redux N=64 pool). P1g adapter throughout. Figure `fig/F3_alpha.png`.
+
+| locus | gated α [95% CI] | medians N=8→128 | ungated (N2) |
+|---|---|---|---|
+| READ L20 final | **+0.066 [−0.076,+0.195]** | 26.4→21.3 FLAT | **+0.802 [0.66,0.97]** (26→4.5) |
+| READ L16 / L28 | +0.018 / +0.018 (CIs ∋ 0) | flat | — |
+| verdict L20 rep_t | −0.007 [−0.030,+0.014] | ~55 flat | +0.009 (flat) |
+
+- **H-S3 MET** on flatness (CIs ∋ 0, |α| ≤ 0.07 point at every layer) and on
+  decay-in-k at the read locus (γ 1.19 [1.16,1.22] ≥ 1, CI excludes 0.5; L16 0.77,
+  L28 2.56 post-norm — reported per-layer). Margins: median base +5.60 @8 →
+  +3.67 @128 (stays positive; ungated slid to −1.91). By k≥16 the +1-flip signal
+  (2.9–4.1) nears the measured bf16 floor (~1.2–1.4) — the S4 behavioral
+  boundary sits where the flip signal meets noise. The k-regime construction
+  k/(k+C): both halves now measured (N removed, k inherited).
+
+## [2026-08-31] ✅⚠📊 SPARSE S2+S4+S5 — THE GATE IS DEPLOYABLE AND THE WALL IS IN k: a logistic gate on L20 replica-slot states reads per-frame evidence at ≥0.999 accuracy FLAT in N (1 miss/19,200 frames @N=128, d′ 6.4–8.4) and the model-gated system equals the oracle to within per-sample-named gate errors (identical at N=64: 0 errors/9,600 frames); trained capacity c* = 8 @N=64 / 7 @N=128 (H-S4's 24–48 MISSED — c* ≈ the frozen c(fan) crossing; the gate buys EXACTNESS below c* at 16×, not a larger c*); MMReD-HF transfer 0.900/0.700/0.540 (H-S5 missed; the loss is the same snap band)
+
+> S2: captures 139109–14 (`scripts/sparse/capture_verdicts.py`, L20 room-word
+> loci) → `outputs/sparse/s2/cap_train/` (651 samples/6,216 frames, pos 0.469) +
+> `cap_N{8..128}/`; gate `scripts/sparse/train_gate.py` → `outputs/sparse/s2/
+> gate/` (LR, standardized, sample-held-out val 1.0000); model-gated evals
+> 139125/26 → `s2/eval_{short,long}/` (two-forward: ungated pass-1 → gate →
+> gated decode; gate_fn/gate_fp per sample). S4: 139106 → `outputs/sparse/s4/
+> eval/` (topped-up 20/gold dirs files `s4/dirs_N{64,128}.txt`, strided from the
+> same longN_park pools). S5: 139127 → `outputs/sparse/s5_hf/` (N4 protocol,
+> 50/len). Figure `fig/F2_capacity.png`.
+
+| ladder (150/cell) | N8 | N16 | N32 | N64 | N128 |
+|---|---|---|---|---|---|
+| P1g oracle gate | 1.000 | 0.947 | 0.780 | 0.553 | 0.440 |
+| **P1g model gate** | 0.993 | 0.960 | 0.753 | **0.553** | 0.427 |
+| gate frame-errors | 1 fp | 0 | 5 fp | **0** | 1 fn + 4 fp |
+
+- **H-S2: gate clause MET** (≥0.99/frame at every N — measured 0.999–1.000,
+  flat: the ARMOR-A flat supply carried through the trained adapter into
+  deployment); **parity clause MET** (every oracle−model gap traces to named
+  gate-error samples; N=16's +0.013 flip is margin-thin bf16 jitter on the k7/k8
+  wobble samples, gate errors 0); the **≥0.90 @128 k≤8 clause NOT MET** (0.79 —
+  bounded by the S1 snap, not by the gate).
+- **S4 (H-S4 MISSED):** exactness vs k at fixed N crosses 0.5 at **k=8 (N=64) /
+  k=7 (N=128)** vs expected 24–48 — ≈ the frozen c(fan) crossing (~8). k≤5 =
+  100/100 @64, k≤4 = 89/89 @128; k≥12 all → "N"; parse-fails live entirely in
+  k≥64 @N=128 (4/12/15 at k=64/96/128). The gate converts the sub-c* regime to
+  EXACT at 16× (frozen fan-8 was 0.65 at its own length) but does not move c*:
+  capacity is code-resolution-bound (S3's γ≈1.2 + bf16 floor), and token-coded
+  readout (the method's caption scan, 0.981 @64) remains the only measured route
+  past k≈8.
+- **S5 (H-S5 MISSED):** model-gated HF 0.900/0.700/0.540 vs P1b's 1.000/0.820/
+  0.540 (band wanted ≥+0.10 on 16/32). Gate transfers (frame-error rate ≈0.4%);
+  k≤5 near-perfect (seq32 25/26); the entire loss is the snap band. Anatomies at
+  seq32 are complementary (same 0.540): P1b keeps label-support anchors
+  (g12/g16 3/3) but drops g2 0/4; gated keeps ALL k≤5 and drops mid-k.
+- **Caveats (campaign-wide):** single task family + model; oracle vs model gate
+  labeled everywhere; HF cells 50/len with k-strata of 1–7; k-strata <10 marked;
+  the gate presupposes the fence (flat supply — ARMOR-A) and per-frame verdict
+  slots; c* numbers are at 20/gold resolution.
+
+<!-- ══════════════ SPARSE WAVE 3 (2026-08-31→09-01) — appended at wave close per Tal's 2026-08-31 pre-authorization; full log outputs/sparse/STATE.md (wave-3 verdict), index outputs/sparse/INDEX.md ══════════════ -->
+
+## [2026-08-31] ✅📊 SPARSE S7 + EQUIVALENCE — THE SNAP IS THE PROMPT'S DECLARED N, CAUSALLY: lying to the model about N relocates the snap to the declared string, exactly (k12/k16 on true-32 inputs recover 0.00 → 1.00 WITH CORRECT ANSWERS under "16 frames"; k8 collapses 1.00 → 0.00 under "64"; k4 = 120/120 across all six lies) — and the gated N-frame forward is proven ≡ the evidence-only forward (20/20 identical decodes), so the twins reproduce the snap with NOTHING hidden
+
+> Wave-3 instruments: `train_sft_gated.py --declare-n` (prompt TEXT only; frames/
+> mask/gate/positions untouched) + `scripts/sparse/diag_equiv.py`. Anchor re-held
+> (P1b exam_ff_N8 = 1.0000 after every delta). Equivalence 139240 →
+> `outputs/_scratch/sparse_w3/equiv/`: gated N-frame forward vs evidence-only twin
+> declaring N — 20/20 greedy decodes identical, median rel L2 @answer L20 = 0.0102
+> (< the 0.02 pre-registered bar); the k=12/16 twins answer "32" with no hidden
+> blocks at all. S7 chains 139245/139246 → `outputs/sparse/s7/N{32,64}_*/` (20/
+> stratum, fresh longN_park dirs, majority 0.25, pf 0; P1g + oracle gate).
+
+| true N=32 | acc | k4 | k8 | k12 | k16 | snap target |
+|---|---|---|---|---|---|---|
+| declared 32 (ref) | 0.500 | 1.00 | 1.00 | 0.00 | 0.00 | "32" 40/40 |
+| declared 16 | **0.900** | 1.00 | 0.60 | **1.00** | **1.00** | — (answers correct) |
+| declared 64 | 0.250 | 1.00 | **0.00** | 0.00 | 0.00 | **"64" 40/40** |
+
+- N=64 replicates (declared-32 recovers k8 0.00 → 0.95; k12 snaps to "32").
+  **Both H-S7 clauses MET; side condition MET** (k4 never drops). Fine structure:
+  a −1-undercount ring precedes the snap (k ≈ Ñ/2: all-"7" at k8/declared-64).
+  Every stratum's fate is a function of (k, declared Ñ) alone — true N appears
+  nowhere once the gate is on. The wave-2 "boundary contracts with N" law
+  re-parameterizes entirely in the DECLARED N: pure text calibration, the
+  mechanism behind S8/S9 confirmed before either trained.
+
+## [2026-08-31→09-01] ✅📊 SPARSE S8 (VIRTUAL-N) — THE SNAP IS DEAD: full (k, declared-Ñ) training coverage makes the k≤8 band EXACTLY 1.000 AT EVERY N ∈ {8..128} (wave-2: 1.00/0.95/1.00/0.73/0.63), k12 perfect at every N, in-window PERFECT (1.000 @8 AND @16), parse-fails gone — and the trained capacity edge is c* ≈ 16 (wave-2's c* = 7-8 SUPERSEDED as calibration-confounded), exactly where S3's resolution physics put the floor; the deployable model-gated system tracks oracle to named per-sample gate errors
+
+> Trainer delta `--virtual-n` (50% real gated + 50% synthetic evidence-only:
+> k∈0..16 stratified × declared Ñ∈{8,16,32,64,128}, k≤Ñ, answer=k — licensed by
+> the equivalence smoke; k=0 = text-only step). Training 139247 (S1-r3 recipe
+> verbatim otherwise, best ep3 val 1.000, 9h04) → `outputs/sparse/s8_vn/
+> 20260831_134617_gated/`; ladder 139451 → `s8_ladder_64_128/`; capacity 139452 →
+> `s8_s4/` (20/gold); gate refit + model ladder 139471/72 → `s8_gate/`,
+> `s8_mg/`. Adapter `checkpoints/sft_fenced_gated_vn_adapter` (**CANONICAL** gated
+> config; eval contract: gate required). Figure `outputs/sparse/fig/F5_flatline_w3.png`.
+
+| N (oracle gate, 150/cell, pf 0) | acc | k≤8 | k12 | k16 | k≥24 |
+|---|---|---|---|---|---|
+| 8 / 16 | **1.0000 / 1.0000** | 1.000 | — / 13/13 | — / 13/13 | — |
+| 32 zs | 0.8533 | **1.000** | 11/11 | 11/11 | 0 |
+| 64 zs | 0.7333 | **1.000** | 10/10 | 10/10 | 0 |
+| 128 zs | 0.6067 | **1.000** | **9/9** | 1/9 | 0 |
+
+- **H-S8-main MET (bar ≥0.95): measured 1.000 ×5. H-S8-noharm MET and exceeded**
+  (in-window PERFECT — P1g's k7/k8 wobble gone). Capacity (S4 dirs, 20/gold):
+  @64 k0-k16 = 170/170; @128 k12 = 20/20, k16 = 5/20 → **c*(128) = 16**, double
+  the wave-2 reading, in S3's predicted 16-20 window (γ≈1.2, flip signal at floor
+  by k≈16) — the wave-2 S4 entry is annotated calibration-confounded. k≥24 = 0
+  with MIXED signed error (no snap): the stated k>16 coverage hole, now the only
+  wall below k≈N. **H-S8-model MET**: refit gate ≥0.9973/frame flat (recall
+  1.0000 at every N); deployed k≤8 band 0.99/1.00/0.92/0.96/0.94 with every gap
+  = counted gate errors (e.g. @64: 3 fp = the 3 lost samples).
+- The convergence note: with correct coverage the gated task trains EASIER than
+  ungated (val 1.000 @ep3 vs P1b's ep8 peak) — calibration, not capacity, was
+  consuming the optimization.
+
+## [2026-08-31→09-01] ✅⚠📊 SPARSE S9 (N-FREE PROMPT) — THE MECHANISM NEEDS NO N ANYWHERE: with the frame count and answer range REMOVED from the prompt (matching the upstream benchmark, which never states N — our N-injection was legacy-local), the same recipe with no synthetic mixture reads k≤8 at EXACTLY 1.000 at every N ∈ {8..128}; S8 stays canonical (k12 + cleanliness), S9 is the protocol-fidelity variant; HF transfer misses its band (gate recall on HF is the driver)
+
+> Trainer delta `--nfree-prompt` (same "You will be shown" opener — parse
+> unchanged; adapter contract carries the flag; S9 numbers = a NEW prompt anchor,
+> never tabulated against N-prompt arms unlabeled). Training 139318 (S1-r3 recipe,
+> no mixture, best ep3 val 1.000) → `outputs/sparse/s9_nfree/20260831_174021_gated/`;
+> ladder 139461 → `s9_ladder_64_128/`; capacity 139462 → `s9_s4/`; gate + model
+> ladder 139486/87 → `s9_gate/`, `s9_mg/`; HF 139488 → `s9_s5_hf/`. Adapter
+> `checkpoints/sft_fenced_gated_nfree_adapter` (gate + `--nfree-prompt` required).
+
+- **H-S9-main MET: oracle k≤8 = 1.000/1.000/1.000/1.000/1.000** — no N in the
+  text, no virtual N, real gated samples only: the flat line is a property of the
+  gate + coverage-free honesty of the N-free decoder. In-window 1.000/0.973.
+  **H-S9-capacity MET in range**: k16 20/20 @64, c* ≈ 16 @128 — confirms the
+  supersession independently. k12 is non-monotonically dented (11/20 @64/128;
+  @128 the errors emit "128" 7/20 WITH NO N IN ANY TEXT — candidate channel: the
+  step-ids burned into the frame PIXELS, which S8's mixture taught the model to
+  ignore in favor of the prompt; logged as interpretation, testable by re-rendering
+  with step-ids stripped). High-k parse-fails (pf 0.15-0.19 @128, no range hint).
+  Deployed: k≤8 = 1.000 @64, 0.958 @128 (= oracle − 8 named gate errors).
+- **H-S9-vs-S8 → S8 CANONICAL** (k≤8 tie; S8 wins k12 everywhere + pf 0), S9 =
+  the fidelity proof. **H-S9-HF MISSED**: 0.860/0.780/0.580 vs ≥0.95/0.90/0.85 —
+  though ≥ wave-2's S5 at seq16/32 with clean errors (mse ≈ 0); the measured
+  driver is gate RECALL on HF (fn 6-7/cell vs ~0 on park) + the k12+ edge; open
+  lever: gate retraining on HF captures.
+- **Wave-3 caveats:** single task family/model; S8's k≥24 zeros are coverage
+  (grid k≤16), not measured capacity, through k≈16-24; the k≈N regime at large N
+  is unknowable-by-design in S9 and untrained in S8; S9's k12 dent awaits the
+  pixel-channel test; k-strata <10 marked in run logs.
+
+## [2026-09-01] 📊 SPARSE wave-3 addendum — S9's k12 dent decomposed: the dominant attractor is the TRAINED ANSWER CEILING "16" (4/4, 9/9, 14/14 of the k12 errors at N=16/32/64), not the pixel channel; root cause = answer-support sparsity (the real mixture's gold support is 0-8 dense + {12,16} thin — values 9-11/13-15 never trained), which S8's dense synthetic k-grid fixes by construction — the "128" attractor at N=128 (9+16 errors at k12/k16) remains the pixel-channel candidate
+
+> Analysis over `s9_{nfree,ladder_64_128,s4}` prediction CSVs (STATE 2026-09-01
+> ~09:40). Consequence for §6: the N-free config needs k-BALANCED evidence-subset
+> oversampling (S9b, = S8's coverage trick without the Ñ text) rather than more
+> epochs (same budget as S8; best ep3 val 1.000, later lower-loss epochs never
+> beat it). Mechanics note: under the gate, k≤16 cells at ANY N present ≤16
+> visible blocks (equivalence smoke) — the gate converts length-generalization
+> into k-generalization; genuinely longer-than-trained visible inputs begin at
+> k≥24, which is also outside trained answer support (those zeros stay
+> coverage-confounded).
+
+## [2026-09-01] ✅📊 SPARSE S10 — THE ATTENTION PHOTOGRAPH: the share law m = k·eˢ/(k·eˢ+(N−k)+C) is OBSERVED (R² 0.93–0.99 per layer, 9/9 N-doubling sign checks; L20: s=0.30, C=8 — the trained read's attention edge over a competitor block is only ×1.35), under the gate the mass is N-invariant (≤6% across N=8→128 at the read locus) — and a single trained-in head (L24 h20) separates evidence from non-evidence at AUC ≥0.993 at every N in the UNGATED model: detection was never the problem, aggregation was
+
+> New instrument `scripts/sparse/probe_attn_photo.py` (manual attention at the
+> last prompt row from FenceHooks q/k captures + rotary — sdpa exposes no weights;
+> per-row softmax-sums-to-1 asserted; adapter loaded BEFORE capture hooks so LoRA
+> q/k are measured). Jobs 139736 (smoke: gated non-evidence mass EXACTLY 0.0000 —
+> the mask verified in the photograph itself) + 139760-62 →
+> `outputs/sparse/s10/{p1b_N8..64,gated_N8/32/128,frozen_N32}/` (30/k-stratum,
+> k∈{2,4,8}, layers {12,16,20,24,27}, head-mean over 28 heads). Figure
+> `outputs/sparse/fig/F7_attn_photo.png` (+CSVs).
+
+- **H-S10a MET:** P1b-arm evidence mass at L20, k=4: 0.31 → 0.21 → 0.14 → 0.09
+  across N=8→64 — dilution watched happening; one-(s,C)-per-layer fits R² =
+  0.989/0.992/0.969/0.992/0.933 at L12/16/20/24/27; sign check 9/9 decreasing at
+  every layer. The formula every SPARSE/LORAMECH intervention presupposed is now
+  a measured object.
+- **H-S10b MET at the read locus:** gated (S8) L20 evidence share at fixed k
+  varies 2.0–6.2% across N∈{8,32,128} (its own fit k·eˢ′/(k·eˢ′+C′), s′=0.26,
+  C′=46 — the gated sink holds ~5× more mass than P1b's C=8); worst off-read
+  layer 16.3%, reported.
+- **H-S10c (prominent):** best FIXED head **L24 h20 separates evidence vs
+  non-evidence blocks at AUC 0.9997/0.9927/0.9999/1.0000 @N=8/16/32/64** in the
+  UNGATED P1b model; frozen best head 0.848 → the near-perfect internal evidence
+  selector is TRAINED-IN, yet its mass obeys the same share dilution — the model
+  knows which frames matter and cannot cash it in through softmax aggregation.
+  The external gate (mask, or the LR readout at ≥0.999/frame) is the read-out of
+  this internal signal. Caveats: head-mean summaries pool heterogeneous heads;
+  k∈{2,4,8} only; single task family/model.
+
+## [2026-09-01] ✅📊 SPARSE S11 — α WITH BYTE-IDENTICAL TEXT AT EVERY N (the S9 N-free adapter): read α = +0.035 [−0.043,+0.123] (medians 28.5→25.7, FLAT), margins CONSTANT at +11.7 nats from N=8 to N=128, one-frame flips change the emitted answer 90–100% of the time at every N, and decay-in-k is γ = 1.19 [1.17,1.22] — numerically the P1g chain's γ: the k-resolution law belongs to the gated softmax read, not to any adapter — NO non-text N-channel exists; the |α| ≥ 0.3 refutation branch is dead
+
+> Instrument: `probe_hahn_gated.py --nfree-prompt` (single-source S9 builder;
+> no-flag anchor re-proven BYTE-IDENTICAL — 139735). Chains 139752/139753 →
+> `outputs/sparse/s11/gate_oracle_N{8..128}/` (50×4+40 pairs, ctrl 12, seed 0)
+> + `gate_oracle_N64_k{1,2,4,8,16,32}/` (30/k). Figure
+> `outputs/sparse/fig/F6_s9_alpha.png` (+CSV).
+
+- **H-S11a MET** (CI ∋ 0, |α| < 0.15; margins median positive at 128; flip-rate
+  ≥ 0.7): this is the S3 measurement with the last confound removed — in the
+  P1g chain the prompt text varied with N ("You will be shown {N}…"); here every
+  cell is byte-identical text, so flatness is attributable to the mechanism
+  alone. Verdict channel flat (−0.016 [−0.048,+0.005]); N-free margins (+11.7)
+  are both LARGER and FLATTER than the P1g chain's (+5.6→+3.7).
+- **H-S11b MET:** γ(L20) = +1.19 [1.17,1.22] with C=5 — matching the P1g-adapter
+  chain to two decimals (L16 1.41, L28 2.79 post-norm). Cross-adapter agreement
+  pins the decay-in-k as a property of the gated read itself.
+- Together with the equivalence smoke and S7: the N-channel taxonomy is closed —
+  text was the whole story; positions/sink carry nothing measurable.
+
+## [2026-09-01→02] ✅📊 SPARSE S9b — k-BALANCED EVIDENCE-SUBSET OVERSAMPLING UNDER THE N-FREE PROMPT: the ep10 arm is EXACT ON EVERY TRAINED ANSWER VALUE (k = 0..16) AT EVERY N ∈ {8..128} — including k16@128 at 20/20, the cell the S8 N-prompt arm read at 5/20 — making it the strongest measured adapter of the campaign on the upstream-faithful prompt; the ep5/ep10 twin pair doubles as a budget ablation (same recipe, half cost, ±3–5% checkpoint-draw variance at margin-thin strata, invisible to val-by-decode)
+
+> Root cause being fixed (recorded for the write-up): the park seq16 training pool
+> is ANCHOR-CLASSED — its gold support is K0–K8, K12, K16 ONLY (30/class; answers
+> 9–11 and 13–15 do not exist in any real training data; g12/g16 reach the mixture
+> at 17 samples each vs ~100/class for 0–8). S9's k12→"16" rounding was this
+> support hole (2026-09-01 addendum). S9b = the S9 recipe + the S8 mixture
+> machinery with the Ñ dimension collapsed (`--nfree-prompt --virtual-n`: grid =
+> k∈{0..16} only, ~38 dense exposures/answer/epoch; evidence-subset construction,
+> licensed by the equivalence smoke). Runs: ep5 arm 139718 →
+> `outputs/sparse/s9b_ep5/` (+`s9b_ladder/`, `s9b_s4/` 139774/75); **ep10 twin
+> (CANONICAL) 139714 → `outputs/sparse/s9b_vn_nfree/20260901_140231_gated/`**
+> (+`s9bT_ladder/`, `s9bT_s4/` 139977/78). Adapter
+> `checkpoints/sft_fenced_gated_vn_nfree_adapter` (contract: gate +
+> `--nfree-prompt`; N-free prompt anchor — label the variant in any comparison).
+
+| N (ep10 twin, oracle gate) | overall exam | k0–k16 (= trained support) | k≥24 (untrained) |
+|---|---|---|---|
+| 8 | **1.0000** | perfect | — |
+| 16 | **1.0000** | perfect | — |
+| 32 zs | 0.8467 | k12 10/11, k16 11/11, rest perfect | 0 |
+| 64 zs | 0.7333 | **exam 110/110 + S4 170/170 PERFECT** | 0 |
+| 128 zs | 0.6600 | **exam 99/99 + S4 k12 20/20, k16 20/20 PERFECT** | 0 |
+
+- **The coverage fix works completely at ep10**: S9's k12 (0.18–0.69) → 0.9–1.0
+  everywhere; k16@128 (0.34) → **1.00 at both cell sizes** — BEATING the S8
+  N-prompt arm's 1/9 + 5/20 there. Every remaining error in the ladder is an
+  untrained answer (k ≥ 24: 0/191 across cells, parse-fails concentrated there —
+  the N-free prompt gives no range hint, so beyond-support reads emit junk rather
+  than a snapped number; mae on PARSED answers 0.68 @64).
+- **Budget ablation (pre-authorized 5-ep default, evidence refined):** the ep5
+  arm closed k12 identically but carried a +1 wobble at k6–k7 (all 12 errors
+  exactly +1) that the ep10 twin does NOT reproduce → checkpoint-draw variance
+  between equal-val-1.000 checkpoints (60-sample val-by-decode cannot separate
+  them), not a capacity or crowding effect (that hypothesis was raised and is
+  hereby withdrawn for the wobble). Practical: keep the 5-ep default for
+  iteration; train 10 ep (or add a k-stratified val) before promoting an adapter.
+- Trained-support view across the N-free family (gold ∈ trained support, oracle):
+  S9 (no mixture) = 1.0000 on gold 0–8 at every N (827/827) but 0.89–0.97 with
+  the thin g12/g16 included; S9b-ep10 = 1.0000 on the FULL 0–16 support at N ≥
+  64 (32-cell: 2 misses in 22). **Canonical calls: S8 = N-prompt canonical;
+  S9b-ep10 = N-free canonical and the campaign's best long-N profile** (labeled
+  prompt variants, never one table row unlabeled).
+- Caveats: single task family/model; k-strata 9–11 at N=32 exam cells; pf at
+  untrained strata inflates MAE-style summaries (parsed-only mae reported);
+  the S9c data-side variant (uniform-gold seq16 regeneration) is specced but
+  unlaunched — the conventional-fix comparison remains open.

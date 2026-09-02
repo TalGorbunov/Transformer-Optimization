@@ -55,7 +55,7 @@ from gnnformer.metrics import dprime_pair, format_gold_histogram
 from gnnformer.mmred_hf import probe_evidence_mmred
 from gnnformer.runtime import (
     attention_dims,
-    dequantize_linear_weight,
+    dequantize_linear_weight,  # noqa: F401  (effective_linear_weight wraps it)
     get_layers,
     get_rope_index_fn,
     image_token_groups,
@@ -63,6 +63,11 @@ from gnnformer.runtime import (
     move_to_device,
 )
 from gnnformer.fencing import recompute_messages
+
+_LORAMECH = _REPO / "scripts" / "loramech"
+if str(_LORAMECH) not in sys.path:
+    sys.path.insert(0, str(_LORAMECH))
+from peft_utils import effective_linear_weight, load_peft_frozen  # noqa: E402
 
 
 def main() -> int:
@@ -82,6 +87,8 @@ def main() -> int:
     ap.add_argument("--question-first", action="store_true")
     ap.add_argument("--shuffle-dirs", type=int, default=None, metavar="SEED")
     ap.add_argument("--model", default=None)
+    ap.add_argument("--peft-adapter", default=None,
+                    help="saved LoRA adapter dir to restore (frozen) — LORAMECH L3")
     ap.add_argument("--output", default="outputs/carrier/probe")
     args = ap.parse_args()
     if args.reset_positions and (args.no_mask or not args.fence_frames):
@@ -98,7 +105,12 @@ def main() -> int:
     vs_id = int(model.config.vision_start_token_id)
     out = Path(args.output) / time.strftime("%Y%m%d_%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
-    w_o = {L: dequantize_linear_weight(layers[L].self_attn.o_proj) for L in Ls}
+    # PEFT wrap LAST — PeftModel.model is the OUTER base model, so model.model.*
+    # captured after wrapping resolves wrong; LoRA injects in-place, refs stay valid.
+    if args.peft_adapter:
+        model = load_peft_frozen(model, args.peft_adapter)
+    # effective = dequantized base + LoRA delta when an adapter is loaded
+    w_o = {L: effective_linear_weight(layers[L].self_attn.o_proj) for L in Ls}
 
     hooks = FenceHooks(layers, capture_layers=Ls).install()
     feats_rep = {L: [] for L in Ls}

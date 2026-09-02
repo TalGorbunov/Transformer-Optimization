@@ -1,0 +1,7 @@
+# LORAMECH ff_le32 training mixture (P4.1 mirror, frames-first regime).
+# Joined with commas by train_sft_baseline.sbatch (ROOTS_FILE knob).
+# Exam sets are excluded via EXCLUDES (outputs/loramech/examdirs/exam_ff_N{8,16}.txt);
+# the N=32 exam comes from the disjoint park2 generation, so seq_len_32 trains in full.
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform
+data/mmred_longN_park/seq_len_32/all_uniform
