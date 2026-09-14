@@ -1,0 +1,1061 @@
+{
+  "run_id": "profile_consistency_s10_441939",
+  "arm": "parallel",
+  "condition": "consistency",
+  "seed": 10,
+  "profile": true,
+  "policy": {
+    "protocol": "v8_paired_residual_consistency",
+    "native_arm": "parallel",
+    "conditions": [
+      "ce",
+      "consistency"
+    ],
+    "seeds": [
+      10,
+      11
+    ],
+    "epochs": 40,
+    "pair_slots_per_epoch": 972,
+    "scene_slots_per_epoch": 1944,
+    "scene_presentations": 77760,
+    "pair_presentations": 38880,
+    "batch_size": 16,
+    "pairs_per_batch": 8,
+    "steps": 4860,
+    "dev_steps": [
+      972,
+      1944,
+      2916,
+      3888,
+      4860
+    ],
+    "lr": 0.001,
+    "warmup": 50,
+    "final_lr": 1e-05,
+    "weight_decay": 0.0,
+    "clip_norm": 1.0,
+    "rank": 96,
+    "hidden_size": 3584,
+    "parameters": 1041600,
+    "merge": "sum",
+    "post_activation": "silu",
+    "native_dtype": "torch.float16",
+    "branch_dtype": "torch.float32",
+    "consistency_coefficients": {
+      "ce": 0.0,
+      "consistency": 1.0
+    },
+    "consistency_epsilon": 1e-06,
+    "consistency_reduction": "mean_over_pairs_and_separate_count_EOS_positions_of_squared_L2_ratio",
+    "denominator": "detached_squared_L2_of_identical_frozen_global_state_plus_fixed_epsilon",
+    "pair_order": "persistent_random.Random(seed)_fresh_canonical_pair_permutation_each_epoch",
+    "target_positions": [
+      "count",
+      "EOS"
+    ],
+    "ce_reduction": "equal_mean_over_16_scenes_and_two_positions",
+    "max_new_tokens": 4,
+    "exact_requires_eos": true,
+    "selection": "max_dev_exact_then_min_raw_first_token_NLL_then_earliest",
+    "native_eos": [
+      151645,
+      151643
+    ],
+    "target_eos": 151645,
+    "profile_steps": 32
+  },
+  "consistency_coefficient": 1.0,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/train_check_441937/plan.json",
+  "plan_sha256": "142c04be2f5ceda64a930a51a6c650663200d4b422ebcff1141a6230bff7b065",
+  "source_sha256": {
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/native_vision_v8_pairs.py": "51b3c4c8ca993fb3b0c3680d8fad831b64f7d7f5d25d840e3f815343226b8f54",
+    "scripts/train_native_vision_v7.py": "2e5bb4792d85586d519464afdc615ca307ce42686f4adad5d271391bc88ee389",
+    "scripts/train_native_vision_v8.py": "0493db926ca2803edc42b97ad2ea0937e17172ca4082dd12478755a97b41dc00",
+    "slurm/native_vision_v8_train.sbatch": "cdee191b844edd3985139f74eeae76c3903cb32b328138509adeb824a92ee8c8",
+    "slurm/native_vision_v8_train_check.sbatch": "50a2954e5120522b21eeddd23aa95d728f7c2aa6f19bfe2b6c81d4166d586ee2",
+    "slurm/native_vision_v8_train_profile.sbatch": "fdfa4c74f3091f8956a2ecf201a6933d7cd750eb7e03031cf03462967cd5e4d0",
+    "tests/test_aggregation_consistency.py": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+    "tests/test_native_vision_v8_pairs.py": "86910c434413fad5cda7635c0d55b7455a694a81b94a91e75c828ef84c94faf1"
+  },
+  "cache_binding": {
+    "file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/feature_cache.json",
+    "sha256": "670c115ff872760082eb93a1020ddc7a2e0756b2b2ff3cc55f9a0512845f56a6"
+  },
+  "pairing_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/train_check_441937/pairing.json",
+  "pairing_sha256": "75abf418c651aae5d19fef7cb5a2707f9ee4b1cd6d7f9f1a990437c7ae76e65d",
+  "diagnostic_summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/response_surface/run_441927/summary.json",
+    "sha256": "3959b4d3df130f6f5654ad162b09df47cf07e615d5b09cf0fbb790f4e1bc6104",
+    "software_completion_passed": true,
+    "selection_on_diagnostic_predictions": false
+  },
+  "initialized": {
+    "local_bias": {
+      "shape": [
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+    },
+    "query.weight": {
+      "shape": [
+        96,
+        3584
+      ],
+      "dtype": "torch.float32",
+      "sha256": "83675b2f7bc0654be84c375c10ee9ab2807975134da5fc5284abb3e76db5a1a4"
+    },
+    "local.weight": {
+      "shape": [
+        96,
+        3584
+      ],
+      "dtype": "torch.float32",
+      "sha256": "6b046231e448b75a4a1d159795f35e2772727ab836e96b7f8d41eec379532352"
+    },
+    "aggregate_projection.weight": {
+      "shape": [
+        96,
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "8e2dcba9e8f76b43fdfe79a53090710e74464e8f42efd6edf47a0f666ab387a3"
+    },
+    "aggregate_projection.bias": {
+      "shape": [
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+    },
+    "up.weight": {
+      "shape": [
+        3584,
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+    }
+  },
+  "initialized_sha256": "042fe0958b41310ebda04ed91a5c9300d83f015abd902628b02e17b8c954b005",
+  "presentations_sha256": "6179fa55bca78d88b8de505cd63b7f043e0f4fdabe463b5a740e4fe199c39214",
+  "order_sha256": "7f9135e8eba734d5c2acf227c69fd3621a234dc982013b3c7a3da3f228b6bc29",
+  "model": {
+    "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/cc594898137f460bfe9f0759e9844b3ce807cfb5",
+    "metadata_sha256": {
+      "README.md": "1fa65dbb08bc9ffe0b020409c8686f08b23008c5a68554353305fd2de6f2b81e",
+      "chat_template.json": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+      "config.json": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+      "generation_config.json": "0a3aea82869fe29f20dc95ccf3e2bcff380eca1f5ad6447a4a4b37110b08e43e",
+      "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "model.safetensors.index.json": "73b333b0b16e5286ddba615d2caebcd495cf7e616f52eb217a81781393d79de9",
+      "preprocessor_config.json": "f2058c716eef96ccaed1cc1e2d0c08306b62586d535b28d9d08e691b2fab7ca0",
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "4abd3520120e266da84c0864fee064d1fb10806f02225911a47253dd38dc5f56",
+      "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    "weight_shard_stat": {
+      "model-00001-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/e97b877e47fde53a6c6e77aafb36e58e91ee9d95c4a3eeac6f1b5c0e6a1c986e",
+        "bytes": 3900233256,
+        "mtime_ns": 1771407935695226945,
+        "inode": 16655068854630583141
+      },
+      "model-00002-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/a9a300a43b4724eee2abe7c18ceb26768d0ab011eb0cad19d9bfd2476a24d024",
+        "bytes": 3864726320,
+        "mtime_ns": 1771407935803226875,
+        "inode": 5832180937620888320
+      },
+      "model-00003-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/111223d173e00bbee81cba1216fad28668df3476706b7fd26f4d5b50f8b3a507",
+        "bytes": 3864726424,
+        "mtime_ns": 1771407935853602650,
+        "inode": 17666152406303428792
+      },
+      "model-00004-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/ef47f634fa57d46ee134edcc09f34085a47da1e16c12a2abe0d67118be6d72ed",
+        "bytes": 3864733680,
+        "mtime_ns": 1771407935446460362,
+        "inode": 11611589105788180313
+      },
+      "model-00005-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/0c859795ad3a627a9b95bcb762e059d5b768a4a36fdd4affeff269d93fdecc67",
+        "bytes": 1089994880,
+        "mtime_ns": 1771407929007218309,
+        "inode": 5125300042382599384
+      }
+    },
+    "weight_verification": "Resolved immutable shard path/inode/size/mtime; no full weight rehash"
+  },
+  "runtime": {
+    "torch_version": "2.8.0+cu128",
+    "transformers_version": "4.57.6",
+    "bitsandbytes_version": "0.48.2"
+  },
+  "processor": {
+    "transformers_version": "4.57.6",
+    "processor_class": "Qwen2_5_VLProcessor",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+    "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+    "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd"
+  },
+  "native_dtypes": {
+    "norm": "torch.float16",
+    "lm_head": "torch.float16"
+  },
+  "hardware": {
+    "name": "NVIDIA B200",
+    "cuda": "12.8",
+    "torch": "2.8.0+cu128"
+  },
+  "model_and_features_load_seconds": 15.864124505780637,
+  "checkpoint_directory": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/profile_consistency_s10_441939",
+  "data_directory": "/mnt/data/gabriele/gnn_transformer/native_aggregation_vlm_v8/profile_consistency_s10_441939",
+  "main_release": null,
+  "passed": true,
+  "completed": true,
+  "computational_integrity_passed": true,
+  "steps": 32,
+  "active_cache_replay": {
+    "passed": true,
+    "observations": [
+      {
+        "sid": "v7_balanced_train_Daniel_Bathroom_N8_K0_0",
+        "n_frames": 8,
+        "prefix_ids": [],
+        "position": 0,
+        "native_head_replay": {
+          "tv": [
+            0.0
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.0,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_descriptive": {
+          "tv": [
+            0.011587157248055096
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.011587157248055096,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_gate": false,
+        "global_hidden_relative_l2": 0.007593884132802486,
+        "counters": {
+          "model": 1,
+          "visual": 1,
+          "norm": 1
+        },
+        "native_metadata": {
+          "arm": "parallel",
+          "sid": "v7_balanced_train_Daniel_Bathroom_N8_K0_0",
+          "n_frames": 8,
+          "question": "How many frames show Daniel in the Bathroom?",
+          "question_sha256": "3a0489dec0f129c2200ae46161220896c1796c594858353ecef9b2ca903e5084",
+          "global_prompt": "You will be shown frames describing steps in a house.\nRespond with a single non-negative integer (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "local_prompt": "You will be shown 1 frames describing steps in a house.\nRespond with a single integer from 0 to 1 (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "row_kinds": [
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "global"
+          ],
+          "row_prompt_tokens": [
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            61
+          ],
+          "original_prompt_width": 265,
+          "prefix_ids": [],
+          "row_count": 9,
+          "global_row": 8,
+          "local_elements": 8,
+          "image_sha256": [
+            "e5f51a1d7475dbe443521bc61fc586b8323840445e1ad39a86e0819b7edddda7",
+            "7e8d2b4496ab56ca23a5e4cb824a929349c4594253b597d6b7f587f579937aec",
+            "dd8a97244a8ebb4413ad0d95549768dd717f2c7d9e994e245a1dbc38aeaa414e",
+            "6db5b8be3ef91b21ac9efe3fc09eeb2acc587a41988a81a814cd9e920630d1e0",
+            "a2b1958e43e24a34231f5479ecd3e2a05d85252a76cfb5920d1e9085e8511f78",
+            "6249160603c80903224aa6cd4f8071760cf0672e1ea95524be90fcce92dbe616",
+            "a7db0290e336a679a06610df97aecffbc6be0111e1f0e6195046c24e35580fc4",
+            "e3609804c6eaf8a6dfedd16802f2e8306e47871e7345544821e88ea27bad7b5c"
+          ],
+          "image_paths": [
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/000.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/001.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/002.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/003.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/004.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/005.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/006.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/007.png"
+          ],
+          "resize": 392,
+          "processor_parity_checked": false,
+          "prompt_width": 265,
+          "input_identity": {
+            "input_ids": {
+              "shape": [
+                9,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "fc8a1da7691072eafe000d6d4b98c2d57f491b47d87dd77363d999226c949ee3"
+            },
+            "attention_mask": {
+              "shape": [
+                9,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "88e4f19fcc7fcb936bea8cc2f671735f18d6fb0aba56ccba8803816e45516af6"
+            },
+            "pixel_values": {
+              "shape": [
+                6272,
+                1176
+              ],
+              "dtype": "torch.float32",
+              "sha256": "81dc9a83da3c5eceac75815d0475f62e4bd2ad0f63f4d99f59e149285ef0e6b6"
+            },
+            "image_grid_thw": {
+              "shape": [
+                8,
+                3
+              ],
+              "dtype": "torch.int64",
+              "sha256": "dc9104a3848efd47decff911c96ce6f447bdf3fe18bd65bf6cea182ebc849b6e"
+            }
+          },
+          "layout": {
+            "position_ids": {
+              "shape": [
+                3,
+                9,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "285fae4fb95457d040aab04f3e3e7882e6b0fe76cd19e5d965126d288f0b79f2"
+            },
+            "rope_deltas": [
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -204
+              ]
+            ],
+            "every_unpadded_row_exact": true
+          },
+          "native_dtype": "torch.float16",
+          "branch_dtype": "torch.float32"
+        }
+      },
+      {
+        "sid": "v7_balanced_train_Daniel_Bathroom_N8_K0_0",
+        "n_frames": 8,
+        "prefix_ids": [
+          15
+        ],
+        "position": 1,
+        "native_head_replay": {
+          "tv": [
+            0.0
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.0,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_descriptive": {
+          "tv": [
+            1.594889005585261e-06
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 1.594889005585261e-06,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_gate": false,
+        "global_hidden_relative_l2": 0.007086794823408127,
+        "counters": {
+          "model": 1,
+          "visual": 1,
+          "norm": 1
+        },
+        "native_metadata": {
+          "arm": "parallel",
+          "sid": "v7_balanced_train_Daniel_Bathroom_N8_K0_0",
+          "n_frames": 8,
+          "question": "How many frames show Daniel in the Bathroom?",
+          "question_sha256": "3a0489dec0f129c2200ae46161220896c1796c594858353ecef9b2ca903e5084",
+          "global_prompt": "You will be shown frames describing steps in a house.\nRespond with a single non-negative integer (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "local_prompt": "You will be shown 1 frames describing steps in a house.\nRespond with a single integer from 0 to 1 (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "row_kinds": [
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "global"
+          ],
+          "row_prompt_tokens": [
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            61
+          ],
+          "original_prompt_width": 265,
+          "prefix_ids": [
+            15
+          ],
+          "row_count": 9,
+          "global_row": 8,
+          "local_elements": 8,
+          "image_sha256": [
+            "e5f51a1d7475dbe443521bc61fc586b8323840445e1ad39a86e0819b7edddda7",
+            "7e8d2b4496ab56ca23a5e4cb824a929349c4594253b597d6b7f587f579937aec",
+            "dd8a97244a8ebb4413ad0d95549768dd717f2c7d9e994e245a1dbc38aeaa414e",
+            "6db5b8be3ef91b21ac9efe3fc09eeb2acc587a41988a81a814cd9e920630d1e0",
+            "a2b1958e43e24a34231f5479ecd3e2a05d85252a76cfb5920d1e9085e8511f78",
+            "6249160603c80903224aa6cd4f8071760cf0672e1ea95524be90fcce92dbe616",
+            "a7db0290e336a679a06610df97aecffbc6be0111e1f0e6195046c24e35580fc4",
+            "e3609804c6eaf8a6dfedd16802f2e8306e47871e7345544821e88ea27bad7b5c"
+          ],
+          "image_paths": [
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/000.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/001.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/002.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/003.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/004.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/005.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/006.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_8/train/v7_balanced_train_Daniel_Bathroom_N8_K0_0/007.png"
+          ],
+          "resize": 392,
+          "processor_parity_checked": false,
+          "prompt_width": 266,
+          "input_identity": {
+            "input_ids": {
+              "shape": [
+                9,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "3f34980e07101e02d9b0cf8bf1f4915fa8d52ddb4dec5e27f25d98708ab17c8f"
+            },
+            "attention_mask": {
+              "shape": [
+                9,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "2d739969740e57bd591806d957cef06faa8730b774b24aa95082344e4ff9877d"
+            },
+            "pixel_values": {
+              "shape": [
+                6272,
+                1176
+              ],
+              "dtype": "torch.float32",
+              "sha256": "81dc9a83da3c5eceac75815d0475f62e4bd2ad0f63f4d99f59e149285ef0e6b6"
+            },
+            "image_grid_thw": {
+              "shape": [
+                8,
+                3
+              ],
+              "dtype": "torch.int64",
+              "sha256": "dc9104a3848efd47decff911c96ce6f447bdf3fe18bd65bf6cea182ebc849b6e"
+            }
+          },
+          "layout": {
+            "position_ids": {
+              "shape": [
+                3,
+                9,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "49f2f88ac755d4d7a793cf1d8dda27e576a24f0ad43981ad7e57b73c46a62179"
+            },
+            "rope_deltas": [
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -204
+              ]
+            ],
+            "every_unpadded_row_exact": true
+          },
+          "native_dtype": "torch.float16",
+          "branch_dtype": "torch.float32"
+        }
+      },
+      {
+        "sid": "v7_balanced_train_Daniel_Bathroom_N16_K0_0",
+        "n_frames": 16,
+        "prefix_ids": [],
+        "position": 0,
+        "native_head_replay": {
+          "tv": [
+            0.0
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.0,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_descriptive": {
+          "tv": [
+            0.006528447703425378
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.006528447703425378,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_gate": false,
+        "global_hidden_relative_l2": 0.007593884132802486,
+        "counters": {
+          "model": 1,
+          "visual": 1,
+          "norm": 1
+        },
+        "native_metadata": {
+          "arm": "parallel",
+          "sid": "v7_balanced_train_Daniel_Bathroom_N16_K0_0",
+          "n_frames": 16,
+          "question": "How many frames show Daniel in the Bathroom?",
+          "question_sha256": "3a0489dec0f129c2200ae46161220896c1796c594858353ecef9b2ca903e5084",
+          "global_prompt": "You will be shown frames describing steps in a house.\nRespond with a single non-negative integer (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "local_prompt": "You will be shown 1 frames describing steps in a house.\nRespond with a single integer from 0 to 1 (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "row_kinds": [
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "global"
+          ],
+          "row_prompt_tokens": [
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            61
+          ],
+          "original_prompt_width": 265,
+          "prefix_ids": [],
+          "row_count": 17,
+          "global_row": 16,
+          "local_elements": 16,
+          "image_sha256": [
+            "769d0e3cb89d31237e602b7bec137e4acdb76519dd3767fb66da103adbed5ca6",
+            "31dfbe8ab06086b7679d4a50773345151d190daeb9ce66e2ea308a518f62bb53",
+            "6eda3d3ed18b6c0453eaf9a7cc564f731dec3804422a3e38a872a4ce981d243e",
+            "26dc4c14221e1aa8e5c58937ecc67b3957a20d3650faaa237ca3ad7c4d28905e",
+            "9f251b042fcf75c9337d1d0fe3bac15348562d5c09a6d50da328c652e75f502e",
+            "4a0aeb9f5814690723d6579b285ed3918ed20e90ac0ef4fd035234a005c2b213",
+            "c9a6617254ef81c2362b8f36fa400fa54b1ec2aebe8b59958e0ca57b15869bdc",
+            "bb9bd3b6469b67ade75c11e67540a32846d22815cb98f9b12f06eafb6d85af02",
+            "19dbd29698040754af75d05a19716cf22299e6b46769e608657c4ba463ab75a1",
+            "3a83e9ee27db7c289439d03ce756b4f7c6f85ef92fc89457fa1249d5ffa12ab9",
+            "9b226cee4f4b16f1a76b35ef7834c711b9711eca8a4d1bccf3151108c8b02dcf",
+            "11c6f154b064f0639ec66d62bf4f190c99b13058a8d1127dc0feacb8317fbd62",
+            "18479767e9760966c959af27ebc5375e12a1eec69c0f1980ceaa669cd24003a9",
+            "24cbbf75182bc8570f6d2777f4c85ab5a2339aa8f988e3aefb37316ce2fe816a",
+            "2c3987529f0c935c43c03d71069b7e36e54ec031959d953bd0cba53d9acbe190",
+            "f11b5cd20061536aa9a5fdde52fb03dfc93103e4c2bff0782bf470d4fc29a1e6"
+          ],
+          "image_paths": [
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/000.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/001.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/002.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/003.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/004.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/005.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/006.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/007.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/008.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/009.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/010.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/011.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/012.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/013.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/014.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/015.png"
+          ],
+          "resize": 392,
+          "processor_parity_checked": false,
+          "prompt_width": 265,
+          "input_identity": {
+            "input_ids": {
+              "shape": [
+                17,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "8e418b23ee51df05ba90608408da6140855bed0198fa735efb1df9fb0d2fc43e"
+            },
+            "attention_mask": {
+              "shape": [
+                17,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "ebf92cdd29b209d35b2fa8213aa12cb515350e35a7034370493e899cc2261d3e"
+            },
+            "pixel_values": {
+              "shape": [
+                12544,
+                1176
+              ],
+              "dtype": "torch.float32",
+              "sha256": "767d82abe335fed6997b42d412c62c39a54a37b1b9bd3e6891625b10c5d4c3f8"
+            },
+            "image_grid_thw": {
+              "shape": [
+                16,
+                3
+              ],
+              "dtype": "torch.int64",
+              "sha256": "db6c43f5972727f5802512a0568dd7d95c5f10eec6062370e4a8197a62cb42b1"
+            }
+          },
+          "layout": {
+            "position_ids": {
+              "shape": [
+                3,
+                17,
+                265
+              ],
+              "dtype": "torch.int64",
+              "sha256": "945678b495c3422ab3dd97d2dd2ec4c9f601e76a9c57e68af39d611ec62f6188"
+            },
+            "rope_deltas": [
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -204
+              ]
+            ],
+            "every_unpadded_row_exact": true
+          },
+          "native_dtype": "torch.float16",
+          "branch_dtype": "torch.float32"
+        }
+      },
+      {
+        "sid": "v7_balanced_train_Daniel_Bathroom_N16_K0_0",
+        "n_frames": 16,
+        "prefix_ids": [
+          15
+        ],
+        "position": 1,
+        "native_head_replay": {
+          "tv": [
+            0.0
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 0.0,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_descriptive": {
+          "tv": [
+            6.820780565010436e-07
+          ],
+          "top1_equal": [
+            true
+          ],
+          "maximum_tv": 6.820780565010436e-07,
+          "all_top1_equal": true,
+          "passed": true
+        },
+        "cached_vs_native_gate": false,
+        "global_hidden_relative_l2": 0.007086794823408127,
+        "counters": {
+          "model": 1,
+          "visual": 1,
+          "norm": 1
+        },
+        "native_metadata": {
+          "arm": "parallel",
+          "sid": "v7_balanced_train_Daniel_Bathroom_N16_K0_0",
+          "n_frames": 16,
+          "question": "How many frames show Daniel in the Bathroom?",
+          "question_sha256": "3a0489dec0f129c2200ae46161220896c1796c594858353ecef9b2ca903e5084",
+          "global_prompt": "You will be shown frames describing steps in a house.\nRespond with a single non-negative integer (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "local_prompt": "You will be shown 1 frames describing steps in a house.\nRespond with a single integer from 0 to 1 (0 is allowed). Output only the integer.\nQuestion: How many frames show Daniel in the Bathroom?\nAnswer: ",
+          "row_kinds": [
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "local",
+            "global"
+          ],
+          "row_prompt_tokens": [
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            265,
+            61
+          ],
+          "original_prompt_width": 265,
+          "prefix_ids": [
+            15
+          ],
+          "row_count": 17,
+          "global_row": 16,
+          "local_elements": 16,
+          "image_sha256": [
+            "769d0e3cb89d31237e602b7bec137e4acdb76519dd3767fb66da103adbed5ca6",
+            "31dfbe8ab06086b7679d4a50773345151d190daeb9ce66e2ea308a518f62bb53",
+            "6eda3d3ed18b6c0453eaf9a7cc564f731dec3804422a3e38a872a4ce981d243e",
+            "26dc4c14221e1aa8e5c58937ecc67b3957a20d3650faaa237ca3ad7c4d28905e",
+            "9f251b042fcf75c9337d1d0fe3bac15348562d5c09a6d50da328c652e75f502e",
+            "4a0aeb9f5814690723d6579b285ed3918ed20e90ac0ef4fd035234a005c2b213",
+            "c9a6617254ef81c2362b8f36fa400fa54b1ec2aebe8b59958e0ca57b15869bdc",
+            "bb9bd3b6469b67ade75c11e67540a32846d22815cb98f9b12f06eafb6d85af02",
+            "19dbd29698040754af75d05a19716cf22299e6b46769e608657c4ba463ab75a1",
+            "3a83e9ee27db7c289439d03ce756b4f7c6f85ef92fc89457fa1249d5ffa12ab9",
+            "9b226cee4f4b16f1a76b35ef7834c711b9711eca8a4d1bccf3151108c8b02dcf",
+            "11c6f154b064f0639ec66d62bf4f190c99b13058a8d1127dc0feacb8317fbd62",
+            "18479767e9760966c959af27ebc5375e12a1eec69c0f1980ceaa669cd24003a9",
+            "24cbbf75182bc8570f6d2777f4c85ab5a2339aa8f988e3aefb37316ce2fe816a",
+            "2c3987529f0c935c43c03d71069b7e36e54ec031959d953bd0cba53d9acbe190",
+            "f11b5cd20061536aa9a5fdde52fb03dfc93103e4c2bff0782bf470d4fc29a1e6"
+          ],
+          "image_paths": [
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/000.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/001.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/002.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/003.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/004.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/005.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/006.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/007.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/008.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/009.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/010.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/011.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/012.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/013.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/014.png",
+            "/mnt/data/gabriele/gnn_transformer/v7_balanced/mmred_vfiltered/seq_len_16/train/v7_balanced_train_Daniel_Bathroom_N16_K0_0/015.png"
+          ],
+          "resize": 392,
+          "processor_parity_checked": false,
+          "prompt_width": 266,
+          "input_identity": {
+            "input_ids": {
+              "shape": [
+                17,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "642b4843cabf2b9ebfc8d79f147362e15554d6d5002fd8200a01afda6b4000ad"
+            },
+            "attention_mask": {
+              "shape": [
+                17,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "3a372ed24f715183580e293bb0413882018ed5a38548b04659135b6d5f510b6c"
+            },
+            "pixel_values": {
+              "shape": [
+                12544,
+                1176
+              ],
+              "dtype": "torch.float32",
+              "sha256": "767d82abe335fed6997b42d412c62c39a54a37b1b9bd3e6891625b10c5d4c3f8"
+            },
+            "image_grid_thw": {
+              "shape": [
+                16,
+                3
+              ],
+              "dtype": "torch.int64",
+              "sha256": "db6c43f5972727f5802512a0568dd7d95c5f10eec6062370e4a8197a62cb42b1"
+            }
+          },
+          "layout": {
+            "position_ids": {
+              "shape": [
+                3,
+                17,
+                266
+              ],
+              "dtype": "torch.int64",
+              "sha256": "3fc42d02efa4b6a8f86678dafd9574a9f8ee14283bef48596b9137d25a447823"
+            },
+            "rope_deltas": [
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -182
+              ],
+              [
+                -204
+              ]
+            ],
+            "every_unpadded_row_exact": true
+          },
+          "native_dtype": "torch.float16",
+          "branch_dtype": "torch.float32"
+        }
+      }
+    ],
+    "raw_file": "/mnt/data/gabriele/gnn_transformer/native_aggregation_vlm_v8/profile_consistency_s10_441939/active_cache_replay.pt",
+    "raw_sha256": "ca87ea93dea0382adadccedfb394f5e19ed0e3e80aaec6771d568e728b2130a2",
+    "cached_numerical_failures": 0
+  },
+  "no_dev_or_test_evaluation": true,
+  "all_parameter_gradients_exercised": {
+    "local_bias": true,
+    "query.weight": true,
+    "local.weight": true,
+    "aggregate_projection.weight": true,
+    "aggregate_projection.bias": true,
+    "up.weight": true
+  },
+  "frozen_backbone_gradient_state_preserved": true,
+  "checkpoint_roundtrip_passed": true,
+  "profile_checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/profile_consistency_s10_441939/profile.pt",
+  "profile_checkpoint_sha256": "7174a89a1e4c8c40e162952011c2a26407121127d5dfd42d1168762b2c5a8009",
+  "step_seconds_max_steady": 0.007264003157615662,
+  "training_seconds": 0.5265163918957114,
+  "training_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/profile_consistency_s10_441939/training.json",
+  "training_sha256": "87c6dfc8d9c7ef8946609e04281e468f77e3b8d37978b53679ad74bd60953ec3",
+  "first_gradients_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/profile_consistency_s10_441939/first_gradients.json",
+  "first_gradients_sha256": "ba9c9a6e4cc8d3022613607dfce14bd8ff4ca4fbec6e88b12cd17100ab44cd94",
+  "elapsed_seconds": 21.41196400951594
+}

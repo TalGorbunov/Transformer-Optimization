@@ -1,0 +1,33 @@
+{
+  "protocol": "identity_join_fixed_trainability_2x2",
+  "version": "immutable_progress_v3",
+  "status": "complete_all_training_and_id_criteria_failed",
+  "prior_gpu_seconds": 1104,
+  "campaign_gpu_seconds_cap": 5500,
+  "per_main_gpu_seconds_cap": 840,
+  "maximum_project_gpus": 4,
+  "scientific_steps": 600,
+  "main_fits_released": true,
+  "source_sha256": {
+    "scripts/diagnose_native_identity_join_optimization_v3.py": "86d60fc47cae05ebc26051fd6732f1fb0be640ac3215093477b2cb1fa9a9eadf",
+    "scripts/report_native_identity_join_optimization_v3.py": "676b43e9b3ccdd62aee2a0142c3ad01bf32ac5580dc662a41010578d8c3b6360",
+    "slurm/native_identity_join_optimization_v3_check.sbatch": "f7ef47f32c6d0bb7c2c48ef3a379998f43c3261a0fcd6d3b76a8a531297c96a7",
+    "slurm/native_identity_join_optimization_v3_profile.sbatch": "87727ac44972bb763d154c73dcc653f13979f746602444027b51a81ce2a17c18",
+    "slurm/native_identity_join_optimization_v3_main.sbatch": "962ec75e216e6b95fd0d7274bb449243639426ffef86c229a7cbd618c25174bf",
+    "slurm/native_identity_join_optimization_v3_report.sbatch": "f0eadfb06f0cfa7acfe78b93fcaad3717ebd24d9dbe83cec2ac60aae3733f948"
+  },
+  "check_job": "443214",
+  "check_passed": true,
+  "profile_array_job": "443217",
+  "release_job": "443225",
+  "profile_gpu_seconds": 446,
+  "total_gpu_seconds": 2410,
+  "release_passed": true,
+  "main_array_job": "443226",
+  "projected_seconds_per_main": 681.9578904360533,
+  "main_gpu_seconds": 860,
+  "report_job": "443233",
+  "report_passed": true,
+  "criteria_all_failed": true,
+  "uniform_conditional_trigger_met": true
+}

@@ -1,0 +1,146 @@
+[
+ {
+  "tag": "text N=8",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.16,
+  "mae": 3.17,
+  "none": 0,
+  "median_pred": 1
+ },
+ {
+  "tag": "text N=8",
+  "config": "open",
+  "n": 100,
+  "exact": 0.72,
+  "mae": 0.33,
+  "none": 0,
+  "median_pred": 4
+ },
+ {
+  "tag": "text N=16",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.07,
+  "mae": 3.44,
+  "none": 0,
+  "median_pred": 1
+ },
+ {
+  "tag": "text N=16",
+  "config": "open",
+  "n": 100,
+  "exact": 0.57,
+  "mae": 0.47,
+  "none": 0,
+  "median_pred": 4
+ },
+ {
+  "tag": "text N=32",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.07,
+  "mae": 3.87,
+  "none": 0,
+  "median_pred": 0
+ },
+ {
+  "tag": "text N=32",
+  "config": "open",
+  "n": 100,
+  "exact": 0.53,
+  "mae": 0.53,
+  "none": 0,
+  "median_pred": 4
+ },
+ {
+  "tag": "text N=64",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.07,
+  "mae": 4.06,
+  "none": 0,
+  "median_pred": 0
+ },
+ {
+  "tag": "text N=64",
+  "config": "open",
+  "n": 100,
+  "exact": 0.43,
+  "mae": 0.63,
+  "none": 0,
+  "median_pred": 4
+ },
+ {
+  "tag": "text N=128",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.07,
+  "mae": 4.06,
+  "none": 0,
+  "median_pred": 0
+ },
+ {
+  "tag": "text N=128",
+  "config": "open",
+  "n": 100,
+  "exact": 0.27,
+  "mae": 1.29,
+  "none": 0,
+  "median_pred": 3
+ },
+ {
+  "tag": "text N=256",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.1,
+  "mae": 24.62,
+  "none": 0,
+  "median_pred": 0
+ },
+ {
+  "tag": "text N=256",
+  "config": "open",
+  "n": 100,
+  "exact": 0.3,
+  "mae": 2.01,
+  "none": 0,
+  "median_pred": 2
+ },
+ {
+  "tag": "text N=512",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.03,
+  "mae": 294.75,
+  "none": 0,
+  "median_pred": 123
+ },
+ {
+  "tag": "text N=512",
+  "config": "open",
+  "n": 100,
+  "exact": 0.23,
+  "mae": 2.32,
+  "none": 0,
+  "median_pred": 2
+ },
+ {
+  "tag": "text N=1024",
+  "config": "fenced+reset",
+  "n": 100,
+  "exact": 0.05,
+  "mae": 906.36,
+  "none": 0,
+  "median_pred": 73
+ },
+ {
+  "tag": "text N=1024",
+  "config": "open",
+  "n": 100,
+  "exact": 0.24,
+  "mae": 2.45,
+  "none": 0,
+  "median_pred": 2
+ }
+]

@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "returncode": 0,
+  "source_sha256": {
+    "gnnformer/conditional_null_mean.py": "95bbfc2091493bfe113032ffcd009aa3e2082fb432ca8df524f92739231a923f",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "tests/test_conditional_null_mean.py": "780f0313ff98f95c16a948851ace7f8a4baa32df67553a47f4389340ebcf0688",
+    "slurm/native_vision_v13_null_selftest.sbatch": "7c7580cedd294f365484629d461612b0dbbce0aecd0942d16a063f725838724b"
+  },
+  "seconds": 1.826826523989439,
+  "slurm_job_id": "442380"
+}

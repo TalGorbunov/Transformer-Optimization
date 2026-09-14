@@ -1,0 +1,48 @@
+{
+ "full": {
+  "acc": 0.63,
+  "recall": 0.98,
+  "n": 100
+ },
+ "oracle": {
+  "acc": 0.52,
+  "recall": 0.98,
+  "n": 100
+ },
+ "attn": {
+  "acc": 0.6,
+  "recall": 0.98,
+  "n": 100
+ },
+ "attn_norp": {
+  "acc": 0.6,
+  "recall": 0.98,
+  "n": 100
+ },
+ "lex": {
+  "acc": 0.63,
+  "recall": 0.925,
+  "n": 100
+ },
+ "emb": {
+  "acc": 0.59,
+  "recall": 0.965,
+  "n": 100
+ },
+ "rand": {
+  "acc": 0.22,
+  "recall": 0.065,
+  "n": 100
+ },
+ "_meta": {
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "task": "qa4",
+  "length": "64k",
+  "k": 64,
+  "sel_layer": 22,
+  "sel_rows": "tail",
+  "sel_chunk": 0,
+  "yarn": 4.0,
+  "elapsed_s": 533.5762710571289
+ }
+}

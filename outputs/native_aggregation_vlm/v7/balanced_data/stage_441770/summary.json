@@ -1,0 +1,194 @@
+{
+  "all_current_contexts_disjoint": true,
+  "all_qa_counts_categories_images_verified": true,
+  "dev_contexts": 72,
+  "elapsed_seconds": 31.11505327373743,
+  "epoch_slots": 1944,
+  "global_prompt_has_no_set_size_argument": true,
+  "historical_saturated_reuse": [
+    {
+      "content_sha256": "f0c4a63fb63e713beb265d76f04fd6dbd07291c6b928edd47a1030bc8e180ed3",
+      "sid": "v7_balanced_train_Sandra_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "f3b5e1f61d2718a5b8951bf63dd431cb086c3538459814f702429df10d09fa8b",
+      "sid": "v7_balanced_train_Sandra_Bathroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "f2708fce0ab48895855fe823a554c07888abfa072b66d6b6847820516086f99e",
+      "sid": "v7_balanced_train_Sandra_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "0cf0b420ea73ca0598245c981ae6e5a54b4ac98e1cce808953d0b36bbe1a3383",
+      "sid": "v7_balanced_train_Sandra_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "20c3c5306c052e8f8356676ce87710aabd0312f7b728bc482de3bca1fdceca99",
+      "sid": "v7_balanced_train_Sandra_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "70b3894549ba395bcdb5c823515ea73fcba7d25ae48c2cf2d74482ffcafb0a37",
+      "sid": "v7_balanced_train_Sandra_Park_N8_K8_0"
+    },
+    {
+      "content_sha256": "6939e930e2c6aaab316b86f2cfee7f9ef9f33514e94363e632a8340fc4bb1872",
+      "sid": "v7_balanced_train_Mary_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "7a9b1f18d4327a91a56fb93834f465fc17d70d8e54ec9a96ee0986f5fd18acff",
+      "sid": "v7_balanced_train_Mary_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "cf4d8fe5741b2d02d0717264d0b48dfaaa426d7fdb9b90142486af93d4a024fc",
+      "sid": "v7_balanced_train_Mary_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "20dc411688be67913418c3859926fc6cbf69fe31ab876a8447ae6b7042a836c5",
+      "sid": "v7_balanced_train_Michael_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "5370e76be0cedd413aac6cd48e17c876e1976c0b74dad6398dfc3461021a2153",
+      "sid": "v7_balanced_train_Michael_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "5b907f0a64b209d4ac9a30b700039057f8bce51a2b427f44a9fb3cf22457141f",
+      "sid": "v7_balanced_train_Michael_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "81e81cc4b5b081dba2ca59360f27115c2075ad3ed21ca9879db0cd5150cd4563",
+      "sid": "v7_balanced_train_Michael_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "6c1e600b0596f864ca5d5ab8994da7a18e6a50dc6535c2a473f34d4dbf4b0254",
+      "sid": "v7_balanced_train_Michael_Park_N8_K8_0"
+    },
+    {
+      "content_sha256": "5e2e1b454b924233cee8438248607078685c306e4a0b2851a38b329637d647d0",
+      "sid": "v7_balanced_train_John_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "faa293f5769cb9a6633c49b78bcd7a339c7597ab0783e95c5bff067277a2428d",
+      "sid": "v7_balanced_train_John_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "4ea738756403b4456e5aca4417a865fe35eea5d225f3337d4653927851c30f11",
+      "sid": "v7_balanced_train_John_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "522e945f93c58ec87915b4298f414ab4124ce7ae1def9b3863e7852133b88f0a",
+      "sid": "v7_balanced_train_Daniel_Bathroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "3394a932ad965708ed4c4ff5d4b206bf348aed358797db03af827af31ed74d77",
+      "sid": "v7_balanced_train_Daniel_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "779553439a30b0f48604ff7fe80aabff7fd969cef9b83fb46e6f7c638afd71b5",
+      "sid": "v7_balanced_train_Daniel_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "bab17b7f1bfaa79be5f34349e71dbf9427ce4b4664780d7e8cd03b52e68bef30",
+      "sid": "v7_balanced_train_Laura_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "ab8714b3469dfeae55bd462b4a293b4ba56343a14fd915d0e30d39c9768d3560",
+      "sid": "v7_balanced_train_Laura_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "d23c8be38b1b3eb27d89718d07ba006023e66482a71bcaf779ed8f0d25f15699",
+      "sid": "v7_balanced_train_Laura_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "0a013a001888661af8dc122645783a8562b164788bbaf8552f64dcdf61f11416",
+      "sid": "v7_balanced_train_Laura_Park_N8_K8_0"
+    },
+    {
+      "content_sha256": "7dc5e91fc998465fb61501d478ccf9086678ae5ae97fa7b1e01ea64c2696a0c2",
+      "sid": "v7_balanced_train_Peter_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "2378a649e470067c7d907aace7a99b85afc75735d15083d05dd9598402b09929",
+      "sid": "v7_balanced_train_Peter_Bathroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "946ff1c7156af0e722166b98bccfda44d6e3815c222ad3aa957415aaebf381b0",
+      "sid": "v7_balanced_train_Peter_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "76bc6972a69030e29a247030d25456504b299680a69cb52a1e6c12087d0b7294",
+      "sid": "v7_balanced_train_Peter_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "a1e4eb4dfacacf1c7e35660ca6665ce6396eceae58ed75f1df00cb6f22f1424a",
+      "sid": "v7_balanced_train_Peter_Park_N8_K8_0"
+    },
+    {
+      "content_sha256": "14c7b0227e93333d567ee4c0cb74e9239031211c3dd8d4260cfd9695247acc50",
+      "sid": "v7_balanced_train_Emma_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "803854f0c426aa2dacea77437453b32084d6aeefcee8c79e199d3c586d5fd3bb",
+      "sid": "v7_balanced_train_Emma_Bathroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "3f04b828e5a780607986dbc16960ec1105b2c5d6059a396f44295f7480dde4c9",
+      "sid": "v7_balanced_train_Emma_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "b646d703f97d689c1281a1bd5f5dc0465b7afe0186b01ee3a88c5479580f7a91",
+      "sid": "v7_balanced_train_Emma_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "17dc29c14de5608e17743e93c777c0f512c1797be888d80c4e71fbb28b9ce03b",
+      "sid": "v7_balanced_train_Emma_Park_N8_K8_0"
+    },
+    {
+      "content_sha256": "dbca01055adbb05c9a2974baa7aee69fddc28aaa5c4f5a9dd86762e1c7f162af",
+      "sid": "v7_balanced_train_Noah_Kitchen_N8_K8_0"
+    },
+    {
+      "content_sha256": "96d244bfaa4be11a33108f6d16f2bde0979a368ccc905a6d524ab3a91c1bd44a",
+      "sid": "v7_balanced_train_Noah_Garden_N8_K8_0"
+    },
+    {
+      "content_sha256": "4e57b81d435890468fbdc4f8aae1bcd292efd8c58efd383f0fe3f54717dd3501",
+      "sid": "v7_balanced_train_Noah_Office_N8_K8_0"
+    },
+    {
+      "content_sha256": "390463e716ad89a967a3a23154a041c11dffdbf743b958c2b7a52c644e88798e",
+      "sid": "v7_balanced_train_Noah_Bedroom_N8_K8_0"
+    },
+    {
+      "content_sha256": "dac98434308672c79b845eaf709823b40a7f257fe3863167366cb93538c0e935",
+      "sid": "v7_balanced_train_Noah_Park_N8_K8_0"
+    }
+  ],
+  "image_references": 24048,
+  "local_visual_atoms_may_recur": true,
+  "manifest_file": "/mnt/data/gabriele/gnn_transformer/v7_balanced/main_manifest.json",
+  "manifest_sha256": "37228e51c4cd95985931a14e391cd5024de0ca31b923ed20e998e79b80cb52b3",
+  "non_saturated_contexts_fresh_against_18_prior_manifests": true,
+  "passed": true,
+  "question_count_support_uniform_in_slots": true,
+  "question_n_count_cells": 972,
+  "saturated_training_contexts": 54,
+  "schedule_file": "/mnt/data/gabriele/gnn_transformer/v7_balanced/schedule.json",
+  "schedule_sha256": "4a15a63a050b601031f25a73ca84270be5a8e0de3d6e6f92ed346bb2bccdcdaf",
+  "slots_per_cell": 2,
+  "slurm_job_id": "441770",
+  "source_sha256": {
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "scripts/audit_native_vision_data.py": "aa04582e360997d39cbbf08f2757e4b71a4fc87815589aa40a03d62dc0d8c9b1",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "scripts/stage_native_vision_v6_test.py": "92a9d66a68f7452e0a0ece9444592637e2250564927c763599b01c1116650445",
+    "scripts/stage_native_vision_v7_balanced.py": "30534b339325a577b3a6e0dc06facac0abe7182077ee3b17c55a90bbc0ad3776",
+    "slurm/native_vision_v7_balanced_stage.sbatch": "731945ec607a1277105fb46cdba715f3df8d5f4260984b19d4ec1ddfaeeb5563"
+  },
+  "stage_plan_sha256": "1e9bd9a17f0cc2ed1e374295c0b05ff98d731b311cf528f28bf8fc9aa41855e2",
+  "train_contexts": 1890,
+  "training_question_count_pairs": 486,
+  "unique_contexts": 1962,
+  "unique_image_inodes": 864
+}

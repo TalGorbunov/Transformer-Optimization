@@ -1,0 +1,58 @@
+{
+  "all_tokenizer_targets_fit": true,
+  "check_only": true,
+  "completed": true,
+  "counts": {
+    "all_answer_names_balanced": true,
+    "all_complete_contexts_unique": true,
+    "all_contrast_marginals_slots_backgrounds_verified": true,
+    "all_insertions_verified": true,
+    "all_labels_independently_recomputed": true,
+    "all_orientation_counts_balanced": true,
+    "cell_counts": {
+      "dev_N16": 108,
+      "test_held_N32": 108,
+      "test_held_N64": 108,
+      "test_seen_N32": 108,
+      "test_seen_N64": 108,
+      "train_N16": 3024,
+      "train_N8": 3024
+    },
+    "contexts": 6588,
+    "contrast_families": 1116,
+    "image_occurrences": 95040,
+    "length_pairs": 3240,
+    "passed": true,
+    "scalar_count_identical_in_every_contrast": true,
+    "split_counts": {
+      "dev": 108,
+      "test_held": 216,
+      "test_seen": 216,
+      "train": 6048
+    }
+  },
+  "distinct_atoms": 3016,
+  "new_atoms": 130,
+  "no_images_rendered": true,
+  "no_model_loaded": true,
+  "passed": true,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join/data_staging/check_442974/plan.json",
+  "plan_sha256": "cf1c153d399f73c9a5614f1cc3ee7e4efb5df8256216420d23b70d831d21f668",
+  "reused_atoms": 2886,
+  "seconds": 12.281228642910719,
+  "slurm_job_id": "442974",
+  "source_sha256": {
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "scripts/stage_native_identity_join.py": "1ccbb48dc28bb4e4e11a182760d497057f056e2237143465eebbf4110e20b287",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "slurm/native_identity_join_check.sbatch": "bb54fa10119b4097c81bc9ebdad91806e3d98bcc1c4b71f57f0fb7eccb625815",
+    "slurm/native_identity_join_render.sbatch": "e107e18e392798a0e64b9ed2ba6fd91e28bb3d2cda8c8fefee495827ee0cb722"
+  },
+  "target_positions_per_split": {
+    "dev": 240,
+    "test_held": 480,
+    "test_seen": 480,
+    "train": 13440
+  }
+}

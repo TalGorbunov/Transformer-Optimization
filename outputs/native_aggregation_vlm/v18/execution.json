@@ -1,0 +1,107 @@
+{
+  "status": "verified_vision_counting_milestone",
+  "objective_achieved": false,
+  "no_fit": false,
+  "fresh_seed": 20261118,
+  "training_seeds": [
+    20,
+    21
+  ],
+  "data_source_sha256": {
+    "scripts/stage_native_vision_v18_test.py": "298f0aabc3431cc51c9d3dad2195eac51c54d38d288f2474e2590476ae588585",
+    "slurm/native_vision_v18_test_stage.sbatch": "100ed01483f2d2de645e17fb7750046bb266d0b3a74c9e4e2412b85e4db62541"
+  },
+  "software_status": "verified_passed",
+  "software_source_sha256": {
+    "scripts/profile_native_vision_v18_semantic_gate.py": "99a4a8e0cb95d3b681034fa9a1c2f1a0ebc9e8202bb6bddeb2ed570ac73c88a8",
+    "slurm/native_vision_v18_semantic_gate_check.sbatch": "05f2526aee9269e6bdb70af0eb05c8c35783c40876dc13fff309afc637f81799",
+    "slurm/native_vision_v18_semantic_gate_profile.sbatch": "db235ccf86ab65f24dbd9808d7bf41d423646bb727f83fe83b1652343182a598",
+    "scripts/native_vision_semantic_gate_runtime.py": "9f934bf3c98a8a7fd1d7a94a90cb6d476133b0d222048bb39c4fd6b742efc074",
+    "gnnformer/parallel_local_semantic_aggregation.py": "e51ab3859812b4d9c6680f2343883e4e3a00498df99fba74e0591d2bc3994f5a",
+    "gnnformer/parallel_local_semantic_gate.py": "d115044a2f21dea777001838fc3bb3dc64282ea819e2ed048f0626b3584b73a0",
+    "tests/test_parallel_local_semantic_aggregation.py": "eb1bc2b6b9120b23ad7b6246e2c70a6d9458c660c95c4cb43c205d6fd39d2170",
+    "tests/test_parallel_local_semantic_gate.py": "cf460c5c363c1e7643d96fe69b2c385e33152d4826d1d05ff7f9a40f070d04e3"
+  },
+  "data_dry_job": "442827",
+  "data_stage_job": "442828",
+  "data_stage_passed": true,
+  "software_check_job": "442830",
+  "software_plan_sha256": "45921222241820700a8e3cbd6637c819f331c4c9f27348b8896e1a233655b8aa",
+  "fresh_manifest_sha256": "b153b1dfea5c11d4fd92b1109ffd235898a32559d3db45aeb4b20b768a164abe",
+  "software_gpu_job": "442831",
+  "software_gpu_seconds": 74,
+  "gate_stage_job": "442832",
+  "gate_cache_sha256": "1f9259a292db503f89d5cec793318afa7a27aa019446977ecb0021e22c3941bc",
+  "training_status": "four_main_runs_completed",
+  "training_source_sha256": {
+    "scripts/train_native_vision_v18.py": "8d39ad9cd98cfb543e9318b3e09a4b12e753c289766aa2087c05b6974fcaa6f4",
+    "tests/test_native_vision_v18_training.py": "7255db207ef454c9518aa07800ef2193bfa4b11f96ced8908f06e9d5441fbcf5",
+    "slurm/native_vision_v18_train_check.sbatch": "31a538f8a4ef79535f3a286f993baeef7f15d77e93f119fe03f2906541c5e29c",
+    "slurm/native_vision_v18_train_profile.sbatch": "74a07d1892129731629924ac68e7cb3eddc12f2d19905a0dc6e92dd5d33b62df",
+    "slurm/native_vision_v18_train.sbatch": "a01e8cfdc78b558753c6d20cc6cf5a6eaa65a75b75fb519361109b4ae69ddfda"
+  },
+  "training_check_job": "442845",
+  "training_plan_sha256": "1016ce503265ee7eb2f1cdf08d792b6cfaa9960b60e4364f8b0fab6dc4e4bbbc",
+  "training_profile_jobs": {
+    "native_gate_s20": "442849",
+    "all_open_s20": "442848"
+  },
+  "training_profiles_passed": true,
+  "independent_data_job": "442877",
+  "independent_data_passed": true,
+  "main_release_job": "442888",
+  "main_release_passed": true,
+  "main_release_sha256": "c0c941ac71bcc4c5a3674701f63728f19e05a50d35f30b9044d001b323fed7cb",
+  "prior_allocated_gpu_seconds": 157,
+  "reserved_main_gpu_seconds": 10800,
+  "main_array_job": "442892",
+  "efficacy_evaluated": true,
+  "independent_report_job": "442913",
+  "independent_report_dependency": "afterok:442892",
+  "vision_milestone_achieved": true,
+  "reasoning_composition_established": false,
+  "primary_both_seeds": true,
+  "practical_both_seeds": true,
+  "independent_report_passed": true,
+  "independent_report_analysis_sha256": "be875fdd02389847630c8927c594eb37d2c229697f1e344e090bbc7d598588be",
+  "total_allocated_gpu_seconds": 3681,
+  "main_gpu_seconds": {
+    "442893": 878,
+    "442894": 879,
+    "442895": 876,
+    "442892": 891
+  },
+  "plot_job": "442918",
+  "plot_passed": true,
+  "figures_visually_inspected": true,
+  "diagnosis_job": "442927",
+  "diagnosis_passed": true,
+  "diagnosis_analysis_sha256": "b25d365119879a5cdecfa19325df85d67441637d6e9e5b084a10c53c158767f5",
+  "whole_answers": {
+    "native_gate_s20": {
+      "N32": 132,
+      "N64": 131,
+      "N64_K9_16": 59
+    },
+    "native_gate_s21": {
+      "N32": 132,
+      "N64": 131,
+      "N64_K9_16": 59
+    },
+    "all_open_s20": {
+      "N32": 0,
+      "N64": 0,
+      "N64_K9_16": 0
+    },
+    "all_open_s21": {
+      "N32": 0,
+      "N64": 0,
+      "N64_K9_16": 0
+    }
+  },
+  "payload_rank_job": "442933",
+  "payload_rank_passed": true,
+  "payload_rank_analysis_sha256": "fe7b5a86d7494ae35b350a9c102a1c085603cd6c182978667a7b82254c9c9e34",
+  "original_query_weighted_count_interpretation_supported": true,
+  "vector_necessity_established": false
+}

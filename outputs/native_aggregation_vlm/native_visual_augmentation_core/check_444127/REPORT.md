@@ -1,0 +1,1 @@
+Eight augmentation CPU fixture groups passed. Algebra, parameter counts, interfaces and gradients only; no native model, head, images, optimizer or fit. Native zero/full/cached parity remains untested.

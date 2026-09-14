@@ -1,0 +1,23 @@
+{
+  "status": "completed_both_native_whole_answer_screens_passed",
+  "check_job": "443574",
+  "source_release_sha256": "13444bc7b60ae77cd542c3e7f09a1e6f00317d351f5899c7348071267206dac6",
+  "prior_failed_cpu_job": "443567",
+  "plan_sha256": "894f4c6e17c71b4b4ddbc9184d27e9bca5ef90f3501ddbad78497e126b8286a6",
+  "check_summary_sha256": "a0286045ebc3411ff9e28a671d51ef810a9d49581b53ae5764b6da8894784db9",
+  "profile_jobs": {
+    "product": "443576",
+    "additive": "443577"
+  },
+  "release_job": "443578",
+  "allocated_gpu_seconds": 342,
+  "release_summary_sha256": "9967fb8b008ad428ef671b8b2f50dc9df1c71913ea4e768ea9211a7d97813f17",
+  "main_release_sha256": "154d0c11824799c2a380da20a76c20186968e34e050b48de3838f272ff80e8fd",
+  "main_jobs": {
+    "product": "443588",
+    "additive": "443589"
+  },
+  "report_job": "443592",
+  "report_summary_sha256": "d2f7a6ebe32020960be9e6811fb622f42c8effc3e35cd30e0578a419103d5a59",
+  "analysis_sha256": "ccf811475981073703af7a172abafcbc1cdfeccad08b29a6f46045e876bb5720"
+}

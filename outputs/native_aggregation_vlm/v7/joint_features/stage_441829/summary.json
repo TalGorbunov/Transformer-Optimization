@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "plan_file": "/mnt/data/gabriele/gnn_transformer/v7_joint_features/stage_441829/plan.json",
+  "plan_sha256": "a240f0cff2d5902beb4e138ffcf56a3026be2abc3c3c25e4ce0d8e457d75d85b",
+  "counts": {
+    "N8_empty": 918,
+    "N8_prefix": 918,
+    "N16_empty": 972,
+    "N16_prefix": 972
+  },
+  "total_features": 3780,
+  "native_hidden_payload_bytes": 27095040,
+  "profile_calls": 8,
+  "profile_distinct_feature_rows": 16,
+  "profile_total_output_rows": 20,
+  "source_sha256": {
+    "scripts/stage_native_vision_v7_joint_features.py": "267428b37153f33920d7dad7a46fb139b74ff666dd3aca1eab4528cb810c5fc3",
+    "scripts/cache_native_vision_v7_joint_features.py": "3d4a1dce8a6c67401bddae3e430571426efca85bf2b08ce221d2160f2f27f12d",
+    "slurm/native_vision_v7_joint_features_stage.sbatch": "8757a8cd564d6baa0c08f7d40cc8909809e7576bbafbf43d0b1642997add4418",
+    "slurm/native_vision_v7_joint_features_profile.sbatch": "7ac5837361ca935099d9249695b2896609c7c21fd14d62f0a4408d283770eaa4",
+    "scripts/stage_native_vision_v7_features.py": "ff50854d01967843f4b89c18fef9bd5c5e923f951f612365aff6ff3f7f2dfb30",
+    "scripts/cache_native_vision_v7_features.py": "2b27d2a04c6e6942403759e2ef867de8a2dce534cfb0e8359e38c2cd39221e75",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346"
+  },
+  "seconds": 28.514693196862936
+}

@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v16/step_wrap_study/report_442774/analysis.json",
+  "analysis_sha256": "3b456639eff366243528766316349b151b61078865d0f5fd349764ca776278e1",
+  "source_sha256": "7dc816f93b45caef0e4edd8a6148584332624c7198b01952f25cc8116f048fa6",
+  "plot_input_sha256": "39453deffbbfa5dd6ccfba14c9b1e452cc19c51a0c196e760aee6101f68fe604",
+  "files": [
+    {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v16/figure_442776/native_vision_v16.png",
+      "sha256": "90fa7a0f3ce58b3759c72bf2340c0fa37f6ae0ce9e1b2283842c5bc859a728f4"
+    },
+    {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v16/figure_442776/native_vision_v16.pdf",
+      "sha256": "813fa33d25af33a0a57bf4b7588b6b5c0d819962425bf74ef6a8731c20aaa11f"
+    }
+  ],
+  "no_new_estimates": true,
+  "no_practical_milestone_claim": true
+}

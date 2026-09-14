@@ -1,0 +1,53 @@
+{
+  "pairs": 16,
+  "directions": 32,
+  "forwards": 256,
+  "seconds": 256.07850602502003,
+  "estimand": "Within-recipient change in raw donor-minus-recipient answer-token logit margin",
+  "scope": "Descriptive artificial causal interchange; one checkpoint; two directions within each pair are dependent",
+  "limitations": "Swaps can create off-distribution channel combinations; read effects do not establish extra aggregation bandwidth",
+  "conditions": {
+    "identity_both": {
+      "n": 32,
+      "mean_margin_shift": 0.0,
+      "positive_margin_shifts": 0,
+      "maximum_full_vocabulary_logit_change": 0.0
+    },
+    "donor_hidden": {
+      "n": 32,
+      "mean_margin_shift": -0.001953125,
+      "positive_margin_shifts": 6,
+      "maximum_full_vocabulary_logit_change": 0.17578125
+    },
+    "donor_read": {
+      "n": 32,
+      "mean_margin_shift": -0.01025390625,
+      "positive_margin_shifts": 7,
+      "maximum_full_vocabulary_logit_change": 0.40625
+    },
+    "donor_both": {
+      "n": 32,
+      "mean_margin_shift": -0.0029296875,
+      "positive_margin_shifts": 10,
+      "maximum_full_vocabulary_logit_change": 0.41796875
+    },
+    "norm_hidden": {
+      "n": 32,
+      "mean_margin_shift": -0.00927734375,
+      "positive_margin_shifts": 8,
+      "maximum_full_vocabulary_logit_change": 0.421875
+    },
+    "norm_read": {
+      "n": 32,
+      "mean_margin_shift": -0.00439453125,
+      "positive_margin_shifts": 6,
+      "maximum_full_vocabulary_logit_change": 0.142578125
+    },
+    "norm_both": {
+      "n": 32,
+      "mean_margin_shift": -0.00146484375,
+      "positive_margin_shifts": 8,
+      "maximum_full_vocabulary_logit_change": 0.14453125
+    }
+  }
+}

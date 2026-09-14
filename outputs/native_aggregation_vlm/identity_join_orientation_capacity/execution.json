@@ -1,0 +1,10 @@
+{
+  "status": "capacity_witness_passed",
+  "job_id": "443708",
+  "source_release_sha256": "980bd6141827835f6fc7530b72efd8a4a2a0b1ff617fcc532b9926ac6297fb7e",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "cpu_elapsed_seconds": 23,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_capacity/witness_443708/summary.json",
+  "summary_sha256": "b2982da67be2f0c4a4183ced6b1f61fb8088a1677850a880651cde55c44b21e8"
+}

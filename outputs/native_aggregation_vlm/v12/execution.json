@@ -1,0 +1,71 @@
+{
+  "status": "complete_exploratory_diagnostic",
+  "gpu_released": true,
+  "allocated_gpu_seconds": 1292,
+  "full_answer_success_established": false,
+  "software_registered": true,
+  "software_gpu_seconds_cap": 480,
+  "software_job_seconds_cap": 240,
+  "maximum_software_vlm_calls": 50,
+  "maximum_software_vision_calls": 24,
+  "reference_rows": 24,
+  "anchor_n": 16,
+  "controller_selftest_job": "442273",
+  "controller_selftest_passed": true,
+  "controller_tests": 10,
+  "diagnostic_registered": true,
+  "diagnostic_gpu_released": true,
+  "diagnostic_gpu_seconds_cap": 5100,
+  "diagnostic_job_seconds_cap": 1200,
+  "maximum_diagnostic_vlm_calls": 1632,
+  "maximum_diagnostic_vision_calls": 408,
+  "software_cpu_check_job": "442309",
+  "controller_tests_current": 11,
+  "software_cpu_check_passed": true,
+  "software_plan_sha256": "63db8d44a5b1fbecda27a4d21d49adb95182e8da39b9aa5b9ffbb6c70a580be8",
+  "software_gpu_job": "442314",
+  "software_gpu_passed": true,
+  "software_actual_model_calls": 46,
+  "software_actual_vision_calls": 24,
+  "software_actual_head_replays": 46,
+  "original_diagnostic_timing_gate_passed": false,
+  "diagnostic_projected_seconds_per_model": 1051.4341647819383,
+  "study_initial_cpu_job": "442328",
+  "study_initial_cpu_passed": true,
+  "raw_dtype_check_job": "442339",
+  "raw_dtype_check_passed": true,
+  "study_cpu_job": "442347",
+  "study_cpu_passed": true,
+  "study_plan_sha256": "9a59d45222dccb6319313256b56da7bbf5ea3348ae10062e580897a4608eff06",
+  "study_array_job": "442349",
+  "study_runs": [
+    {
+      "directory": "outputs/native_aggregation_vlm/v12/reference_study/run_442349",
+      "job_id": "442349",
+      "core_key": "consistency_s15"
+    },
+    {
+      "directory": "outputs/native_aggregation_vlm/v12/reference_study/run_442350",
+      "job_id": "442350",
+      "core_key": "ce_s14"
+    },
+    {
+      "directory": "outputs/native_aggregation_vlm/v12/reference_study/run_442351",
+      "job_id": "442351",
+      "core_key": "ce_s15"
+    },
+    {
+      "directory": "outputs/native_aggregation_vlm/v12/reference_study/run_442352",
+      "job_id": "442352",
+      "core_key": "consistency_s14"
+    }
+  ],
+  "study_allocated_gpu_seconds": 1162,
+  "software_allocated_gpu_seconds": 130,
+  "study_report_job": "442359",
+  "study_report_passed": true,
+  "study_analysis_sha256": "6ef7b842f0da4f35b526af2c2870a634086e5c16347842527b4437302b3e855b",
+  "full_answer_improvement_established_on_reused_subset": true,
+  "practical_milestone_achieved": false,
+  "reasoning_composition_established": false
+}

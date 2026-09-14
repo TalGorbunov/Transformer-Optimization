@@ -1,0 +1,13 @@
+{
+  "status": "COMPLETED",
+  "exit_code": "0:0",
+  "job_id": 443928,
+  "cpu_job_seconds": 2,
+  "cpu_cores": 2,
+  "tests": 6,
+  "all_passed": true,
+  "log": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/logs/attention_moments_check-443928.out",
+  "log_sha256": "6cee566596d6bd77c948cf32baeb10daa2a609047006455885118a8fe489a2ae",
+  "no_model_or_data": true,
+  "no_efficacy_claim": true
+}

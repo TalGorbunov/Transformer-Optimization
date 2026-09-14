@@ -1,0 +1,22 @@
+{
+  "stage_failed": 440389,
+  "stage": 440440,
+  "check": 440491,
+  "profile": 440492,
+  "main": 440504,
+  "report": 440691,
+  "initial_check": 440487,
+  "base": 440519,
+  "data_audit": 440524,
+  "inspection": 440563,
+  "initial_report": 440509,
+  "status": "complete",
+  "gpu_allocated_seconds": 12698,
+  "gpu_hours": 3.527222222222222,
+  "decision": "All V1 criteria failed; no additional training expansion",
+  "reports": [
+    440509,
+    440653,
+    440691
+  ]
+}

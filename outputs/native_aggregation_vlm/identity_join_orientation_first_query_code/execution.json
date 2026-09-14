@@ -1,0 +1,44 @@
+{
+  "status": "computational_audit_passed_training_screen_failed",
+  "job_id": "443773",
+  "all_native_and_fresh_held": true,
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "CPU_elapsed_seconds": 23,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_first_query_code/check_443773/summary.json",
+  "summary_sha256": "e34a75c4584a13b671e65d4f5703cf6c3fddbed4061cd188c402921d41883feb",
+  "run_job_id": "443775",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_first_query_code/check_443773/plan.json",
+  "plan_sha256": "77ae7cb582662e9aa41803f16af5ddba183af38d5dad5b33e41e5274564ce7be",
+  "run_state": "COMPLETED",
+  "run_exit_code": "0:0",
+  "GPU_elapsed_seconds": 69,
+  "run_summary_sha256": "83bdf97e366afc477f30232bf08e488de279f5d7e0e874c576993d7aa23e1d85",
+  "provisional_GPU_first_correct": 74,
+  "provisional_GPU_complete_families": 0,
+  "report_job_id": "443779",
+  "report_state": "COMPLETED",
+  "report_exit_code": "0:0",
+  "report_CPU_elapsed_seconds": 56,
+  "report_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_first_query_code/report_443779/summary.json",
+  "report_summary_sha256": "8d0dd7ec8468999ebefc1ca8f6a90d5dadacd8a7518eff899e0fd7bc8acc5353",
+  "report_analysis_sha256": "c87f97705e1986a9f821fb77fc77e7f6876035b449eff851d664f5a1d58859b0",
+  "first_token_fit": {
+    "passed": false,
+    "first_correct": 74,
+    "contexts": 216,
+    "orientation_correct": {
+      "original": 36,
+      "flipped": 38
+    },
+    "complete_families": 0,
+    "families": 18,
+    "thresholds": {
+      "pooled": 206,
+      "per_orientation": 103,
+      "complete_families": 16
+    },
+    "cached_first_query_only": true,
+    "whole_answer_claim": false
+  }
+}

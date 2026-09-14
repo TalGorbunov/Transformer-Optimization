@@ -1,0 +1,278 @@
+{
+  "all_data_sources_checkpoints_unchanged": true,
+  "elapsed_seconds": 344.4416866169777,
+  "limits": [
+    "Six development-selected checkpoints evaluated without training or parameter updates; canonical analyses and checkpoints are hashed.",
+    "Sixteen new matched N32 pairs: K2/K6, C=R=12, full character/room marginals fixed, eight room-switched images.",
+    "All32 examples remain in exact-accuracy denominators; contrast means/fractions condition on both outputs parsing and report that count.",
+    "Input-pair contrasts do not identify an internal causal mechanism or establish a new architecture/general aggregation algorithm.",
+    "This fixed-contingency, coupled-pair diagnostic is OOD relative to the V2 training generator; negative outcomes can include distribution shift.",
+    "Room swaps also change other associations; fixed marginals exclude marginal-only shortcuts but do not exclude every alternative shortcut.",
+    "The diagnostic is small and descriptive, with no uncertainty interval or seed-population claim.",
+    "The oracle marginal moment is always2, giving16/32 example exact but0/16 both-pair correct; it is not a competitive VLM baseline."
+  ],
+  "models": {
+    "v2_global_seed0": {
+      "all": {
+        "correct": 8,
+        "exact": 0.25,
+        "mae_parsed": 0.875,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "c5385b92b1aae1eccbba6c2591420c68d0b87776186a0f2a3d95b7e6a841ddc2",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v2_global_seed0/global_seed0_20260910_174556_440886_1398893",
+      "high": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 1,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 0.75,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.0,
+        "both_correct_pairs": 0,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 1.125,
+        "mean_delta_error": 0.375,
+        "mean_delta_prediction": 4.375,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    },
+    "v2_hidden_seed0": {
+      "all": {
+        "correct": 6,
+        "exact": 0.1875,
+        "mae_parsed": 0.9375,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "c70af81f9c2c244f5a7daf64e8f23ce6535a1f40dbc48a43d41de1b8ab316c42",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v2_hidden_seed0/hidden_seed0_20260910_174659_440886_1399259",
+      "high": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 1,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 2,
+        "exact": 0.125,
+        "mae_parsed": 0.875,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.0625,
+        "both_correct_pairs": 1,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 0.875,
+        "mean_delta_error": 0.25,
+        "mean_delta_prediction": 4.25,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    },
+    "v3_lift_post_seed0": {
+      "all": {
+        "correct": 7,
+        "exact": 0.21875,
+        "mae_parsed": 1,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "d8a0497e412ff2be9cf8c7f6d32450d7cbe95eaf94d5a8a1bf73d13a68fd02d7",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v3_lift_post_seed0/lift_post_seed0_20260910_174851_440886_1399509",
+      "high": {
+        "correct": 3,
+        "exact": 0.1875,
+        "mae_parsed": 1.25,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 0.75,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.125,
+        "both_correct_pairs": 2,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 1.125,
+        "mean_delta_error": -0.25,
+        "mean_delta_prediction": 3.75,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    },
+    "v3_lift_post_seed1": {
+      "all": {
+        "correct": 3,
+        "exact": 0.09375,
+        "mae_parsed": 1.25,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "8c47020b381bf4c138a4151b6972ea3d590293a78e5e848ab62e48ecc55bf506",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v3_lift_post_seed1/lift_post_seed1_20260910_175042_440886_1399767",
+      "high": {
+        "correct": 2,
+        "exact": 0.125,
+        "mae_parsed": 1.375,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 1,
+        "exact": 0.0625,
+        "mae_parsed": 1.125,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.0,
+        "both_correct_pairs": 0,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 1.25,
+        "mean_delta_error": 0.375,
+        "mean_delta_prediction": 4.375,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    },
+    "v3_lift_pre_seed0": {
+      "all": {
+        "correct": 11,
+        "exact": 0.34375,
+        "mae_parsed": 0.71875,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "8aeb16878d539a18b44f56f7babd701651a598fa898817e81d4c21de43847688",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v3_lift_pre_seed0/lift_pre_seed0_20260910_174754_440886_1399391",
+      "high": {
+        "correct": 7,
+        "exact": 0.4375,
+        "mae_parsed": 0.6875,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 0.75,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.0,
+        "both_correct_pairs": 0,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 1.0625,
+        "mean_delta_error": 0.1875,
+        "mean_delta_prediction": 4.1875,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    },
+    "v3_lift_pre_seed1": {
+      "all": {
+        "correct": 4,
+        "exact": 0.125,
+        "mae_parsed": 1.53125,
+        "n": 32,
+        "parse_rate": 1.0,
+        "parsed": 32
+      },
+      "checkpoint_sha256_after": "6f5deeffac7e41409aca3a01527c961cd6be18589aaf0dc998a64e8eb0740268",
+      "child_run": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v3/binding_probe/probe_440886/v3_lift_pre_seed1/lift_pre_seed1_20260910_174946_440886_1399650",
+      "high": {
+        "correct": 0,
+        "exact": 0,
+        "mae_parsed": 1.75,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "low": {
+        "correct": 4,
+        "exact": 0.25,
+        "mae_parsed": 1.3125,
+        "n": 16,
+        "parse_rate": 1.0,
+        "parsed": 16
+      },
+      "paired": {
+        "both_correct_fraction": 0.0,
+        "both_correct_pairs": 0,
+        "both_parsed_pairs": 16,
+        "contrast_denominator": "Only pairs with both outputs parsed; both-correct uses all16 pairs",
+        "invariant_prediction_fraction_parsed": 0,
+        "invariant_prediction_pairs": 0,
+        "mean_absolute_delta_error": 1.3125,
+        "mean_delta_error": 0.8125,
+        "mean_delta_prediction": 4.8125,
+        "pairs": 16,
+        "positive_delta_fraction_parsed": 1,
+        "positive_delta_pairs": 16
+      }
+    }
+  },
+  "oracle_marginal_reference": {
+    "both_correct_pairs": 0,
+    "estimate": 2,
+    "example_correct": 16,
+    "example_n": 32,
+    "mae": 2.0,
+    "pairs": 16
+  },
+  "plan_sha256": "470bf2bcc6014dcabec3bab462f34d79b007042780af57b6f396d85cf12b344a",
+  "schema_version": 1
+}

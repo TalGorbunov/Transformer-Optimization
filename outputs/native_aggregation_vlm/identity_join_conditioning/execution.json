@@ -1,0 +1,37 @@
+{
+  "status": "cpu_check_failed_scalar_fingerprint_v2_preparation",
+  "protocol": "identity_join_fixed_local_conditioning",
+  "steps": 600,
+  "seed": 24,
+  "training_contexts": 108,
+  "training_head_rows": 21334,
+  "total_head_rows": 21442,
+  "norm_head_batch_calls": 607,
+  "vlm_calls": 0,
+  "vision_calls": 0,
+  "gpu_seconds_cap": 180,
+  "total_gpu_seconds": 0,
+  "maximum_gpus": 2,
+  "main_released": false,
+  "native_evaluation_released": false,
+  "proposal": "docs/paper/NATIVE_AGGREGATION_CONDITIONING_PROPOSAL.md",
+  "proposal_sha256": "4e638f3473b4f4eab55291493a1ebd835014657ee5c3bd1175c27d291998f49d",
+  "arms": [
+    "global",
+    "question"
+  ],
+  "shared_scale": "global population residual RMS",
+  "gpu_seconds_per_arm_cap": 90,
+  "source_sha256": {
+    "scripts/diagnose_native_identity_join_conditioning.py": "97663e1eef3e5a56bd2b6919abf13083f9d73ae10c9a9610b9d453e86301c38f",
+    "scripts/report_native_identity_join_conditioning.py": "aa28b28426fe895ce22c5aadcdc2727893cb65c8236eaed088df737ea6aba8af",
+    "slurm/native_identity_join_conditioning_check.sbatch": "feee38ab1151ea8c884b72913cbfa7150a377f6932d8d2a01d2cd7203c791f7c",
+    "slurm/native_identity_join_conditioning_run.sbatch": "d6607f290b2911370389fc3b0cf4ea78b83a96d2c0908038a49b972d86eed5f2",
+    "slurm/native_identity_join_conditioning_report.sbatch": "3f3a8864b0cfd1fd80ff4624f8988c944503efa7300e53da07b9980ba5b33f3c",
+    "docs/paper/NATIVE_AGGREGATION_CONDITIONING_PROPOSAL.md": "4e638f3473b4f4eab55291493a1ebd835014657ee5c3bd1175c27d291998f49d"
+  },
+  "check_job": "443321",
+  "check_passed": false,
+  "check_cpu_seconds": 10,
+  "check_failure_sha256": "e270ccf7df158e2acbe1b63d694f6173f2e68ce7d6b54a6fcc0f888922d8ba95"
+}

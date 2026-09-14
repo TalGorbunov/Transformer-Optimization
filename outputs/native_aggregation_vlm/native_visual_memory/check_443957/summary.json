@@ -1,0 +1,35 @@
+{
+  "completed": true,
+  "elapsed_seconds": 0.142982829362154,
+  "hidden_size": 3584,
+  "inherited_source_sha256": {
+    "gnnformer/attention_moments.py": "2513044c9ea490098217fc55ac68aac5c798ce3eed7ca746e47a447a3e0fd804"
+  },
+  "key_width": 128,
+  "parameters": 469504,
+  "passed": true,
+  "policy": {
+    "cpu_cores": 4,
+    "cpu_seconds": 90,
+    "memory_gib": 16,
+    "native_head_calls": 0,
+    "native_model_calls": 0,
+    "no_fit_or_inference_release": true,
+    "no_native_integration": true,
+    "optimizer_steps": 0
+  },
+  "protocol": "native_visual_memory_core_check",
+  "report_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/native_visual_memory/check_443957/REPORT.md",
+  "report_sha256": "378588aa1bd3c4e1c53745a84c2f1b25e3106338fee105fc8b5a6c24d8816de5",
+  "slots": 32,
+  "source_sha256": {
+    "docs/paper/NATIVE_AGGREGATION_VISUAL_MEMORY_CORE_PROPOSAL.md": "9e6190564ba3b4aeb764c7ecaf0c451b47bb394feccdccfdd21976c53f08a68f",
+    "gnnformer/native_visual_memory.py": "44e02c2272f4e4d84e929a3dd14007c7540e5726d85d78555aaaab6825dea135",
+    "slurm/native_visual_memory_check.sbatch": "191fc4edeef0e581617c7d607d8d13f64e69e7279edfdb2ce73d6f17d17d43c8",
+    "tests/test_native_visual_memory.py": "34959aa1839ce946239c5404ae93e7ed85ab342d617d592adb87fe613bc777de"
+  },
+  "test_results_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/native_visual_memory/check_443957/test_results.json",
+  "test_results_sha256": "8da8e7ccd46291ab4e5ecee7371ccc714d40610c8bf9a606d6822ac11a8f81f9",
+  "tests_run": 8,
+  "torch_version": "2.8.0+cu128"
+}

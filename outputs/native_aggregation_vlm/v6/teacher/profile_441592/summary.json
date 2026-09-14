@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "computational_integrity_passed": true,
+  "profile": true,
+  "shard": null,
+  "pair_count": 16,
+  "plan_sha256": "ca04535fb67e065fcde0408fb23036eef51439d9188340199dc81167fe418b19",
+  "source_sha256": {
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+    "slurm/native_vision_v6_teacher_stage.sbatch": "7ae8de4bd47bc36a6b3a6358d46b1b3b798fe74ad92d4a7ad096c3a8f11f4bed",
+    "slurm/native_vision_v6_teacher_profile.sbatch": "dd1be72eb74f3fa7440d6e4543dd36de61fc4fcae0ce4530c16c9b0149451079",
+    "slurm/native_vision_v6_teacher_array.sbatch": "7a00bca2dba0f442d56e6286613b7de385b05fa3b7aa167df8fdf4c3ae8d9994",
+    "slurm/native_vision_v6_teacher_merge.sbatch": "85bd8e9ae29352e6c65400f22c1cbfc1c9a1606af7944f056ebf634679e32166"
+  },
+  "rows_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/profile_441592/rows.jsonl",
+  "rows_sha256": "ce29d2c2eda105e39b23e14c4f9d0bca798898fe8ef0e8dd491de9a225a464de",
+  "model_load_seconds": 12.961478786543012,
+  "pair_seconds": 2.11484978441149,
+  "forward_seconds": 1.8444734876975417,
+  "total_seconds": 15.177329434081912,
+  "peak_memory_allocated_bytes": 6213063680,
+  "peak_memory_reserved_bytes": 7870611456,
+  "gpu": "NVIDIA B200",
+  "slurm_job_id": "441592",
+  "source_profile": null,
+  "quality_note": "No teacher accuracy gate is applied to the16software inputs; full training gate at CPU merge",
+  "cost_gate": {
+    "passed": true,
+    "projected_shard_seconds": 356.16958831693046,
+    "cap_seconds": 900,
+    "warmup_pairs": 4,
+    "steady_pairs": 12,
+    "margin": 1.25,
+    "reserve_seconds": 30,
+    "definition": "load + first4 pair wall seconds + 1.25*2495*max(last12 pair wall seconds) +30 <=900"
+  }
+}

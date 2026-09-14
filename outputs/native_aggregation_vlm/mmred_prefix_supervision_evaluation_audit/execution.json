@@ -1,0 +1,54 @@
+{
+  "cores_each": 4,
+  "cpu_cap_seconds_each": 7200,
+  "jobs": [
+    {
+      "depends_on": "447759_0",
+      "job": "447762",
+      "method": "anchor",
+      "task": 0
+    },
+    {
+      "depends_on": "447759_1",
+      "job": "447763",
+      "method": "answer25",
+      "task": 1
+    },
+    {
+      "depends_on": "447759_2",
+      "job": "447764",
+      "method": "answer26",
+      "task": 2
+    },
+    {
+      "depends_on": "447759_3",
+      "job": "447765",
+      "method": "local25",
+      "task": 3
+    },
+    {
+      "depends_on": "447759_4",
+      "job": "447766",
+      "method": "local26",
+      "task": 4
+    },
+    {
+      "depends_on": "447759_5",
+      "job": "447767",
+      "method": "prefix25",
+      "task": 5
+    },
+    {
+      "depends_on": "447759_6",
+      "job": "447769",
+      "method": "prefix26",
+      "task": 6
+    }
+  ],
+  "no_efficacy_gate": true,
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_evaluation_audit/source_release.json",
+    "sha256": "8cfe8242e69817005932c86a05f1832401674c6bd3969566d16e7e7fee9984bc"
+  },
+  "status": "queued_after_matching_evaluation"
+}

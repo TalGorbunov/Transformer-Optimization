@@ -1,0 +1,30 @@
+{
+  "campaign": "v13_learned_null_centering",
+  "status": "completed_failed_primary_and_practical",
+  "accepted_research_objective": false,
+  "reasoning_composition_established": false,
+  "prior_allocated_gpu_seconds": 801,
+  "main_array_job_id": "442452",
+  "main_task_jobs": {
+    "centered16": "442453",
+    "offset16": "442454",
+    "centered17": "442455",
+    "offset17": "442452"
+  },
+  "maximum_concurrent_project_gpus": 4,
+  "campaign_gpu_seconds_cap": 16200,
+  "cache_merge": "null_cache/merge_442432/summary.json",
+  "preserved_failed_cpu_merge": "null_cache/merge_442411",
+  "precision_diagnostic": "null_merge_diagnostic/run_442416/summary.json",
+  "training_plan": "train_check_442436/plan.json",
+  "independent_data_audit": "data_check_442437/summary.json",
+  "main_release": "main_release_442444/release.json",
+  "selected_source_check": "checkpoint_audit/selftest_442443/summary.json",
+  "main_outcomes_observed": true,
+  "allocated_gpu_seconds": 4579,
+  "accepted_vision_milestone": false,
+  "independent_report": "report_442466/summary.json",
+  "selected_audit": "checkpoint_audit/audit_442472/summary.json",
+  "final_acceptance": "finalization/final_442481/final_acceptance.json",
+  "followup": "registered_CPU_calibration_geometry"
+}

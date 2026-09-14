@@ -1,0 +1,71 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "scripts/report_native_vision_v7.py": "69b5129b2b4743cf1f55c1fef057c725efdfdc575c119d9bd40202d267a8ad78",
+    "slurm/native_vision_v7_report.sbatch": "63915ef12a650da60871a6dafb18a87e7f02152c2999e86530ce32f9c9a634d1"
+  },
+  "data_bindings": {
+    "/mnt/data/gabriele/gnn_transformer/v7_balanced/main_manifest.json": "37228e51c4cd95985931a14e391cd5024de0ca31b923ed20e998e79b80cb52b3",
+    "/mnt/data/gabriele/gnn_transformer/v7_balanced/schedule.json": "4a15a63a050b601031f25a73ca84270be5a8e0de3d6e6f92ed346bb2bccdcdaf",
+    "/mnt/data/gabriele/gnn_transformer/v7_balanced/semantic_audit.json": "1c6a306b2cea21856a919e2a6574701e90a98e59f6cdbc0f0b66b99501b81451",
+    "/mnt/data/gabriele/gnn_transformer/v7_balanced/stage_plan.json": "1e9bd9a17f0cc2ed1e374295c0b05ff98d731b311cf528f28bf8fc9aa41855e2",
+    "/mnt/data/gabriele/gnn_transformer/v7_balanced/prior_inventory.json": "bca6744fa28bcb6d39cb4a54ce0243405a01d3c1efead75476de2e13a929a709",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/main_manifest.json": "c89d83257fb0ab0564ffc09d7b246fdba045b607ce08b1434d2fd5f568a6f713",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/count_manifest.json": "829a12fa6ed7f3671b28af46b1376316f65e9a6f4047cf242c0e7f730fe86e4b",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/semantic_audit.json": "883f2beb0b395d892579cb780578c24e64fa9d7613aede12f49f1dec997c58d4",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/stage_audit.json": "44e678b345677e82edcebceff417d7c72783560df127dff2a01bf471f2c21605",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/stage_plan.json": "3bfc2f2eb8f4fba55b1b38eb33366a9dea1b39a702964aef12fdc2d5c7b75bd2",
+    "/mnt/data/gabriele/gnn_transformer/v7_fresh/exclusion_inventory.json": "bd268460310af30c20e1404ae101d5436fe965ced233ea74932d824d6298e971"
+  },
+  "cache_audits": {
+    "parallel": {
+      "file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/feature_cache.json",
+      "sha256": "670c115ff872760082eb93a1020ddc7a2e0756b2b2ff3cc55f9a0512845f56a6",
+      "plan_sha256": "5a30b412504d8cd8636c4446a2d83a812b60c37d30e65fc32b4480c1e8ceab65",
+      "features": 32229,
+      "training_scenes": 1890,
+      "all_causal_prefixes_verified": true,
+      "original_profile_passed": false,
+      "runtime_extension": {
+        "passed": true,
+        "scope": "runtime_only_300_to_360_seconds",
+        "original_profile_passed": false,
+        "original_runtime_gate_passed": false,
+        "numerical_gate_unchanged": true,
+        "cap_seconds": 360,
+        "plan_file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/stage_441775/plan.json",
+        "plan_sha256": "5a30b412504d8cd8636c4446a2d83a812b60c37d30e65fc32b4480c1e8ceab65",
+        "profile_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/features/profile_441837",
+        "profile_summary_sha256": "3c92ee2bbdf96bc78b04785772d3b8832beb94188eaf653e3ae239d81b1ce39f",
+        "dispatcher_source_sha256": {
+          "scripts/extend_native_vision_v7_feature_runtime.py": "e6d0cfc97b5dd26632f3d9d3f7f9141aa48623eb611fcebe34bcacf09b6df346",
+          "slurm/native_vision_v7_features_extended.sbatch": "14782237f90bd32a2dacbe8d87028dde7db6d6f2a7f2f84d0fe01b49f72ff5ac",
+          "slurm/native_vision_v7_features_extended_release.sbatch": "2d5a8f9550cd53807e4c530404421bf63bac4827d04fb6d2ad6248af1eb75824",
+          "slurm/native_vision_v7_features_extended_merge.sbatch": "725d9984575ddf4e8e68703dccd14e48cc4e749b5f51eedcd6c3ea4b4c6b2d3c"
+        },
+        "projected_seconds": [
+          318.6322048297152,
+          318.6322048297152,
+          318.6322048297152,
+          318.6322048297152
+        ],
+        "release_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/features/runtime_extension/release_441840/release.json",
+        "release_sha256": "990a7dd504c5897b12569f419cf9fe4ee2cdeea75df66d5855d67d3008c7faad"
+      }
+    },
+    "joint": {
+      "file": "/mnt/data/gabriele/gnn_transformer/v7_joint_features/feature_cache.json",
+      "sha256": "67d39e9757d4d18fea935ade097271ae90048194de87b8d5be189a505439f43f",
+      "plan_sha256": "a240f0cff2d5902beb4e138ffcf56a3026be2abc3c3c25e4ce0d8e457d75d85b",
+      "features": 3780,
+      "training_scenes": 1890,
+      "all_causal_prefixes_verified": true,
+      "original_profile_passed": true,
+      "runtime_extension": null
+    }
+  },
+  "audit_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/data_check_441882/data_audit.json",
+  "audit_sha256": "a3befbecfb755e530265fef8a42da307012907e1a659c35bbb5f54e749b25770",
+  "seconds": 36.025000385940075,
+  "slurm_job_id": "441882"
+}

@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "scripts/report_native_vision_v7.py": "69b5129b2b4743cf1f55c1fef057c725efdfdc575c119d9bd40202d267a8ad78",
+    "slurm/native_vision_v7_report.sbatch": "63915ef12a650da60871a6dafb18a87e7f02152c2999e86530ce32f9c9a634d1"
+  },
+  "tests": [
+    "strict_parser",
+    "EOS_required",
+    "selection_ties",
+    "optimizer_schedule",
+    "integer_threshold_edges",
+    "matched_complete_orders",
+    "K_stratified_family_bootstrap_shared_across_seeds"
+  ],
+  "seconds": 0.25768741592764854,
+  "slurm_job_id": "441881"
+}

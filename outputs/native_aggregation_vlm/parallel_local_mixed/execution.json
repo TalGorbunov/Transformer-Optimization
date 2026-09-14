@@ -1,0 +1,22 @@
+{
+  "status": "complete_strict_failure_native_drift_localized",
+  "created_utc": "2026-09-10T22:45:23.154819+00:00",
+  "gpu_hour_cap": 0.1,
+  "max_concurrent_project_gpus": 4,
+  "allocated_gpu_seconds": 75,
+  "expected_vlm_calls": 92,
+  "expected_visual_calls": 86,
+  "cpu_job": 441727,
+  "cpu_seconds": 15,
+  "plan": "check_441727/plan.json",
+  "plan_sha256": "0dd28471db37493db053977821db203d589440801345a899a9a3554e804d5675",
+  "gpu_job": 441729,
+  "allocated_gpu_hours": 0.020833333333333332,
+  "summary": "run_441729/summary.json",
+  "numerical_violations": 1,
+  "top1_mismatches": 0,
+  "updated_utc": "2026-09-10T23:09:46.250615+00:00",
+  "localization_job": 441772,
+  "independent_audit_job": 441766,
+  "localization_summary": "localization_441772/summary.json"
+}

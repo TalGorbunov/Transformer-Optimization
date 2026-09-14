@@ -1,0 +1,123 @@
+{
+  "status": "computational_audit_passed_all_training_screens_failed",
+  "check_job_id": "443734",
+  "order_stage_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_order/stage_443724/summary.json",
+  "order_stage_summary_sha256": "1f590b71110d1a2509963a52a90ca9f3fb588d938125dcfadac9efc538db96df",
+  "check_state": "COMPLETED",
+  "check_exit_code": "0:0",
+  "check_cpu_elapsed_seconds": 14,
+  "check_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_visual/check_443734/summary.json",
+  "check_summary_sha256": "7b5c9d0dd8383ecddb406d9d07a554cf710f6537e552d88de0e2cf4560e0582e",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_visual/check_443734/plan.json",
+  "plan_sha256": "72d5c145d5517d50613cf6d2df5431c9106d85f9ab9b3034efdea2d9a1a36f20",
+  "run_job_ids": {
+    "product": "443736",
+    "additive": "443737"
+  },
+  "shared_study_run_jobs": {
+    "joint_code": "443735",
+    "product": "443736",
+    "additive": "443737"
+  },
+  "shared_study_GPU_seconds_cap": 360,
+  "shared_study_maximum_GPUs": 3,
+  "report_job_id": "443743",
+  "runs": {
+    "product": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_visual/run_product_443736",
+      "summary_sha256": "b988b98145dbe9ab265d106e5da67a478bf3bf7786dc8c093aeb57bb6dc8817d",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_elapsed_seconds": 76,
+      "provisional_GPU_first_token_fit": {
+        "passed": false,
+        "first_correct": 77,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 39,
+          "flipped": 38
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    },
+    "additive": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_visual/run_additive_443737",
+      "summary_sha256": "57ae2579adfb135ffcfaccf2aa48d153a383539558c9c4a6833c44647a13697d",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_elapsed_seconds": 77,
+      "provisional_GPU_first_token_fit": {
+        "passed": false,
+        "first_correct": 73,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 37,
+          "flipped": 36
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    }
+  },
+  "report_state": "COMPLETED",
+  "report_exit_code": "0:0",
+  "report_CPU_elapsed_seconds": 52,
+  "report_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_visual/report_443743/summary.json",
+  "report_summary_sha256": "551a03afc57d343653f53f966d79fbcb2957837f16df50a84413ff0fe71775a8",
+  "report_analysis_sha256": "701f13906d4d36c20090f86188bf5e79445b1ad9d66afb9528b83b397cf951a2",
+  "all_native_and_fresh_held": true,
+  "first_token_fit": {
+    "product": {
+      "passed": false,
+      "first_correct": 77,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 39,
+        "flipped": 38
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    },
+    "additive": {
+      "passed": false,
+      "first_correct": 73,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 37,
+        "flipped": 36
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    }
+  },
+  "allocated_GPU_seconds": 153
+}

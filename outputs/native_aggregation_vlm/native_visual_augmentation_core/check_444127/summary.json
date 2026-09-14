@@ -1,0 +1,37 @@
+{
+  "completed": true,
+  "elapsed_seconds": 0.3261985667049885,
+  "inherited_source_sha256": {
+    "gnnformer/attention_moments.py": "2513044c9ea490098217fc55ac68aac5c798ce3eed7ca746e47a447a3e0fd804",
+    "gnnformer/native_visual_memory.py": "44e02c2272f4e4d84e929a3dd14007c7540e5726d85d78555aaaab6825dea135"
+  },
+  "live_parameters_per_arm": 2300929,
+  "no_native_fidelity_claim": true,
+  "passed": true,
+  "policy": {
+    "cpu_cores": 4,
+    "cpu_seconds": 90,
+    "fixture_groups": 8,
+    "head_calls": 0,
+    "memory_gib": 16,
+    "model_calls": 0,
+    "no_fit_or_inference_release": true,
+    "no_native_integration": true,
+    "optimizer_steps": 0,
+    "vision_calls": 0
+  },
+  "protocol": "native_visual_augmentation_core_check",
+  "report_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/native_visual_augmentation_core/check_444127/REPORT.md",
+  "report_sha256": "72c738bd9bb434447d89cc6d25ef117e631b070537a2d569ecfdafdecb88cbc7",
+  "source_sha256": {
+    "docs/paper/NATIVE_AGGREGATION_AUGMENTATION_HYPOTHESIS.md": "ef108beae765b3f1c20037ddcb0a279ef33b2f96009c0fdbd2cb9180dd506224",
+    "gnnformer/native_visual_augmentation.py": "f1a0f5d5ab33d1b148ffee30630683d23e4a9f6b85ff77f05a5e31fb7e6a7e90",
+    "slurm/native_visual_augmentation_core_check.sbatch": "4369ae58f7f8d0a06d15499e488cb29e6f36102ee595983721e6c4de1ba8e7aa",
+    "tests/test_native_visual_augmentation.py": "b85501ebc218ebdb5d4bf2a46fb336491e83ae5dc8a14d30a80238ddd9683e62"
+  },
+  "summary_allocated_parameters": 2304513,
+  "test_results_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/native_visual_augmentation_core/check_444127/test_results.json",
+  "test_results_sha256": "8da8e7ccd46291ab4e5ecee7371ccc714d40610c8bf9a606d6822ac11a8f81f9",
+  "tests_run": 8,
+  "torch_version": "2.8.0+cu128"
+}

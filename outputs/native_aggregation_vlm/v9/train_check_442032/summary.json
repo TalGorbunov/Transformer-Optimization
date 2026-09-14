@@ -1,0 +1,52 @@
+{
+  "passed": true,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/train_check_442032/plan.json",
+  "plan_sha256": "cda9479abc0112a44ccf37b0f951ad7729c61c960901bad39e810eac6b5c6f8a",
+  "source_sha256": {
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "gnnformer/aggregation_path_bound.py": "eb93b7b1e22f2a244f8587735ef0b56f5f588a6c1b94e4b577e8fde9a15dc79a",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/native_vision_v9_pairs.py": "232cf12958f56e3cf200d659f8796420ee0f2c6cfa8589b31ba24b6c61139eb8",
+    "scripts/train_native_vision_v7.py": "2e5bb4792d85586d519464afdc615ca307ce42686f4adad5d271391bc88ee389",
+    "scripts/train_native_vision_v9.py": "c79a300a1998e6609da919da3b2903812dc0f51e6532f129356b1572a7877cf1",
+    "slurm/native_vision_v9_train.sbatch": "19a95030e86eb15230a596b1f41fe2233a47c64f0e355f5e5b4eda918e50e163",
+    "slurm/native_vision_v9_train_check.sbatch": "62b1701ce03e84b77d5a6be0ea907a28e5745fef0268dda772cd12db452caa4b",
+    "slurm/native_vision_v9_train_profile.sbatch": "9a57f042a7a855d36b8bd8a5865cec86f7d473c84702e032a083b7575a18fede",
+    "tests/test_aggregation_consistency.py": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+    "tests/test_aggregation_path_bound.py": "31f6bc5085d8ee14af5716222b8fe992be675f8d2739e0ca504a28da88d92517",
+    "tests/test_native_vision_v9_pairs.py": "10ab049c91dffedd92182fb8a646a7601113fcfd55656923bdedfb1236253bac"
+  },
+  "tests": {
+    "passed": true,
+    "suites": [
+      {
+        "file": "tests/test_aggregation_consistency.py",
+        "sha256": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "....../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_aggregation_consistency.py:55: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertEqual(float(loss), 0.)\n.....\n----------------------------------------------------------------------\nRan 11 tests in 0.012s\n\nOK\n"
+      },
+      {
+        "file": "tests/test_aggregation_path_bound.py",
+        "sha256": "31f6bc5085d8ee14af5716222b8fe992be675f8d2739e0ca504a28da88d92517",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "....../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_aggregation_path_bound.py:48: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertGreater(float(value),0.)\n......\n----------------------------------------------------------------------\nRan 12 tests in 0.014s\n\nOK\n"
+      },
+      {
+        "file": "tests/test_native_vision_v9_pairs.py",
+        "sha256": "10ab049c91dffedd92182fb8a646a7601113fcfd55656923bdedfb1236253bac",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": ".\n----------------------------------------------------------------------\nRan 1 test in 0.551s\n\nOK\n"
+      }
+    ]
+  },
+  "no_model_loaded": true,
+  "elapsed_seconds": 8.847061958163977
+}

@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "resize": 392,
+  "conditions": [
+    "baseline",
+    "correct_prefix",
+    "neutral_prefix"
+  ],
+  "manifest": "/mnt/data/gabriele/gnn_transformer/v2_clean/main_manifest.json",
+  "manifest_sha256": "57dd34e5e684f5d62317779da4757c2c189e19f04c963405bf6fff2fa342a88b",
+  "selection_sha256": "53948319fe5c0910ab17c8964ab535db627915d0a579846499e1a4de636fbdf1",
+  "source_sha256": {
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346"
+  },
+  "processor_fingerprint": {
+    "transformers_version": "4.57.6",
+    "processor_class": "Qwen2_5_VLProcessor",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+    "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+    "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd"
+  },
+  "selection": "First two lexicographically sorted pair_id anchors per K0..8; both N16 and N64",
+  "slurm_job_id": "440808",
+  "run_id": "20260910_165238_440808_1379431",
+  "neutral_prose": "The following pictures show a sequence of illustrated scenes. Each picture represents a moment in that sequence. The scenes use a consistent drawing style and visual arrangement.",
+  "decoding": {
+    "do_sample": false,
+    "use_cache": true,
+    "max_new_tokens": 4,
+    "repetition_penalty": 1.0,
+    "output_logits": true
+  },
+  "limits": [
+    "Diagnostic subset of the existing V2 main test: 18 anchors, 36 examples; no model or prompt selection from outcomes.",
+    "Correct and neutral prefixes match actual processor token layout, including image positions, but differ in semantics and question repetition.",
+    "Baseline is shorter. Prefix-minus-baseline includes context length, positions, repetition and semantic changes.",
+    "Intervals resample paired anchors, preserving both lengths; they are descriptive conditional intervals with no multiplicity adjustment.",
+    "Frozen direct-answer model only; this is neither a new aggregation method nor evidence of reasoning composition."
+  ],
+  "cells": {
+    "baseline_N16": {
+      "n": 18,
+      "correct": 4,
+      "exact": 0.2222222222222222,
+      "parse_rate": 1.0,
+      "mae_parsed": 2.2777777777777777,
+      "first_token_nll": 1.9743108799060185
+    },
+    "baseline_N64": {
+      "n": 18,
+      "correct": 1,
+      "exact": 0.05555555555555555,
+      "parse_rate": 1.0,
+      "mae_parsed": 3.5,
+      "first_token_nll": 2.94232017132971
+    },
+    "correct_prefix_N16": {
+      "n": 18,
+      "correct": 4,
+      "exact": 0.2222222222222222,
+      "parse_rate": 1.0,
+      "mae_parsed": 2.1666666666666665,
+      "first_token_nll": 2.272442383898629
+    },
+    "correct_prefix_N64": {
+      "n": 18,
+      "correct": 1,
+      "exact": 0.05555555555555555,
+      "parse_rate": 1.0,
+      "mae_parsed": 3.3333333333333335,
+      "first_token_nll": 2.8918246030807495
+    },
+    "neutral_prefix_N16": {
+      "n": 18,
+      "correct": 3,
+      "exact": 0.16666666666666666,
+      "parse_rate": 1.0,
+      "mae_parsed": 2.2777777777777777,
+      "first_token_nll": 1.8793885964486334
+    },
+    "neutral_prefix_N64": {
+      "n": 18,
+      "correct": 1,
+      "exact": 0.05555555555555555,
+      "parse_rate": 1.0,
+      "mae_parsed": 3.2222222222222223,
+      "first_token_nll": 2.8920389082696705
+    }
+  },
+  "correct_prefix_minus_control": {
+    "neutral_prefix": {
+      "N16": {
+        "n": 18,
+        "anchors": 18,
+        "exact_gain": 0.05555555555555555,
+        "descriptive_bootstrap95": [
+          -0.1111111111111111,
+          0.2222222222222222
+        ]
+      },
+      "N64": {
+        "n": 18,
+        "anchors": 18,
+        "exact_gain": 0.0,
+        "descriptive_bootstrap95": [
+          -0.16666666666666666,
+          0.16666666666666666
+        ]
+      },
+      "pooled": {
+        "n": 36,
+        "anchors": 18,
+        "exact_gain": 0.027777777777777776,
+        "descriptive_bootstrap95": [
+          -0.08333333333333333,
+          0.1388888888888889
+        ]
+      }
+    },
+    "baseline": {
+      "N16": {
+        "n": 18,
+        "anchors": 18,
+        "exact_gain": 0.0,
+        "descriptive_bootstrap95": [
+          -0.16666666666666666,
+          0.16666666666666666
+        ]
+      },
+      "N64": {
+        "n": 18,
+        "anchors": 18,
+        "exact_gain": 0.0,
+        "descriptive_bootstrap95": [
+          -0.16666666666666666,
+          0.16666666666666666
+        ]
+      },
+      "pooled": {
+        "n": 36,
+        "anchors": 18,
+        "exact_gain": 0.0,
+        "descriptive_bootstrap95": [
+          -0.1111111111111111,
+          0.1111111111111111
+        ]
+      }
+    }
+  },
+  "cpu_plan": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v2/prefix_check/20260910_165107_440806_2313564/plan.json",
+  "cpu_plan_sha256": "20c9eacfb631cc9b56f95d229b1ddb0fea0a5ce980d9f505b81e17c5117b21f6",
+  "seconds": 155.7831135741435,
+  "gpu": "NVIDIA B200",
+  "peak_cuda_allocated_bytes": 8892390400
+}

@@ -1,0 +1,13 @@
+{
+  "status": "posthoc_scalar_report_passed",
+  "timestamp_utc": "2026-09-12T05:02:49.706213+00:00",
+  "source_release_sha256": "6ab7379e1c5df9297e3e57e468c1f5e4d952399c5baf7726683855f5215f9c5f",
+  "job": 444092,
+  "cpu_seconds": 1,
+  "measured_seconds": 0.8327639922499657,
+  "summary_sha256": "5827fe980f42cae07490fd9db91ce2592f4fcf955d538bdbe182148daa697383",
+  "analysis_sha256": "d753ba6554149966ac707db0d87c07753b2292371c4c5b4f282328a0be1efd10",
+  "posthoc_descriptive": true,
+  "no_model_or_tensor_calls": true,
+  "no_retuning_release": true
+}

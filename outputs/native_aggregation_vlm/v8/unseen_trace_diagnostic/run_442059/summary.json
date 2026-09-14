@@ -1,0 +1,717 @@
+{
+  "schema_version": 1,
+  "passed": true,
+  "diagnostic_only": true,
+  "no_fit": true,
+  "model_calls": 0,
+  "examples": 512,
+  "groups": [
+    {
+      "condition": "ce",
+      "seed": 10,
+      "n_frames": 32,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 10,
+      "n_frames": 32,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 10,
+      "n_frames": 64,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 8,
+        "truncated": 0,
+        "malformed_or_truncated": 8,
+        "completed": 8,
+        "parseable": 0
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 1.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 1.0,
+        "completed": 1.0,
+        "parseable": 0.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {},
+      "completed_numeral_histogram": {},
+      "generated_text_histogram": {
+        "\u2f0b Eighth": 8
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 10,
+      "n_frames": 64,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 12,
+        "truncated": 0,
+        "malformed_or_truncated": 12,
+        "completed": 56,
+        "parseable": 44
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.21428571428571427,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.21428571428571427,
+        "completed": 1.0,
+        "parseable": 0.7857142857142857
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 44
+      },
+      "completed_numeral_histogram": {
+        "8": 44
+      },
+      "generated_text_histogram": {
+        "8": 44,
+        "\u2f0b Eighth": 8,
+        "\uff18": 4
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 11,
+      "n_frames": 32,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 11,
+      "n_frames": 32,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 11,
+      "n_frames": 64,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 1,
+        "truncated": 0,
+        "malformed_or_truncated": 1,
+        "completed": 8,
+        "parseable": 7
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.125,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.125,
+        "completed": 1.0,
+        "parseable": 0.875
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 7
+      },
+      "completed_numeral_histogram": {
+        "8": 7
+      },
+      "generated_text_histogram": {
+        "8": 7,
+        "\uff18": 1
+      }
+    },
+    {
+      "condition": "ce",
+      "seed": 11,
+      "n_frames": 64,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 1,
+        "truncated": 0,
+        "malformed_or_truncated": 1,
+        "completed": 56,
+        "parseable": 55
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.017857142857142856,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.017857142857142856,
+        "completed": 1.0,
+        "parseable": 0.9821428571428571
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 55
+      },
+      "completed_numeral_histogram": {
+        "8": 55
+      },
+      "generated_text_histogram": {
+        "8": 55,
+        "\uff18": 1
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 10,
+      "n_frames": 32,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 10,
+      "n_frames": 32,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 10,
+      "n_frames": 64,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 10,
+      "n_frames": 64,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 11,
+      "n_frames": 32,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 11,
+      "n_frames": 32,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 11,
+      "n_frames": 64,
+      "count_family": "K9",
+      "n": 8,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 8,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 8,
+        "parseable": 8
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 8
+      },
+      "completed_numeral_histogram": {
+        "8": 8
+      },
+      "generated_text_histogram": {
+        "8": 8
+      }
+    },
+    {
+      "condition": "consistency",
+      "seed": 11,
+      "n_frames": 64,
+      "count_family": "K10_16",
+      "n": 56,
+      "counts": {
+        "first_numeral_token_correct": 0,
+        "whole_answer_correct_with_eos": 0,
+        "correct_first_token_then_immediate_eos": 0,
+        "wrong_first_token": 56,
+        "malformed": 0,
+        "truncated": 0,
+        "malformed_or_truncated": 0,
+        "completed": 56,
+        "parseable": 56
+      },
+      "rates": {
+        "first_numeral_token_correct": 0.0,
+        "whole_answer_correct_with_eos": 0.0,
+        "correct_first_token_then_immediate_eos": 0.0,
+        "wrong_first_token": 1.0,
+        "malformed": 0.0,
+        "truncated": 0.0,
+        "malformed_or_truncated": 0.0,
+        "completed": 1.0,
+        "parseable": 1.0
+      },
+      "immediate_eos_given_correct_first": {
+        "n": 0,
+        "count": 0,
+        "rate": null
+      },
+      "generated_numeral_histogram": {
+        "8": 56
+      },
+      "completed_numeral_histogram": {
+        "8": 56
+      },
+      "generated_text_histogram": {
+        "8": 56
+      }
+    }
+  ],
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/unseen_trace_diagnostic/run_442059/plan.json",
+  "plan_sha256": "9ad2a87a0adac99a7f553f742c094217c64978dde9259b834fd2325b7dd5a289",
+  "source_sha256": {
+    "scripts/audit_native_vision_v8_unseen_traces.py": "1bbdfcc44c1756c9217bf114553aa36fec242958019a523c84cf77fb4891adaa",
+    "slurm/native_vision_v8_unseen_traces.sbatch": "9a866994f0a1d070591059364bc17ac083844e07ca65123fa0725114e5726a29"
+  },
+  "traces_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/unseen_trace_diagnostic/run_442059/traces.json",
+  "traces_sha256": "52d277d870ae5d6e2bf46fce6eb421ebe5dde33ccec3e7629ec1b7b5c4960ea7",
+  "groups_sha256": "0e6638638a8cfc7de785066882018b641637dfd9819aecb640040a0d8597f97a",
+  "seconds": 4.749824311584234,
+  "slurm_job_id": "442059",
+  "limitations": [
+    "First generated token is compared directly; no search for a later numeral.",
+    "K9 immediate EOS can be correct; K10--16 immediate EOS after the first token is incomplete.",
+    "Metrics overlap; malformed-or-truncated is a union and all rates use the full group denominator.",
+    "Numeral histograms include parseable truncated outputs; completed histograms are also retained.",
+    "Already verified natural outputs only; this does not prove presence or absence of latent count information.",
+    "No new model call, prediction, fitted decoder, oracle prefix, or reasoning-composition claim."
+  ]
+}

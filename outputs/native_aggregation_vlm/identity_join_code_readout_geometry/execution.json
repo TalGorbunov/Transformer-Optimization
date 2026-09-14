@@ -1,0 +1,10 @@
+{
+  "status": "CPU_passed",
+  "job_id": "443772",
+  "all_native_and_fresh_held": true,
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "CPU_elapsed_seconds": 4,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_code_readout_geometry/geometry_443772/summary.json",
+  "summary_sha256": "27851411d7cf6977cb53d4f94149a0c94e84ced35569e236f451e03c9614a76a"
+}

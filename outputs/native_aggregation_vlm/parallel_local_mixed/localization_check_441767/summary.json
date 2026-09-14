@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "plan": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/parallel_local_mixed/localization_check_441767/plan.json",
+  "plan_sha256": "693d59842d82413a6a24ac7e3ca29690a8db57b7774379a1e2f2ae0e5a8360e5",
+  "source_sha256": {
+    "scripts/probe_native_vision_mixed_cache_localization.py": "cb2d4c7491b161d84882ea43fdde0c829f212534694e51439973fcfdc955eaa9",
+    "slurm/native_vision_mixed_cache_localization_check.sbatch": "dac2f918f7668339d3fb3a4692475c75eacbfc70cc12ba43c6e262990d4bb713",
+    "slurm/native_vision_mixed_cache_localization.sbatch": "d350aa43791c73e22391dc50554a421fc7a974b4409a777dc5d8959b76220f07",
+    "scripts/probe_native_vision_parallel_local_mixed.py": "70a5201fa331069d7b6f90f2f4a92e020dfdc694e4bfc17b32f4f00998480d6f"
+  },
+  "seconds": 1.5523309111595154
+}

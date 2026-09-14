@@ -1,0 +1,62 @@
+{
+  "status": "training_screens_failed_under_all_observed_backend_choices_original_independent_report_remains_failed",
+  "source_release_sha256": "ebefc0bb076d89316955ffa83b4dfe1e4f5beaff1ca6a299ac3bf421eae68f89",
+  "confirmation_render_job": "443666",
+  "fit_released": true,
+  "check_job": "443676",
+  "feature_merge_job": "443672",
+  "feature_merge_summary_sha256": "8adbff2573e5d64be0b91b50f7ca20aeee4efef5763bbd370fc6a6bfd37cc8e1",
+  "run_jobs": {
+    "product": "443677",
+    "additive": "443678"
+  },
+  "check_summary_sha256": "72e678300833b1e470e7d6b0aff2d1f8b98b92d393233ce986c08d422ac92a03",
+  "check_plan_sha256": "d299d42a4444520f148f86252e2931ad599e03afac9edadbe9201836229bf097",
+  "report_job": "443682",
+  "allocated_gpu_seconds": 146,
+  "report_failure_sha256": "4b113df062f18c49973864849378608678264a035e30e25935ab111df525be1c",
+  "report_cpu_seconds": 38,
+  "provisional_GPU_counts": {
+    "product": 79,
+    "additive": 72
+  },
+  "provisional_GPU_families": {
+    "product": 0,
+    "additive": 0
+  },
+  "native_released": false,
+  "failure_diagnostics": {
+    "head": {
+      "job_id": "443695",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "cpu_elapsed_seconds": 24,
+      "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/head_replay_443695/summary.json",
+      "summary_sha256": "794361ddba6fef9478f61d9d88f8c12053c2573584caf95c5890ef7549da0533",
+      "gpu_correct": {
+        "product": 79,
+        "additive": 72
+      },
+      "cpu_correct": {
+        "product": 77,
+        "additive": 72
+      },
+      "every_disagreement_correct_upper": {
+        "product": 79,
+        "additive": 72
+      },
+      "complete_families_both_backends": 0
+    },
+    "optimization": {
+      "job_id": "443696",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "cpu_elapsed_seconds": 4,
+      "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/training_budget_review/orientation_optimization_443696/summary.json",
+      "summary_sha256": "704621a97d9b35d04dc3434f292e5293d295a342006ac1a46ddf1f95c3efed7e"
+    },
+    "original_report_remains_failed": true,
+    "native_and_fresh_release": false,
+    "coordination_note": "After completed diagnostic443696, a transient candidate edit was restored to frozen55270dcc. Archived and current source match frozen release, and the job source end-check passed. No rerun or scientific change."
+  }
+}

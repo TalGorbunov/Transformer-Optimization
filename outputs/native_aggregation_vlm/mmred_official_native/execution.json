@@ -1,0 +1,12 @@
+{
+  "status": "cpu_preparation_failed_upstream_python_syntax",
+  "cpu_job": 443965,
+  "cpu_job_seconds": 31,
+  "source_release_sha256": "3730eaaff2e291cc14394f968013da31de29c54de7247431ba4116c1312d8147",
+  "failure_sha256": "06004dbaefb4f8790f2d545ea8e6307e9235e409083e0b3414eeac19e26a6680",
+  "trigger": "Python3.10 cannot parse upstream Literal[*ROOMS] at line34; literal system extraction only needed",
+  "model_calls": 0,
+  "processor_constructed": false,
+  "original_sources_preserved": true,
+  "separate_v2_under_review": true
+}

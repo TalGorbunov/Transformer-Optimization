@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "tests": {
+    "passed": true,
+    "tests": [
+      "mandatory_report_post_and_resource_gates",
+      "descriptive_cache_failure_retained",
+      "failed_efficacy_not_rescued",
+      "four_selected_models_bound",
+      "reject_checkpoint_mismatch",
+      "fixed32_plot_cells_and_count_partitions",
+      "scheduler_failed_attempts_counted",
+      "typed_GPU_TRES_not_double_counted",
+      "inclusive16200_second_budget",
+      "registered_per_seed_decisions_rederived",
+      "four_GPU_concurrency_limit"
+    ]
+  },
+  "source_sha256": {
+    "scripts/finalize_native_vision_v10.py": "492ff9798cd489378fc6fe5386d2fef924db510525c8b08e39300da2eb952f65",
+    "slurm/native_vision_v10_finalize.sbatch": "6c8823e58d68ecc8eb47f3c5acaa8873ebcbd16afe9fb947be64d161b3326d7b"
+  },
+  "seconds": 0.025305457413196564,
+  "slurm_job_id": "442144"
+}

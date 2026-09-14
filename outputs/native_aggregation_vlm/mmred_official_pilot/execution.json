@@ -1,0 +1,25 @@
+{
+  "status": "original_report_cancelled_after_producer_resource_gate",
+  "timestamp_utc": "2026-09-12T04:36:23.588039+00:00",
+  "source_release_sha256": "20c35509a21682fb9b56060c75fa2d8174bb6a20e42814ef81d27e7ce17f083a",
+  "cpu_job": 444065,
+  "dependencies": [
+    444062,
+    444063,
+    444064
+  ],
+  "cpu_seconds_cap": 1800,
+  "analyses": 30,
+  "bootstrap_replicates_each": 10000,
+  "no_predictions_seen": true,
+  "objective_achieved": false,
+  "fixture_job": 444069,
+  "fixture_passed": true,
+  "fixture_summary_sha256": "8eb5ef675cb1550c670b3b22fffb061cd3a7d318d552d985bee0c6222f502928",
+  "fixture_elapsed_seconds": 0.09834891185164452,
+  "fixture_slurm_elapsed_seconds_rounded": 0,
+  "fixture_actual_benchmark_rows": 0,
+  "fixture_synthetic_replicates": 128,
+  "cancelled_job": 444065,
+  "reason": "Incomplete original evaluation; separate continuation report in preparation"
+}

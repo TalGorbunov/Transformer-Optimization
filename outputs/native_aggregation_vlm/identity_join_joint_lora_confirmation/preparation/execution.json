@@ -1,0 +1,15 @@
+{
+  "status": "COMPLETED",
+  "cpu_job": 443925,
+  "cpu_seconds_cap": 600,
+  "prepared_contexts": 270,
+  "metadata_contexts": 810,
+  "confirmation_predictions_accessed": false,
+  "inference_released": false,
+  "exit_code": "0:0",
+  "cpu_job_seconds": 214,
+  "summary_sha256": "3874a01fdfb17e3b99a3d78c86e6d2a9a7c29fac950115bf6853724176aea968",
+  "plan_sha256": "7f2c4b6f2d91d7bc2cd761fbfa00bcd1b09aa9802aaf57fb6e6dfb077ccf40ea",
+  "envelope_passed": true,
+  "projected_N16_seconds": 575.1940300727729
+}

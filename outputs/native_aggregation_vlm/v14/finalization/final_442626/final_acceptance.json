@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "report_audit_passed": true,
+  "post_completed": true,
+  "post_computational_integrity_passed": true,
+  "post_native_replay_gate_passed": true,
+  "verification_passed": true,
+  "gpu_accounting_passed": true,
+  "gpu_budget_passed": true,
+  "v14_concurrency_passed": true,
+  "gpu_per_job_caps_passed": true,
+  "gpu_subcaps_passed": true,
+  "primary_both_seeds": true,
+  "practical_both_seeds": false,
+  "reported_vision_milestone_gate": false,
+  "accepted_vision_milestone": false,
+  "post_strict_cache_numerical_gate_passed": false,
+  "original_mixed_numerical_gate_passed": false,
+  "reasoning_composition_established": false,
+  "source_sha256": {
+    "scripts/finalize_native_vision_v14.py": "4e7d1d0dc45999c90ba599e621ab81d91baa126df8ac4c6038e69605c007312b",
+    "slurm/native_vision_v14_finalize.sbatch": "c058a94997d5b40f599c7f14f4a73e8162fb1d2d12c2456cb994f597b1663b43",
+    "scripts/finalize_native_vision_v13.py": "e99383f4390b5293c032f407fcb029b6be2de6e09661118720e52f85a22ce0e2",
+    "slurm/native_vision_v13_finalize.sbatch": "8b495a72b66e9c7a092e640ce78e5c78bdaeab032473923e73cbc5e34bb9b191"
+  },
+  "artifacts": {
+    "analysis": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/report_442582/analysis.json",
+      "sha256": "90a759d82eabdf90d949375a88610aeba71135751ef95ca88783f7f3f3614741"
+    },
+    "independent_report_summary": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/report_442582/summary.json",
+      "sha256": "e5fb6a4c226160c1205c21a95b6c5355e4138c8a6557ea9c8c676416a07fa373"
+    },
+    "selected_checkpoint_audit": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/checkpoint_audit/audit_442625/summary.json",
+      "sha256": "0096f07e5e39728dcafe8bc35144883bc326e9fe52d897dd083d45a5cd29295b"
+    },
+    "gpu_accounting": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/finalization/final_442626/gpu_accounting.json",
+      "sha256": "e742295cba20fcab29a941245d1f081134445f89a00226a24048853e49e6af19"
+    },
+    "checkpoint_audit_plan": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/checkpoint_audit/check_442581/plan.json",
+      "sha256": "e2d0b803fef6792036bcf32744d62ac8528063d966e79cc6485de0dd1e88a317"
+    },
+    "prospective_source_check": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/finalization/selftest_442512/summary.json",
+      "sha256": "04533f0c5aa8f9bb01679ea04b3803607ddf77d2b01692c3a0650bf73370b196"
+    }
+  },
+  "selected_models": [
+    {
+      "condition": "offset",
+      "seed": 18,
+      "run_id": "run_offset_s18_442568",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v14/run_offset_s18_442568/final.pt",
+      "checkpoint_sha256": "e418ae2c66f0a5b53d96ef4f02baf7d74563b5c7e659ff88a85f4d33012b5384",
+      "parameter_sha256": "0cd0d5fa73d8d7cbdab0a5a7052b2afbb11724bebbbb28a59bb19302775643d0"
+    },
+    {
+      "condition": "offset",
+      "seed": 19,
+      "run_id": "run_offset_s19_442566",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v14/run_offset_s19_442566/final.pt",
+      "checkpoint_sha256": "a8eeca8b8c7dbdcaa59642d87f44cb0de888b49f2570a139835fc0429ead3c5e",
+      "parameter_sha256": "6f903052fdd7df3efe1e877057fb603a8f6d38f824801eb6fab1f3c93fadfcb4"
+    },
+    {
+      "condition": "centered",
+      "seed": 18,
+      "run_id": "run_centered_s18_442567",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v14/run_centered_s18_442567/final.pt",
+      "checkpoint_sha256": "a3151ba2780f1c0432b52ef7b0001b19c28e5ba2e2f92c73f2f3f7b5e81bd509",
+      "parameter_sha256": "4f8660474f80605a8483332a484ecd04fb99089b7ce1f8eba3fcc0f239c29eed"
+    },
+    {
+      "condition": "centered",
+      "seed": 19,
+      "run_id": "run_centered_s19_442569",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v14/run_centered_s19_442569/final.pt",
+      "checkpoint_sha256": "813526bf13fbf5fef819b9e2fc39ad26b2ed013210bb44568d4c34671cb495c3",
+      "parameter_sha256": "fb46d5b1b39cbeefb8307318b671bf9b162db07f648ab74f01327cc54c8f6ab8"
+    }
+  ],
+  "reported_decisions": {
+    "18": {
+      "n64_additional_correct": 25,
+      "n64_difference_pp": 18.38235294117647,
+      "n32_additional_correct": 78,
+      "n32_difference_pp": 57.35294117647059,
+      "n64_gain_at_least_5pp": true,
+      "n32_loss_at_most_5pp": true,
+      "primary": true,
+      "centered_n32_correct": 109,
+      "centered_n32_at_least_90pct": false,
+      "centered_n64_correct": 41,
+      "centered_n64_at_least_80pct": false,
+      "centered_larger_k_n64_correct": 21,
+      "centered_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    },
+    "19": {
+      "n64_additional_correct": 19,
+      "n64_difference_pp": 13.970588235294118,
+      "n32_additional_correct": 47,
+      "n32_difference_pp": 34.55882352941177,
+      "n64_gain_at_least_5pp": true,
+      "n32_loss_at_most_5pp": true,
+      "primary": true,
+      "centered_n32_correct": 97,
+      "centered_n32_at_least_90pct": false,
+      "centered_n64_correct": 43,
+      "centered_n64_at_least_80pct": false,
+      "centered_larger_k_n64_correct": 16,
+      "centered_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    }
+  },
+  "plot": {
+    "files": [
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/finalization/final_442626/native_vision_v14.png",
+        "sha256": "38dd96f5a6238bb2bd9553da3d136c30623cf240cdb8f671941bee4f906bac53",
+        "bytes": 328155
+      },
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v14/finalization/final_442626/native_vision_v14.pdf",
+        "sha256": "8ef5b235599327e61284735083651a25568a838bd1eb4ae6a366c8a0f50bad0d",
+        "bytes": 19160
+      }
+    ],
+    "matplotlib_version": "3.9.4",
+    "row_count": 32,
+    "no_new_estimation": true,
+    "labels": "Existing correct/n; All K is total and other three categories form its disjoint partition",
+    "intervals": "Use the unchanged independent report"
+  },
+  "post_evidence_audit": {
+    "native_head_replays": 46,
+    "selected_head_replays": 40,
+    "bare_native_head_replays": 6,
+    "cache_full_comparisons": 656,
+    "exact_selected_kv_checks": 24,
+    "selected_fusion_checks": 40,
+    "all_forward_artifacts_hash_verified": true
+  },
+  "plot_input_sha256": "d04f2fdcc3f656c62186fd78775f0b90877b3e51afe7d59875fe0829e37c94ba",
+  "cache_numerical_failures": [
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_centered_s18_442567",
+      "mode": "centered",
+      "seed": 18,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_centered_s19_442569",
+      "mode": "centered",
+      "seed": 19,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_offset_s18_442568",
+      "mode": "offset",
+      "seed": 18,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_offset_s19_442566",
+      "mode": "offset",
+      "seed": 19,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    }
+  ],
+  "native_replay_failures": [],
+  "allocated_gpu_seconds": 3197,
+  "allocated_gpu_hours": 0.8880555555555556,
+  "gpu_seconds_cap": 16200,
+  "retained_noncompleted_attempts": [
+    {
+      "JobIDRaw": "442526",
+      "JobID": "442525_0",
+      "JobName": "v14_train_profile",
+      "Partition": "gpu",
+      "State": "FAILED",
+      "ElapsedRaw": "45",
+      "AllocTRES": "billing=4,cpu=4,gres/gpu=1,mem=96G,node=1",
+      "ExitCode": "1:0",
+      "Submit": "2026-09-11T07:30:18",
+      "Start": "2026-09-11T07:30:19",
+      "End": "2026-09-11T07:31:04",
+      "state": "FAILED",
+      "allocated_gpus": 1,
+      "elapsed_seconds": 45,
+      "allocated_gpu_seconds": 45,
+      "seconds_cap": 300,
+      "per_job_cap_passed": true
+    },
+    {
+      "JobIDRaw": "442525",
+      "JobID": "442525_1",
+      "JobName": "v14_train_profile",
+      "Partition": "gpu",
+      "State": "FAILED",
+      "ElapsedRaw": "44",
+      "AllocTRES": "billing=4,cpu=4,gres/gpu=1,mem=96G,node=1",
+      "ExitCode": "1:0",
+      "Submit": "2026-09-11T07:30:18",
+      "Start": "2026-09-11T07:30:19",
+      "End": "2026-09-11T07:31:03",
+      "state": "FAILED",
+      "allocated_gpus": 1,
+      "elapsed_seconds": 44,
+      "allocated_gpu_seconds": 44,
+      "seconds_cap": 300,
+      "per_job_cap_passed": true
+    },
+    {
+      "JobIDRaw": "442583",
+      "JobID": "442583",
+      "JobName": "v14_selected",
+      "Partition": "gpu",
+      "State": "FAILED",
+      "ElapsedRaw": "3",
+      "AllocTRES": "billing=4,cpu=4,gres/gpu=1,mem=96G,node=1",
+      "ExitCode": "2:0",
+      "Submit": "2026-09-11T07:49:29",
+      "Start": "2026-09-11T08:00:03",
+      "End": "2026-09-11T08:00:06",
+      "state": "FAILED",
+      "allocated_gpus": 1,
+      "elapsed_seconds": 3,
+      "allocated_gpu_seconds": 3,
+      "seconds_cap": 300,
+      "per_job_cap_passed": true
+    }
+  ],
+  "scope": "Artifact finalization only; no new predictions, fits, metrics, intervals or selection",
+  "independent_report_interpretation": {
+    "treatment": "Cardinality scaling of the same empirical null mean during core fit, then frozen-core predictor distillation: r-N*b versus r-b",
+    "same_capacity_and_phase_budgets": true,
+    "no_runtime_reference_images": true,
+    "no_attention_operator_novelty_claim": true,
+    "no_unseen_answer_value_claim": true,
+    "does_not_establish_reasoning_composition": true,
+    "all_test_answer_values_supported_in_training": true,
+    "cache_precision_verification": "V13 failed CPU merge442411 and explicit precision dispatcher retained unchanged; no native tensor or head gate modified",
+    "core_reference_messages_and_query_fully_differentiable": true,
+    "student_only_updates_predictor": true,
+    "fixed_core_through_student": true,
+    "empirical_training_bank_not_population_null": true,
+    "no_claim_final_nonlinear_residual_is_additive": true,
+    "training_length_count_correlation": "K0..8 cross-length consistency; K9..15 same-length; K16 identical pair with zero regularizer and retained CE slots",
+    "primary_exact": "Complete stripped ASCII integer equals gold, no nonterminal special tokens, native EOS within four tokens; all failures remain in denominator",
+    "native_first_token_nll": "Descriptive only; no checkpoint selection and cannot distinguish10..16",
+    "raw_logit_storage": "FP32 archives verified exact lossless promotions of FP16 native logits",
+    "matched_control": "Same1060224 parameters,73440scene presentations,4590core updates,512000student group presentations and8000student updates",
+    "fixed_final_checkpoint": "Only core4590/student8000; one64-example descriptive development pass",
+    "bootstrap": "K-stratified intact-family intervals condition on these fitted seeds; pooling cannot rescue either seed",
+    "conversion": "All972groups/4266ordinary prefixes retained; training-bank calibration and residual differences do not establish native accuracy causation",
+    "path_penalty": "Diagnostic only, never optimized",
+    "local_visual_atoms_may_recur": true,
+    "loss_audit": "All logged causal-position/scene/pair/group arithmetic, exact frozen artifacts and source-bound graph routing; unsaved intermediate weights/predictions are not reconstructed"
+  }
+}

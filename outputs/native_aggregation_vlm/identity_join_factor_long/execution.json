@@ -1,0 +1,15 @@
+{
+  "status": "completed_both_cached_screens_passed",
+  "check_job": "443538",
+  "source_release_sha256": "e9996ea01702692be98274459d76ed57708b5ad1830c68cbd60966e7733bc5e5",
+  "plan_sha256": "3442ba95f15bcb833291f71d078832e7e95b7e0137e423696ff6ea535fd018e2",
+  "check_summary_sha256": "04dbab209e7aa29a6a2aa2d40a5511913b6a2f86698af4b1b8d8244e2c539e8b",
+  "run_jobs": {
+    "product": "443540",
+    "additive": "443541"
+  },
+  "report_job": "443543",
+  "allocated_gpu_seconds": 159,
+  "report_summary_sha256": "705fef511c80c11bfd54fa0ce2adda426462c395345f15ab7a676fc49a6f8a43",
+  "report_analysis_sha256": "c6f8db9921ab30d6200ef5fd362ee277d82c6ea8f9130ec807dfd0c333336b98"
+}

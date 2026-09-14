@@ -1,0 +1,52 @@
+{
+ "full": {
+  "acc": 0.59,
+  "recall": 0.985,
+  "n": 200,
+  "mass": 0.18701653293130663,
+  "keff_sent": 36.41906625486267,
+  "gap": 5.089796781539917,
+  "infl": 0.2150453593886984
+ },
+ "oracle": {
+  "acc": 0.635,
+  "recall": 0.985,
+  "n": 200,
+  "mass": 1.0,
+  "keff_sent": 1.6298426816306137,
+  "infl": 1.0
+ },
+ "attn": {
+  "acc": 0.575,
+  "recall": 0.985,
+  "n": 200,
+  "mass": 0.21600835981216224,
+  "keff_sent": 20.55963020034248,
+  "gap": 4.371802482508161,
+  "infl": 0.24181192127149476
+ },
+ "attn_norp": {
+  "acc": 0.59,
+  "recall": 0.985,
+  "n": 200,
+  "mass": 0.1916248164220056,
+  "keff_sent": 21.035804840513897,
+  "gap": 4.388567955965923,
+  "infl": 0.239747675151178
+ },
+ "_meta": {
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "task": "qa4",
+  "length": "8k",
+  "k": 64,
+  "sel_layer": 20,
+  "sel_rows": "tail",
+  "sel_chunk": 32768,
+  "sel_tournament": 64,
+  "sel_rounds": 1,
+  "yarn": 0.0,
+  "probe": true,
+  "probe_layer": 20,
+  "elapsed_s": 165.37199640274048
+ }
+}

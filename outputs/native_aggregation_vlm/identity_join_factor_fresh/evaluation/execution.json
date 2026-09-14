@@ -1,0 +1,18 @@
+{
+  "status": "completed_both_fresh_N16_screens_failed_stop_before_longer_lengths",
+  "check_job": "443598",
+  "source_release_sha256": "74b2901654d5628f8724cf76fabea78c88c51e56b50424ef3d0b6af57a8c7f19",
+  "native_report_job": "443592",
+  "render_job": "443595",
+  "plan_sha256": "761d5e01753e2f80e49f06bd2d1d63ccafff23d0931bcf70a6d8296af3c89793",
+  "check_summary_sha256": "60dd48c04bb58f29489249280a25f0828c1d001f336d61f387f10f4c9475a210",
+  "run_jobs": {
+    "product": "443605",
+    "additive": "443606"
+  },
+  "report_job": "443611",
+  "allocated_gpu_seconds": 680,
+  "report_summary_sha256": "c10913e34b67fd0623f87997f6193b8da20b37abe7e624d2c8ea4721c2b6f00d",
+  "analysis_sha256": "cb4c210cc1b3eb289c33d6b8c2419f1f752ab9bc76834acda05ca96b725baffe",
+  "longer_lengths_released": false
+}

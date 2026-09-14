@@ -1,0 +1,28 @@
+{
+  "status": "complete",
+  "data_jobs": [
+    440730,
+    440739
+  ],
+  "check_job": 440738,
+  "profile_array": 440741,
+  "profile_gpu_seconds": 192,
+  "gpu_hour_cap": 4,
+  "main_array": 440749,
+  "causal_data_job": 440753,
+  "report_job": 440758,
+  "recoverability_check_job": 440785,
+  "recoverability_harvest_job": 440791,
+  "recoverability_fit_job": 440792,
+  "channel_check_job": 440803,
+  "channel_probe_job": 440805,
+  "prefix_check_job": 440806,
+  "prefix_job": 440808,
+  "main_gpu_seconds": 6991,
+  "channel_gpu_seconds": 263,
+  "prefix_gpu_seconds": 158,
+  "recoverability_gpu_seconds": 695,
+  "total_gpu_seconds": 8299,
+  "total_gpu_hours": 2.305277777777778,
+  "marginal_audit_job": 440844
+}

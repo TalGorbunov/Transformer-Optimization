@@ -1,0 +1,34 @@
+[
+ {
+  "tag": "vision N=8",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.99,
+  "verdict_acc": 0.99875,
+  "min_margin_med": 10.853961944580078
+ },
+ {
+  "tag": "vision N=16",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.99,
+  "verdict_acc": 0.999375,
+  "min_margin_med": 9.709613800048828
+ },
+ {
+  "tag": "vision N=32",
+  "n": 100,
+  "skipped": 0,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 8.774106979370117
+ },
+ {
+  "tag": "vision N=64",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.99,
+  "verdict_acc": 0.99984375,
+  "min_margin_med": 6.592695236206055
+ }
+]

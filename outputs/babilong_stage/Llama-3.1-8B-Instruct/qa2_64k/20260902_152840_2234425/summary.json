@@ -1,0 +1,25 @@
+{
+ "attn": {
+  "acc": 0.5,
+  "recall": 0.744327808685524,
+  "n": 100
+ },
+ "_meta": {
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "task": "qa2",
+  "length": "64k",
+  "k": 64,
+  "sel_layer": 20,
+  "sel_rows": "tail",
+  "sel_chunk": 32768,
+  "sel_tournament": 64,
+  "sel_rounds": 1,
+  "yarn": 0.0,
+  "probe": false,
+  "probe_layer": 20,
+  "elapsed_s": 166.1569812297821
+ },
+ "_stages": [
+  0.8455374010056549
+ ]
+}

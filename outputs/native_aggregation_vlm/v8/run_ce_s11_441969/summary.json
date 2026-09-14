@@ -1,0 +1,303 @@
+{
+  "run_id": "run_ce_s11_441969",
+  "arm": "parallel",
+  "condition": "ce",
+  "seed": 11,
+  "profile": false,
+  "policy": {
+    "protocol": "v8_paired_residual_consistency",
+    "native_arm": "parallel",
+    "conditions": [
+      "ce",
+      "consistency"
+    ],
+    "seeds": [
+      10,
+      11
+    ],
+    "epochs": 40,
+    "pair_slots_per_epoch": 972,
+    "scene_slots_per_epoch": 1944,
+    "scene_presentations": 77760,
+    "pair_presentations": 38880,
+    "batch_size": 16,
+    "pairs_per_batch": 8,
+    "steps": 4860,
+    "dev_steps": [
+      972,
+      1944,
+      2916,
+      3888,
+      4860
+    ],
+    "lr": 0.001,
+    "warmup": 50,
+    "final_lr": 1e-05,
+    "weight_decay": 0.0,
+    "clip_norm": 1.0,
+    "rank": 96,
+    "hidden_size": 3584,
+    "parameters": 1041600,
+    "merge": "sum",
+    "post_activation": "silu",
+    "native_dtype": "torch.float16",
+    "branch_dtype": "torch.float32",
+    "consistency_coefficients": {
+      "ce": 0.0,
+      "consistency": 1.0
+    },
+    "consistency_epsilon": 1e-06,
+    "consistency_reduction": "mean_over_pairs_and_separate_count_EOS_positions_of_squared_L2_ratio",
+    "denominator": "detached_squared_L2_of_identical_frozen_global_state_plus_fixed_epsilon",
+    "pair_order": "persistent_random.Random(seed)_fresh_canonical_pair_permutation_each_epoch",
+    "target_positions": [
+      "count",
+      "EOS"
+    ],
+    "ce_reduction": "equal_mean_over_16_scenes_and_two_positions",
+    "max_new_tokens": 4,
+    "exact_requires_eos": true,
+    "selection": "max_dev_exact_then_min_raw_first_token_NLL_then_earliest",
+    "native_eos": [
+      151645,
+      151643
+    ],
+    "target_eos": 151645,
+    "profile_steps": 32
+  },
+  "consistency_coefficient": 0.0,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/train_check_441937/plan.json",
+  "plan_sha256": "142c04be2f5ceda64a930a51a6c650663200d4b422ebcff1141a6230bff7b065",
+  "source_sha256": {
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/native_vision_v8_pairs.py": "51b3c4c8ca993fb3b0c3680d8fad831b64f7d7f5d25d840e3f815343226b8f54",
+    "scripts/train_native_vision_v7.py": "2e5bb4792d85586d519464afdc615ca307ce42686f4adad5d271391bc88ee389",
+    "scripts/train_native_vision_v8.py": "0493db926ca2803edc42b97ad2ea0937e17172ca4082dd12478755a97b41dc00",
+    "slurm/native_vision_v8_train.sbatch": "cdee191b844edd3985139f74eeae76c3903cb32b328138509adeb824a92ee8c8",
+    "slurm/native_vision_v8_train_check.sbatch": "50a2954e5120522b21eeddd23aa95d728f7c2aa6f19bfe2b6c81d4166d586ee2",
+    "slurm/native_vision_v8_train_profile.sbatch": "fdfa4c74f3091f8956a2ecf201a6933d7cd750eb7e03031cf03462967cd5e4d0",
+    "tests/test_aggregation_consistency.py": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+    "tests/test_native_vision_v8_pairs.py": "86910c434413fad5cda7635c0d55b7455a694a81b94a91e75c828ef84c94faf1"
+  },
+  "cache_binding": {
+    "file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/feature_cache.json",
+    "sha256": "670c115ff872760082eb93a1020ddc7a2e0756b2b2ff3cc55f9a0512845f56a6"
+  },
+  "pairing_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/train_check_441937/pairing.json",
+  "pairing_sha256": "75abf418c651aae5d19fef7cb5a2707f9ee4b1cd6d7f9f1a990437c7ae76e65d",
+  "diagnostic_summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/response_surface/run_441927/summary.json",
+    "sha256": "3959b4d3df130f6f5654ad162b09df47cf07e615d5b09cf0fbb790f4e1bc6104",
+    "software_completion_passed": true,
+    "selection_on_diagnostic_predictions": false
+  },
+  "initialized": {
+    "local_bias": {
+      "shape": [
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+    },
+    "query.weight": {
+      "shape": [
+        96,
+        3584
+      ],
+      "dtype": "torch.float32",
+      "sha256": "8282dbe9a5892609cb2b266dab32b9a67f6839bc452dc012b24a30adbf972f20"
+    },
+    "local.weight": {
+      "shape": [
+        96,
+        3584
+      ],
+      "dtype": "torch.float32",
+      "sha256": "c80c2c3aa13179563d917ba1f2f5f0eb5d69957979a221eeaf6782b74563d2bf"
+    },
+    "aggregate_projection.weight": {
+      "shape": [
+        96,
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "194ca4fe3cccd429f0f1ecb91526a228b0598835b5e1cdbc120e340260cfd445"
+    },
+    "aggregate_projection.bias": {
+      "shape": [
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+    },
+    "up.weight": {
+      "shape": [
+        3584,
+        96
+      ],
+      "dtype": "torch.float32",
+      "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+    }
+  },
+  "initialized_sha256": "86d5293b8eebd776057949ac3d2f9747945766208da7b076cc5ff054241119c1",
+  "presentations_sha256": "c329bb336317defe32120c1459825b4c0d4c49ae5f8ebcf0d75562b41ade7a2d",
+  "order_sha256": "1517505a8294f51d59e0710d8ae38a5119d406bd772ddfcf0e1f24172085eabf",
+  "model": {
+    "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/cc594898137f460bfe9f0759e9844b3ce807cfb5",
+    "metadata_sha256": {
+      "README.md": "1fa65dbb08bc9ffe0b020409c8686f08b23008c5a68554353305fd2de6f2b81e",
+      "chat_template.json": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+      "config.json": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+      "generation_config.json": "0a3aea82869fe29f20dc95ccf3e2bcff380eca1f5ad6447a4a4b37110b08e43e",
+      "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "model.safetensors.index.json": "73b333b0b16e5286ddba615d2caebcd495cf7e616f52eb217a81781393d79de9",
+      "preprocessor_config.json": "f2058c716eef96ccaed1cc1e2d0c08306b62586d535b28d9d08e691b2fab7ca0",
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "4abd3520120e266da84c0864fee064d1fb10806f02225911a47253dd38dc5f56",
+      "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    "weight_shard_stat": {
+      "model-00001-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/e97b877e47fde53a6c6e77aafb36e58e91ee9d95c4a3eeac6f1b5c0e6a1c986e",
+        "bytes": 3900233256,
+        "mtime_ns": 1771407935695226945,
+        "inode": 16655068854630583141
+      },
+      "model-00002-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/a9a300a43b4724eee2abe7c18ceb26768d0ab011eb0cad19d9bfd2476a24d024",
+        "bytes": 3864726320,
+        "mtime_ns": 1771407935803226875,
+        "inode": 5832180937620888320
+      },
+      "model-00003-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/111223d173e00bbee81cba1216fad28668df3476706b7fd26f4d5b50f8b3a507",
+        "bytes": 3864726424,
+        "mtime_ns": 1771407935853602650,
+        "inode": 17666152406303428792
+      },
+      "model-00004-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/ef47f634fa57d46ee134edcc09f34085a47da1e16c12a2abe0d67118be6d72ed",
+        "bytes": 3864733680,
+        "mtime_ns": 1771407935446460362,
+        "inode": 11611589105788180313
+      },
+      "model-00005-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/0c859795ad3a627a9b95bcb762e059d5b768a4a36fdd4affeff269d93fdecc67",
+        "bytes": 1089994880,
+        "mtime_ns": 1771407929007218309,
+        "inode": 5125300042382599384
+      }
+    },
+    "weight_verification": "Resolved immutable shard path/inode/size/mtime; no full weight rehash"
+  },
+  "runtime": {
+    "torch_version": "2.8.0+cu128",
+    "transformers_version": "4.57.6",
+    "bitsandbytes_version": "0.48.2"
+  },
+  "processor": {
+    "transformers_version": "4.57.6",
+    "processor_class": "Qwen2_5_VLProcessor",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+    "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+    "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd"
+  },
+  "native_dtypes": {
+    "norm": "torch.float16",
+    "lm_head": "torch.float16"
+  },
+  "hardware": {
+    "name": "NVIDIA B200",
+    "cuda": "12.8",
+    "torch": "2.8.0+cu128"
+  },
+  "model_and_features_load_seconds": 19.05118869524449,
+  "checkpoint_directory": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969",
+  "data_directory": "/mnt/data/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969",
+  "main_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/main_release_441963/release.json",
+    "sha256": "9f5bf2dfc592c986e04b803e44e764fcd4b4e697953091bdc6fc389a286ec2f5"
+  },
+  "passed": true,
+  "completed": true,
+  "computational_integrity_passed": true,
+  "steps": 4860,
+  "selected": {
+    "step": 4860,
+    "exact_count": 72,
+    "nll": 0.00018792682223849825,
+    "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_4860.pt",
+    "checkpoint_sha256": "b9103174ee0e6594f040c44075c7a0d5630257269656b0d9a4c1af36d7406cf4",
+    "parameter_sha256": "b0180551b45b29c687f1cc1bfa9e2b13aa96cfff86eaf59a69fb6d32bb1872f6",
+    "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_4860.json",
+    "dev_sha256": "a8a2aa6dcd12fffb09cf4429afdfba11247ea52e06ad0e706dc28f900de7f183"
+  },
+  "development": [
+    {
+      "step": 972,
+      "exact_count": 68,
+      "nll": 0.1090693473815918,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_972.pt",
+      "checkpoint_sha256": "5cb06a1186a981381628b9631c1723a51710ec2484fc24cc2292c2d2d993df60",
+      "parameter_sha256": "d2ffa8ecbfba5ac7acfb1a20677633129ec77e268bd69e1fae62a8b0b11b77ac",
+      "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_972.json",
+      "dev_sha256": "00633dbbec498b162044b0078c972fe7d4fc20f72d7b4ac6dc5b9bd860dc9bee"
+    },
+    {
+      "step": 1944,
+      "exact_count": 72,
+      "nll": 0.0009778870476616754,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_1944.pt",
+      "checkpoint_sha256": "d2ed216d4b6934a8c18ef83f71165307b7228d3901c846f2295136e3e599d2b8",
+      "parameter_sha256": "1b6e2f08da2239ca2e6ae3af595c886e2fa5764e6810dcae7e1fecf7f1b24885",
+      "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_1944.json",
+      "dev_sha256": "50452745c208c1fa5969eaaa4e64e3cfe1100d7dc3f4278ff497605acd649a84"
+    },
+    {
+      "step": 2916,
+      "exact_count": 72,
+      "nll": 0.0001971456739637587,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_2916.pt",
+      "checkpoint_sha256": "f937f3c47e802a7a6724aaf1fbabd89e047d88969d7425b35f3e89afdfddffd0",
+      "parameter_sha256": "f0cbae3382cded76a855e3075508fe08af72539881d37f82fd26787b530f0bef",
+      "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_2916.json",
+      "dev_sha256": "8a0f271e55f010b0a2066a67a3e801a8a2e4a2fcfeff226d570f37e493c64dc7"
+    },
+    {
+      "step": 3888,
+      "exact_count": 72,
+      "nll": 0.00019894705878363716,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_3888.pt",
+      "checkpoint_sha256": "5115b0e2d8701b6a127ed1ebcff490485e52f878da827818a71aa8f37705c854",
+      "parameter_sha256": "a45b51c6b607bec659f494aa579159c0073d8cbf52df51948c0febfbde81d5ae",
+      "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_3888.json",
+      "dev_sha256": "b0a502093721a6545a162ca7154858e53f6a7efec7e4e675d2112decbf3c9ff5"
+    },
+    {
+      "step": 4860,
+      "exact_count": 72,
+      "nll": 0.00018792682223849825,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v8/run_ce_s11_441969/step_4860.pt",
+      "checkpoint_sha256": "b9103174ee0e6594f040c44075c7a0d5630257269656b0d9a4c1af36d7406cf4",
+      "parameter_sha256": "b0180551b45b29c687f1cc1bfa9e2b13aa96cfff86eaf59a69fb6d32bb1872f6",
+      "dev_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/dev_4860.json",
+      "dev_sha256": "a8a2aa6dcd12fffb09cf4429afdfba11247ea52e06ad0e706dc28f900de7f183"
+    }
+  ],
+  "native_test_count": 452,
+  "test_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/test.json",
+  "test_sha256": "7577b030cb50bbcb4731e75029aeadcbab6c59783e36cca6bcf8d9d1da6db043",
+  "training_seconds": 34.176847086288035,
+  "training_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/training.json",
+  "training_sha256": "97d2ba775c382e8311d3a3044695fa32d36c85221e0999aed4d18b584cf1aaab",
+  "first_gradients_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/run_ce_s11_441969/first_gradients.json",
+  "first_gradients_sha256": "72e6c5b56fd025f484bf8ac7969deb82b226cd4c40a40c115766484eb121ab0f",
+  "elapsed_seconds": 1112.3369923587888
+}

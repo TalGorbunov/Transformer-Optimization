@@ -1,0 +1,9 @@
+{
+  "status": "cpu_preparation_failed_native_position_owner_binding",
+  "check_job": "443567",
+  "source_release_sha256": "9a5ccccaa240355f0dc53ea1db445c3d4b828fbff814733d4ad4e3fff631cd3b",
+  "failure_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_native/check_443567/failure.json",
+  "failure_sha256": "742887a78d7d597fa96feb9cf5ab12d92f80e681de9562fe23ede8a37e024760",
+  "allocated_cpu_seconds": 14,
+  "allocated_gpu_seconds": 0
+}

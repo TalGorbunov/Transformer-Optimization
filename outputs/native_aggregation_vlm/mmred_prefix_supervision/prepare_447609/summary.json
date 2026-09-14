@@ -1,0 +1,11 @@
+{
+  "completed": true,
+  "elapsed_seconds": 19.461032811552286,
+  "no_training_release": true,
+  "passed": true,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision/prepare_447609/plan.json",
+  "plan_sha256": "8538f51580a95ec9183fe59faae6897cb43ec4945251255e372d5fd3fb2b2d00",
+  "protocol": "mmred_prefix_supervision_preparation",
+  "rows": 4000,
+  "total_prefixes": 24800
+}

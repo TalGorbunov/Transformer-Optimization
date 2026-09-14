@@ -1,0 +1,177 @@
+{
+  "status": "all_three_arms_stopped_at_resource_prefix_gate",
+  "timestamp_utc": "2026-09-12T04:59:49.049151+00:00",
+  "source_release_sha256": "1f047c45163c3dcdffc493c8216dfc0268ca6c0b8c618256b7e0dde1d43f5aa5",
+  "audit_source_release_sha256": "de6083c8d426a380c09c801f8eba9de99c3deaf27fc591373366e6c37aa741a7",
+  "combined_statistics_source_release_sha256": "20c35509a21682fb9b56060c75fa2d8174bb6a20e42814ef81d27e7ce17f083a",
+  "check_job": 444051,
+  "check_dependencies": [
+    444037,
+    444016,
+    444017,
+    444018
+  ],
+  "check_seconds": 600,
+  "gpu_seconds_cap_per_arm": 10800,
+  "cpu_audit_seconds_cap_per_arm": 7200,
+  "statistics_cpu_seconds_cap": 1800,
+  "worlds_per_arm": 1000,
+  "all_arms_unconditional_on_accuracy": true,
+  "objective_achieved": false,
+  "gpu_array": 444052,
+  "gpu_dependency": 444051,
+  "cpu_audits": [
+    444062,
+    444063,
+    444064
+  ],
+  "shared_features_passed": true,
+  "feature_job": 444037,
+  "feature_gpu_seconds": 781,
+  "feature_summary_sha256": "4df6ce2f8626c32165a12782dfb052fc8474178c0ec7d86834583c324e64d0ff",
+  "feature_plan_sha256": "f2698b5440c07dfe27460a84a530198ff69086b21aab4c2e2842a4c53a9f2d3a",
+  "combined_statistics_job": 444065,
+  "original_failure_preserved": true,
+  "original_evaluation_gpu_seconds": 98,
+  "arm_failures": {
+    "ordinary": {
+      "job_id": "444052_0",
+      "failed": true,
+      "reason": "Measured first three worlds hold remaining evaluation beyond10800s",
+      "gpu_seconds": 33,
+      "measured_seconds": 29.364637752994895,
+      "failure_sha256": "79eaa22366cce901ebf6ab9f0aa7f7ea1937c79fdbed3462c759061cb47129ca",
+      "prefix_projection": {
+        "N32_generation_measured": true,
+        "N32_initial_estimate": "2 * audited boundary N16 allowance",
+        "accuracy_not_used": true,
+        "cap_seconds": 10800,
+        "completed_indices": [
+          0,
+          400,
+          800
+        ],
+        "elapsed_at_prefix_gate": 29.355988642200828,
+        "empirical_estimate_not_guarantee": true,
+        "fifty_token_seconds_by_n": {
+          "16": 8.155514486134052,
+          "32": 16.311028972268105,
+          "8": 5.808070208877325
+        },
+        "initial_fifty_token_seconds_by_n": {
+          "16": 8.155514486134052,
+          "32": 16.311028972268105,
+          "8": 3.1806468148715794
+        },
+        "maximum_new_tokens": 50,
+        "passed": false,
+        "projected_seconds": 11111.062312130816,
+        "remaining_counts": {
+          "16": 399,
+          "32": 199,
+          "8": 399
+        },
+        "remaining_worlds": 997,
+        "setup_or_elapsed_seconds": 29.355988642200828
+      },
+      "retained_worlds": 3,
+      "model_calls": 22
+    },
+    "normalized": {
+      "job_id": "444052_1",
+      "failed": true,
+      "reason": "Measured first three worlds hold remaining evaluation beyond10800s",
+      "gpu_seconds": 32,
+      "measured_seconds": 28.891983275301754,
+      "failure_sha256": "cf34ddbfe8a3810822a746731764e9ff96bb2c41cee24d951d94d83f1c1a7aec",
+      "prefix_projection": {
+        "N32_generation_measured": true,
+        "N32_initial_estimate": "2 * audited boundary N16 allowance",
+        "accuracy_not_used": true,
+        "cap_seconds": 10800,
+        "completed_indices": [
+          0,
+          400,
+          800
+        ],
+        "elapsed_at_prefix_gate": 28.884130514226854,
+        "empirical_estimate_not_guarantee": true,
+        "fifty_token_seconds_by_n": {
+          "16": 7.958200573921204,
+          "32": 15.916401147842407,
+          "8": 5.948374839499593
+        },
+        "initial_fifty_token_seconds_by_n": {
+          "16": 7.958200573921204,
+          "32": 15.916401147842407,
+          "8": 2.7827702296365584
+        },
+        "maximum_new_tokens": 50,
+        "passed": false,
+        "projected_seconds": 10983.993403483648,
+        "remaining_counts": {
+          "16": 399,
+          "32": 199,
+          "8": 399
+        },
+        "remaining_worlds": 997,
+        "setup_or_elapsed_seconds": 28.884130514226854
+      },
+      "retained_worlds": 3,
+      "model_calls": 21
+    },
+    "mass": {
+      "job_id": "444052_2",
+      "failed": true,
+      "reason": "Measured first three worlds hold remaining evaluation beyond10800s",
+      "gpu_seconds": 33,
+      "measured_seconds": 28.536650435067713,
+      "failure_sha256": "d247fb13ebe442b83e835fd1ac11efec6adc757329b80191bb917ab84d1f53b3",
+      "prefix_projection": {
+        "N32_generation_measured": true,
+        "N32_initial_estimate": "2 * audited boundary N16 allowance",
+        "accuracy_not_used": true,
+        "cap_seconds": 10800,
+        "completed_indices": [
+          0,
+          400,
+          800
+        ],
+        "elapsed_at_prefix_gate": 28.527891758829355,
+        "empirical_estimate_not_guarantee": true,
+        "fifty_token_seconds_by_n": {
+          "16": 7.929626107215881,
+          "32": 15.859252214431763,
+          "8": 5.993788356759718
+        },
+        "initial_fifty_token_seconds_by_n": {
+          "16": 7.929626107215881,
+          "32": 15.859252214431763,
+          "8": 2.757305618641632
+        },
+        "maximum_new_tokens": 50,
+        "passed": false,
+        "projected_seconds": 10977.81984400656,
+        "remaining_counts": {
+          "16": 399,
+          "32": 199,
+          "8": 399
+        },
+        "remaining_worlds": 997,
+        "setup_or_elapsed_seconds": 28.527891758829355
+      },
+      "retained_worlds": 3,
+      "model_calls": 21
+    }
+  },
+  "check_passed": true,
+  "check_cpu_seconds": 38,
+  "check_plan_sha256": "b044c69a3a558a5369b093ee23b9cdbbde24923f019eecad19f14f7558b31cb2",
+  "cancelled_impossible_dependencies": [
+    444062,
+    444063,
+    444064,
+    444065
+  ],
+  "new_resource_only_continuation_in_preparation": true
+}

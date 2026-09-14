@@ -1,0 +1,57 @@
+{
+  "audit": "/mnt/data/gabriele/gnn_transformer/v3_binding_probe/audit.json",
+  "audit_sha256": "e66f64ded0ab0e041f207fb81c715232c0844a1a56d829c60b98d94028a9131a",
+  "cached_png_bytes": 4649838,
+  "elapsed_seconds": 10.199833769351244,
+  "generator_code_sha256": {
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "scripts/audit_native_vision_data.py": "aa04582e360997d39cbbf08f2757e4b71a4fc87815589aa40a03d62dc0d8c9b1",
+    "scripts/stage_native_vision_binding_probe.py": "06a28de87bfb3e4a969b7f375ae61d1b3141310a284880e195a10206cf999f39",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "slurm/native_aggregation_vision_binding_probe_stage.sbatch": "315d4ee38960a70ea8cd930de23a1d2bb166cde9cdd2092ff1379d7e73b8f671"
+  },
+  "generator_law": {
+    "changed_frames": 8,
+    "contingency_order": [
+      "matches",
+      "same_character_wrong_room",
+      "queried_room_other_character",
+      "neither"
+    ],
+    "distribution_status": "OOD diagnostic: fixed contingency counts and coupled low/high scenes",
+    "high_contingency_counts": [
+      6,
+      6,
+      6,
+      14
+    ],
+    "initial_order": "Uniform random shuffle of the 32 low-condition frames",
+    "intervention": "Choose four C-only and four R-only positions without replacement; pair uniformly and swap their rooms",
+    "invariant": "Every character identity at its original position, complete character histogram, complete room histogram, question and step labels",
+    "limitation": "Associations outside the queried conjunction also change; not every alternative shortcut is excluded",
+    "low_contingency_counts": [
+      2,
+      10,
+      10,
+      10
+    ],
+    "marginal_C": 12,
+    "marginal_R": 12,
+    "n_frames": 32,
+    "name": "fixed_marginal_conjunction_room_swaps",
+    "primary_interpretation": "Use both-members-correct and predicted count change versus gold change 4; a fixed marginal-only guess can score 50% example exact but zero both-pair exact",
+    "target": "Uniform over 9 characters x 6 rooms",
+    "unchanged_frames": 24,
+    "within_category_identities": "Uniform among valid characters and rooms"
+  },
+  "images": 1024,
+  "logical_png_bytes": 9177148,
+  "manifest": "/mnt/data/gabriele/gnn_transformer/v3_binding_probe/manifest.json",
+  "manifest_sha256": "276492ee34b2622a402e7ada0a06b4732451a4f963ae1f4441f3a20508303c93",
+  "pairs": 16,
+  "samples": 32,
+  "schema_version": 1,
+  "slurm_job_id": "440860",
+  "unique_renders": 519
+}

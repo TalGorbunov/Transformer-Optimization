@@ -1,0 +1,125 @@
+{
+  "passed": true,
+  "diagnostic_only": true,
+  "no_model_loaded": true,
+  "no_input_modified": true,
+  "source_sha256": {
+    "scripts/diagnose_native_vision_v13_null_merge.py": "ea4bc59291c86b37b1666c4d4396ab7bc09b5021a6812e5b7109ef0f11331c36",
+    "slurm/native_vision_v13_null_merge_diagnostic.sbatch": "f744dfd7cbf8a37fab741182949d0ab1ab77aa83422e20242b1cae0b1f3e48eb",
+    "scripts/cache_native_vision_v13_null_features.py": "756a2b213867327dab1808b0e991f92361244e9821abe3b98e3b0c659c927f75",
+    "slurm/native_vision_v13_null_cache_check.sbatch": "d5f9139851ca3ae8e4142cba34942d912bfb421e97c72ecfacb06c5ea8ae1847",
+    "slurm/native_vision_v13_null_feature_profile.sbatch": "bfd724a2f9a209c31a2aa3b954491972acdd06ad92bf24b7ff3aa8f3e4b719bc",
+    "slurm/native_vision_v13_null_feature_harvest.sbatch": "da1f3733a46d28f85fd329c06c2b31c10495b8514ba311b904c9cbe8e3408279",
+    "slurm/native_vision_v13_null_feature_merge.sbatch": "798716a1d8b816fd6aa4e26823d7f72bc56d1160f28977c872ce121023be642c",
+    "scripts/stage_native_vision_v13_null_features.py": "3c41fbca44e3c5b429dbd658a7131d4f03df7e120d31febeb31e8bd67b89df63",
+    "slurm/native_vision_v13_null_inventory.sbatch": "05c4a0db15eea9894a913b05510aee2343bbd586a34cc929edd6fca28da0defb",
+    "scripts/stage_native_vision_v10_features.py": "bb83e5d9124d47368b07ce4d902f32fc9ca03e5575defcd7230d68eeb3de758f",
+    "scripts/cache_native_vision_v10_features.py": "716f46f8e151975bab93f652e5645e02c5d887a54c003d82c16fcee35922c9f1",
+    "slurm/native_vision_v10_feature_stage.sbatch": "cd9c3275cf91479c431dcf92fc88e1b527852aae490d2b13f67508fe4c457b52",
+    "slurm/native_vision_v10_feature_profile.sbatch": "d41c7de5e5fcf97947b46186eb22fb4f6bd86d15bc22bcc97f0ffd873c552f3a",
+    "slurm/native_vision_v10_feature_harvest.sbatch": "302226c870b80f092c40f2267fbd10ce31b52749adeb5285fa2b6136c341b0cb",
+    "slurm/native_vision_v10_feature_merge.sbatch": "60b7fe021bc9672a81b9bf2b4b0c4149c4eeae5d11cfc5cf80a2376fab572d4d",
+    "scripts/stage_native_vision_v7_features.py": "ff50854d01967843f4b89c18fef9bd5c5e923f951f612365aff6ff3f7f2dfb30",
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/paired_sequence_objectives.py": "055674ea5bf7cc160fb82c61a1407aae06b8c3cdc9a46a25ef1f7c37dee70d97",
+    "tests/test_paired_sequence_objectives.py": "82d2e942e01f907b7f859c1ae071d0cfd9eea6c13107e148f1b4b91bd97c00da"
+  },
+  "profile_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/null_cache/profile_442394",
+  "profile_summary_sha256": "662314c1eb9b0f9f6e69da5ae7f142e3ac50e7fb90d2d91eb8708bfe38c38c5b",
+  "profile_plan_file": "/mnt/data/gabriele/gnn_transformer/v13_null_features/worker_stage_442388/plan.json",
+  "profile_plan_sha256": "3987c2001c0e168e7584377bfdc8a6dfd37c701823ce708e75a295e6d3010aa1",
+  "profile_raw_file": "/mnt/data/gabriele/gnn_transformer/v13_null_features/profile_442394/raw.pt",
+  "profile_raw_sha256": "2b7ef5e9073169c25d6b995c4e37c178de43a335f2658ae265a7d0a9c348d7b1",
+  "exact_state_and_metadata_checks_passed": true,
+  "unchanged_head_replay_checks": [
+    {
+      "batch": 0,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 1,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 2,
+      "passed": true,
+      "maximum_tv": 6.459272420568559e-10
+    },
+    {
+      "batch": 3,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 4,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 5,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 6,
+      "passed": true,
+      "maximum_tv": 0.0
+    },
+    {
+      "batch": 7,
+      "passed": true,
+      "maximum_tv": 0.0
+    }
+  ],
+  "comparisons": 392,
+  "old_cache_comparisons": 136,
+  "small_stress_comparisons": 256,
+  "nonidentical_descriptive_rows": 17,
+  "by_field": {
+    "rms": {
+      "nonidentical": 17,
+      "maximum_absolute_difference": 7.450580596923828e-09,
+      "maximum_relative_difference": 7.807984788796353e-08,
+      "all_within_rtol1e6_atol1e8": true
+    },
+    "l2": {
+      "nonidentical": 0,
+      "maximum_absolute_difference": 0.0,
+      "maximum_relative_difference": 0.0,
+      "all_within_rtol1e6_atol1e8": true
+    },
+    "relative_rms": {
+      "nonidentical": 17,
+      "maximum_absolute_difference": 9.116197380309998e-12,
+      "maximum_relative_difference": 1.149937322432049e-09,
+      "all_within_rtol1e6_atol1e8": true
+    }
+  },
+  "all_descriptive_scalars_within_candidate_precision": true,
+  "candidate_precision": {
+    "relative_tolerance": 1e-06,
+    "absolute_tolerance": 1e-08,
+    "fields": [
+      "rms",
+      "l2",
+      "relative_rms"
+    ],
+    "applied_to_worker": false
+  },
+  "CPU": "x86_64",
+  "machine": "x86_64",
+  "node": "slurm-turin-gp-135-017",
+  "torch_version": "2.8.0+cu128",
+  "threads": 4,
+  "comparison_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/null_merge_diagnostic/run_442416/comparisons.json",
+  "comparison_sha256": "99c13de54f1acffc5f05e4e2e5d52b7593aa80ab7c913f69f754a3ba1f3b5d56",
+  "seconds": 4.262518238276243,
+  "limitation": "Both original and replay hidden statistics run on CPU; host-specific reduction differences are investigated, not assumed. Native head/tensor gates are unchanged."
+}

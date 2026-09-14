@@ -1,0 +1,15 @@
+{
+  "status": "software_smoke_passed",
+  "reserved_gpu_hours": 0.1,
+  "allocated_gpu_seconds": 121,
+  "jobs": {
+    "selftest": 441990,
+    "input_check": 441991,
+    "profile": 441994
+  },
+  "plan": "check_441991/plan.json",
+  "updated_utc": "2026-09-11T02:13:07.472243+00:00",
+  "allocated_gpu_hours": 0.03361111111111111,
+  "canonical_summary": "profile_441994/summary.json",
+  "reasoning_composition_established": false
+}

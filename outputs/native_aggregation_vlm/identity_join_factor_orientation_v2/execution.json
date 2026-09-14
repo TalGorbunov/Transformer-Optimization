@@ -1,0 +1,21 @@
+{
+  "status": "CPU_training_stage_passed",
+  "stage_job": "443660",
+  "source_release_sha256": "bcfb7a993cfd61131c16e00500428870c7738595f1b4e0c86fd4f7336074974e",
+  "prior_failure_job": "443650",
+  "prior_cpu_seconds": 55,
+  "feature_harvest_released": false,
+  "fit_released": false,
+  "stage_summary_sha256": "ac2fba1ab16e49e0c879f3f11261ba4fd746cc39b2732a387ce60f081beb26d4",
+  "stage_plan_sha256": "159be56f60e4ec2614397d6915d0310dd26e15133cbbf51156287a650e8bfc32",
+  "feature_counts": {
+    "features": 2940,
+    "missing": 220,
+    "missing_by_phase": {
+      "local_empty": 2,
+      "local_prefix": 218
+    },
+    "reused": 2720
+  },
+  "stage_cpu_seconds": 37
+}

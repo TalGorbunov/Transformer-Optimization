@@ -1,0 +1,79 @@
+{
+  "status": "computational_audit_passed_all_training_screens_failed",
+  "check_job_id": "443728",
+  "order_stage_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_order/stage_443724/summary.json",
+  "order_stage_summary_sha256": "1f590b71110d1a2509963a52a90ca9f3fb588d938125dcfadac9efc538db96df",
+  "check_state": "COMPLETED",
+  "check_exit_code": "0:0",
+  "check_cpu_elapsed_seconds": 18,
+  "check_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_code/check_443728/summary.json",
+  "check_summary_sha256": "29383520c60cd661335857627259d9bbb2b7b875bfd41a425477735f2782f9c9",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_code/check_443728/plan.json",
+  "plan_sha256": "07ff5b435a0f1bda1791a05289ec7c07916f6bc7b186e9ddceaacbceedd0f62f",
+  "run_job_ids": {
+    "joint_code": "443735"
+  },
+  "shared_study_run_jobs": {
+    "joint_code": "443735",
+    "product": "443736",
+    "additive": "443737"
+  },
+  "shared_study_GPU_seconds_cap": 360,
+  "shared_study_maximum_GPUs": 3,
+  "report_job_id": "443742",
+  "runs": {
+    "joint_code": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_code/run_443735",
+      "summary_sha256": "43662cdcdb52663996d2ac00b33af1af6371ffdb0f127322f1af7618fa3607ec",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_elapsed_seconds": 64,
+      "provisional_GPU_first_token_fit": {
+        "passed": false,
+        "first_correct": 68,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 32,
+          "flipped": 36
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    }
+  },
+  "report_state": "COMPLETED",
+  "report_exit_code": "0:0",
+  "report_CPU_elapsed_seconds": 42,
+  "report_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_code/report_443742/summary.json",
+  "report_summary_sha256": "951130b304f5f21b7750d42ddad9b87289514a04fb26bf72acd2236b8d505ad0",
+  "report_analysis_sha256": "32391ac1e17084d915b209e28b0d448a4789f29f043423019a7b6b9dd5b8d502",
+  "all_native_and_fresh_held": true,
+  "first_token_fit": {
+    "joint_code": {
+      "passed": false,
+      "first_correct": 68,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 32,
+        "flipped": 36
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    }
+  },
+  "allocated_GPU_seconds": 64
+}

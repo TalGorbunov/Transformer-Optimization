@@ -1,0 +1,23 @@
+{
+ "attn": {
+  "acc": 0.37,
+  "recall": 0.7739256224525813,
+  "n": 100
+ },
+ "attn_norp": {
+  "acc": 0.33,
+  "recall": 0.7739256224525813,
+  "n": 100
+ },
+ "_meta": {
+  "model": "Qwen/Qwen2.5-3B-Instruct",
+  "task": "qa3",
+  "length": "64k",
+  "k": 64,
+  "sel_layer": 27,
+  "sel_rows": "tail",
+  "sel_chunk": 32768,
+  "yarn": 0.0,
+  "elapsed_s": 132.19624614715576
+ }
+}

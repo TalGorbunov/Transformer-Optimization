@@ -1,0 +1,3547 @@
+{
+  "all_plan_data_sources_checkpoint_checks_passed": true,
+  "elapsed_seconds": 461.191110142041,
+  "judgments": 768,
+  "limits": [
+    "Diagnostic-only, fixed 16 OOD binding pairs; models fixed in advance: frozen base and V2 hidden seed0, independent of V3 rankings.",
+    "Six selected original frame positions per scene, both low/high scenes and isolated/full presentations: 384 judgments per model, 768 total.",
+    "Isolated images retain original pixels and Step labels; the identical indexed question is used in both presentations. Context, image position, and indexing demands change.",
+    "Primary readout is the raw first-token logit(Yes)-logit(No); full-vocabulary binary mass and gold-token probability expose off-format readouts.",
+    "Generation is secondary: stripped, case-folded Yes/No only. Additional words or punctuation are unparsed and incorrect; all examples remain in accuracy denominators.",
+    "Intervals resample all judgments from each of 16 pairs together. They are descriptive conditional intervals, with no multiplicity or seed-population inference.",
+    "R-swapped and unchanged-positive labels are invariant, but their margins need not be invariant under changed images or surrounding context; those changes have no imposed direction.",
+    "The preceding fixed-marginal count probe showed positive count changes for every pair in every tested model. This diagnostic examines precision and context effects; it does not presume absent conjunction binding.",
+    "Success on selected frame questions does not prove conjunction information survives ordinary counting prompts or identify where aggregation fails.",
+    "This is not a trained frame classifier, external tally method, new aggregation architecture, or test of reasoning composition."
+  ],
+  "plan_sha256": "412c30d21e3c084f011e1403e54401c16fa72f11e1966154b17c5164eee10731",
+  "results": {
+    "frozen": {
+      "cells": {
+        "full/C_switch": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 49,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9994667515158653,
+                0.9996358984848485
+              ],
+              "mean": 0.9995506862178445,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.6249017237059888,
+                0.7487442156518227
+              ],
+              "mean": 0.685623230150668,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.65625,
+                0.875
+              ],
+              "mean": 0.765625,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                1.019775390625,
+                1.8430297851562498
+              ],
+              "mean": 1.4228515625,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/C_switch/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 23,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9993644203990698,
+                0.9995574756991118
+              ],
+              "mean": 0.9994593244045973,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.4577470372343669,
+                0.7601758740172955
+              ],
+              "mean": 0.6155597373144701,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.5,
+                0.90625
+              ],
+              "mean": 0.71875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -0.2598754882812499,
+                1.76611328125
+              ],
+              "mean": 0.76611328125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/C_switch/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 26,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.999536068784073,
+                0.9997439754195512
+              ],
+              "mean": 0.9996420480310917,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.6183911424595863,
+                0.8766886736266315
+              ],
+              "mean": 0.7556867229868658,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.625,
+                0.96875
+              ],
+              "mean": 0.8125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                0.9555419921875,
+                3.1426147460937495
+              ],
+              "mean": 2.07958984375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 47,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9993431337643415,
+                0.9996277077356354
+              ],
+              "mean": 0.9994918499141932,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.5553576256905217,
+                0.8057244241557783
+              ],
+              "mean": 0.6879214676446281,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.578125,
+                0.875
+              ],
+              "mean": 0.734375,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                0.239007568359375,
+                2.39014892578125
+              ],
+              "mean": 1.3291015625,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 64,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 22,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9992669043131173,
+                0.9995789865031839
+              ],
+              "mean": 0.9994271602481604,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.4893300962547073,
+                0.7573244480328867
+              ],
+              "mean": 0.6261616691481322,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.53125,
+                0.84375
+              ],
+              "mean": 0.6875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -0.3046875,
+                1.97607421875
+              ],
+              "mean": 0.8203125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 25,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9994024721439928,
+                0.9996937426738441
+              ],
+              "mean": 0.999556539580226,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.608412139955908,
+                0.8749619531910866
+              ],
+              "mean": 0.7496812661411241,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.59375,
+                0.96875
+              ],
+              "mean": 0.78125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                0.7156982421875001,
+                2.90186767578125
+              ],
+              "mean": 1.837890625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/all": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 132,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9993197216186672,
+                0.9995762901225438
+              ],
+              "mean": 0.9994512479752302,
+              "observations": 192,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.5925622192343629,
+                0.678192339857075
+              ],
+              "mean": 0.6362097712408286,
+              "observations": 192,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.6145833333333334,
+                0.7604166666666666
+              ],
+              "mean": 0.6875,
+              "observations": 192,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                0.7793701171875,
+                1.2315327962239582
+              ],
+              "mean": 1.0028483072916665,
+              "observations": 192,
+              "pairs": 16
+            }
+          },
+          "n": 192,
+          "no_gold": 96,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 96
+        },
+        "full/positive_unchanged": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 36,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.999095720006153,
+                0.9995038385037333
+              ],
+              "mean": 0.999311207793653,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.3822632110255654,
+                0.6809667255616659
+              ],
+              "mean": 0.5350846159271896,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.359375,
+                0.75
+              ],
+              "mean": 0.5625,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -0.9175048828125,
+                1.4101806640624996
+              ],
+              "mean": 0.256591796875,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 64
+        },
+        "full/positive_unchanged/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 21,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9990023007150739,
+                0.9994175642263144
+              ],
+              "mean": 0.999218575656414,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.47110064102016624,
+                0.7764337806409458
+              ],
+              "mean": 0.6298857386573218,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.4375,
+                0.84375
+              ],
+              "mean": 0.65625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -0.20662841796874992,
+                2.1567749023437495
+              ],
+              "mean": 0.9912109375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/positive_unchanged/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 15,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9991764262784273,
+                0.9996030103415251
+              ],
+              "mean": 0.999403839930892,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.28022491344745504,
+                0.6017959799355594
+              ],
+              "mean": 0.4402834931970574,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.25,
+                0.6875
+              ],
+              "mean": 0.46875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -1.729541015625,
+                0.7539184570312498
+              ],
+              "mean": -0.47802734375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999906457960606,
+                0.999992735683918
+              ],
+              "mean": 0.9999917130917311,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9983025616267696,
+                0.9992211199132726
+              ],
+              "mean": 0.998811955563724,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                8.978265380859375,
+                9.845220947265625
+              ],
+              "mean": 9.421630859375,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999835248105228,
+                0.9999868740327656
+              ],
+              "mean": 0.9999852180480957,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9966898119077087,
+                0.9985347238834947
+              ],
+              "mean": 0.9977209679782391,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.0185302734375,
+                6.68310546875
+              ],
+              "mean": 6.3662109375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999971240758896,
+                0.9999990649521351
+              ],
+              "mean": 0.9999982081353664,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9997911774087698,
+                0.9999783268198371
+              ],
+              "mean": 0.999902943149209,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                11.77730712890625,
+                13.150915527343749
+              ],
+              "mean": 12.47705078125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999830718850717,
+                0.9999915362335742
+              ],
+              "mean": 0.9999880120158195,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9983153706649318,
+                0.9992880613310262
+              ],
+              "mean": 0.9988581398501992,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.731439208984375,
+                8.439697265625
+              ],
+              "mean": 8.09814453125,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 64,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999909009318799,
+                0.9999974258244038
+              ],
+              "mean": 0.9999949876219034,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9994671960826963,
+                0.9999215510673821
+              ],
+              "mean": 0.9997556675225496,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                9.15233154296875,
+                10.03858642578125
+              ],
+              "mean": 9.60791015625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999748016241938,
+                0.9999859016388655
+              ],
+              "mean": 0.9999810364097357,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9971074470784516,
+                0.9986777093261481
+              ],
+              "mean": 0.9979606121778488,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.23046875,
+                6.94483642578125
+              ],
+              "mean": 6.58837890625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/all": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 192,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999864016969998,
+                0.9999899383013446
+              ],
+              "mean": 0.9999883255610863,
+              "observations": 192,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9979756245622412,
+                0.9989034511847421
+              ],
+              "mean": 0.9984701996048292,
+              "observations": 192,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.653969319661458,
+                8.265391031901041
+              ],
+              "mean": 7.964274088541666,
+              "observations": 192,
+              "pairs": 16
+            }
+          },
+          "n": 192,
+          "no_gold": 96,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 96
+        },
+        "isolated/positive_unchanged": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999834429472685,
+                0.999987006187439
+              ],
+              "mean": 0.9999852515757084,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9968049753457308,
+                0.998536185361445
+              ],
+              "mean": 0.9977405034005642,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.01463623046875,
+                6.7138671875
+              ],
+              "mean": 6.373046875,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 64
+        },
+        "isolated/positive_unchanged/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999834429472685,
+                0.999987006187439
+              ],
+              "mean": 0.9999852515757084,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9968049753457308,
+                0.998536185361445
+              ],
+              "mean": 0.9977405034005642,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.01463623046875,
+                6.7138671875
+              ],
+              "mean": 6.373046875,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/positive_unchanged/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999834429472685,
+                0.999987006187439
+              ],
+              "mean": 0.9999852515757084,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9968049753457308,
+                0.998536185361445
+              ],
+              "mean": 0.9977405034005642,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.01463623046875,
+                6.7138671875
+              ],
+              "mean": 6.373046875,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        }
+      },
+      "full_minus_isolated": {
+        "C_switch": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.000524749280884862,
+              -0.00035593849606812
+            ],
+            "mean": -0.00044102687388658524,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.3737344794775709,
+              -0.2502495999411622
+            ],
+            "mean": -0.3131887254130561,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.34375,
+              -0.125
+            ],
+            "mean": -0.234375,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -8.624285888671874,
+              -7.379132080078126
+            ],
+            "mean": -7.998779296875,
+            "observations": 64,
+            "pairs": 16
+          }
+        },
+        "R_swapped": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0006419958313927055,
+              -0.0003620421048253775
+            ],
+            "mean": -0.0004961621016263962,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.44299401325552024,
+              -0.19349533206113853
+            ],
+            "mean": -0.3109366722055711,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.421875,
+              -0.125
+            ],
+            "mean": -0.265625,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -7.730731201171875,
+              -5.7985595703125
+            ],
+            "mean": -6.76904296875,
+            "observations": 64,
+            "pairs": 16
+          }
+        },
+        "all": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0006679950592418511,
+              -0.00041200811198602115
+            ],
+            "mean": -0.0005370775858561199,
+            "observations": 192,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 192,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.4059043351631165,
+              -0.32017914622617055
+            ],
+            "mean": -0.36226042836400063,
+            "observations": 192,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.38541666666666663,
+              -0.23958333333333331
+            ],
+            "mean": -0.3125,
+            "observations": 192,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -7.354494222005209,
+              -6.554606119791667
+            ],
+            "mean": -6.96142578125,
+            "observations": 192,
+            "pairs": 16
+          }
+        },
+        "positive_unchanged": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0008896211627870798,
+              -0.0004810028476640582
+            ],
+            "mean": -0.000674043782055378,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.6153279448379181,
+              -0.3170337594994635
+            ],
+            "mean": -0.4626558874733746,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.640625,
+              -0.25
+            ],
+            "mean": -0.4375,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -7.24073486328125,
+              -5.061273193359375
+            ],
+            "mean": -6.116455078125,
+            "observations": 64,
+            "pairs": 16
+          }
+        }
+      },
+      "high_minus_low": {
+        "full/C_switch": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                2.0522216796875,
+                3.6880371093749993
+              ],
+              "mean": 2.8525390625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.3125,
+                0.75
+              ],
+              "mean": 0.53125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.25,
+                0.6875
+              ],
+              "mean": 0.46875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.90625,
+                1.0
+              ],
+              "mean": 0.96875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                2.03955078125,
+                3.6860595703124996
+              ],
+              "mean": 2.845703125,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "full/R_swapped": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192No",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.91600341796875,
+                1.8271484375
+              ],
+              "mean": 1.359375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.4375,
+                0.8125
+              ],
+              "mean": 0.625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.65625,
+                0.90625
+              ],
+              "mean": 0.78125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.5625,
+                0.90625
+              ],
+              "mean": 0.75,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.42088623046875,
+                1.6347778320312498
+              ],
+              "mean": 1.017578125,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "full/positive_unchanged": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "Yes\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.1059326171875,
+                2.162109375
+              ],
+              "mean": 1.60595703125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.21875,
+                0.65625
+              ],
+              "mean": 0.4375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.59375,
+                0.90625
+              ],
+              "mean": 0.75,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.84375,
+                1.0
+              ],
+              "mean": 0.9375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.87694091796875,
+                2.1045166015624996
+              ],
+              "mean": 1.46923828125,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/C_switch": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                17.95653076171875,
+                19.69044189453125
+              ],
+              "mean": 18.84326171875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                17.95653076171875,
+                19.69044189453125
+              ],
+              "mean": 18.84326171875,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/R_swapped": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192No",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                2.6147216796875,
+                3.3896484375
+              ],
+              "mean": 3.01953125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                -3.3896484375,
+                -2.6147216796875004
+              ],
+              "mean": -3.01953125,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/positive_unchanged": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "Yes\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        }
+      },
+      "provenance": {
+        "checkpoint": null,
+        "checkpoint_sha256": null,
+        "elapsed_seconds": 203.68965614796616,
+        "judgments": 384,
+        "model": "frozen",
+        "peak_cuda_allocated_bytes": 7747169280,
+        "peak_cuda_reserved_bytes": 7931428864,
+        "plan_sha256": "412c30d21e3c084f011e1403e54401c16fa72f11e1966154b17c5164eee10731",
+        "processor_fingerprint": {
+          "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+          "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd",
+          "processor_class": "Qwen2_5_VLProcessor",
+          "tokenizer_class": "Qwen2Tokenizer",
+          "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+          "transformers_version": "4.57.6"
+        },
+        "source_sha256": {
+          "gnnformer/aggregation_controls.py": "5298b0163b5f42176b092eb6718acdc453fdfa1019f19da44c5de500fc1fd0a2",
+          "gnnformer/carriers.py": "f5c362b78ce07c88ead78863c203c76fa2bc83e79d419c3b9167a639ac5375d9",
+          "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+          "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+          "gnnformer/fencing.py": "09253edafc0ff76ab4b648393e191a3034a7fb710caa61c8edb31fd7efbe1e79",
+          "gnnformer/native_aggregation.py": "a73567dea57ba2394966e6f8c5ae6e937fd56d0781890bb1c094d2e80af49e03",
+          "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+          "scripts/native_aggregation.py": "bbb60e39f188101808f233ae8c7771d61bb5088a093b90ac9bf3daf090e3862c",
+          "scripts/native_aggregation_vlm_v2.py": "77cf2e2254379a288e060ec94a2f97254405b3c41b04e405ec3d123cb155b947",
+          "scripts/probe_native_vision_binding.py": "bef915c89fb0e10851cfd7637a153d190af41e743b8400ca5d482a1368c39b8e",
+          "scripts/probe_native_vision_frame_judgments.py": "67b6748dc7110966dcb03e4d877f0611e0d3ec847cafe530261202261020cfd1",
+          "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+          "slurm/native_vision_frame_judgments.sbatch": "8f980d89278771b175904099f02cefae9f34fac3dde02a28c7e4ddb6d01a74ce",
+          "slurm/native_vision_frame_judgments_check.sbatch": "c4febe4c8e7734c87b8d8a9de3917b6524a44b77d98cba2e78d4c762ff0b245a"
+        },
+        "training": false
+      }
+    },
+    "v2_hidden_seed0": {
+      "cells": {
+        "full/C_switch": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 61,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9996768091572449,
+                0.9998403862584382
+              ],
+              "mean": 0.9997668480500579,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.888720737490803,
+                0.9541959416354076
+              ],
+              "mean": 0.9231624309904873,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.90625,
+                1.0
+              ],
+              "mean": 0.953125,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                3.875238037109375,
+                4.86329345703125
+              ],
+              "mean": 4.37646484375,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/C_switch/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9995002077892423,
+                0.999756174441427
+              ],
+              "mean": 0.9996420666575432,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9202482047025115,
+                0.9793662552721798
+              ],
+              "mean": 0.9518233016133308,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                3.486328125,
+                5.0434814453125
+              ],
+              "mean": 4.27197265625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/C_switch/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 29,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9998434511013329,
+                0.9999340030364692
+              ],
+              "mean": 0.9998916294425726,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.8161838825326413,
+                0.9619650809094309
+              ],
+              "mean": 0.8945015603676438,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.8125,
+                1.0
+              ],
+              "mean": 0.90625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                3.3149169921875,
+                5.6274658203125
+              ],
+              "mean": 4.48095703125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 49,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9996313581708819,
+                0.9998371299589053
+              ],
+              "mean": 0.9997446537017822,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.6209875940374332,
+                0.8450751178925202
+              ],
+              "mean": 0.7366128989924619,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.625,
+                0.890625
+              ],
+              "mean": 0.765625,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                0.965771484375,
+                3.0925720214843744
+              ],
+              "mean": 2.0478515625,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 64,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 22,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.999529117392376,
+                0.9997734324075281
+              ],
+              "mean": 0.9996600802987814,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.5029859203874366,
+                0.7785718940700462
+              ],
+              "mean": 0.6436127770357416,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.5,
+                0.84375
+              ],
+              "mean": 0.6875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -0.29346923828125,
+                1.94873046875
+              ],
+              "mean": 0.84033203125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/R_swapped/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 27,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9997288840357215,
+                0.9999049292411655
+              ],
+              "mean": 0.9998292271047831,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.6949659689027612,
+                0.9332079996820539
+              ],
+              "mean": 0.8296130209491821,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.6875,
+                0.96875
+              ],
+              "mean": 0.84375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                1.91357421875,
+                4.46046142578125
+              ],
+              "mean": 3.25537109375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "full/all": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 156,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9996393111767247,
+                0.9998075622289132
+              ],
+              "mean": 0.999726731951038,
+              "observations": 192,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.7504651322668603,
+                0.8204204245093629
+              ],
+              "mean": 0.7846461450135394,
+              "observations": 192,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.765625,
+                0.859375
+              ],
+              "mean": 0.8125,
+              "observations": 192,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                2.453857421875,
+                3.129488118489583
+              ],
+              "mean": 2.791015625,
+              "observations": 192,
+              "pairs": 16
+            }
+          },
+          "n": 192,
+          "no_gold": 96,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 96
+        },
+        "full/positive_unchanged": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 46,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9995656599523499,
+                0.9997683173744008
+              ],
+              "mean": 0.999668694101274,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.5989878951928403,
+                0.785949575464474
+              ],
+              "mean": 0.6941631050576689,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.625,
+                0.8125
+              ],
+              "mean": 0.71875,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                1.041217041015625,
+                2.849676513671874
+              ],
+              "mean": 1.94873046875,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 64
+        },
+        "full/positive_unchanged/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9994247958995401,
+                0.9997113455552608
+              ],
+              "mean": 0.9995749723166227,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.8741780549287796,
+                0.9714911667164415
+              ],
+              "mean": 0.9262071494013071,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                3.09764404296875,
+                4.87158203125
+              ],
+              "mean": 3.9990234375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "full/positive_unchanged/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 14,
+          "margin_ties": 1,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.99969341782853,
+                0.9998324124142528
+              ],
+              "mean": 0.9997624158859253,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.31118551261606625,
+                0.6144922232328099
+              ],
+              "mean": 0.46211906071403064,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.25,
+                0.625
+              ],
+              "mean": 0.4375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                -1.20411376953125,
+                1.0293212890624996
+              ],
+              "mean": -0.1015625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999986001988873,
+                0.9999989913776517
+              ],
+              "mean": 0.9999988004565239,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9993809953797609,
+                0.9997633000370115
+              ],
+              "mean": 0.9995925314724445,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                10.97265625,
+                11.72265625
+              ],
+              "mean": 11.3583984375,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999974779319019,
+                0.9999981560278683
+              ],
+              "mean": 0.9999978188425303,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9987633717712014,
+                0.9995286509860307
+              ],
+              "mean": 0.9991877544671297,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.07713623046875,
+                7.8545288085937495
+              ],
+              "mean": 7.48095703125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/C_switch/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999996684491634,
+                0.9999998603016138
+              ],
+              "mean": 0.9999997820705175,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9999937786720693,
+                0.9999994486570358
+              ],
+              "mean": 0.9999973084777594,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                14.67332763671875,
+                15.74659423828125
+              ],
+              "mean": 15.23583984375,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999957364052534,
+                0.9999982556561008
+              ],
+              "mean": 0.9999972255900502,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9990169352153316,
+                0.9996800793334841
+              ],
+              "mean": 0.999400045722723,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                9.544671630859375,
+                10.321295166015625
+              ],
+              "mean": 9.946044921875,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 64,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.999998576939106,
+                0.9999997541308403
+              ],
+              "mean": 0.9999993368983269,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9999494571238756,
+                0.9999951720703393
+              ],
+              "mean": 0.9999791774898767,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                12.02635498046875,
+                12.8857421875
+              ],
+              "mean": 12.4638671875,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/R_swapped/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999928884208202,
+                0.9999967981129885
+              ],
+              "mean": 0.9999951142817736,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9980853792279959,
+                0.9993658028542995
+              ],
+              "mean": 0.9988209139555693,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                6.95701904296875,
+                7.916015625
+              ],
+              "mean": 7.42822265625,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 32,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 0
+        },
+        "isolated/all": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 192,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999973954011996,
+                0.9999983285941804
+              ],
+              "mean": 0.9999979141478736,
+              "observations": 192,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.9991470770910382,
+                0.9995934414599712
+              ],
+              "mean": 0.9993827100843191,
+              "observations": 192,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 192,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                9.287351481119792,
+                9.90673828125
+              ],
+              "mean": 9.596435546875,
+              "observations": 192,
+              "pairs": 16
+            }
+          },
+          "n": 192,
+          "no_gold": 96,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 96
+        },
+        "isolated/positive_unchanged": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 64,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999972581863403,
+                0.999998128041625
+              ],
+              "mean": 0.999997716397047,
+              "observations": 64,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.998703402467072,
+                0.9995250575710088
+              ],
+              "mean": 0.9991555530577898,
+              "observations": 64,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 64,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.04637451171875,
+                7.88818359375
+              ],
+              "mean": 7.48486328125,
+              "observations": 64,
+              "pairs": 16
+            }
+          },
+          "n": 64,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 64
+        },
+        "isolated/positive_unchanged/high": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999972581863403,
+                0.999998128041625
+              ],
+              "mean": 0.999997716397047,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.998703402467072,
+                0.9995250575710088
+              ],
+              "mean": 0.9991555530577898,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.04637451171875,
+                7.88818359375
+              ],
+              "mean": 7.48486328125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        },
+        "isolated/positive_unchanged/low": {
+          "generated_correct": 0,
+          "generated_exact_given_parsed": null,
+          "margin_correct": 32,
+          "margin_ties": 0,
+          "metrics": {
+            "binary_probability_mass": {
+              "descriptive_pair_bootstrap95": [
+                0.9999972581863403,
+                0.999998128041625
+              ],
+              "mean": 0.999997716397047,
+              "observations": 32,
+              "pairs": 16
+            },
+            "exact": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "gold_token_probability": {
+              "descriptive_pair_bootstrap95": [
+                0.998703402467072,
+                0.9995250575710088
+              ],
+              "mean": 0.9991555530577898,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "signed_correct_margin": {
+              "descriptive_pair_bootstrap95": [
+                7.04637451171875,
+                7.88818359375
+              ],
+              "mean": 7.48486328125,
+              "observations": 32,
+              "pairs": 16
+            }
+          },
+          "n": 32,
+          "no_gold": 0,
+          "parse_rate": 0.0,
+          "parsed": 0,
+          "yes_gold": 32
+        }
+      },
+      "full_minus_isolated": {
+        "C_switch": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0003221176564693451,
+              -0.0001582664204761386
+            ],
+            "mean": -0.00023195240646600723,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.11078582643531262,
+              -0.04545315427239987
+            ],
+            "mean": -0.0764301004819572,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.09375,
+              0.0
+            ],
+            "mean": -0.046875,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -7.58472900390625,
+              -6.34739990234375
+            ],
+            "mean": -6.98193359375,
+            "observations": 64,
+            "pairs": 16
+          }
+        },
+        "R_swapped": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0003657539375126362,
+              -0.00016024496871978045
+            ],
+            "mean": -0.0002525718882679939,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.3782672393559551,
+              -0.15452711372663547
+            ],
+            "mean": -0.26278714673026116,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.375,
+              -0.109375
+            ],
+            "mean": -0.234375,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -8.95538330078125,
+              -6.88304443359375
+            ],
+            "mean": -7.898193359375,
+            "observations": 64,
+            "pairs": 16
+          }
+        },
+        "all": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0003587125334888697,
+              -0.00019024683473010858
+            ],
+            "mean": -0.00027118219683567685,
+            "observations": 192,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 192,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.248997506129399,
+              -0.17887606826892202
+            ],
+            "mean": -0.21473656507077976,
+            "observations": 192,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.23437499999999997,
+              -0.140625
+            ],
+            "mean": -0.1875,
+            "observations": 192,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -7.2864624023437505,
+              -6.317447916666667
+            ],
+            "mean": -6.805419921875,
+            "observations": 192,
+            "pairs": 16
+          }
+        },
+        "positive_unchanged": {
+          "binary_probability_mass": {
+            "descriptive_pair_bootstrap95": [
+              -0.0004321353742852807,
+              -0.00022927627433091402
+            ],
+            "mean": -0.00032902229577302933,
+            "observations": 64,
+            "pairs": 16
+          },
+          "exact": {
+            "descriptive_pair_bootstrap95": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "observations": 64,
+            "pairs": 16
+          },
+          "gold_token_probability": {
+            "descriptive_pair_bootstrap95": [
+              -0.40045788631214235,
+              -0.21310644867298836
+            ],
+            "mean": -0.30499244800012093,
+            "observations": 64,
+            "pairs": 16
+          },
+          "margin_correct": {
+            "descriptive_pair_bootstrap95": [
+              -0.375,
+              -0.1875
+            ],
+            "mean": -0.28125,
+            "observations": 64,
+            "pairs": 16
+          },
+          "signed_correct_margin": {
+            "descriptive_pair_bootstrap95": [
+              -6.508056640625,
+              -4.601312255859375
+            ],
+            "mean": -5.5361328125,
+            "observations": 64,
+            "pairs": 16
+          }
+        }
+      },
+      "high_minus_low": {
+        "full/C_switch": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                7.75047607421875,
+                9.7265869140625
+              ],
+              "mean": 8.7529296875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.8125,
+                1.0
+              ],
+              "mean": 0.90625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.1875
+              ],
+              "mean": 0.09375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                7.75047607421875,
+                9.7265869140625
+              ],
+              "mean": 8.7529296875,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "full/R_swapped": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192No",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                2.02440185546875,
+                3.67384033203125
+              ],
+              "mean": 2.8173828125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.46875,
+                0.84375
+              ],
+              "mean": 0.65625,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.625,
+                0.90625
+              ],
+              "mean": 0.78125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.625,
+                0.96875
+              ],
+              "mean": 0.8125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.3236450195312501,
+                3.4585327148437495
+              ],
+              "mean": 2.4150390625,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "full/positive_unchanged": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "Yes\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                3.24267578125,
+                4.998583984374999
+              ],
+              "mean": 4.1005859375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.25,
+                0.625
+              ],
+              "mean": 0.4375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.25,
+                0.625
+              ],
+              "mean": 0.4375,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                3.24267578125,
+                4.998583984374999
+              ],
+              "mean": 4.1005859375,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/C_switch": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                21.9453125,
+                23.4453125
+              ],
+              "mean": 22.716796875,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                21.9453125,
+                23.4453125
+              ],
+              "mean": 22.716796875,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/R_swapped": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "No\u2192No",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                4.55223388671875,
+                5.49267578125
+              ],
+              "mean": 5.03564453125,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                -5.49267578125,
+                -4.55223388671875
+              ],
+              "mean": -5.03564453125,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        },
+        "isolated/positive_unchanged": {
+          "complete_generated_pairs": 0,
+          "expected_label_change": "Yes\u2192Yes",
+          "frame_pairs": 32,
+          "generated_stable_given_both_parsed": null,
+          "metrics": {
+            "absolute_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_generated_correct": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "both_margin_correct": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "margin_decision_stable": {
+              "descriptive_pair_bootstrap95": [
+                1.0,
+                1.0
+              ],
+              "mean": 1.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "positive_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            },
+            "raw_margin_delta": {
+              "descriptive_pair_bootstrap95": [
+                0.0,
+                0.0
+              ],
+              "mean": 0.0,
+              "observations": 32,
+              "pairs": 16
+            }
+          }
+        }
+      },
+      "provenance": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v2/hidden_seed0_20260910_162153_440751_1369863/best.pt",
+        "checkpoint_sha256": "c70af81f9c2c244f5a7daf64e8f23ce6535a1f40dbc48a43d41de1b8ab316c42",
+        "elapsed_seconds": 208.30014253407717,
+        "judgments": 384,
+        "model": "v2_hidden_seed0",
+        "peak_cuda_allocated_bytes": 7747169280,
+        "peak_cuda_reserved_bytes": 7933526016,
+        "plan_sha256": "412c30d21e3c084f011e1403e54401c16fa72f11e1966154b17c5164eee10731",
+        "processor_fingerprint": {
+          "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+          "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd",
+          "processor_class": "Qwen2_5_VLProcessor",
+          "tokenizer_class": "Qwen2Tokenizer",
+          "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+          "transformers_version": "4.57.6"
+        },
+        "source_sha256": {
+          "gnnformer/aggregation_controls.py": "5298b0163b5f42176b092eb6718acdc453fdfa1019f19da44c5de500fc1fd0a2",
+          "gnnformer/carriers.py": "f5c362b78ce07c88ead78863c203c76fa2bc83e79d419c3b9167a639ac5375d9",
+          "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+          "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+          "gnnformer/fencing.py": "09253edafc0ff76ab4b648393e191a3034a7fb710caa61c8edb31fd7efbe1e79",
+          "gnnformer/native_aggregation.py": "a73567dea57ba2394966e6f8c5ae6e937fd56d0781890bb1c094d2e80af49e03",
+          "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+          "scripts/native_aggregation.py": "bbb60e39f188101808f233ae8c7771d61bb5088a093b90ac9bf3daf090e3862c",
+          "scripts/native_aggregation_vlm_v2.py": "77cf2e2254379a288e060ec94a2f97254405b3c41b04e405ec3d123cb155b947",
+          "scripts/probe_native_vision_binding.py": "bef915c89fb0e10851cfd7637a153d190af41e743b8400ca5d482a1368c39b8e",
+          "scripts/probe_native_vision_frame_judgments.py": "67b6748dc7110966dcb03e4d877f0611e0d3ec847cafe530261202261020cfd1",
+          "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+          "slurm/native_vision_frame_judgments.sbatch": "8f980d89278771b175904099f02cefae9f34fac3dde02a28c7e4ddb6d01a74ce",
+          "slurm/native_vision_frame_judgments_check.sbatch": "c4febe4c8e7734c87b8d8a9de3917b6524a44b77d98cba2e78d4c762ff0b245a"
+        },
+        "training": false
+      }
+    }
+  },
+  "schema_version": 1
+}

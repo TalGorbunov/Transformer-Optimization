@@ -1,0 +1,18 @@
+{
+  "status": "COMPLETED",
+  "cpu_job": 443934,
+  "cpu_job_seconds": 18,
+  "gpu_job": 443936,
+  "gpu_seconds": 39,
+  "summary_sha256": "555661503b4dbac4c7ff60de1254b19c4a46d7736a548ca9a97bbe77ef982396",
+  "full_split_ids_exact": 8,
+  "comparisons": 8,
+  "max_full_split_tv": 0.018129015095191377,
+  "full_split_logits_bitexact": 0,
+  "reverse_order_logits_exact": 8,
+  "model_head_calls": 60,
+  "decoder_norm_calls": 62,
+  "vision_calls": 10,
+  "software_only": true,
+  "no_efficacy_claim": true
+}

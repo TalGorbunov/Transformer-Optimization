@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v8/train_check_441937/plan.json",
+  "plan_sha256": "142c04be2f5ceda64a930a51a6c650663200d4b422ebcff1141a6230bff7b065",
+  "source_sha256": {
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/native_vision_v8_pairs.py": "51b3c4c8ca993fb3b0c3680d8fad831b64f7d7f5d25d840e3f815343226b8f54",
+    "scripts/train_native_vision_v7.py": "2e5bb4792d85586d519464afdc615ca307ce42686f4adad5d271391bc88ee389",
+    "scripts/train_native_vision_v8.py": "0493db926ca2803edc42b97ad2ea0937e17172ca4082dd12478755a97b41dc00",
+    "slurm/native_vision_v8_train.sbatch": "cdee191b844edd3985139f74eeae76c3903cb32b328138509adeb824a92ee8c8",
+    "slurm/native_vision_v8_train_check.sbatch": "50a2954e5120522b21eeddd23aa95d728f7c2aa6f19bfe2b6c81d4166d586ee2",
+    "slurm/native_vision_v8_train_profile.sbatch": "fdfa4c74f3091f8956a2ecf201a6933d7cd750eb7e03031cf03462967cd5e4d0",
+    "tests/test_aggregation_consistency.py": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+    "tests/test_native_vision_v8_pairs.py": "86910c434413fad5cda7635c0d55b7455a694a81b94a91e75c828ef84c94faf1"
+  },
+  "tests": {
+    "passed": true,
+    "suites": [
+      {
+        "file": "tests/test_aggregation_consistency.py",
+        "sha256": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "....../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_aggregation_consistency.py:55: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertEqual(float(loss), 0.)\n.....\n----------------------------------------------------------------------\nRan 11 tests in 0.012s\n\nOK\n"
+      },
+      {
+        "file": "tests/test_native_vision_v8_pairs.py",
+        "sha256": "86910c434413fad5cda7635c0d55b7455a694a81b94a91e75c828ef84c94faf1",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": ".\n----------------------------------------------------------------------\nRan 1 test in 0.558s\n\nOK\n"
+      }
+    ]
+  },
+  "no_model_loaded": true,
+  "elapsed_seconds": 7.3401222191751
+}

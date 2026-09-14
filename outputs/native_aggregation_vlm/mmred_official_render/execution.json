@@ -1,0 +1,24 @@
+{
+  "timestamp_utc": "2026-09-12T02:57:19.987593+00:00",
+  "status": "four_shards_and_merge_passed",
+  "array_job": 443959,
+  "shards": 4,
+  "cpu_seconds_per_shard": 4500,
+  "merge_job": 443964,
+  "merge_cpu_seconds": 600,
+  "worlds": 5000,
+  "unique_images": 34708,
+  "frame_occurrences": 40800,
+  "no_N64_N128": true,
+  "no_model_or_training": true,
+  "shard_cpu_job_seconds": [
+    256,
+    279,
+    276,
+    278
+  ],
+  "total_shard_cpu_job_seconds": 1089,
+  "merge_cpu_job_seconds": 26,
+  "merge_summary_sha256": "2f1fe71b030085f6836bb7ad822ad24ad1114086bb9b91cc63d10aa7694c4c4f",
+  "merge_plan_sha256": "29bd4a1acc84b7590f2903d2535112422ffb4a7395bd6fc318e636bf7518a713"
+}

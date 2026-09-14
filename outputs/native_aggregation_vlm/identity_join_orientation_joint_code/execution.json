@@ -1,0 +1,58 @@
+{
+  "status": "training_failure_robust_to_two_backend_disagreements_original_report_failed",
+  "capacity_witness_job_id": "443708",
+  "source_release_sha256": "5558f37e83dc1b24ef01aeede12ce4951a81d696abf4f5ffb191bde6740d23d3",
+  "capacity_witness": "443708",
+  "capacity_witness_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_capacity/witness_443708/summary.json",
+  "capacity_witness_summary_sha256": "b2982da67be2f0c4a4183ced6b1f61fb8088a1677850a880651cde55c44b21e8",
+  "check_job_id": "443711",
+  "check_state": "COMPLETED",
+  "check_exit_code": "0:0",
+  "check_cpu_elapsed_seconds": 18,
+  "check_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_joint_code/check_443711/summary.json",
+  "check_summary_sha256": "6ac3625f9fc21d8e8bb462353205a3f349be8750945f43db703fecde1a298060",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_joint_code/check_443711/plan.json",
+  "plan_sha256": "91798a0fcbbe9357445506f0a98ae99c2790b7927f0053e85416622558b3201e",
+  "run_job_id": "443716",
+  "run_state": "COMPLETED",
+  "run_exit_code": "0:0",
+  "gpu_elapsed_seconds": 61,
+  "run_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_joint_code/run_443716/summary.json",
+  "run_summary_sha256": "b43d99854fbb2c985d392fa177e4a622d3c9034741f5c6834bed5b1043f7405f",
+  "provisional_GPU_first_token_fit": {
+    "passed": false,
+    "first_correct": 80,
+    "contexts": 216,
+    "orientation_correct": {
+      "original": 38,
+      "flipped": 42
+    },
+    "complete_families": 0,
+    "families": 18,
+    "thresholds": {
+      "pooled": 206,
+      "per_orientation": 103,
+      "complete_families": 16
+    },
+    "cached_first_query_only": true,
+    "whole_answer_claim": false
+  },
+  "report_job_id": "443718",
+  "report_state": "FAILED",
+  "report_exit_code": "1:0",
+  "report_cpu_elapsed_seconds": 39,
+  "report_failure_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_joint_code/report_443718/failure.json",
+  "report_failure_sha256": "a21a18ae2febcc3da3fa5c5dfb19f2c8cb032d7b35361b018384d2e24304143b",
+  "report_analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_joint_code/report_443718/analysis.json",
+  "report_analysis_sha256": "ad46c2472cdc7b6a5791613c478a0fec71c950f7fd0b18de4ea9c6a9cfa41a31",
+  "all_22_core_and_NLL_capture_checks_passed": true,
+  "all_216_rows_and_14_CPU_replays_collected": true,
+  "observed_backend_correct_range": [
+    78,
+    80
+  ],
+  "GPU_correct": 80,
+  "CPU_correct": 78,
+  "complete_families_both": 0,
+  "native_or_fresh_release": false
+}

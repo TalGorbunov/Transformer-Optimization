@@ -1,0 +1,134 @@
+{
+  "audit_allocated_seconds": 48,
+  "audit_cap_seconds": 900,
+  "audit_dependency": "afterok:447668",
+  "audit_job": "447669",
+  "future_main_projection": {
+    "answer": {
+      "cap_seconds": 7200,
+      "checkpoint_seconds": 1.4450694527477026,
+      "conservative_instrumented_forecast": true,
+      "empirical_not_guarantee": true,
+      "optimizer_seconds": 240.488950163126,
+      "passed": true,
+      "per_n_micro_seconds": {
+        "1": 0.21861247904598713,
+        "16": 0.44350129598751664,
+        "2": 0.21856179321184754,
+        "4": 0.23028580052778125,
+        "8": 0.32257560454308987
+      },
+      "retained_teacher_seconds": 0.21036393474787474,
+      "seconds": 5163.986431493773,
+      "training_diagnostic_seconds": 350.5435530678369,
+      "training_seconds": 3440.488735958934
+    },
+    "local": {
+      "cap_seconds": 7200,
+      "checkpoint_seconds": 1.4450694527477026,
+      "conservative_instrumented_forecast": true,
+      "empirical_not_guarantee": true,
+      "optimizer_seconds": 240.488950163126,
+      "passed": true,
+      "per_n_micro_seconds": {
+        "1": 0.15214704349637032,
+        "16": 0.40907939011231065,
+        "2": 0.15814083209261298,
+        "4": 0.18369716126471758,
+        "8": 0.259074040222913
+      },
+      "retained_teacher_seconds": 0.21036393474787474,
+      "seconds": 4349.6188035825035,
+      "training_diagnostic_seconds": 350.5435530678369,
+      "training_seconds": 2789.132321253419
+    },
+    "prefix": {
+      "cap_seconds": 7200,
+      "checkpoint_seconds": 1.4450694527477026,
+      "conservative_instrumented_forecast": true,
+      "empirical_not_guarantee": true,
+      "optimizer_seconds": 240.488950163126,
+      "passed": true,
+      "per_n_micro_seconds": {
+        "1": 0.15155134862288833,
+        "16": 0.39972001826390624,
+        "2": 0.15817713690921664,
+        "4": 0.1840945491567254,
+        "8": 0.3131026509217918
+      },
+      "retained_teacher_seconds": 0.21036393474787474,
+      "seconds": 4483.093716780073,
+      "training_diagnostic_seconds": 350.5435530678369,
+      "training_seconds": 2895.949689298868
+    }
+  },
+  "main_array": "447689",
+  "main_audits": [
+    {
+      "depends_on": "447689_0",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447704/summary.json",
+      "job": "447704",
+      "task": 0
+    },
+    {
+      "depends_on": "447689_1",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447705/summary.json",
+      "job": "447705",
+      "task": 1
+    },
+    {
+      "depends_on": "447689_2",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447706/summary.json",
+      "job": "447706",
+      "task": 2
+    },
+    {
+      "depends_on": "447689_3",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447707/summary.json",
+      "job": "447707",
+      "task": 3
+    },
+    {
+      "depends_on": "447689_4",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447708/summary.json",
+      "job": "447708",
+      "task": 4
+    },
+    {
+      "depends_on": "447689_5",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447709/summary.json",
+      "job": "447709",
+      "task": 5
+    }
+  ],
+  "main_cap_seconds_each": 7200,
+  "main_max_concurrent": 3,
+  "main_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision/main_release.json",
+    "sha256": "8cce361c374efb6b0a221c5da0696f69496223ec819864f8a9e867572ebd95aa"
+  },
+  "main_tasks": 6,
+  "no_fresh_predictions": true,
+  "profile_allocated_seconds": 100,
+  "profile_audit": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_audit/report_447669/summary.json",
+    "sha256": "dcc88939744bba195e9bbd833690a65a70fcaf70b82c7eec033d5ae19ab01080"
+  },
+  "profile_cap_seconds": 900,
+  "profile_gpu_count": 1,
+  "profile_job": "447668",
+  "profile_summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision/profile_447668/summary.json",
+    "sha256": "ffc061f1c89f782c2e53271516e57c3bc51bdef78c8c5927387a324e06f3d905"
+  },
+  "protocol": "mmred_native_prefix_supervision",
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision/source_release.json",
+    "sha256": "a066ef7fb567765fb91345dc9a6f9a4e30cde1ed9e6281cc5b26d504961dd31f"
+  },
+  "status": "six_matched_fits_submitted",
+  "targets": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision/prepare_447609/summary.json",
+    "sha256": "1ee35c2c3f090c688e93445da503d7a78fa3fde73a0daba88694f543ee59810f"
+  }
+}

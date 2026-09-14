@@ -1,0 +1,12 @@
+{
+  "status": "cpu_failed_structured_assistant_content",
+  "cpu_job": 443970,
+  "cpu_job_seconds": 42,
+  "prior_failed_cpu_job_seconds": 31,
+  "failure_sha256": "9d94454c80251252c24e1616038f5bbfdbfd37722c436c7ccf4a496ac84c9a01",
+  "model_calls": 0,
+  "literal_repair_passed": true,
+  "canonical_target_compilation_reached": true,
+  "first_image_case_failed_before_save": true,
+  "original_sources_preserved": true
+}

@@ -1,0 +1,100 @@
+{
+  "status": "completed_audited_scientific_failure_fixed_summary_configuration_closed",
+  "timestamp_utc": "2026-09-12T05:36:31.197026+00:00",
+  "source_release_sha256": "21431c9f99f7f717940448e4c2b6f9f80304291672a31eaa51f8eb45575b97b8",
+  "audit_source_release_sha256": "7f298b5cad78e3fc6ced9c0e8e31a347c67511a69675ed8a6c40b75adbcc77f9",
+  "statistics_source_release_sha256": "8849cef886509952b5400aad3c7b92e8385d43097eb5a53ee1a3a7a36d6e0ca9",
+  "check_job": 444096,
+  "check_passed": true,
+  "check_cpu_seconds": 7,
+  "check_summary_sha256": "a70288dc7a7319ad5461c659baa30d35f8b089a0938059370b8258d261cb0530",
+  "check_plan_sha256": "52825c12a0b31f722bbbf54ffb414d48d2b3b87d75486ce904c7dbebcb26e592",
+  "gpu_array": 444105,
+  "cpu_audits": [
+    444108,
+    444109,
+    444110
+  ],
+  "original_failed_gpu_array": 444052,
+  "original_gpu_seconds": 98,
+  "new_gpu_seconds_cap_per_arm": 14340,
+  "cumulative_gpu_seconds_cap_per_arm": 14400,
+  "cpu_audit_seconds_cap_per_arm": 7200,
+  "original_worlds_per_arm": 3,
+  "new_worlds_per_arm": 997,
+  "combined_worlds_per_arm": 1000,
+  "objective_achieved": false,
+  "combined_statistics_job": 444111,
+  "measured_setup_projections": {
+    "ordinary": 11147.96744208876,
+    "normalized": 11020.422353927512,
+    "mass": 11015.778213677928
+  },
+  "audits": {
+    "ordinary": {
+      "job": 444108,
+      "passed": true,
+      "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_evaluation_continuation/report_444108/summary.json",
+      "summary_sha256": "4941d33edbed9cdf11e687185efe6ba31dea5b6b014d2d9e07cadff79e6e52e9",
+      "analysis_sha256": "2a4cca17e88b4200a433291b09372c13c18fa57c481ba140f57fe9a3834640e5",
+      "elapsed_seconds": 418.8648196309805
+    },
+    "normalized": {
+      "job": 444109,
+      "passed": true,
+      "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_evaluation_continuation/report_444109/summary.json",
+      "summary_sha256": "726d5f1656c7961ceb645e85f213fd54b7cad6588c6a716db7911d9c55dada25",
+      "analysis_sha256": "b433281d777523a131d294b4116e505f79852e09383f56ff5fedd7b73d5f6859",
+      "elapsed_seconds": 548.3998833335936
+    },
+    "mass": {
+      "job": 444110,
+      "passed": true,
+      "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_evaluation_continuation/report_444110/summary.json",
+      "summary_sha256": "2875a1da29af5b3e1bbe3da6782d243816d78ab459e70c4a8ca2338f526298d2",
+      "analysis_sha256": "3025692b531f79c2e2a8a1e70f30d35ff56dbc2f2865d8733943460cbd1de364",
+      "elapsed_seconds": 480.77097775414586
+    }
+  },
+  "statistics": {
+    "job": 444111,
+    "passed": true,
+    "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_pilot_continuation/report_444111/summary.json",
+    "summary_sha256": "111d36ee82104d7f4e9752354593fdaef3a3b92e7c35953d723b607610165174",
+    "analysis_sha256": "3a81316965173b5ef33bc9f76888b771d2342ed822527d4e7a5ffd8f558c1865",
+    "elapsed_seconds": 13.054508715867996
+  },
+  "ordinary_competence_passed": true,
+  "promising_mass_specific_pilot": false,
+  "all_3000_answers_complete_valid": true,
+  "test_primary_accuracy": {
+    "8": {
+      "mass": 0.52,
+      "mass_minus_normalized": 0.07,
+      "mass_minus_ordinary": -0.35,
+      "normalized": 0.45,
+      "normalized_minus_ordinary": -0.42,
+      "ordinary": 0.87
+    },
+    "16": {
+      "mass": 0.35,
+      "mass_minus_normalized": -0.07,
+      "mass_minus_ordinary": -0.37,
+      "normalized": 0.42,
+      "normalized_minus_ordinary": -0.3,
+      "ordinary": 0.72
+    },
+    "32": {
+      "mass": 0.28,
+      "mass_minus_normalized": -0.04,
+      "mass_minus_ordinary": -0.33,
+      "normalized": 0.32,
+      "normalized_minus_ordinary": -0.29,
+      "ordinary": 0.61
+    }
+  },
+  "continuation_gpu_seconds": 1762,
+  "evaluation_gpu_seconds_including_original_failure": 1860,
+  "fixed_summary_configuration_closed": true,
+  "plot_visually_inspected": true
+}

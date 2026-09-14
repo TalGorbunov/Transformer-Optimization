@@ -1,0 +1,36 @@
+{
+  "protocol": "identity_join_fixed_trainability_2x2",
+  "status": "v1_resource_gate_failed",
+  "check_job": "443176",
+  "arms": [
+    "clip_ce",
+    "clip_consistency",
+    "sigmoid_ce",
+    "sigmoid_consistency"
+  ],
+  "seed": 24,
+  "steps": 600,
+  "training_contexts": 108,
+  "dev_contexts": 54,
+  "test_contexts": 0,
+  "campaign_gpu_seconds_cap": 3000,
+  "maximum_concurrent_project_gpus": 4,
+  "main_fits_released": false,
+  "check_summary_sha256": "152f19703ff9c1687c1e2382069dae35457d2dd82b1b05cae128eab6954328d0",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_optimization/check_443176/plan.json",
+  "plan_sha256": "f4b756df418c7f54eae447a7fa9ffbc9f35b56544b1616113ef306d1b1efc275",
+  "profile_array": "443179",
+  "profile_jobs": [
+    "443180",
+    "443181",
+    "443182",
+    "443179"
+  ],
+  "release_job": "443185",
+  "allocated_gpu_seconds_so_far": 452,
+  "release_passed": false,
+  "release_file": "outputs/native_aggregation_vlm/identity_join_optimization/release_443185/release.json",
+  "release_sha256": "31663af241d1c0a7e7c1102e30dc6b0807a2ea710e11d8da6d4a9603968d9e9a",
+  "pooled_projection_seconds": 751.1270590291824,
+  "resource_v2_preparation": true
+}

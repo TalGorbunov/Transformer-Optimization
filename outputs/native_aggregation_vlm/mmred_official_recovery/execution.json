@@ -1,0 +1,20 @@
+{
+  "status": "COMPLETED",
+  "cpu_job": 443939,
+  "cpu_job_seconds": 28,
+  "exit_code": "0:0",
+  "summary_sha256": "71c7cbc6ccc8bd30fed1b1a4465cb36a15ba09e20ac0935b976b258897cef5db",
+  "plan_sha256": "16abc5ef843dab2181a9dea69105b089be81dec26236ec4a744a91d008e107de",
+  "all_rows": 39600,
+  "all24_answer_parity": true,
+  "pilot_rows": 5400,
+  "pilot_counts": {
+    "train": 4000,
+    "val": 400,
+    "test": 1000
+  },
+  "selected_val_exact_training_world_matches": 0,
+  "selected_test_exact_training_world_matches": 0,
+  "no_rendering": true,
+  "no_model_or_training": true
+}

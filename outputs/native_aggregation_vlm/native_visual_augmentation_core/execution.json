@@ -1,0 +1,11 @@
+{
+  "status": "completed_passed",
+  "job": 444127,
+  "passed": true,
+  "tests": 8,
+  "cpu_allocation_seconds": 3,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/native_visual_augmentation_core/check_444127/summary.json",
+  "summary_sha256": "1374597935b706c4845d3725c437bc5119f94dab16d644e22b4d9cf3c848e77b",
+  "elapsed_seconds": 0.3261985667049885,
+  "no_native_model_test_yet": true
+}

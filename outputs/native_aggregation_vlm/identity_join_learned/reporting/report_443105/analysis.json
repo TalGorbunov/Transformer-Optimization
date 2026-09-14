@@ -1,0 +1,2570 @@
+{
+  "protocol": "identity_join_learned_selection_result",
+  "passed": true,
+  "completed": true,
+  "source_sha256": {
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/paired_sequence_objectives.py": "055674ea5bf7cc160fb82c61a1407aae06b8c3cdc9a46a25ef1f7c37dee70d97",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_learned_selection.py": "b7e5818806a39292f1047f541ce1287a5ae53c8606de39722919e5eee8bce661",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/parallel_local_semantic_aggregation.py": "e51ab3859812b4d9c6680f2343883e4e3a00498df99fba74e0591d2bc3994f5a",
+    "gnnformer/parallel_local_semantic_gate.py": "d115044a2f21dea777001838fc3bb3dc64282ea819e2ed048f0626b3584b73a0",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/cache_native_identity_join_features.py": "1042ce2c0f80c7c459cfc522548f9611c119c612bd899c156f4254d8bda19295",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "scripts/native_learned_selection_runtime.py": "1824e313ee852fdbb50cd3f0f503e8bc5d2652a8b73afa6c22eb0da4e4b4df9b",
+    "scripts/native_vision_reasoning_stream.py": "f576bbf5f9c716d56f025ca80e934f343884527945bd47dc88aa7aa7591e7376",
+    "scripts/native_vision_semantic_gate_runtime.py": "9f934bf3c98a8a7fd1d7a94a90cb6d476133b0d222048bb39c4fd6b742efc074",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/probe_native_vision_mixed_cache_localization.py": "cb2d4c7491b161d84882ea43fdde0c829f212534694e51439973fcfdc955eaa9",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_parallel_local_mixed.py": "70a5201fa331069d7b6f90f2f4a92e020dfdc694e4bfc17b32f4f00998480d6f",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "scripts/probe_native_vision_v5_local_readability.py": "a2d5d395df4cfa88e661eaf7e585006a635cb98dfa781170711cd0d1efccd1ae",
+    "scripts/profile_native_learned_selection.py": "b646ca610de525c96a13ad53bc46079f72db7c875543a6a4292fa63f679d3b5d",
+    "scripts/profile_native_vision_v7_runtime.py": "1aa767ce69167b3464af9cd2ee5a6f35f6072b0a57c1e5cf95f6a9b6af06e174",
+    "scripts/stage_native_identity_join.py": "1ccbb48dc28bb4e4e11a182760d497057f056e2237143465eebbf4110e20b287",
+    "scripts/stage_native_identity_join_features.py": "80226c3d521e35e64ae22f94f93b6f3fc183cdb4ab621dfed5fa074692ae362b",
+    "scripts/stage_native_identity_join_learned.py": "cb9552a083f01aee52cf6c8a5a7ee8a4ae908ce027d68994b49e7c74a8223280",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/stage_native_vision_v10_features.py": "bb83e5d9124d47368b07ce4d902f32fc9ca03e5575defcd7230d68eeb3de758f",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/stage_native_vision_v7_features.py": "ff50854d01967843f4b89c18fef9bd5c5e923f951f612365aff6ff3f7f2dfb30",
+    "scripts/train_native_identity_join_learned_v2.py": "d5095269f7e2c6f4a244a8e2a52ea51fbaa9c6f72c789f1e75d18a3ba80aaedb",
+    "scripts/train_native_vision_v7.py": "2e5bb4792d85586d519464afdc615ca307ce42686f4adad5d271391bc88ee389",
+    "slurm/native_identity_join_check.sbatch": "bb54fa10119b4097c81bc9ebdad91806e3d98bcc1c4b71f57f0fb7eccb625815",
+    "slurm/native_identity_join_feature_merge.sbatch": "be3f31f7c9e370488e57b256409caaeca383e7e254cc06026e17f40aaafaafbe",
+    "slurm/native_identity_join_feature_profile.sbatch": "3ead7e8550cc61d49b2333a757c89b5b18426765817b78bfb683eccf4fa448cb",
+    "slurm/native_identity_join_feature_shard.sbatch": "880c872b6ea8771eebfad59450d7e1b905c14516ff84eb7b21b7d761cb57477a",
+    "slurm/native_identity_join_feature_stage.sbatch": "57e108e1000af866954c3f7eb3678b18f40921bf244b9d4d89b29b54a2d2d765",
+    "slurm/native_identity_join_learned_check.sbatch": "dc6f213f3e8ec3a04c410f9ad03ae38eb41240cd511d4484527df5c9247b96e4",
+    "slurm/native_identity_join_learned_render.sbatch": "605bc18a5c2611053c1d6265b4a0c1ee292983528d0b4a562570bd3b5e9f1034",
+    "slurm/native_identity_join_learned_v2_train.sbatch": "7cd5323e98405a9a5bd8d3240baa2618a1044968999bdc6412c343d92a6fd5a3",
+    "slurm/native_identity_join_learned_v2_train_check.sbatch": "65f91cd75ebfd2a3dfb259033640c47753d3269efa6f346e440bbf41c8a5ec88",
+    "slurm/native_identity_join_learned_v2_train_profile.sbatch": "e309be6e6d2330d7635709d75c3a2509008001a01ecac3685b013249ab386d89",
+    "slurm/native_identity_join_render.sbatch": "e107e18e392798a0e64b9ed2ba6fd91e28bb3d2cda8c8fefee495827ee0cb722",
+    "slurm/native_learned_selection_check.sbatch": "d4ce538c98da8a90ee540752c7bf6927ab4540ce0fa1a94f19fde23bc967e010",
+    "slurm/native_learned_selection_profile.sbatch": "b11317d56de00ca2674fdd93538b40f7e3bbdb8b80c92e89d321c06fe37a2858",
+    "slurm/native_learned_selection_report.sbatch": "78f1d52a964a589db6e6b1dcb28b45e88066bf64d160436d754059ada7118ec8",
+    "slurm/native_vision_v7_runtime_check.sbatch": "97225c81bb8a0f338cf30713516517d82da0336742b20b07fab4d98b67b3d23b",
+    "slurm/native_vision_v7_runtime_profile.sbatch": "47bc1274c1e5a43c0c3dd10ef05be87d838577c9ff13a01725c1a658d6b5185f",
+    "slurm/native_vision_v7_runtime_selftest.sbatch": "4642715a8fd6edf3aa64b50e319709c4f6266fe737de73f0b949cf67932c7318",
+    "tests/test_native_identity_join_learned_training_v2.py": "c764572ac8c96030d5f085b3c2e63d8971d609180f293c98afc485934aa2df03",
+    "tests/test_paired_sequence_objectives.py": "82d2e942e01f907b7f859c1ae071d0cfd9eea6c13107e148f1b4b91bd97c00da",
+    "tests/test_parallel_local_learned_selection.py": "dc18c0c36e5556f171fe9c56a5a38603b7c9189c30b94776cd264b336b23c3bb",
+    "scripts/report_native_identity_join_learned_v2.py": "9a2ccbbe83e85c9a186c83ed18bb36ce0124194898d736d977dc7f5b357f59e1",
+    "scripts/analyze_native_identity_join_learned.py": "86a99532d917e851a9fadee29d85175621936bd7f58ef9d50600b935a8153728",
+    "tests/test_native_identity_join_learned_analysis.py": "edf68e1ade3263bd6d6a8ef9c49020838ac8093ac8f1f89adaa458f1e599db70",
+    "tests/test_native_identity_join_learned_report_v2.py": "6537d74e94da444065825155e6921ccf7dbaf31ad8cc5e9509658e9720aa772e",
+    "slurm/native_identity_join_learned_v2_report.sbatch": "0be306edd33cead914dac7539412d79e81740580f331645220ea7e502d2013a5"
+  },
+  "runs": [
+    {
+      "mode": "clip",
+      "seed": 22,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_clip_s22_443069",
+      "summary_sha256": "cf288437741b44e75e3a3a5491a12afe0855bd33c10c1a80618226de396c4f2b",
+      "job_id": "443069",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_clip_s22_443069/final.pt",
+        "checkpoint_sha256": "1e65e430af79e57616850c0e5439ebdd0a0a9a80bb5d9a29a1e7ae3e8e71aca0",
+        "parameter_sha256": "16d0de4712fca9d9fc1d866785f9e52d4ae54cc0b293f5c5ee8b394ba6051041"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "508e8c4c2ff4a41ec7a6f6d5cfb67492f80d5133bdb7fd50b30f28093d8eaf5d"
+          }
+        }
+      },
+      "dev_correct": 12,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 4
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 4
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 12,
+            "lost_at64": 0,
+            "gained_at64": 0,
+            "both_wrong": 96
+          },
+          "held": {
+            "both_correct": 12,
+            "lost_at64": 0,
+            "gained_at64": 0,
+            "both_wrong": 96
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 216,
+        "visual": 108,
+        "language": 216,
+        "norm": 216,
+        "head": 216,
+        "broadcast": 216,
+        "selection": 216,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 864,
+        "visual": 432,
+        "language": 864,
+        "norm": 864,
+        "head": 864,
+        "broadcast": 864,
+        "selection": 864,
+        "probe_head": 0
+      }
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_sigmoid_s22_443070",
+      "summary_sha256": "fa51c4adec265b5702a78949645a6a34a1597431f69f57012dcf00b320bcdebd",
+      "job_id": "443070",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_sigmoid_s22_443070/final.pt",
+        "checkpoint_sha256": "316cd9c33eea3a99deda1fe169a5cf91b083e60a783dabece424f8eceff8e898",
+        "parameter_sha256": "b14033d37ae52a83baa2e561bd9bd54d559cbf38f8cf2b33b2f6cfc8c243586f"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "508e8c4c2ff4a41ec7a6f6d5cfb67492f80d5133bdb7fd50b30f28093d8eaf5d"
+          }
+        }
+      },
+      "dev_correct": 15,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 17,
+            "accuracy": 0.1574074074074074,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 17,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 10
+              },
+              "John": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 18,
+            "accuracy": 0.16666666666666666,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 18,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 8
+              },
+              "John": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 15,
+            "accuracy": 0.1388888888888889,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 15,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 2
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 17,
+            "accuracy": 0.1574074074074074,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 17,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 6
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 7
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 14,
+            "lost_at64": 3,
+            "gained_at64": 4,
+            "both_wrong": 87
+          },
+          "held": {
+            "both_correct": 10,
+            "lost_at64": 5,
+            "gained_at64": 7,
+            "both_wrong": 86
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 216,
+        "visual": 108,
+        "language": 216,
+        "norm": 216,
+        "head": 216,
+        "broadcast": 216,
+        "selection": 216,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 864,
+        "visual": 432,
+        "language": 864,
+        "norm": 864,
+        "head": 864,
+        "broadcast": 864,
+        "selection": 864,
+        "probe_head": 0
+      }
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_softmax_s22_443071",
+      "summary_sha256": "b08b6f16bdd4613d05e569dbf8b4d701e4766a62b945644bad3b38186607191b",
+      "job_id": "443071",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_softmax_s22_443071/final.pt",
+        "checkpoint_sha256": "d18060010fff2d2caa9f18e7ac03e108196b5004eb291b794257d43d9ddfd2e4",
+        "parameter_sha256": "9cfd5f265194c2cd7047f91a3dd448b097d09593319ab3d68ab92d22439b89f9"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "449df1e0492108970871ee40ad7db7ea802f68a545ae94f3a675c0040938c471"
+          }
+        }
+      },
+      "dev_correct": 22,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 22,
+            "accuracy": 0.2037037037037037,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 22,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 21,
+            "accuracy": 0.19444444444444445,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 21,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 5
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 20,
+            "accuracy": 0.18518518518518517,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 20,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 7
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 15,
+            "accuracy": 0.1388888888888889,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 15,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 19,
+            "lost_at64": 3,
+            "gained_at64": 2,
+            "both_wrong": 84
+          },
+          "held": {
+            "both_correct": 15,
+            "lost_at64": 5,
+            "gained_at64": 0,
+            "both_wrong": 88
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 225,
+        "visual": 108,
+        "language": 225,
+        "norm": 225,
+        "head": 225,
+        "broadcast": 225,
+        "selection": 225,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 864,
+        "visual": 432,
+        "language": 864,
+        "norm": 864,
+        "head": 864,
+        "broadcast": 864,
+        "selection": 864,
+        "probe_head": 0
+      }
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_clip_s23_443072",
+      "summary_sha256": "447b2087a4848933fcf5090f913b4e2a2b6f7de8c2b0e66725b8671bdf260fb8",
+      "job_id": "443072",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_clip_s23_443072/final.pt",
+        "checkpoint_sha256": "09927380cfd030938b5a885ef061522a16ff9182d713126de76d4754c33bd24e",
+        "parameter_sha256": "264725d3d132abe98ae32c621c5e81967585d3112179b386ddfccfbf78bffc2c"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c3097edbe7985a4d8788df9d674878ef6de94705c4716f937c05f60c78f34bb"
+          }
+        }
+      },
+      "dev_correct": 12,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 12,
+            "accuracy": 0.1111111111111111,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 12,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 12,
+            "lost_at64": 0,
+            "gained_at64": 0,
+            "both_wrong": 96
+          },
+          "held": {
+            "both_correct": 12,
+            "lost_at64": 0,
+            "gained_at64": 0,
+            "both_wrong": 96
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 216,
+        "visual": 108,
+        "language": 216,
+        "norm": 216,
+        "head": 216,
+        "broadcast": 216,
+        "selection": 216,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 864,
+        "visual": 432,
+        "language": 864,
+        "norm": 864,
+        "head": 864,
+        "broadcast": 864,
+        "selection": 864,
+        "probe_head": 0
+      }
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_sigmoid_s23_443094",
+      "summary_sha256": "e9108a27d0ef2a310132ec683f8a41fb5ff1cdeab69dafe898be6bb9c4b231a9",
+      "job_id": "443094",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_sigmoid_s23_443094/final.pt",
+        "checkpoint_sha256": "9ed9a1b48dfa90705cfb5b851871540675b6db9f3d75318d55ed8beff77b5427",
+        "parameter_sha256": "6a41a9a6aa8dc2e6b7d84968ce6486bd695e9e8ef24aaa157df6038f3c8482a3"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c3097edbe7985a4d8788df9d674878ef6de94705c4716f937c05f60c78f34bb"
+          }
+        }
+      },
+      "dev_correct": 15,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 16,
+            "accuracy": 0.14814814814814814,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 16,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 5
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 16,
+            "accuracy": 0.14814814814814814,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 16,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 15,
+            "accuracy": 0.1388888888888889,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 15,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 2
+              },
+              "John": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 17,
+            "accuracy": 0.1574074074074074,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 17,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 1
+              },
+              "John": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 8
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 0
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 14,
+            "lost_at64": 2,
+            "gained_at64": 2,
+            "both_wrong": 90
+          },
+          "held": {
+            "both_correct": 13,
+            "lost_at64": 2,
+            "gained_at64": 4,
+            "both_wrong": 89
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 223,
+        "visual": 108,
+        "language": 223,
+        "norm": 223,
+        "head": 223,
+        "broadcast": 223,
+        "selection": 223,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 864,
+        "visual": 432,
+        "language": 864,
+        "norm": 864,
+        "head": 864,
+        "broadcast": 864,
+        "selection": 864,
+        "probe_head": 0
+      }
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_softmax_s23_443068",
+      "summary_sha256": "4b97f6b748532699dffa2d6d49325bc5eb3db8a8e847a973bdf96e560ea5ce91",
+      "job_id": "443068",
+      "endpoint": {
+        "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/run_softmax_s23_443068/final.pt",
+        "checkpoint_sha256": "e324913040ba88fce09c9592d8930783a04825f2adee30c190cc665dd08579e9",
+        "parameter_sha256": "1f8f7f76974bb832a97e98accbff1a3740a16ab2c81cdfcfbd2a8e2445cd5ea5"
+      },
+      "training": {
+        "updates": 4536,
+        "scene_presentations": 72576,
+        "target_positions": 161280,
+        "paired_order_verified": true,
+        "native_loss_reductions_verified": true,
+        "first_preclip_gradients": {
+          "local_bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_weight": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "selection_bias": {
+            "shape": [
+              1
+            ],
+            "dtype": "torch.float32",
+            "sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119"
+          },
+          "query.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "local.weight": {
+            "shape": [
+              96,
+              3584
+            ],
+            "dtype": "torch.float32",
+            "sha256": "9794838a8913f06045b1b48909d103d4208f6a8050845b796cdcc20e5600452f"
+          },
+          "aggregate_projection.weight": {
+            "shape": [
+              96,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "1c0273095382988333e2f2b5ae487cea460737ed9be65cbad9c5de537f95bf75"
+          },
+          "aggregate_projection.bias": {
+            "shape": [
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "a1a4f5721c1c4610af7f71078f3a68c330536d679803b0e0507ee8dc10c5dfca"
+          },
+          "up.weight": {
+            "shape": [
+              3584,
+              96
+            ],
+            "dtype": "torch.float32",
+            "sha256": "7a0bf77419c444dc0595d3e3a24e730b504b064728d2d34ea2098a72603aab3f"
+          }
+        }
+      },
+      "dev_correct": 26,
+      "statistics": {
+        "cells": {
+          "test_seen_N32": {
+            "examples": 108,
+            "correct": 31,
+            "accuracy": 0.28703703703703703,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 31,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 3
+              },
+              "John": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 9
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 12
+              }
+            }
+          },
+          "test_seen_N64": {
+            "examples": 108,
+            "correct": 30,
+            "accuracy": 0.2777777777777778,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 30,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 3
+              },
+              "John": {
+                "examples": 12,
+                "correct": 1
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 9
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 12
+              }
+            }
+          },
+          "test_held_N32": {
+            "examples": 108,
+            "correct": 27,
+            "accuracy": 0.25,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 27,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 12
+              }
+            }
+          },
+          "test_held_N64": {
+            "examples": 108,
+            "correct": 27,
+            "accuracy": 0.25,
+            "completed": 108,
+            "truncated": 0,
+            "parseable": 108,
+            "parsed_name_correct": 27,
+            "complete_triples": 36,
+            "all_three_correct": 0,
+            "by_name": {
+              "Sandra": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Mary": {
+                "examples": 12,
+                "correct": 2
+              },
+              "Michael": {
+                "examples": 12,
+                "correct": 0
+              },
+              "John": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Daniel": {
+                "examples": 12,
+                "correct": 4
+              },
+              "Laura": {
+                "examples": 12,
+                "correct": 0
+              },
+              "Peter": {
+                "examples": 12,
+                "correct": 3
+              },
+              "Emma": {
+                "examples": 12,
+                "correct": 6
+              },
+              "Noah": {
+                "examples": 12,
+                "correct": 12
+              }
+            }
+          }
+        },
+        "paired_transitions": {
+          "seen": {
+            "both_correct": 29,
+            "lost_at64": 2,
+            "gained_at64": 1,
+            "both_wrong": 76
+          },
+          "held": {
+            "both_correct": 27,
+            "lost_at64": 0,
+            "gained_at64": 0,
+            "both_wrong": 81
+          }
+        }
+      },
+      "dev_inventory": {
+        "model": 242,
+        "visual": 108,
+        "language": 242,
+        "norm": 242,
+        "head": 242,
+        "broadcast": 242,
+        "selection": 242,
+        "probe_head": 0
+      },
+      "test_inventory": {
+        "model": 980,
+        "visual": 432,
+        "language": 980,
+        "norm": 980,
+        "head": 980,
+        "broadcast": 980,
+        "selection": 980,
+        "probe_head": 0
+      }
+    }
+  ],
+  "criteria": {
+    "primary": false,
+    "absolute_accuracy_target": false,
+    "practical": false,
+    "decisions": [
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 17,
+        "control_N64": 18,
+        "N64_additional_correct": -6,
+        "N32_additional_correct": -5,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 22,
+        "control_N64": 21,
+        "N64_additional_correct": -9,
+        "N32_additional_correct": -10,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 20,
+        "control_N64": 15,
+        "N64_additional_correct": -3,
+        "N32_additional_correct": -8,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 16,
+        "control_N64": 16,
+        "N64_additional_correct": -4,
+        "N32_additional_correct": -4,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 31,
+        "control_N64": 30,
+        "N64_additional_correct": -18,
+        "N32_additional_correct": -19,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 27,
+        "control_N64": 27,
+        "N64_additional_correct": -15,
+        "N32_additional_correct": -15,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      }
+    ],
+    "practical_cells": [
+      {
+        "seed": 22,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      }
+    ],
+    "reasoning_composition_demonstrated": false
+  },
+  "bootstrap": {
+    "replicates": 10000,
+    "seed": 20261124,
+    "unit": "complete_three_variant_two_length_family",
+    "strata": "room_pair_within_regime",
+    "shared_draws_all_arms_and_seeds": true,
+    "conditional_on_fitted_two_seeds": true,
+    "training_seed_population_inference": false,
+    "intervals": [
+      {
+        "regime": "seen",
+        "n_frames": 32,
+        "mode": "clip",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 6.481481481481482,
+        "upper": 15.74074074074074
+      },
+      {
+        "regime": "seen",
+        "n_frames": 32,
+        "mode": "sigmoid",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 11.11111111111111,
+        "upper": 19.444444444444443
+      },
+      {
+        "regime": "seen",
+        "n_frames": 32,
+        "mode": "softmax",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 20.833333333333336,
+        "upper": 28.24074074074074
+      },
+      {
+        "regime": "seen",
+        "n_frames": 32,
+        "control": "sigmoid",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -7.4074074074074066,
+        "upper": -1.3888888888888884
+      },
+      {
+        "regime": "seen",
+        "n_frames": 32,
+        "control": "softmax",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -17.592592592592595,
+        "upper": -8.796296296296298
+      },
+      {
+        "regime": "seen",
+        "n_frames": 64,
+        "mode": "clip",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 6.481481481481482,
+        "upper": 15.74074074074074
+      },
+      {
+        "regime": "seen",
+        "n_frames": 64,
+        "mode": "sigmoid",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 11.574074074074074,
+        "upper": 19.90740740740741
+      },
+      {
+        "regime": "seen",
+        "n_frames": 64,
+        "mode": "softmax",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 19.90740740740741,
+        "upper": 27.314814814814817
+      },
+      {
+        "regime": "seen",
+        "n_frames": 64,
+        "control": "sigmoid",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -8.333333333333332,
+        "upper": -1.3888888888888884
+      },
+      {
+        "regime": "seen",
+        "n_frames": 64,
+        "control": "softmax",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -16.666666666666664,
+        "upper": -8.333333333333332
+      },
+      {
+        "regime": "held",
+        "n_frames": 32,
+        "mode": "clip",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 6.481481481481482,
+        "upper": 16.666666666666668
+      },
+      {
+        "regime": "held",
+        "n_frames": 32,
+        "mode": "sigmoid",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 10.173611111111121,
+        "upper": 18.055555555555557
+      },
+      {
+        "regime": "held",
+        "n_frames": 32,
+        "mode": "softmax",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 17.12962962962963,
+        "upper": 26.38888888888889
+      },
+      {
+        "regime": "held",
+        "n_frames": 32,
+        "control": "sigmoid",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -6.944444444444445,
+        "upper": 1.3888888888888893
+      },
+      {
+        "regime": "held",
+        "n_frames": 32,
+        "control": "softmax",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -14.351851851851851,
+        "upper": -7.4074074074074066
+      },
+      {
+        "regime": "held",
+        "n_frames": 64,
+        "mode": "clip",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 6.481481481481482,
+        "upper": 16.666666666666668
+      },
+      {
+        "regime": "held",
+        "n_frames": 64,
+        "mode": "sigmoid",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 11.574074074074074,
+        "upper": 19.907407407407405
+      },
+      {
+        "regime": "held",
+        "n_frames": 64,
+        "mode": "softmax",
+        "kind": "accuracy_percent_two_seed_mean",
+        "lower": 15.277777777777779,
+        "upper": 23.61111111111111
+      },
+      {
+        "regime": "held",
+        "n_frames": 64,
+        "control": "sigmoid",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -9.722222222222221,
+        "upper": 0.4629629629629628
+      },
+      {
+        "regime": "held",
+        "n_frames": 64,
+        "control": "softmax",
+        "kind": "clip_gain_percentage_points_two_seed_mean",
+        "lower": -11.574074074074074,
+        "upper": -5.092592592592593
+      }
+    ]
+  },
+  "resources": {
+    "passed": true,
+    "rows": [
+      {
+        "job_id": "443015",
+        "name": "v19_selection_software",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 80,
+        "gpus": 1,
+        "gpu_seconds": 80,
+        "start": "2026-09-11T12:43:15",
+        "end": "2026-09-11T12:44:35"
+      },
+      {
+        "job_id": "443017",
+        "name": "identity_join_learned_feature_profile",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 50,
+        "gpus": 1,
+        "gpu_seconds": 50,
+        "start": "2026-09-11T12:47:46",
+        "end": "2026-09-11T12:48:36"
+      },
+      {
+        "job_id": "443019",
+        "name": "identity_join_learned_feature_shard",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 462,
+        "gpus": 1,
+        "gpu_seconds": 462,
+        "start": "2026-09-11T12:50:54",
+        "end": "2026-09-11T12:58:36"
+      },
+      {
+        "job_id": "443020",
+        "name": "identity_join_learned_feature_shard",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 456,
+        "gpus": 1,
+        "gpu_seconds": 456,
+        "start": "2026-09-11T12:50:54",
+        "end": "2026-09-11T12:58:30"
+      },
+      {
+        "job_id": "443021",
+        "name": "identity_join_learned_feature_shard",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 457,
+        "gpus": 1,
+        "gpu_seconds": 457,
+        "start": "2026-09-11T12:50:54",
+        "end": "2026-09-11T12:58:31"
+      },
+      {
+        "job_id": "443018",
+        "name": "identity_join_learned_feature_shard",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 454,
+        "gpus": 1,
+        "gpu_seconds": 454,
+        "start": "2026-09-11T12:50:54",
+        "end": "2026-09-11T12:58:28"
+      },
+      {
+        "job_id": "443037",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 48,
+        "gpus": 1,
+        "gpu_seconds": 48,
+        "start": "2026-09-11T13:06:28",
+        "end": "2026-09-11T13:07:16"
+      },
+      {
+        "job_id": "443038",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 48,
+        "gpus": 1,
+        "gpu_seconds": 48,
+        "start": "2026-09-11T13:06:28",
+        "end": "2026-09-11T13:07:16"
+      },
+      {
+        "job_id": "443036",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 48,
+        "gpus": 1,
+        "gpu_seconds": 48,
+        "start": "2026-09-11T13:06:28",
+        "end": "2026-09-11T13:07:16"
+      },
+      {
+        "job_id": "443046",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 69,
+        "gpus": 1,
+        "gpu_seconds": 69,
+        "start": "2026-09-11T13:17:07",
+        "end": "2026-09-11T13:18:16"
+      },
+      {
+        "job_id": "443047",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 69,
+        "gpus": 1,
+        "gpu_seconds": 69,
+        "start": "2026-09-11T13:17:07",
+        "end": "2026-09-11T13:18:16"
+      },
+      {
+        "job_id": "443045",
+        "name": "identity_join_learned_train_profile",
+        "state": "FAILED",
+        "exit_code": "1:0",
+        "elapsed_seconds": 68,
+        "gpus": 1,
+        "gpu_seconds": 68,
+        "start": "2026-09-11T13:17:07",
+        "end": "2026-09-11T13:18:15"
+      },
+      {
+        "job_id": "443059",
+        "name": "identity_join_learned_train_profile",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 71,
+        "gpus": 1,
+        "gpu_seconds": 71,
+        "start": "2026-09-11T13:36:15",
+        "end": "2026-09-11T13:37:26"
+      },
+      {
+        "job_id": "443060",
+        "name": "identity_join_learned_train_profile",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 71,
+        "gpus": 1,
+        "gpu_seconds": 71,
+        "start": "2026-09-11T13:36:15",
+        "end": "2026-09-11T13:37:26"
+      },
+      {
+        "job_id": "443058",
+        "name": "identity_join_learned_train_profile",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 70,
+        "gpus": 1,
+        "gpu_seconds": 70,
+        "start": "2026-09-11T13:36:15",
+        "end": "2026-09-11T13:37:25"
+      },
+      {
+        "job_id": "443069",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1501,
+        "gpus": 1,
+        "gpu_seconds": 1501,
+        "start": "2026-09-11T13:40:17",
+        "end": "2026-09-11T14:05:18"
+      },
+      {
+        "job_id": "443070",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1480,
+        "gpus": 1,
+        "gpu_seconds": 1480,
+        "start": "2026-09-11T13:40:17",
+        "end": "2026-09-11T14:04:57"
+      },
+      {
+        "job_id": "443071",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1480,
+        "gpus": 1,
+        "gpu_seconds": 1480,
+        "start": "2026-09-11T13:40:17",
+        "end": "2026-09-11T14:04:57"
+      },
+      {
+        "job_id": "443072",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1480,
+        "gpus": 1,
+        "gpu_seconds": 1480,
+        "start": "2026-09-11T13:40:17",
+        "end": "2026-09-11T14:04:57"
+      },
+      {
+        "job_id": "443094",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1523,
+        "gpus": 1,
+        "gpu_seconds": 1523,
+        "start": "2026-09-11T14:04:58",
+        "end": "2026-09-11T14:30:21"
+      },
+      {
+        "job_id": "443068",
+        "name": "identity_join_learned_main",
+        "state": "COMPLETED",
+        "exit_code": "0:0",
+        "elapsed_seconds": 1523,
+        "gpus": 1,
+        "gpu_seconds": 1523,
+        "start": "2026-09-11T14:04:58",
+        "end": "2026-09-11T14:30:21"
+      }
+    ],
+    "allocated_gpu_seconds": 11508,
+    "maximum_concurrent_gpus": 4,
+    "failed_and_zero_allocations_retained": true,
+    "generic_and_typed_gpu_not_double_counted": true,
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/all_user_sacct.psv",
+    "sha256": "462ab2f3070659e22f86856af0526ca90273597d1e9d8eedb40adaaddd0bad0f",
+    "command": [
+      "sacct",
+      "-X",
+      "-u",
+      "gabriele.serussi",
+      "--starttime=2026-09-01",
+      "--parsable2",
+      "--noheader",
+      "--format=JobIDRaw,JobName%100,Partition,State,ExitCode,ElapsedRaw,AllocTRES,Start,End"
+    ]
+  },
+  "geometry_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/geometry.json",
+  "geometry_sha256": "9ae358502ab9c6769e529197a825a56ba39c8da887581b5b65940656f38993e1",
+  "outcomes_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/outcomes.json",
+  "outcomes_sha256": "d9c4ce7d307f7bc8fd37d68ef14e7c28d1679d8c20d0eee830f9455ccbfe9a17",
+  "interpretation": "Known learned gated set pooling; contentsensitive MMReD-derived task. Fixed six included images, nine familiar people; not a general relational or reasoning-composition proof."
+}

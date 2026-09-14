@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "profile": true,
+  "plan_file": "/mnt/data/gabriele/gnn_transformer/v7_joint_features/stage_441829/plan.json",
+  "plan_sha256": "a240f0cff2d5902beb4e138ffcf56a3026be2abc3c3c25e4ce0d8e457d75d85b",
+  "source_sha256": {
+    "scripts/stage_native_vision_v7_joint_features.py": "267428b37153f33920d7dad7a46fb139b74ff666dd3aca1eab4528cb810c5fc3",
+    "scripts/cache_native_vision_v7_joint_features.py": "3d4a1dce8a6c67401bddae3e430571426efca85bf2b08ce221d2160f2f27f12d",
+    "slurm/native_vision_v7_joint_features_stage.sbatch": "8757a8cd564d6baa0c08f7d40cc8909809e7576bbafbf43d0b1642997add4418",
+    "slurm/native_vision_v7_joint_features_profile.sbatch": "7ac5837361ca935099d9249695b2896609c7c21fd14d62f0a4408d283770eaa4",
+    "scripts/stage_native_vision_v7_features.py": "ff50854d01967843f4b89c18fef9bd5c5e923f951f612365aff6ff3f7f2dfb30",
+    "scripts/cache_native_vision_v7_features.py": "2b27d2a04c6e6942403759e2ef867de8a2dce534cfb0e8359e38c2cd39221e75",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346"
+  },
+  "model": {
+    "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/cc594898137f460bfe9f0759e9844b3ce807cfb5",
+    "metadata_sha256": {
+      "README.md": "1fa65dbb08bc9ffe0b020409c8686f08b23008c5a68554353305fd2de6f2b81e",
+      "chat_template.json": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+      "config.json": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+      "generation_config.json": "0a3aea82869fe29f20dc95ccf3e2bcff380eca1f5ad6447a4a4b37110b08e43e",
+      "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "model.safetensors.index.json": "73b333b0b16e5286ddba615d2caebcd495cf7e616f52eb217a81781393d79de9",
+      "preprocessor_config.json": "f2058c716eef96ccaed1cc1e2d0c08306b62586d535b28d9d08e691b2fab7ca0",
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "4abd3520120e266da84c0864fee064d1fb10806f02225911a47253dd38dc5f56",
+      "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    "weight_shard_stat": {
+      "model-00001-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/e97b877e47fde53a6c6e77aafb36e58e91ee9d95c4a3eeac6f1b5c0e6a1c986e",
+        "bytes": 3900233256,
+        "mtime_ns": 1771407935695226945,
+        "inode": 16655068854630583141
+      },
+      "model-00002-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/a9a300a43b4724eee2abe7c18ceb26768d0ab011eb0cad19d9bfd2476a24d024",
+        "bytes": 3864726320,
+        "mtime_ns": 1771407935803226875,
+        "inode": 5832180937620888320
+      },
+      "model-00003-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/111223d173e00bbee81cba1216fad28668df3476706b7fd26f4d5b50f8b3a507",
+        "bytes": 3864726424,
+        "mtime_ns": 1771407935853602650,
+        "inode": 17666152406303428792
+      },
+      "model-00004-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/ef47f634fa57d46ee134edcc09f34085a47da1e16c12a2abe0d67118be6d72ed",
+        "bytes": 3864733680,
+        "mtime_ns": 1771407935446460362,
+        "inode": 11611589105788180313
+      },
+      "model-00005-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/0c859795ad3a627a9b95bcb762e059d5b768a4a36fdd4affeff269d93fdecc67",
+        "bytes": 1089994880,
+        "mtime_ns": 1771407929007218309,
+        "inode": 5125300042382599384
+      }
+    },
+    "weight_verification": "Resolved immutable shard path/inode/size/mtime; no full weight rehash"
+  },
+  "runtime": {
+    "torch_version": "2.8.0+cu128",
+    "transformers_version": "4.57.6",
+    "bitsandbytes_version": "0.48.2"
+  },
+  "processor": {
+    "transformers_version": "4.57.6",
+    "processor_class": "Qwen2_5_VLProcessor",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+    "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+    "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd"
+  },
+  "native_dtypes": {
+    "norm": "torch.float16",
+    "lm_head": "torch.float16"
+  },
+  "hardware": {
+    "name": "NVIDIA B200",
+    "capability": [
+      10,
+      0
+    ],
+    "cuda_version": "12.8",
+    "matmul_allow_tf32": false
+  },
+  "slurm_job_id": "441831",
+  "completed": true,
+  "computational_integrity_passed": true,
+  "numerical_gate_passed": true,
+  "passed": true,
+  "raw_file": "/mnt/data/gabriele/gnn_transformer/v7_joint_features/profile_441831/raw.pt",
+  "raw_sha256": "b299285ea66f17cd579fcf146b4ba1f858b1cf1799f00cc01244ce5442553d2b",
+  "observations_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/joint_features/profile_441831/observations.json",
+  "observations_sha256": "c07569c6cd336a90d35f60d2ea8b2e99b08e3b614f5f9c52b9c4de8ee3b60772",
+  "model_load_seconds": 13.585697495378554,
+  "pixel_load_verify_seconds": 3.636063595302403,
+  "prospective_shard_projected_seconds": [
+    403.6008112831041,
+    403.6008112831041,
+    403.6008112831041,
+    403.6008112831041
+  ],
+  "projection_rule": "load+pixel_load+1.5*sum(ceil(group_shard_rows/4)*B4_group_harvest_seconds)+30",
+  "full_harvest_authorized": false,
+  "no_quality_or_accuracy_gate": true,
+  "profile_calls": 8,
+  "distinct_feature_rows": 16,
+  "total_output_rows": 20,
+  "total_seconds": 28.377837205305696,
+  "peak_memory_allocated_bytes": 8595625472,
+  "peak_memory_reserved_bytes": 9107931136
+}

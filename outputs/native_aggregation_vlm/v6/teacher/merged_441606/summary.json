@@ -1,0 +1,370 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "passed_quality_gate": true,
+  "quality_gate": {
+    "passed": true,
+    "criteria": {
+      "conditional_balanced_accuracy": true,
+      "each_category_accuracy": true,
+      "mean_numeric_mass": true
+    },
+    "measurements": {
+      "conditional_balanced_accuracy": 1.0,
+      "category_accuracy": {
+        "positive": 1.0,
+        "char_only": 1.0,
+        "room_only": 1.0,
+        "neither": 1.0
+      },
+      "mean_numeric_mass": 0.9998390498091121
+    },
+    "thresholds": {
+      "conditional_balanced_accuracy": 0.95,
+      "each_category_accuracy": 0.9,
+      "mean_numeric_mass": 0.9
+    }
+  },
+  "quality": {
+    "deduplicated": {
+      "weighting": "deduplicated_pair",
+      "total_weight": 9980.0,
+      "accuracy": 1.0,
+      "conditional_balanced_accuracy": 1.0,
+      "conditional_prediction_rule": "logit1 > logit0; exact ties predict0",
+      "confusion": {
+        "tp": 703,
+        "fn": 0,
+        "fp": 0,
+        "tn": 9277
+      },
+      "categories": {
+        "positive": {
+          "total": 703,
+          "correct": 703,
+          "accuracy": 1.0
+        },
+        "char_only": {
+          "total": 2326,
+          "correct": 2326,
+          "accuracy": 1.0
+        },
+        "room_only": {
+          "total": 2882,
+          "correct": 2882,
+          "accuracy": 1.0
+        },
+        "neither": {
+          "total": 4069,
+          "correct": 4069,
+          "accuracy": 1.0
+        }
+      },
+      "mean_numeric_mass": 0.9999184973709955,
+      "conditional_brier": 0.006862923671963614,
+      "conditional_nll": 0.068898960537341,
+      "three_category_accuracy": 1.0,
+      "conditional_ece_10_bins": 0.06511950366519845,
+      "calibration_bins": [
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 4.0,
+          "confidence": 2.7568662404683026,
+          "correct": 4.0
+        },
+        {
+          "weight": 126.0,
+          "confidence": 97.96908553836123,
+          "correct": 126.0
+        },
+        {
+          "weight": 2188.0,
+          "confidence": 1887.2580844222025,
+          "correct": 2188.0
+        },
+        {
+          "weight": 7662.0,
+          "confidence": 7342.123317220287,
+          "correct": 7662.0
+        }
+      ]
+    },
+    "original_training_occurrences": {
+      "weighting": "unique_scene_occurrences",
+      "total_weight": 18800.0,
+      "accuracy": 1.0,
+      "conditional_balanced_accuracy": 1.0,
+      "conditional_prediction_rule": "logit1 > logit0; exact ties predict0",
+      "confusion": {
+        "tp": 5840,
+        "fn": 0,
+        "fp": 0,
+        "tn": 12960
+      },
+      "categories": {
+        "positive": {
+          "total": 5840,
+          "correct": 5840,
+          "accuracy": 1.0
+        },
+        "char_only": {
+          "total": 4190,
+          "correct": 4190,
+          "accuracy": 1.0
+        },
+        "room_only": {
+          "total": 4314,
+          "correct": 4314,
+          "accuracy": 1.0
+        },
+        "neither": {
+          "total": 4456,
+          "correct": 4456,
+          "accuracy": 1.0
+        }
+      },
+      "mean_numeric_mass": 0.9998390498091121,
+      "conditional_brier": 0.005344369964052779,
+      "conditional_nll": 0.05715634781079682,
+      "three_category_accuracy": 1.0,
+      "conditional_ece_10_bins": 0.05421404014764607,
+      "calibration_bins": [
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 5.0,
+          "confidence": 3.436044939643696,
+          "correct": 5.0
+        },
+        {
+          "weight": 202.0,
+          "confidence": 156.6462517328693,
+          "correct": 202.0
+        },
+        {
+          "weight": 3093.0,
+          "confidence": 2666.4115402970892,
+          "correct": 3093.0
+        },
+        {
+          "weight": 15500.0,
+          "confidence": 14954.282208254652,
+          "correct": 15500.0
+        }
+      ]
+    },
+    "scheduled_training_occurrences": {
+      "weighting": "scheduled_occurrences",
+      "total_weight": 19440.0,
+      "accuracy": 1.0,
+      "conditional_balanced_accuracy": 1.0,
+      "conditional_prediction_rule": "logit1 > logit0; exact ties predict0",
+      "confusion": {
+        "tp": 6480,
+        "fn": 0,
+        "fp": 0,
+        "tn": 12960
+      },
+      "categories": {
+        "positive": {
+          "total": 6480,
+          "correct": 6480,
+          "accuracy": 1.0
+        },
+        "char_only": {
+          "total": 4190,
+          "correct": 4190,
+          "accuracy": 1.0
+        },
+        "room_only": {
+          "total": 4314,
+          "correct": 4314,
+          "accuracy": 1.0
+        },
+        "neither": {
+          "total": 4456,
+          "correct": 4456,
+          "accuracy": 1.0
+        }
+      },
+      "mean_numeric_mass": 0.9998285253200803,
+      "conditional_brier": 0.005195201868245344,
+      "conditional_nll": 0.056157945133081574,
+      "three_category_accuracy": 1.0,
+      "conditional_ece_10_bins": 0.05329879412806349,
+      "calibration_bins": [
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 0.0,
+          "confidence": 0.0,
+          "correct": 0.0
+        },
+        {
+          "weight": 5.0,
+          "confidence": 3.436044939643696,
+          "correct": 5.0
+        },
+        {
+          "weight": 202.0,
+          "confidence": 156.6462517328693,
+          "correct": 202.0
+        },
+        {
+          "weight": 3093.0,
+          "confidence": 2666.4115402970892,
+          "correct": 3093.0
+        },
+        {
+          "weight": 16140.0,
+          "confidence": 15577.377605180844,
+          "correct": 16140.0
+        }
+      ]
+    }
+  },
+  "teacher_index": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/teacher_cache.json",
+  "teacher_index_sha256": "83cc9977763bb6504433da6019d405d6735837736a0da4c2d5eba2a857725a98",
+  "archived_teacher_index": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/merged_441606/teacher_cache.json",
+  "plan_sha256": "ca04535fb67e065fcde0408fb23036eef51439d9188340199dc81167fe418b19",
+  "source_sha256": {
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+    "slurm/native_vision_v6_teacher_stage.sbatch": "7ae8de4bd47bc36a6b3a6358d46b1b3b798fe74ad92d4a7ad096c3a8f11f4bed",
+    "slurm/native_vision_v6_teacher_profile.sbatch": "dd1be72eb74f3fa7440d6e4543dd36de61fc4fcae0ce4530c16c9b0149451079",
+    "slurm/native_vision_v6_teacher_array.sbatch": "7a00bca2dba0f442d56e6286613b7de385b05fa3b7aa167df8fdf4c3ae8d9994",
+    "slurm/native_vision_v6_teacher_merge.sbatch": "85bd8e9ae29352e6c65400f22c1cbfc1c9a1606af7944f056ebf634679e32166"
+  },
+  "shards": [
+    {
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/teacher/shard0_441597",
+      "summary_sha256": "079e7628f7b5c64f296dacac45e0d3dbed41c82c4de5e732d9fce4224440cb5e",
+      "config_sha256": "12f3a11a3817288b88af8aa6885c50232acd92c5fc5c2b450a2d638a736630cb",
+      "rows_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/shard0_441597/rows.jsonl",
+      "rows_sha256": "10bed0d1f2fc9b76f560c5945ce3d4b5558dfaadcbdd658c6838665783190094",
+      "slurm_job_id": "441597",
+      "total_seconds": 257.35555834998377
+    },
+    {
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/teacher/shard1_441598",
+      "summary_sha256": "80fb79bacf9e35143d57c451726e0edb0bffdaa0c6c07589277c3c12b8f6ef43",
+      "config_sha256": "2f41f0eadc0cdbce8ff0ae2fcf2c04aff1a3c373c290f862b9918f9eb2ae8fba",
+      "rows_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/shard1_441598/rows.jsonl",
+      "rows_sha256": "1df4d316a4a7b3603d5942332ae448282566ef0738800842909152a04059202b",
+      "slurm_job_id": "441598",
+      "total_seconds": 255.44740546587855
+    },
+    {
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/teacher/shard2_441599",
+      "summary_sha256": "e09cf3e528464fa261de3afabc67ac741cf33107564488e9cb33cfaf639baf02",
+      "config_sha256": "3f86408166dce1e6f1a9df65cca6779892a4fc1ce76d429de6c26d812fcf7576",
+      "rows_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/shard2_441599/rows.jsonl",
+      "rows_sha256": "604a52c081080ab6b37b01b9fd4167ad9266ba526cef48e574a25fda6cae12d6",
+      "slurm_job_id": "441599",
+      "total_seconds": 259.55707408394665
+    },
+    {
+      "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/teacher/shard3_441596",
+      "summary_sha256": "8b09c6110f16246677df36d5883ce8186f658ae6c6afa4b04aef43f7637b0bf8",
+      "config_sha256": "3cbc3253bb74ed13a3b53bdbdb84ea8387bcc0b2ad588222f7ade52c4a55a9e2",
+      "rows_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/shard3_441596/rows.jsonl",
+      "rows_sha256": "7cc20d6f9bb4c159f947b4f204c492c6e6f82c662022ff19da4d2348d5c3d5bf",
+      "slurm_job_id": "441596",
+      "total_seconds": 255.04465004056692
+    }
+  ],
+  "teacher_pairs": 9980,
+  "training_scenes": 1540,
+  "original_frame_occurrences": 18800,
+  "scheduled_frame_occurrences": 19440,
+  "limitations": [
+    "First-token teacher probabilities, not generated whole-answer accuracy.",
+    "Quality labels are training-domain audits only; no evaluation teacher targets.",
+    "Deduplication retains original weights; finite rendered atoms recur.",
+    "A failed quality gate must stop the registered training block; every raw target is retained."
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "protocol": "forced_cap_timing_only",
+  "model_key": "cosmos",
+  "completed": true,
+  "timing_plan_sha256": "b69833771da563ea30406ea9166835ded522afecb6131e82bc2e9c4a04df5cee",
+  "baseline_plan_sha256": "6de7e0c1610c4ab928fec6b513fc5ef70afb2d90477c7a1b0a88c37812c3373f",
+  "source_sha256": {
+    "scripts/profile_native_vision_reasoning_throughput.py": "85acf2c7b72b8c7453cd94fdea9102b5f0e182466a1fac21d9fb511b5a8e81a6",
+    "slurm/native_vision_reasoning_throughput_check.sbatch": "1e25fe39754f790548a6a0cb5635f662c6b458e19dd66369edfd3707bdbb9230",
+    "slurm/native_vision_reasoning_throughput.sbatch": "6763121ce0d4ea2718d949e76186b9614715d2d6ec59916f4c117bb63f00e86b"
+  },
+  "scene_count": 2,
+  "generation_count": 4,
+  "total_generated_tokens": 1088,
+  "total_generation_seconds": 30.42206745687872,
+  "model_load_seconds": 12.980313944630325,
+  "total_seconds": 45.24183546565473,
+  "peak_memory_allocated_bytes": 8894266880,
+  "peak_memory_reserved_bytes": 9380560896,
+  "trajectories_sha256": "cfc660d5c1759733f4f8874dd6b53502351c40bad4e75fefa77ed9ad1b27ebfd",
+  "cost_gate": {
+    "estimated_main_worst_caps_seconds": 1250.3489486034962,
+    "within_26_minute_cap": true,
+    "maximum_preparation_seconds": 1.1614445252344012,
+    "maximum_prefill_gpu_seconds": 1.547443359375,
+    "maximum_decode_wall_seconds_per_token": {
+      "direct": 0.02868833482289506,
+      "reason": 0.02493399826260812
+    },
+    "scenes_per_policy": 54,
+    "direct_decode_steps_per_scene": 31,
+    "reason_decode_steps_per_scene": 511,
+    "safety_multiplier": 1.25,
+    "reserve_seconds": 30,
+    "formula": "load +1.25*54*(maxprep +2*maxprefill +31*max_direct_decode +511*max_reason_decode)+30"
+  },
+  "limitations": [
+    "Software timing only: EOS suppression forces full caps. These outputs are not natural reasoning traces and have no accuracy interpretation.",
+    "The original software-profile cost gates remain failed and are not replaced or silently reclassified.",
+    "Prompts, data, models, main-policy budgets and parsing remain frozen. Only this separate timing procedure suppresses EOS.",
+    "Two fixed software scenes measure sustained native cache cost; the projected bound is conservative but not a guarantee.",
+    "The512-token main policy remains far below the official Cosmos recommendation; the timing calibration does not expand its budget."
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "status": "diagnostic_completed_both_indeterminate",
+  "job_id": 443866,
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "CPU_seconds": 35,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_readout_lp/lp_443866/summary.json",
+  "summary_sha256": "b8d1fa2d349fa5adc1ebc34ad0fa26f7c4473e7810611b103cb8b38b9789d08d",
+  "data_solves": 2,
+  "fixture_solves": 1,
+  "native_U_trigger_met": false,
+  "architecture_search_closed": true,
+  "next": "New adapted ordinary-joint competence baseline CPU/profile preparation"
+}

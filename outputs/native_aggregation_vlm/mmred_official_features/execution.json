@@ -1,0 +1,29 @@
+{
+  "status": "passed_complete_shared_native_cache",
+  "timestamp_utc": "2026-09-12T03:54:24.922723+00:00",
+  "check_job": 443998,
+  "check_job_seconds": 7,
+  "check_summary_sha256": "60e43fb8ecff05b2bd879676fde439cd93090ad838f19d607ed0e0e4a8832a2b",
+  "plan_sha256": "ce17a715b23613ff9cbfd4e76a3037ba16ffeb78939e0cd095655e04ecce8bbd",
+  "array_job": 443999,
+  "source_release_sha256": "e8f77a972d25783e2def7d8fc34391635fe98c49c5640e458dbf50562acf0019",
+  "projected_seconds_per_shard": 854.0680363131687,
+  "cap_seconds_per_shard": 1800,
+  "shards": 4,
+  "no_training_or_inference_release": true,
+  "merge_job": 444004,
+  "array_job_seconds": [
+    357,
+    356,
+    350,
+    356
+  ],
+  "total_gpu_job_seconds": 1419,
+  "merge_job_seconds": 44,
+  "merge_summary_sha256": "cc7c7245aedfea1b2be353912af50e728a47273fa1ee5942e8790d960225d8db",
+  "merge_plan_sha256": "fea5534d370269f7ab4185cbfa0f9e0b3b0f044371dcf47aef652a47caf2fbfb",
+  "worlds": 4000,
+  "vision_calls": 4000,
+  "decoder_calls": 0,
+  "raw_feature_bytes": 34842214400
+}

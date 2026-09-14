@@ -1,0 +1,50 @@
+{
+  "status": "verified_no_native_bank_rescue",
+  "objective_achieved": false,
+  "campaign_gpu_seconds_cap": 4200,
+  "software_cumulative_gpu_seconds_cap": 600,
+  "software_job_cap": 300,
+  "study_job_cap": 900,
+  "models": 4,
+  "scenes_per_model": 34,
+  "modes": [
+    "learned",
+    "bank"
+  ],
+  "trajectories": 272,
+  "exploratory_test_reuse": true,
+  "software_cpu_job": "442638",
+  "software_plan": "null_comparison_software/check_442638/plan.json",
+  "software_plan_sha256": "def2f7451ac855a81c9b3e523bc3eb4594b2a5c45c01e661d74a7699883cef84",
+  "software_gpu_job": "442641",
+  "source_review": "root passed software; independent study review in progress",
+  "study_array": "442707",
+  "study_jobs": {
+    "centered_s18": "442708",
+    "centered_s19": "442709",
+    "offset_s18": "442710",
+    "offset_s19": "442707"
+  },
+  "study_cpu_job": "442691",
+  "study_plan": "null_comparison_study/check_442691/plan.json",
+  "study_plan_sha256": "37ffc4b9d69ba94487273eb5c07a730c0b1fda57ddadd6ba7d8e79cfeeb84512",
+  "study_source_sha256": "4ee71c4b4c6709e8d9b15158cb82ceadaea53c044921360aceef886c1bc05702",
+  "software_allocated_gpu_seconds": 92,
+  "projected_seconds_per_model": 688.594557441771,
+  "queued_report": "442711",
+  "decomposition_selftest": "442702",
+  "queued_decomposition": "442712",
+  "queued_plot": "442713",
+  "failed_cpu_attempts": {
+    "442669": "no entrypoint;0seconds,noexecution,notpassed",
+    "442678": "34seconds,API schema helper mismatch"
+  },
+  "no_v15_accuracy_inspected": false,
+  "allocated_gpu_seconds": 990,
+  "study_allocated_gpu_seconds": 898,
+  "report": "null_comparison_study/report_442711/analysis.json",
+  "report_sha256": "1a3d8622b59c79ccece2daa6bf78c119c844534fd95c0c110925d9203bb43b67",
+  "decomposition": "message_decomposition/decomposition_442712/geometry.json",
+  "captures": 637,
+  "plot_visually_inspected": true
+}

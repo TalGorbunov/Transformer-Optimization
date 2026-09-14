@@ -1,0 +1,519 @@
+{
+  "status": "all_three_fits_and_independent_audits_passed",
+  "timestamp_utc": "2026-09-12T04:55:07.969321+00:00",
+  "source_release_sha256": "f9078bf290049cb970d54913375fb792b3d5563d5c3a29064722269340ab19cd",
+  "audit_source_release_sha256": "a3afe0815bdbf2aedf8fb8e0410bbdd6db4ac8c73ddffaf64f54325ab7a09cb8",
+  "check_job": 444010,
+  "check_summary_sha256": "34a41b1a07c2e4787c30d2de5c88e54d860dd6a198e7fc880b369a60e9b5e970",
+  "plan_sha256": "94b0c0eeed2130e256c63a5a4777599562b5be4f9b97b79e6356d21892d0b368",
+  "gpu_array": 444013,
+  "arms": [
+    "ordinary",
+    "normalized",
+    "mass"
+  ],
+  "gpu_seconds_cap_per_arm": 7200,
+  "cpu_audits": [
+    444016,
+    444017,
+    444018
+  ],
+  "cpu_audit_seconds_cap_per_arm": 3600,
+  "backwards_per_arm": 12000,
+  "updates_per_arm": 1500,
+  "no_validation_test_inference": true,
+  "objective_achieved": false,
+  "completed_arms": {
+    "normalized": {
+      "gpu_job": "444013_1",
+      "gpu_seconds": 2226,
+      "cpu_job": 444017,
+      "cpu_seconds": 49,
+      "cpu_measured_seconds": 46.555545169860125,
+      "audit_summary_sha256": "da548fb47463ea6a148e0e520af5669d2a25798d6e3c206813504699c2a6ed02",
+      "audit_analysis_sha256": "da116ee20513b9224cef344e06cd29d59170f43f5ebf332dfc361f8283a07e3d",
+      "passed": true,
+      "cpu_head_calls": 747,
+      "cpu_head_rows": 785,
+      "training_diagnostics": {
+        "by_length_task": {
+          "16:char_at_frame": {
+            "contexts": 5,
+            "correct": 1,
+            "format_valid": 5,
+            "semantic_match": 1,
+            "truncated": 0
+          },
+          "16:spend_together": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "16:steps_in_room": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "16:where_spend": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "1:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:steps_in_room": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "2:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:char_at_frame": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "4:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "8:char_at_frame": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "8:spend_together": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "8:steps_in_room": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "8:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          }
+        },
+        "total": {
+          "contexts": 100,
+          "correct": 82,
+          "format_valid": 100,
+          "semantic_match": 82,
+          "truncated": 0
+        }
+      }
+    },
+    "mass": {
+      "gpu_job": "444013_2",
+      "gpu_seconds": 2223,
+      "cpu_job": 444018,
+      "cpu_seconds": 53,
+      "cpu_measured_seconds": 49.97339963540435,
+      "audit_summary_sha256": "e6b5cd0be16a56f02fa68838d82eb14f2b9e028d75b283ceecf36c19faa6cd1a",
+      "audit_analysis_sha256": "0692b7440d8c64a217c1da74785f685cce6bbff87de4d297ed4c63e5208c7a15",
+      "passed": true,
+      "cpu_head_calls": 741,
+      "cpu_head_rows": 779,
+      "training_diagnostics": {
+        "by_length_task": {
+          "16:char_at_frame": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "16:spend_together": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "16:steps_in_room": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "16:where_spend": {
+            "contexts": 5,
+            "correct": 0,
+            "format_valid": 5,
+            "semantic_match": 0,
+            "truncated": 0
+          },
+          "1:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:spend_together": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "2:steps_in_room": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "2:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:char_at_frame": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "4:spend_together": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "4:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "8:char_at_frame": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "8:spend_together": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "8:steps_in_room": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "8:where_spend": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          }
+        },
+        "total": {
+          "contexts": 100,
+          "correct": 75,
+          "format_valid": 100,
+          "semantic_match": 75,
+          "truncated": 0
+        }
+      }
+    },
+    "ordinary": {
+      "gpu_job": "444013_0",
+      "gpu_seconds": 2790,
+      "cpu_job": 444016,
+      "cpu_measured_seconds": 44.962523341178894,
+      "audit_summary_sha256": "e8cd7743ca0c84eecdd78f2338829974337a44ef6ce7d0cf93f1dd5392c7d922",
+      "audit_analysis_sha256": "59b5200bc69b5581dffd146da5a6d19b192a7f0cc974c9051bbf9419121f1b94",
+      "passed": true,
+      "cpu_head_calls": 744,
+      "cpu_head_rows": 782,
+      "training_diagnostics": {
+        "by_length_task": {
+          "16:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "16:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "16:steps_in_room": {
+            "contexts": 5,
+            "correct": 2,
+            "format_valid": 5,
+            "semantic_match": 2,
+            "truncated": 0
+          },
+          "16:where_spend": {
+            "contexts": 5,
+            "correct": 4,
+            "format_valid": 5,
+            "semantic_match": 4,
+            "truncated": 0
+          },
+          "1:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "1:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "2:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:steps_in_room": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "4:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "8:char_at_frame": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "8:spend_together": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          },
+          "8:steps_in_room": {
+            "contexts": 5,
+            "correct": 3,
+            "format_valid": 5,
+            "semantic_match": 3,
+            "truncated": 0
+          },
+          "8:where_spend": {
+            "contexts": 5,
+            "correct": 5,
+            "format_valid": 5,
+            "semantic_match": 5,
+            "truncated": 0
+          }
+        },
+        "total": {
+          "contexts": 100,
+          "correct": 94,
+          "format_valid": 100,
+          "semantic_match": 94,
+          "truncated": 0
+        }
+      },
+      "cpu_seconds": 47
+    }
+  },
+  "total_main_gpu_seconds": 7239,
+  "total_main_cpu_audit_seconds": 149
+}

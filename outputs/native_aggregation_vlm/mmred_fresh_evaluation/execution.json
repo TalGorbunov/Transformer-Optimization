@@ -1,0 +1,24 @@
+{
+  "allocated_seconds": 487,
+  "cap_seconds": 600,
+  "cohort_complete": true,
+  "cores": 4,
+  "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_evaluation/prepare_447629/summary.json",
+  "fresh_confirmation_eligible": true,
+  "job_id": "447629",
+  "no_automatic_retry": true,
+  "no_predictions": true,
+  "partition": "cpu",
+  "protocol": "mmred_fresh_evaluation",
+  "questions": 2360,
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_evaluation/source_release.json",
+    "sha256": "07f142b3514e9854ff875cdb4110435181ab690c1dfa88dac5e7dd43e875af31"
+  },
+  "status": "COMPLETED_PASS",
+  "summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_evaluation/prepare_447629/summary.json",
+    "sha256": "182a63d6f1368a0aaed352fb220a91a8a9812c47a6f18ee1bba01c3f6fce8964"
+  },
+  "worlds": 2040
+}

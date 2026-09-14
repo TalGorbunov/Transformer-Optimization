@@ -1,0 +1,23 @@
+{
+  "status": "shared_evaluation_features_passed",
+  "timestamp_utc": "2026-09-12T04:36:23.588039+00:00",
+  "source_release_sha256": "84255d028d827bc949fb95182b629ae224a6aa78771e57b506e0c0abeaa06883",
+  "prepare_job": 444024,
+  "prepare_elapsed_seconds": 354.08984914794564,
+  "prepare_summary_sha256": "f7b6e1620748a4c8c3880aaf26930d5da6673ba2d76a9a4a955be0b7b72e9754",
+  "prepare_plan_sha256": "fe1dcbb0e9f6d38ca55261265180d178f7c2d5bcf8a4f83757655d89550d6c09",
+  "worlds": 1000,
+  "frames": 16000,
+  "gpu_job": 444037,
+  "gpu_seconds_cap": 1800,
+  "projected_seconds": 1277.2430925453082,
+  "maximum_target_rows": 8,
+  "N32_maximum_prompt": 6485,
+  "N32_maximum_teacher": 6492,
+  "no_predictions": true,
+  "harvest_job": 444037,
+  "harvest_gpu_seconds": 781,
+  "harvest_elapsed_seconds": 779.4185138866305,
+  "harvest_summary_sha256": "4df6ce2f8626c32165a12782dfb052fc8474178c0ec7d86834583c324e64d0ff",
+  "harvest_plan_sha256": "f2698b5440c07dfe27460a84a530198ff69086b21aab4c2e2842a4c53a9f2d3a"
+}

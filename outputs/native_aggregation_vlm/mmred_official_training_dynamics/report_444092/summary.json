@@ -1,0 +1,59 @@
+{
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training_dynamics/report_444092/analysis.json",
+  "analysis_sha256": "d753ba6554149966ac707db0d87c07753b2292371c4c5b4f282328a0be1efd10",
+  "artifacts_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training_dynamics/report_444092/artifacts.json",
+  "artifacts_sha256": "0044c051b42ae48930434a248dfc5e00e86b25c448a3a13a68c67899ccf88a6c",
+  "completed": true,
+  "elapsed_seconds": 0.8327639922499657,
+  "input_bindings_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training_dynamics/report_444092/input_bindings.json",
+  "input_bindings_sha256": "da63eaa816a78aa33ce817734d76ff789506c4b2a64014bdf0d2e1059ff7286e",
+  "no_retuning_or_followup_release": true,
+  "no_tensor_files_opened": true,
+  "passed": true,
+  "policy": {
+    "arms": [
+      "ordinary",
+      "normalized",
+      "mass"
+    ],
+    "clip_fraction_definition": "logged pre-clip total norm > 1",
+    "cpu_cores": 4,
+    "cpu_seconds": 60,
+    "epochs": 3,
+    "final_epoch_halves": [
+      [
+        8000,
+        10000
+      ],
+      [
+        10000,
+        12000
+      ]
+    ],
+    "memory_gib": 4,
+    "no_accuracy_recomputed": true,
+    "no_model_or_optimizer_execution": true,
+    "no_retuning_or_followup_release": true,
+    "no_tensor_files_opened": true,
+    "optimizer_records_per_arm": 1500,
+    "posthoc_descriptive_only": true,
+    "quantile_method": "type7",
+    "quantiles": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      0.9,
+      0.95,
+      0.99,
+      1
+    ],
+    "scenes_per_epoch": 4000,
+    "training_records_per_arm": 12000
+  },
+  "protocol": "mmred_official_training_scalar_dynamics",
+  "source_sha256": {
+    "scripts/report_mmred_official_training_dynamics.py": "611bab6be675d9481577901c04ce096b43946384bcbe7f9903b6baab964c1e49",
+    "slurm/mmred_official_training_dynamics.sbatch": "20f8573ff38615be9b5a1687322fdb82902897bbdc760ca89efcf4b7aa682a82"
+  }
+}

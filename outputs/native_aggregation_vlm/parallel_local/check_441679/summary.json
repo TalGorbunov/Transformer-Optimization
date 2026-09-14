@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "plan": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/parallel_local/check_441679/plan.json",
+  "plan_sha256": "c33c48dce427bf097b727e8322441aa391ced35bce2ab8f9aea7309988a86aeb",
+  "pairs": 64,
+  "batch_responses": 153,
+  "fresh_serial_responses": 4,
+  "source_sha256": {
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "slurm/native_vision_parallel_local_check.sbatch": "2e542a50b90a3216f05426a34db31217adbf18b408e2ad30fd60201721b3c375",
+    "slurm/native_vision_parallel_local.sbatch": "7694ae902591c31169a7ceff11837ddf01f61d9267d93479996f47a6ea1cd0b4"
+  },
+  "seconds": 10.888780318200588
+}

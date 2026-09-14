@@ -1,0 +1,22 @@
+{
+  "cores": 4,
+  "cpu_cap_seconds": 600,
+  "dependencies": [
+    "447762",
+    "447763",
+    "447764",
+    "447765",
+    "447766",
+    "447767",
+    "447769"
+  ],
+  "expected_analysis": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_statistics/report_447770/analysis.json",
+  "expected_report": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_statistics/report_447770/REPORT.md",
+  "job": "447770",
+  "no_efficacy_gate": true,
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_statistics/source_release.json",
+    "sha256": "69db1d4083ae0ee8579be6d787a1e6219d6766ecdde6370a8db5653c820d814b"
+  },
+  "status": "queued_after_all_seven_numerical_audits"
+}

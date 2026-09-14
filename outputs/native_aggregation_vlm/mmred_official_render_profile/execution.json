@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "timestamp_utc": "2026-09-12T02:42:12.050292+00:00",
+  "cpu_job": 443954,
+  "cpu_cap_seconds": 300,
+  "cpu_cores": 4,
+  "memory_gib": 16,
+  "frame_calls": 64,
+  "no_model_or_training": true,
+  "no_full_render_release": true,
+  "cpu_job_seconds": 7,
+  "summary_sha256": "0589f7720e6e74707d9a4df0e0d30eff5606b805ad572ae9bfad1ccea7369abc",
+  "plan_sha256": "728a0b69a769c2012dd139f55fbb3e8ec70d47d3902fc4225fecc4985b76449d",
+  "unique_images": 34708,
+  "forecast_per_shard_seconds": 3789.6100834719837
+}

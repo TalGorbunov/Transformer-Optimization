@@ -1,0 +1,72 @@
+{
+  "status": "complete_primary_pass_practical_failed",
+  "reserved_gpu_hours": 3.25,
+  "allocated_gpu_seconds": 4666,
+  "max_concurrent_project_gpus": 4,
+  "conditions": [
+    "ce",
+    "consistency"
+  ],
+  "seeds": [
+    10,
+    11
+  ],
+  "native_operator_unchanged": true,
+  "jobs": {
+    "fresh_dry": 441922,
+    "fresh_render": 441923,
+    "loss_unit": 441924,
+    "training_check": 441937,
+    "training_profiles": 441939,
+    "report_selftest": 441960,
+    "independent_data": 441961,
+    "main_release": 441963,
+    "checkpoint_audit_selftest": 441942,
+    "finalizer_selftest": 441944,
+    "mains": 441966,
+    "independent_report": 441974,
+    "checkpoint_audit_check": 441976,
+    "response_surface_unit": 441984,
+    "response_surface_unit_final": 441989,
+    "response_surface": 441992,
+    "checkpoint_audit": 441997,
+    "finalization": 441998,
+    "unseen_trace_diagnostic": 442059
+  },
+  "diagnostic": "../v7/response_surface/run_441927/summary.json",
+  "fresh_manifest_sha256": {
+    "main": "50a032bb69a4d4d3365bf2f8950a5d51be6afee1a3d220c43996247a625bfc55",
+    "count": "bcf1273f7a7f66c567e2af5a3d5dc82912f9a18421f8aa8e864f6f1801f61b9e"
+  },
+  "updated_utc": "2026-09-11T02:13:07.472243+00:00",
+  "training_plan": "train_check_441937/plan.json",
+  "training_source_sha256": "0493db926ca2803edc42b97ad2ea0937e17172ca4082dd12478755a97b41dc00",
+  "main_release": "main_release_441963/release.json",
+  "runs": {
+    "ce_s10": "run_ce_s10_441967",
+    "consistency_s10": "run_consistency_s10_441968",
+    "ce_s11": "run_ce_s11_441969",
+    "consistency_s11": "run_consistency_s11_441966"
+  },
+  "cancelled_pending_invocations": [
+    {
+      "job_id": 441975,
+      "reason": "Root typo in first run path; cancelled before execution and resubmitted using verified config-derived paths",
+      "allocated_seconds": 0
+    },
+    {
+      "job_id": 441988,
+      "reason": "Provenance review requested completed report summary binding; unit441989 refroze amended diagnostic, no diagnostic executed",
+      "allocated_seconds": 0
+    }
+  ],
+  "allocated_gpu_hours": 1.2961111111111112,
+  "independent_report": "report_441974/analysis.json",
+  "final_acceptance": "finalization/final_441998/final_acceptance.json",
+  "final_acceptance_sha256": "f63813d0aa3c2042d9f2c857f6f01658f418e67893c4e4f9969c30d0f5742b1a",
+  "gpu_cost_components": {
+    "training_profiles": 66,
+    "mains": 4520,
+    "selected_checkpoint_audit": 80
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "run_id": "lift_pre_seed1_20260910_174946_440886_1399650",
+  "arm": "lift_pre",
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "parameters": {
+    "backbone": 8292166656,
+    "branch": 696896,
+    "lora": 720896,
+    "total_trainable": 1417792
+  },
+  "selected_checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v3/lift_pre_seed1_20260910_171623_440833_1510228/best.pt",
+  "training": [],
+  "results": [
+    {
+      "tag": "test",
+      "mode": "all",
+      "cell": "length_N32",
+      "n_frames": 32,
+      "n": 32,
+      "correct": 4,
+      "exact": 0.125,
+      "parsed": 32,
+      "parse_rate": 1.0,
+      "mae_parsed": 1.53125,
+      "bias_parsed": 0.84375,
+      "gold_first_token_nll": 2.5337509643286467,
+      "mean_prompt_tokens": 6405.0,
+      "mean_image_tokens": 6272.0,
+      "mean_generated_tokens": 2.03125,
+      "mean_preprocessing_seconds": 0.3395625557459425,
+      "mean_model_seconds": 0.7221349958126666,
+      "mean_total_seconds": 1.0616975515586091,
+      "peak_cuda_allocated_bytes": 7412110848,
+      "peak_cuda_reserved_bytes": 7937720320
+    }
+  ],
+  "metric_notes": {
+    "exact": "Every selected example remains in the denominator; unparsable output is incorrect",
+    "mae_parsed": "Conditional on strict whole-integer parsing; report together with parse_rate",
+    "gold_first_token_nll": "Raw native full-vocabulary first-answer-token NLL from output_logits; not whole-answer likelihood",
+    "timing": "Batch one; preprocessing includes image loading/CPU processor/H2D; model includes vision encoding and language prefill/decode",
+    "scope": "Separate paired length cells K0..8 and unseen-count cells K9..16; count extrapolation also changes answer support"
+  }
+}

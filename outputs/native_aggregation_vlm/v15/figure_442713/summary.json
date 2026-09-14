@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v15/null_comparison_study/report_442711/analysis.json",
+  "analysis_sha256": "1a3d8622b59c79ccece2daa6bf78c119c844534fd95c0c110925d9203bb43b67",
+  "source_sha256": "2b1ddcbadf41b70429721cd7ab37363419f684f3612012f2e23468f7b79ec544",
+  "plot_input_sha256": "b6f227d18ea80867e126d5bd0a944a03d8621f01f8bd12d7f2de167335bc3c09",
+  "files": [
+    {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v15/figure_442713/native_vision_v15.png",
+      "sha256": "2f04f564068a8703d68402dcc03cad38a8bffe27761d24648564ff534e95e096"
+    },
+    {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v15/figure_442713/native_vision_v15.pdf",
+      "sha256": "a03a6b4ca5bd0066d7dba4318563fc5b88ce6db53e98223ffc352a3519d4169d"
+    }
+  ],
+  "no_new_estimates": true,
+  "no_practical_milestone_claim": true
+}

@@ -1,0 +1,13 @@
+{
+  "status": "CPU_preparation_failed_no_GPU",
+  "job_id": 443829,
+  "state": "FAILED",
+  "exit_code": "1:0",
+  "cpu_seconds": 5,
+  "failure_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis/check_443829/failure.json",
+  "failure_sha256": "d72ac218d5bf9a8d6cd83751442772bc7b5c87d2d1dc8fe3d61a50ff284db33e",
+  "source_release_sha256": "cee44559ab199588d8ac9ed1393012a862cd61a5c4343cd0ef83bc29c0149fab",
+  "scientific_outcome": null,
+  "reason": "post-query code protocol differs from output directory name",
+  "next": "Version2 changes explicit metadata protocol mapping only"
+}

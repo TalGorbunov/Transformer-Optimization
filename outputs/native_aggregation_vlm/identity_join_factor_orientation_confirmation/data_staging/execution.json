@@ -1,0 +1,16 @@
+{
+  "status": "completed_new_confirmation_frozen_before_fits",
+  "check_job": "443663",
+  "training_stage_job": "443660",
+  "source_release_sha256": "45eb201bba0fe9c5ca3c0318f994e79004f2712e929a9983d98ddf33dc25dad6",
+  "seed": 91726342,
+  "fit_released": false,
+  "inference_released": false,
+  "render_job": "443666",
+  "check_summary_sha256": "86ed3de6ccca18247e6aed6cc8bfe1a0645304015ce04597983a469587c56c4d",
+  "check_plan_sha256": "3cd946f038982a6f48527438d1dc939bae33e4b355b864e3d46c6c8a9e6ebd39",
+  "render_summary_sha256": "4aa67212336048575dc958e5d7b82990fedcdf1f395b3a74359c0f7c082913a9",
+  "manifest_sha256": "279193c4f6b9861aa4bca1ee88b011241a87c57705ddf9e38347c59f2df80544",
+  "manifest_file": "/mnt/data/gabriele/gnn_transformer/identity_join_factor_orientation_confirmation/stage_443666/main_manifest.json",
+  "render_cpu_seconds": 98
+}

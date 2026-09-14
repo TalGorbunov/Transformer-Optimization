@@ -1,0 +1,41 @@
+{
+  "status": "profile_failed_saved_config_guard_before_training",
+  "cpu_job": 443875,
+  "profile_submitted": true,
+  "main_released": false,
+  "confirmation_inference": false,
+  "source_release_sha256": "19c56ab55c2f0fc9031413bfefa27eab675ab94500ec650dc44609307a26cf7b",
+  "known_failure_evidence_limit": "An unexpected missing adapter gradient after successful teacher return halts before optimizer update, but may omit that call raw packet. Forward/backward exceptions retain partial captures; this cannot yield a passing profile.",
+  "cpu_state": "COMPLETED",
+  "cpu_exit_code": "0:0",
+  "CPU_seconds": 145,
+  "cpu_summary_sha256": "88fc29a38f66762ac09d47de8b5a6b7adf1c987c9363e311bcf73a2a39b071cd",
+  "cpu_plan_sha256": "886da0916e78ab72e0aa1428fe058ab1f465db009c70bdb912b19adaadcacf58",
+  "training_target_rows": 5760,
+  "profile_head_rows_cap": 92,
+  "teacher_widths": [
+    1630,
+    3214
+  ],
+  "profile_job": 443880,
+  "profile_seconds_cap": 240,
+  "profile_state": "FAILED",
+  "profile_exit_code": "1:0",
+  "GPU_seconds": 34,
+  "profile_failure_sha256": "deda73bd9174b7de5367bbf8a6ed8138967e49844938e0170ea5813d17fd7445",
+  "completed_base_trajectories": 4,
+  "zero_lora_trajectories": 0,
+  "training_backwards": 0,
+  "optimizer_updates": 0,
+  "diagnosis": "Installed PEFT condenses long target_modules lists; exact literal saved-config equality rejected after exact actual module/parameter guards passed. Effective-target equivalence requires a separately reviewed repair.",
+  "independent_cpu_artifact_review": "hils_audit_pass",
+  "independent_failure_artifact_review": "hils_audit_pass",
+  "completed_base_counters": {
+    "model": 10,
+    "visual": 4,
+    "language": 10,
+    "norm": 10,
+    "head": 10
+  },
+  "next": "Separate V2 effective-target software repair and112-module CPU regression; no jobs released yet"
+}

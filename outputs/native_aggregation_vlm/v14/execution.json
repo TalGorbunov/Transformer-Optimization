@@ -1,0 +1,57 @@
+{
+  "status": "verified_practical_failure",
+  "objective_achieved": false,
+  "protocol": "exact_empirical_centering_then_frozen_core_distillation",
+  "main_array": "442566",
+  "runs": {
+    "centered18": "run_centered_s18_442567",
+    "offset18": "run_offset_s18_442568",
+    "centered19": "run_centered_s19_442569",
+    "offset19": "run_offset_s19_442566"
+  },
+  "training_plan": "train_check_442540/plan.json",
+  "training_plan_sha256": "f5a525409f2211c91c71af8b04399e0e6efbdac4b2777a3d8dde149bb2a79dd6",
+  "release": "main_release_442561/release.json",
+  "prior_allocated_gpu_seconds": 199,
+  "campaign_gpu_seconds_cap": 16200,
+  "successful_profiles": [
+    "profile_centered_s18_442549",
+    "profile_offset_s18_442548"
+  ],
+  "failed_profile_jobs": [
+    "442526",
+    "442525"
+  ],
+  "queued_independent_report": "442582",
+  "queued_checkpoint_cpu": "442581",
+  "queued_checkpoint_gpu": "442625",
+  "queued_finalization": "442626",
+  "dependencies": {
+    "442581": "afterok:442566",
+    "442582": "afterok:442566",
+    "442583": "afterok:442581",
+    "442584": "afterok:442582:442583"
+  },
+  "no_v14_accuracy_inspected": false,
+  "reasoning_composition_established": false,
+  "main_allocated_gpu_seconds": 2909,
+  "allocated_gpu_seconds_before_selected": 3108,
+  "main_allocation_seconds": {
+    "442567": 729,
+    "442568": 729,
+    "442569": 727,
+    "442566": 724
+  },
+  "independent_report": "442582",
+  "failed_checkpoint_gpu": "442583",
+  "failed_checkpoint_gpu_seconds": 3,
+  "cancelled_finalization": "442584",
+  "both_seed_primary": true,
+  "both_seed_practical": false,
+  "allocated_gpu_seconds": 3197,
+  "finalization": "finalization/final_442626/final_acceptance.json",
+  "finalization_sha256": "b9a53e39fc41fa05e90c17fd727e75b3943db9846802a5b1cad6f1429e68fd27",
+  "selected_audit": "checkpoint_audit/audit_442625/summary.json",
+  "selected_audit_allocated_gpu_seconds": 86,
+  "plot_visually_inspected": true
+}

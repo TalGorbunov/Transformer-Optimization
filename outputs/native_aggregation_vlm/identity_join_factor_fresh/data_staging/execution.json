@@ -1,0 +1,13 @@
+{
+  "status": "completed_fresh_data_rendered",
+  "check_job": "443594",
+  "native_report_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_native_v2/report_443592/summary.json",
+  "native_report_sha256": "d2f7a6ebe32020960be9e6811fb622f42c8effc3e35cd30e0578a419103d5a59",
+  "source_release_sha256": "f06fa533a9701c257167ba95dd105eebee85c5da001e8132ecbf5c67ac8c769a",
+  "check_summary_sha256": "6fa577a19c15e7de1dfffe2ac70570912ee7c2b9ba6248711959263b1e36f848",
+  "plan_sha256": "957611990d113efd43537c07154ab5ee28e9665768d3a3c035a43b3a85c439b0",
+  "render_job": "443595",
+  "render_summary_sha256": "aed7387e9fff96b68e0d04d26a3584ca93c335fc9e264d093b123a56cd206754",
+  "manifest_sha256": "c40dcd05cee34ac7232c089b788b340a7e13344bb662abe2704e8deb2f999859",
+  "allocated_cpu_wall_seconds": 146
+}

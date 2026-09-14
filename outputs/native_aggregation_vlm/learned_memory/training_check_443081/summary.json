@@ -1,0 +1,40 @@
+{
+  "completed": true,
+  "cpu_only": true,
+  "errors": 0,
+  "failure": null,
+  "failures": 0,
+  "log_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/learned_memory/training_check_443081/unit_tests.log",
+  "log_sha256": "d82013ee5f9ea3f87c36163392b2a7bdf092974df40283eb7747a2d0f6da9266",
+  "no_fit": true,
+  "passed": true,
+  "protocol": "native_learned_memory_selected_loss_cpu_check",
+  "runtime": {
+    "attention_backend": "sdpa",
+    "cpu_threads": 4,
+    "full_pretrained_model_loaded": false,
+    "hidden_size": 32,
+    "native_source_sha256": {
+      "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/.venv/lib/python3.10/site-packages/transformers/masking_utils.py": "7a963feed8173b8265298dd24350c166222ce6b4719442fce48ab414d0478a6a",
+      "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/.venv/lib/python3.10/site-packages/transformers/models/qwen2/modeling_qwen2.py": "a59fa06524227361fb401baf4d177124a27aec146bc01ec931235a9abbab17cb",
+      "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/.venv/lib/python3.10/site-packages/transformers/models/qwen2_5_vl/configuration_qwen2_5_vl.py": "7241557b93c50a7e813393e93ef2f45773af2eafac9f57f56de098692ea91500",
+      "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/.venv/lib/python3.10/site-packages/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py": "f5051523300145f66de080765c06bd8080350c15692c096d2c38e73fe9d03099"
+    },
+    "seed": 11,
+    "torch_version": "2.8.0+cu128",
+    "transformers_version": "4.57.6",
+    "vocabulary_size": 23
+  },
+  "seconds": 7.262650862336159,
+  "skipped": 0,
+  "slurm_job_id": "443081",
+  "source_sha256": {
+    "scripts/native_learned_memory_training.py": "8bc7b41a669eed2cbcbaa58f4b434cd8697f6b5b1b41098ee4bfa11e406358ff",
+    "scripts/native_vision_v11_last_block.py": "686c91e7c71e17a39bb6b23f45526c075ef9fd56a1dffa8a0096b07f606c0b1d",
+    "slurm/native_learned_memory_training_check.sbatch": "e01690bd93acddf8cdfa348292b30c3a643c72932ec7d930d6ce4aef3aa20929",
+    "tests/test_native_learned_memory_training.py": "a673ef8b6a9c33031a4e8f02b7499d0ec3ca055255cfb287b1c36864a0d396f2",
+    "tests/test_native_vision_v11_last_block.py": "6d64a35830bc2f18870590d79212b6e8dab6994d5cf7d898abfc35fd2e1ff35f"
+  },
+  "tests_expected": 9,
+  "tests_run": 9
+}

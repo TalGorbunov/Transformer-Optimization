@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "finalized": true,
+  "accepted_vision_milestone": false,
+  "final_acceptance_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/finalization/final_442084/final_acceptance.json",
+  "final_acceptance_sha256": "df0cd086b6f4f2eb01ff09fb1012d98227a51f1c6be09bde335a9c88fe17852e",
+  "source_sha256": {
+    "scripts/finalize_native_vision_v9.py": "4e5a5764d1974043431a02afad257fd3bc7fc2a84fc223a106197767a9c6fe2c",
+    "slurm/native_vision_v9_finalize.sbatch": "a813d6a20b4a90fa77f140f42dca72399da294eaaf9be3b05f23914f6accbb6f"
+  },
+  "seconds": 2.5022044330835342,
+  "slurm_job_id": "442084"
+}

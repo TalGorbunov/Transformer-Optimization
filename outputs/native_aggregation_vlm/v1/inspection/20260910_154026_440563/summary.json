@@ -1,0 +1,162 @@
+{
+  "sum": {
+    "16": {
+      "branch_delta_norm": 896.978271484375,
+      "zero_read_component_norm": 1052.556396484375,
+      "read_dependent_component_norm": 178.87209701538086,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 37.56824274726401,
+      "zero_to_ordinary_ratio": 44.08123029032754,
+      "read_dependent_to_ordinary_ratio": 7.488868064195535
+    },
+    "64": {
+      "branch_delta_norm": 1094.5054321289062,
+      "zero_read_component_norm": 3944.1689453125,
+      "read_dependent_component_norm": 2852.4130859375,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 47.67310861216359,
+      "zero_to_ordinary_ratio": 171.78889053470647,
+      "read_dependent_to_ordinary_ratio": 124.23558543478707
+    }
+  },
+  "mean": {
+    "16": {
+      "branch_delta_norm": 35.82185745239258,
+      "zero_read_component_norm": 33.5908317565918,
+      "read_dependent_component_norm": 5.247223854064941,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 1.5002096885955654,
+      "zero_to_ordinary_ratio": 1.406772993026065,
+      "read_dependent_to_ordinary_ratio": 0.21975141389491104
+    },
+    "64": {
+      "branch_delta_norm": 32.20202445983887,
+      "zero_read_component_norm": 32.86030387878418,
+      "read_dependent_component_norm": 4.563055515289307,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 1.402517713736488,
+      "zero_to_ordinary_ratio": 1.4311854960906238,
+      "read_dependent_to_ordinary_ratio": 0.1987348488590295
+    }
+  },
+  "post_sum": {
+    "16": {
+      "branch_delta_norm": 222.53150177001953,
+      "zero_read_component_norm": 513.6797332763672,
+      "read_dependent_component_norm": 308.8779602050781,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 9.321959179725194,
+      "zero_to_ordinary_ratio": 21.51324724675868,
+      "read_dependent_to_ordinary_ratio": 12.933898430575955
+    },
+    "64": {
+      "branch_delta_norm": 94.75606536865234,
+      "zero_read_component_norm": 1770.2534790039062,
+      "read_dependent_component_norm": 1773.5185546875,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 4.127326315737274,
+      "zero_to_ordinary_ratio": 77.10290336270921,
+      "read_dependent_to_ordinary_ratio": 77.2432543476662
+    }
+  },
+  "post_mean": {
+    "16": {
+      "branch_delta_norm": 27.66562557220459,
+      "zero_read_component_norm": 21.97675609588623,
+      "read_dependent_component_norm": 8.309364795684814,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 1.1586260144438825,
+      "zero_to_ordinary_ratio": 0.920378980609313,
+      "read_dependent_to_ordinary_ratio": 0.34799247983103043
+    },
+    "64": {
+      "branch_delta_norm": 25.860376358032227,
+      "zero_read_component_norm": 21.74925994873047,
+      "read_dependent_component_norm": 6.381002187728882,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 1.1263046076890522,
+      "zero_to_ordinary_ratio": 0.9472536050967968,
+      "read_dependent_to_ordinary_ratio": 0.2779064733208214
+    }
+  },
+  "global": {
+    "16": {
+      "branch_delta_norm": 28.010944366455078,
+      "zero_read_component_norm": 21.94139575958252,
+      "read_dependent_component_norm": 6.47812294960022,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 1.1730881891559517,
+      "zero_to_ordinary_ratio": 0.9188982728858807,
+      "read_dependent_to_ordinary_ratio": 0.2713008841279148
+    },
+    "64": {
+      "branch_delta_norm": 26.874897956848145,
+      "zero_read_component_norm": 21.366101264953613,
+      "read_dependent_component_norm": 5.960542917251587,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 1.1704951864951498,
+      "zero_to_ordinary_ratio": 0.9305682507123854,
+      "read_dependent_to_ordinary_ratio": 0.2596023204582846
+    }
+  },
+  "hierarchical": {
+    "16": {
+      "branch_delta_norm": 29.956214904785156,
+      "zero_read_component_norm": 22.207401275634766,
+      "read_dependent_component_norm": 7.8828444480896,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 1.2545555341854477,
+      "zero_to_ordinary_ratio": 0.9300384489293719,
+      "read_dependent_to_ordinary_ratio": 0.3301302448750944
+    },
+    "64": {
+      "branch_delta_norm": 28.757688522338867,
+      "zero_read_component_norm": 21.415759086608887,
+      "read_dependent_component_norm": 7.501230001449585,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 1.2525141779548468,
+      "zero_to_ordinary_ratio": 0.9327433533929446,
+      "read_dependent_to_ordinary_ratio": 0.3267088338626309
+    }
+  },
+  "lora": {
+    "16": {
+      "branch_delta_norm": 0.0,
+      "zero_read_component_norm": 0.0,
+      "read_dependent_component_norm": 0.0,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 0.0,
+      "zero_to_ordinary_ratio": 0.0,
+      "read_dependent_to_ordinary_ratio": 0.0
+    },
+    "64": {
+      "branch_delta_norm": 0.0,
+      "zero_read_component_norm": 0.0,
+      "read_dependent_component_norm": 0.0,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 0.0,
+      "zero_to_ordinary_ratio": 0.0,
+      "read_dependent_to_ordinary_ratio": 0.0
+    }
+  },
+  "base": {
+    "16": {
+      "branch_delta_norm": 0.0,
+      "zero_read_component_norm": 0.0,
+      "read_dependent_component_norm": 0.0,
+      "ordinary_attention_norm": 23.87794589996338,
+      "delta_to_ordinary_ratio": 0.0,
+      "zero_to_ordinary_ratio": 0.0,
+      "read_dependent_to_ordinary_ratio": 0.0
+    },
+    "64": {
+      "branch_delta_norm": 0.0,
+      "zero_read_component_norm": 0.0,
+      "read_dependent_component_norm": 0.0,
+      "ordinary_attention_norm": 22.960434913635254,
+      "delta_to_ordinary_ratio": 0.0,
+      "zero_to_ordinary_ratio": 0.0,
+      "read_dependent_to_ordinary_ratio": 0.0
+    }
+  }
+}

@@ -1,0 +1,1635 @@
+{
+  "acceptance_outcome_is_not_completion_gate": true,
+  "candidate_proposals": 80000,
+  "completed": true,
+  "elapsed_seconds": 7.5977506674826145,
+  "environment": {
+    "pillow": "11.3.0",
+    "python": "3.10.12 (main, Aug 15 2025, 14:32:43) [GCC 11.4.0]"
+  },
+  "example_count": 32,
+  "examples": {
+    "16_person_least_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_least_changed_unique.json",
+      "sha256": "f7c4d4e7c3b0f6398c069f7ad9d4d4084eb208a01f57f2761e4027a63f009e45"
+    },
+    "16_person_least_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_least_legal_nonglobal.json",
+      "sha256": "4e8662a5559c338ecda5635c5b0cdb13eb7f494f3cb5841f697dc6c7fb193557"
+    },
+    "16_person_least_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_least_strong_third.json",
+      "sha256": "1d6c243437166c584e6e039e7d1806089a26160548e72749a87aca2dc618ed88"
+    },
+    "16_person_least_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_least_unchanged_unique.json",
+      "sha256": "af75b12e8700f211ffb399ff54b64447ad7c8a4eec49b6344883d3302f0360ce"
+    },
+    "16_person_most_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_most_changed_unique.json",
+      "sha256": "81eaa72358ced53eea056b1c5f16e0b3d6f90ed3e61b666d5a3d6547e520cae5"
+    },
+    "16_person_most_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_most_legal_nonglobal.json",
+      "sha256": "9256f7b4958056752a5ad485c162b39c2bbb3f2d920d2f3150d231ed4db6cee6"
+    },
+    "16_person_most_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_most_strong_third.json",
+      "sha256": "5627e6c878ca8a5724865400b96c37847b0a6991eab929164ceb0fe7c4b9a12e"
+    },
+    "16_person_most_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_person_most_unchanged_unique.json",
+      "sha256": "73b9fead0145aeab3bce2ecbd8bd1b5611a7fe6ea046ea9c208ff5b8f12491e7"
+    },
+    "16_room_least_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_least_changed_unique.json",
+      "sha256": "fffa3eef4c9d2bc9f4d960d8d4b5b40ac8e5802d723df62f01a62c8421d02245"
+    },
+    "16_room_least_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_least_legal_nonglobal.json",
+      "sha256": "771e93147c5d7039aecac71fdc36032c961daf7e38796148bc088b7b34981b15"
+    },
+    "16_room_least_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_least_strong_third.json",
+      "sha256": "c17fbe7cf795f8e9fa3c18900133f65cd0dd554fa215c7017ff41ce9d20c4648"
+    },
+    "16_room_least_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_least_unchanged_unique.json",
+      "sha256": "b2c65cd875256d138668048d3aee8c090c4e1528d217f18d2df6a14d75ea9e4c"
+    },
+    "16_room_most_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_most_changed_unique.json",
+      "sha256": "d23fbcf0bea2b4e1f3d93d644d434eb583f55b124532554827d271e5cf86f4d8"
+    },
+    "16_room_most_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_most_legal_nonglobal.json",
+      "sha256": "9156a1c850270030b263722b6f63d651500bd8d7d8b4476359f32de80e15c2bd"
+    },
+    "16_room_most_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_most_strong_third.json",
+      "sha256": "963f93ea34e17b27b6b2aed794a90047b065e4b05838b4119a97bb1924d0968c"
+    },
+    "16_room_most_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/16_room_most_unchanged_unique.json",
+      "sha256": "69a222a40f075f6ad22dc2d820aba3d0463c825c01bd96a80ee6d90ef2d14e42"
+    },
+    "32_person_least_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_least_changed_unique.json",
+      "sha256": "aebc28f709993a574f2e80aaa27f9ed696137ae51644696fb11f0ac61bd93053"
+    },
+    "32_person_least_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_least_legal_nonglobal.json",
+      "sha256": "6d430ca6daeef08096b3e6188cb4143da353ed999b3817816d0af69981a565be"
+    },
+    "32_person_least_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_least_strong_third.json",
+      "sha256": "45d9fdad03c3af2ab72446b87d043bb9fe9a747b172e0da002d27df17fdbc33f"
+    },
+    "32_person_least_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_least_unchanged_unique.json",
+      "sha256": "3acf55c70936cadf6bde35a105107286087c7d403c0e8ff9208e643d37ddbc3e"
+    },
+    "32_person_most_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_most_changed_unique.json",
+      "sha256": "a42e4663013ab6ddc3e8900bb556fadfc5b3e2c940602d692611f7b19f78fdd3"
+    },
+    "32_person_most_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_most_legal_nonglobal.json",
+      "sha256": "10c2df5c07365c3bcc73beb59c40eef09a61bfd9a6d8e7694bbdfe165b3979b8"
+    },
+    "32_person_most_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_most_strong_third.json",
+      "sha256": "27077991d770ec1caf01844e475e96f79023e22399c9a5fcc802ba0ba8704291"
+    },
+    "32_person_most_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_person_most_unchanged_unique.json",
+      "sha256": "797181c64c5f3088b433a3dba9a04bf88b2b00c8437d20aba76728998dc3e7e1"
+    },
+    "32_room_least_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_least_changed_unique.json",
+      "sha256": "51a8c8e3a532a60c1aa65c5d8f7c170e31b7a3a47dc45ec4f8d2ae10cd6a80c6"
+    },
+    "32_room_least_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_least_legal_nonglobal.json",
+      "sha256": "001bc1091f79b7cfc38cf77fda22c744cfd756c8a0f3bc6d8b1ebf8bb5f28120"
+    },
+    "32_room_least_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_least_strong_third.json",
+      "sha256": "b0a72459219d2071c254d17399da39916970962d436f5ffa16bed0bb0e2619eb"
+    },
+    "32_room_least_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_least_unchanged_unique.json",
+      "sha256": "ad627e708a80a8f4f53981695e2bee97db19694d6d276f47ae368674c4ed8ec8"
+    },
+    "32_room_most_changed_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_most_changed_unique.json",
+      "sha256": "61e50e6eebe1147fb5a94635b0b713fe4889d10a9e5391be824621eccdf1f498"
+    },
+    "32_room_most_legal_nonglobal": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_most_legal_nonglobal.json",
+      "sha256": "112d52d26a495a9ebfd0df132e144de30440a8c7e90ac93a18713aa32db02254"
+    },
+    "32_room_most_strong_third": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_most_strong_third.json",
+      "sha256": "4211b3486049bbe35e6f7392ee4811a6ea0fd318a7e712a487148da5bec8565a"
+    },
+    "32_room_most_unchanged_unique": {
+      "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/32_room_most_unchanged_unique.json",
+      "sha256": "543c0ca02d8c8fc014595407d6d552609c72ee4909ae5d176bd92d1498840647"
+    }
+  },
+  "examples_are_not_a_benchmark_cohort": true,
+  "inherited_source_sha256": {
+    "docs/paper/MMRED_FRESH_SUFFIX_COUNTERFACTUAL_DESIGN.md": "182a8ea67df5670ff6472d0723d22f03c0232313b2d1f8e90775ce3f605db42e",
+    "gnnformer/__init__.py": "36c7a94bb10d9c59b25838220e35e9c696b0b9fd4f3cdc7e9352eeda52f10a75",
+    "gnnformer/mmred_hf.py": "3fb97185198d1d9e90eaeef2414e01b07d8f84271598601f0c372bb89e37d492"
+  },
+  "input_bindings": {
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/const.py": "60c9923501568cfab7e9d18a27fa0c04d6d2cd0109aece2867c024c59635106b",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/data_model.py": "b3392d496c95e7f71c7bea98d3289acb2a01beccf0419a47a3ce896565e1ff3d",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/qgen/questions.py": "e33129c9d21c4522d4633005dc2ce7a83a6979698d3bf0d1b142d37483536875",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/qgen/utils.py": "eab9ee7a900328b6df8166f81539842438fa0a0ab78858b79f241994908a8f27"
+  },
+  "ledger_file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/trials.jsonl",
+  "ledger_sha256": "d1bc30d22d021754da1a41e99bdeaee0606cf813d873d9f18ce702ec8d84eec6",
+  "no_followup_release": true,
+  "no_model_output_access": true,
+  "oracle_checks": {
+    "full_answer_checks": 47688,
+    "invariant_control_checks": 47688
+  },
+  "original_exposure_overlap_audit_deferred": true,
+  "passed": true,
+  "policy": {
+    "attempts_per_length": 20000,
+    "benchmark_cohort": false,
+    "candidate_families": [
+      "person",
+      "room"
+    ],
+    "choice_seeds": {
+      "16": 2026092216,
+      "32": 2026092232
+    },
+    "cpu_cores": 4,
+    "cpu_seconds": 300,
+    "directions": [
+      "most",
+      "least"
+    ],
+    "gpu_calls": 0,
+    "images": 0,
+    "lengths": [
+      16,
+      32
+    ],
+    "maximum_saved_examples": 48,
+    "memory_gib": 16,
+    "model_calls": 0,
+    "no_current_model_output_access": true,
+    "no_followup_release": true,
+    "one_candidate_per_family_per_world": true,
+    "protocol": "mmred_suffix_feasibility",
+    "recovered_world_overlap_check_deferred": true,
+    "sampling_deadline_seconds": 270,
+    "tensors": 0,
+    "world_seeds": {
+      "16": 2026091216,
+      "32": 2026091232
+    }
+  },
+  "protocol": "mmred_suffix_feasibility",
+  "source_sha256": {
+    "docs/paper/MMRED_SUFFIX_FEASIBILITY_PROTOCOL.md": "2d634136b0e51430d602f5ddda1a0fc746905caa61c807762894b30a0fb8863b",
+    "scripts/audit_mmred_suffix_feasibility.py": "748187f9f4770080a9030bb04a76b5ee738232ae5bffcf69eb0f7ad7cb147898",
+    "slurm/mmred_suffix_feasibility.sbatch": "34719ab298a6ec3b80b5f44f340744add2431785944015fe90e59238fc9244d1"
+  },
+  "statistics": {
+    "16": {
+      "all_draws_counted_without_deduplication": true,
+      "distinct_sampled_sources": 20000,
+      "distinct_transformed_worlds": 5921,
+      "duplicates": {
+        "source_repeat_within_run": 0,
+        "transformed_equals_seen_source": 557,
+        "transformed_repeat_within_run": 21
+      },
+      "statistics": {
+        "person": {
+          "attempts": 20000,
+          "conditional": {
+            "equal_hist_given_nonglobal": {
+              "denominator": 2401,
+              "numerator": 4,
+              "rate": 0.001665972511453561
+            },
+            "nonglobal_given_nontrivial": {
+              "denominator": 2980,
+              "numerator": 2401,
+              "rate": 0.8057046979865772
+            },
+            "nontrivial_given_legal": {
+              "denominator": 3297,
+              "numerator": 2980,
+              "rate": 0.9038519866545345
+            }
+          },
+          "counts": {
+            "equal_hist_nonglobal": 4,
+            "legal": 3297,
+            "nonglobal": 2401,
+            "nontrivial": 2980,
+            "two_way_sign_flip": 1411
+          },
+          "directions": {
+            "least": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2401,
+                  "numerator": 316,
+                  "rate": 0.13161182840483132
+                },
+                "changed_given_unique": {
+                  "denominator": 1877,
+                  "numerator": 478,
+                  "rate": 0.25466169419286094
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 143,
+                  "rate": 0.4525316455696203
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 6,
+                  "rate": 0.0189873417721519
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 30,
+                  "rate": 0.0949367088607595
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 4,
+                  "rate": 0.012658227848101266
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 316,
+                  "numerator": 173,
+                  "rate": 0.5474683544303798
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2401,
+                  "numerator": 1003,
+                  "rate": 0.4177426072469804
+                },
+                "unique_full_given_legal": {
+                  "denominator": 3297,
+                  "numerator": 1877,
+                  "rate": 0.5693054291780406
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 316,
+                "changed_unique": 478,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 143,
+                "strong_pair_unique_partial": 6,
+                "strong_third": 30,
+                "strong_third_unique_partial": 4,
+                "suffix_pair_correct": 173,
+                "unchanged_nonglobal": 1003,
+                "unchanged_unique": 1399,
+                "unique_full_both": 1877
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 316,
+                  "rate": 0.0158
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 478,
+                  "rate": 0.0239
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 143,
+                  "rate": 0.00715
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 6,
+                  "rate": 0.0003
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 30,
+                  "rate": 0.0015
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 4,
+                  "rate": 0.0002
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 173,
+                  "rate": 0.00865
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1003,
+                  "rate": 0.05015
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 1399,
+                  "rate": 0.06995
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 1877,
+                  "rate": 0.09385
+                }
+              }
+            },
+            "most": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2401,
+                  "numerator": 447,
+                  "rate": 0.18617242815493545
+                },
+                "changed_given_unique": {
+                  "denominator": 2613,
+                  "numerator": 686,
+                  "rate": 0.2625334864140834
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 50,
+                  "rate": 0.11185682326621924
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 20,
+                  "rate": 0.0447427293064877
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 29,
+                  "rate": 0.06487695749440715
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 16,
+                  "rate": 0.035794183445190156
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 447,
+                  "numerator": 397,
+                  "rate": 0.8881431767337807
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2401,
+                  "numerator": 1426,
+                  "rate": 0.5939192003331945
+                },
+                "unique_full_given_legal": {
+                  "denominator": 3297,
+                  "numerator": 2613,
+                  "rate": 0.7925386715195633
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 447,
+                "changed_unique": 686,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 50,
+                "strong_pair_unique_partial": 20,
+                "strong_third": 29,
+                "strong_third_unique_partial": 16,
+                "suffix_pair_correct": 397,
+                "unchanged_nonglobal": 1426,
+                "unchanged_unique": 1927,
+                "unique_full_both": 2613
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 447,
+                  "rate": 0.02235
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 686,
+                  "rate": 0.0343
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 50,
+                  "rate": 0.0025
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 20,
+                  "rate": 0.001
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 29,
+                  "rate": 0.00145
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 16,
+                  "rate": 0.0008
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 397,
+                  "rate": 0.01985
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1426,
+                  "rate": 0.0713
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 1927,
+                  "rate": 0.09635
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 2613,
+                  "rate": 0.13065
+                }
+              }
+            }
+          },
+          "per_attempt": {
+            "equal_hist_nonglobal": {
+              "denominator": 20000,
+              "numerator": 4,
+              "rate": 0.0002
+            },
+            "legal": {
+              "denominator": 20000,
+              "numerator": 3297,
+              "rate": 0.16485
+            },
+            "nonglobal": {
+              "denominator": 20000,
+              "numerator": 2401,
+              "rate": 0.12005
+            },
+            "nontrivial": {
+              "denominator": 20000,
+              "numerator": 2980,
+              "rate": 0.149
+            },
+            "two_way_sign_flip": {
+              "denominator": 20000,
+              "numerator": 1411,
+              "rate": 0.07055
+            }
+          }
+        },
+        "room": {
+          "attempts": 20000,
+          "conditional": {
+            "equal_hist_given_nonglobal": {
+              "denominator": 1931,
+              "numerator": 26,
+              "rate": 0.013464526152252718
+            },
+            "nonglobal_given_nontrivial": {
+              "denominator": 2405,
+              "numerator": 1931,
+              "rate": 0.8029106029106029
+            },
+            "nontrivial_given_legal": {
+              "denominator": 2645,
+              "numerator": 2405,
+              "rate": 0.9092627599243857
+            }
+          },
+          "counts": {
+            "equal_hist_nonglobal": 26,
+            "legal": 2645,
+            "nonglobal": 1931,
+            "nontrivial": 2405,
+            "two_way_sign_flip": 966
+          },
+          "directions": {
+            "least": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 1931,
+                  "numerator": 29,
+                  "rate": 0.015018125323666495
+                },
+                "changed_given_unique": {
+                  "denominator": 239,
+                  "numerator": 54,
+                  "rate": 0.22594142259414227
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 25,
+                  "rate": 0.8620689655172413
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 1,
+                  "rate": 0.034482758620689655
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 29,
+                  "numerator": 4,
+                  "rate": 0.13793103448275862
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 1931,
+                  "numerator": 132,
+                  "rate": 0.0683583635422061
+                },
+                "unique_full_given_legal": {
+                  "denominator": 2645,
+                  "numerator": 239,
+                  "rate": 0.09035916824196598
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 29,
+                "changed_unique": 54,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 25,
+                "strong_pair_unique_partial": 0,
+                "strong_third": 1,
+                "strong_third_unique_partial": 0,
+                "suffix_pair_correct": 4,
+                "unchanged_nonglobal": 132,
+                "unchanged_unique": 185,
+                "unique_full_both": 239
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 29,
+                  "rate": 0.00145
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 54,
+                  "rate": 0.0027
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 25,
+                  "rate": 0.00125
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 1,
+                  "rate": 5e-05
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 4,
+                  "rate": 0.0002
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 132,
+                  "rate": 0.0066
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 185,
+                  "rate": 0.00925
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 239,
+                  "rate": 0.01195
+                }
+              }
+            },
+            "most": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 1931,
+                  "numerator": 155,
+                  "rate": 0.08026929052304506
+                },
+                "changed_given_unique": {
+                  "denominator": 2390,
+                  "numerator": 241,
+                  "rate": 0.10083682008368201
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 21,
+                  "rate": 0.13548387096774195
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 15,
+                  "rate": 0.0967741935483871
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 21,
+                  "rate": 0.13548387096774195
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 15,
+                  "rate": 0.0967741935483871
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 155,
+                  "numerator": 134,
+                  "rate": 0.864516129032258
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 1931,
+                  "numerator": 1592,
+                  "rate": 0.8244432936302434
+                },
+                "unique_full_given_legal": {
+                  "denominator": 2645,
+                  "numerator": 2390,
+                  "rate": 0.9035916824196597
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 155,
+                "changed_unique": 241,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 21,
+                "strong_pair_unique_partial": 15,
+                "strong_third": 21,
+                "strong_third_unique_partial": 15,
+                "suffix_pair_correct": 134,
+                "unchanged_nonglobal": 1592,
+                "unchanged_unique": 2149,
+                "unique_full_both": 2390
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 155,
+                  "rate": 0.00775
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 241,
+                  "rate": 0.01205
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 21,
+                  "rate": 0.00105
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 15,
+                  "rate": 0.00075
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 21,
+                  "rate": 0.00105
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 15,
+                  "rate": 0.00075
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 134,
+                  "rate": 0.0067
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1592,
+                  "rate": 0.0796
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 2149,
+                  "rate": 0.10745
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 2390,
+                  "rate": 0.1195
+                }
+              }
+            }
+          },
+          "per_attempt": {
+            "equal_hist_nonglobal": {
+              "denominator": 20000,
+              "numerator": 26,
+              "rate": 0.0013
+            },
+            "legal": {
+              "denominator": 20000,
+              "numerator": 2645,
+              "rate": 0.13225
+            },
+            "nonglobal": {
+              "denominator": 20000,
+              "numerator": 1931,
+              "rate": 0.09655
+            },
+            "nontrivial": {
+              "denominator": 20000,
+              "numerator": 2405,
+              "rate": 0.12025
+            },
+            "two_way_sign_flip": {
+              "denominator": 20000,
+              "numerator": 966,
+              "rate": 0.0483
+            }
+          }
+        }
+      }
+    },
+    "32": {
+      "all_draws_counted_without_deduplication": true,
+      "distinct_sampled_sources": 20000,
+      "distinct_transformed_worlds": 5977,
+      "duplicates": {
+        "source_repeat_within_run": 0,
+        "transformed_equals_seen_source": 275,
+        "transformed_repeat_within_run": 3
+      },
+      "statistics": {
+        "person": {
+          "attempts": 20000,
+          "conditional": {
+            "equal_hist_given_nonglobal": {
+              "denominator": 2875,
+              "numerator": 0,
+              "rate": 0.0
+            },
+            "nonglobal_given_nontrivial": {
+              "denominator": 3143,
+              "numerator": 2875,
+              "rate": 0.9147311485841553
+            },
+            "nontrivial_given_legal": {
+              "denominator": 3315,
+              "numerator": 3143,
+              "rate": 0.9481146304675716
+            }
+          },
+          "counts": {
+            "equal_hist_nonglobal": 0,
+            "legal": 3315,
+            "nonglobal": 2875,
+            "nontrivial": 3143,
+            "two_way_sign_flip": 1465
+          },
+          "directions": {
+            "least": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2875,
+                  "numerator": 581,
+                  "rate": 0.20208695652173914
+                },
+                "changed_given_unique": {
+                  "denominator": 2476,
+                  "numerator": 697,
+                  "rate": 0.28150242326332797
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 253,
+                  "rate": 0.4354561101549053
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 52,
+                  "rate": 0.08950086058519793
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 135,
+                  "rate": 0.23235800344234078
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 38,
+                  "rate": 0.06540447504302926
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 581,
+                  "numerator": 328,
+                  "rate": 0.5645438898450946
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2875,
+                  "numerator": 1534,
+                  "rate": 0.5335652173913044
+                },
+                "unique_full_given_legal": {
+                  "denominator": 3315,
+                  "numerator": 2476,
+                  "rate": 0.7469079939668175
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 581,
+                "changed_unique": 697,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 253,
+                "strong_pair_unique_partial": 52,
+                "strong_third": 135,
+                "strong_third_unique_partial": 38,
+                "suffix_pair_correct": 328,
+                "unchanged_nonglobal": 1534,
+                "unchanged_unique": 1779,
+                "unique_full_both": 2476
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 581,
+                  "rate": 0.02905
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 697,
+                  "rate": 0.03485
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 253,
+                  "rate": 0.01265
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 52,
+                  "rate": 0.0026
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 135,
+                  "rate": 0.00675
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 38,
+                  "rate": 0.0019
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 328,
+                  "rate": 0.0164
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1534,
+                  "rate": 0.0767
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 1779,
+                  "rate": 0.08895
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 2476,
+                  "rate": 0.1238
+                }
+              }
+            },
+            "most": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2875,
+                  "numerator": 644,
+                  "rate": 0.224
+                },
+                "changed_given_unique": {
+                  "denominator": 2766,
+                  "numerator": 765,
+                  "rate": 0.2765726681127983
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 124,
+                  "rate": 0.19254658385093168
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 73,
+                  "rate": 0.11335403726708075
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 85,
+                  "rate": 0.13198757763975155
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 65,
+                  "rate": 0.10093167701863354
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 644,
+                  "numerator": 520,
+                  "rate": 0.8074534161490683
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2875,
+                  "numerator": 1736,
+                  "rate": 0.6038260869565217
+                },
+                "unique_full_given_legal": {
+                  "denominator": 3315,
+                  "numerator": 2766,
+                  "rate": 0.8343891402714932
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 644,
+                "changed_unique": 765,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 124,
+                "strong_pair_unique_partial": 73,
+                "strong_third": 85,
+                "strong_third_unique_partial": 65,
+                "suffix_pair_correct": 520,
+                "unchanged_nonglobal": 1736,
+                "unchanged_unique": 2001,
+                "unique_full_both": 2766
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 644,
+                  "rate": 0.0322
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 765,
+                  "rate": 0.03825
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 124,
+                  "rate": 0.0062
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 73,
+                  "rate": 0.00365
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 85,
+                  "rate": 0.00425
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 65,
+                  "rate": 0.00325
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 520,
+                  "rate": 0.026
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1736,
+                  "rate": 0.0868
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 2001,
+                  "rate": 0.10005
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 2766,
+                  "rate": 0.1383
+                }
+              }
+            }
+          },
+          "per_attempt": {
+            "equal_hist_nonglobal": {
+              "denominator": 20000,
+              "numerator": 0,
+              "rate": 0.0
+            },
+            "legal": {
+              "denominator": 20000,
+              "numerator": 3315,
+              "rate": 0.16575
+            },
+            "nonglobal": {
+              "denominator": 20000,
+              "numerator": 2875,
+              "rate": 0.14375
+            },
+            "nontrivial": {
+              "denominator": 20000,
+              "numerator": 3143,
+              "rate": 0.15715
+            },
+            "two_way_sign_flip": {
+              "denominator": 20000,
+              "numerator": 1465,
+              "rate": 0.07325
+            }
+          }
+        },
+        "room": {
+          "attempts": 20000,
+          "conditional": {
+            "equal_hist_given_nonglobal": {
+              "denominator": 2323,
+              "numerator": 12,
+              "rate": 0.005165733964700818
+            },
+            "nonglobal_given_nontrivial": {
+              "denominator": 2562,
+              "numerator": 2323,
+              "rate": 0.9067135050741608
+            },
+            "nontrivial_given_legal": {
+              "denominator": 2665,
+              "numerator": 2562,
+              "rate": 0.9613508442776736
+            }
+          },
+          "counts": {
+            "equal_hist_nonglobal": 12,
+            "legal": 2665,
+            "nonglobal": 2323,
+            "nontrivial": 2562,
+            "two_way_sign_flip": 1248
+          },
+          "directions": {
+            "least": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2323,
+                  "numerator": 282,
+                  "rate": 0.12139474817046922
+                },
+                "changed_given_unique": {
+                  "denominator": 1217,
+                  "numerator": 336,
+                  "rate": 0.27608874281018897
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 195,
+                  "rate": 0.6914893617021277
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 1,
+                  "rate": 0.0035460992907801418
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 80,
+                  "rate": 0.28368794326241137
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 1,
+                  "rate": 0.0035460992907801418
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 282,
+                  "numerator": 87,
+                  "rate": 0.30851063829787234
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2323,
+                  "numerator": 770,
+                  "rate": 0.33146792940163583
+                },
+                "unique_full_given_legal": {
+                  "denominator": 2665,
+                  "numerator": 1217,
+                  "rate": 0.45666041275797375
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 282,
+                "changed_unique": 336,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 195,
+                "strong_pair_unique_partial": 1,
+                "strong_third": 80,
+                "strong_third_unique_partial": 1,
+                "suffix_pair_correct": 87,
+                "unchanged_nonglobal": 770,
+                "unchanged_unique": 881,
+                "unique_full_both": 1217
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 282,
+                  "rate": 0.0141
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 336,
+                  "rate": 0.0168
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 195,
+                  "rate": 0.00975
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 1,
+                  "rate": 5e-05
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 80,
+                  "rate": 0.004
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 1,
+                  "rate": 5e-05
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 87,
+                  "rate": 0.00435
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 770,
+                  "rate": 0.0385
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 881,
+                  "rate": 0.04405
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 1217,
+                  "rate": 0.06085
+                }
+              }
+            },
+            "most": {
+              "conditional": {
+                "changed_given_nonglobal": {
+                  "denominator": 2323,
+                  "numerator": 292,
+                  "rate": 0.12569952647438656
+                },
+                "changed_given_unique": {
+                  "denominator": 2454,
+                  "numerator": 350,
+                  "rate": 0.1426242868785656
+                },
+                "equal_hist_changed_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 94,
+                  "rate": 0.3219178082191781
+                },
+                "strong_pair_unique_partial_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 72,
+                  "rate": 0.2465753424657534
+                },
+                "strong_third_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 81,
+                  "rate": 0.2773972602739726
+                },
+                "strong_third_given_equal_hist_changed": {
+                  "denominator": 0,
+                  "numerator": 0,
+                  "rate": null
+                },
+                "strong_third_unique_partial_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 66,
+                  "rate": 0.22602739726027396
+                },
+                "suffix_pair_correct_given_changed_nonglobal": {
+                  "denominator": 292,
+                  "numerator": 198,
+                  "rate": 0.678082191780822
+                },
+                "unchanged_given_nonglobal": {
+                  "denominator": 2323,
+                  "numerator": 1838,
+                  "rate": 0.7912182522600086
+                },
+                "unique_full_given_legal": {
+                  "denominator": 2665,
+                  "numerator": 2454,
+                  "rate": 0.9208255159474672
+                }
+              },
+              "counts": {
+                "changed_nonglobal": 292,
+                "changed_unique": 350,
+                "equal_hist_changed": 0,
+                "equal_hist_strong_third": 0,
+                "prefix_pair_correct": 0,
+                "strong_pair": 94,
+                "strong_pair_unique_partial": 72,
+                "strong_third": 81,
+                "strong_third_unique_partial": 66,
+                "suffix_pair_correct": 198,
+                "unchanged_nonglobal": 1838,
+                "unchanged_unique": 2104,
+                "unique_full_both": 2454
+              },
+              "per_attempt": {
+                "changed_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 292,
+                  "rate": 0.0146
+                },
+                "changed_unique": {
+                  "denominator": 20000,
+                  "numerator": 350,
+                  "rate": 0.0175
+                },
+                "equal_hist_changed": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "equal_hist_strong_third": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "prefix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 0,
+                  "rate": 0.0
+                },
+                "strong_pair": {
+                  "denominator": 20000,
+                  "numerator": 94,
+                  "rate": 0.0047
+                },
+                "strong_pair_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 72,
+                  "rate": 0.0036
+                },
+                "strong_third": {
+                  "denominator": 20000,
+                  "numerator": 81,
+                  "rate": 0.00405
+                },
+                "strong_third_unique_partial": {
+                  "denominator": 20000,
+                  "numerator": 66,
+                  "rate": 0.0033
+                },
+                "suffix_pair_correct": {
+                  "denominator": 20000,
+                  "numerator": 198,
+                  "rate": 0.0099
+                },
+                "unchanged_nonglobal": {
+                  "denominator": 20000,
+                  "numerator": 1838,
+                  "rate": 0.0919
+                },
+                "unchanged_unique": {
+                  "denominator": 20000,
+                  "numerator": 2104,
+                  "rate": 0.1052
+                },
+                "unique_full_both": {
+                  "denominator": 20000,
+                  "numerator": 2454,
+                  "rate": 0.1227
+                }
+              }
+            }
+          },
+          "per_attempt": {
+            "equal_hist_nonglobal": {
+              "denominator": 20000,
+              "numerator": 12,
+              "rate": 0.0006
+            },
+            "legal": {
+              "denominator": 20000,
+              "numerator": 2665,
+              "rate": 0.13325
+            },
+            "nonglobal": {
+              "denominator": 20000,
+              "numerator": 2323,
+              "rate": 0.11615
+            },
+            "nontrivial": {
+              "denominator": 20000,
+              "numerator": 2562,
+              "rate": 0.1281
+            },
+            "two_way_sign_flip": {
+              "denominator": 20000,
+              "numerator": 1248,
+              "rate": 0.0624
+            }
+          }
+        }
+      }
+    }
+  },
+  "tests": {
+    "file": "/mnt/data/gabriele/gnn_transformer/mmred_suffix_feasibility/audit_444121/fixtures.json",
+    "oracle_checks": {
+      "full_answer_checks": 12,
+      "invariant_control_checks": 12
+    },
+    "passed": true,
+    "sha256": "90772d85c874259a9450a825f9ee0bf1eb474097c01cce45b0b173de732d0e6e"
+  },
+  "world_trials": 40000
+}

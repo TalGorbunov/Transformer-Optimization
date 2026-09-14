@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "tests": {
+    "passed": true,
+    "tests": [
+      "mandatory_report_post_and_resource_gates",
+      "descriptive_cache_failure_retained",
+      "failed_efficacy_not_rescued",
+      "four_combined_selected_models_bound",
+      "reject_checkpoint_mismatch",
+      "fixed32_plot_cells_and_count_partitions",
+      "scheduler_failed_attempts_counted",
+      "typed_GPU_TRES_not_double_counted",
+      "inclusive16200_second_budget",
+      "registered_per_seed_decisions_rederived",
+      "four_GPU_concurrency_limit",
+      "actual_per_job_caps",
+      "fixed_complete_two_phase_training_required",
+      "reject_unknown_unfinished_duplicate_allocations",
+      "integer_threshold_boundaries",
+      "complete46_head656_cache_schema",
+      "reject_missing_duplicate_or_suppressed_post_rows",
+      "exact28_layer_KV_lists_and16_full_reference_None",
+      "reject_missing_false_nonboolean_or_scalar_KV_flags"
+    ]
+  },
+  "source_sha256": {
+    "scripts/finalize_native_vision_v14.py": "4e7d1d0dc45999c90ba599e621ab81d91baa126df8ac4c6038e69605c007312b",
+    "slurm/native_vision_v14_finalize.sbatch": "c058a94997d5b40f599c7f14f4a73e8162fb1d2d12c2456cb994f597b1663b43",
+    "scripts/finalize_native_vision_v13.py": "e99383f4390b5293c032f407fcb029b6be2de6e09661118720e52f85a22ce0e2",
+    "slurm/native_vision_v13_finalize.sbatch": "8b495a72b66e9c7a092e640ce78e5c78bdaeab032473923e73cbc5e34bb9b191"
+  },
+  "seconds": 0.03712768852710724,
+  "slurm_job_id": "442512"
+}

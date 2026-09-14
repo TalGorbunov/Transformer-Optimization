@@ -1,0 +1,1 @@
+{"compact_bytes": 726371296, "diagnostic_sids": 100, "envelope_excess_worlds": 1433, "fit_profile_envelope_eligible": false, "frame_occurrences": 24800, "no_merge_tensor_or_image_load": true, "no_training_or_inference_release": true, "omitted_pixel_bytes": 91460812800, "passed": true, "worlds": 4000}

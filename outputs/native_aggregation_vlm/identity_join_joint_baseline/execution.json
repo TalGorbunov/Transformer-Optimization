@@ -1,0 +1,19 @@
+{
+  "status": "completed_frozen_joint_reference_failed_all_panels",
+  "check_job": "443619",
+  "source_release_sha256": "ace46e637f006c4f73bb8ef85ff5ffe04760b0b19d76a1138a1fc6ee209f0de2",
+  "parallel_report_job": "443611",
+  "frozen_comparator": true,
+  "adaptation_matched": false,
+  "profile_job": "443629",
+  "plan_sha256": "ef0ff4a4412f638d11ece4109402d3e2297359b6d30bd4bca829f334ccecd66c",
+  "check_summary_sha256": "e629d76a6ae53607ce2ab41fd31ddb43d0fef30d400d0773880be56bf2073ce3",
+  "release_job": "443631",
+  "allocated_gpu_seconds": 280,
+  "main_job": "443635",
+  "release_summary_sha256": "919feda3d87d7a84b12e0707ad917574cba7b75e289bb5cd6712dd80e25588b0",
+  "main_release_sha256": "e22a54484870c32c6087c09f50b8d6fc41590b068bbfe393889f24d126c44b77",
+  "report_job": "443643",
+  "report_summary_sha256": "a4cb29de4d5a08e8d962f48c8f45fe1e1d081b444fcb2c20aa509840e074a3dc",
+  "report_analysis_sha256": "247afdc265a8473e4bbe87888a6000047563c7a162e67618d7efd5c5f8d9137a"
+}

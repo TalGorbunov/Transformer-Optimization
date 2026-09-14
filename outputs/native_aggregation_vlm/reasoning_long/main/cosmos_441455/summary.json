@@ -1,0 +1,1848 @@
+{
+  "protocol": "exploratory_cosmos4096",
+  "completed": true,
+  "profile": false,
+  "scene_count": 54,
+  "plan_sha256": "74f20080553eb59716b2af04a046de45e4f6b120e1fb9b9ec13fabd61106c958",
+  "source_sha256": {
+    "scripts/probe_native_vision_cosmos_long.py": "75d544ee480e3de658ad14bfdca2c5a32c406478cebddbd0746a01a1c9d4e4df",
+    "slurm/native_vision_cosmos_long_check.sbatch": "8fbca16d71296aa1a2269518ae01e80fc0fa36ea1b2db6732b3d275a8b15b2c5",
+    "slurm/native_vision_cosmos_long_profile.sbatch": "1e87d1d770e3a7c41151de1777fb1d9bee9626f33c775464f32b412e7ec76c74",
+    "slurm/native_vision_cosmos_long_main.sbatch": "04813271419b5dbf728e2ccbd681dfd128222e09262c49d1ecc2bb75ac4efe16",
+    "slurm/native_vision_cosmos_long_report.sbatch": "eb30d9b18af66b1ff7feedf208fb6ac0832a6651105f77ecbdf1996f23b88840"
+  },
+  "predictions_sha256": "cf60408b0bcc2d843ab6fe2e9eeeecbfbd20fc893ce853a24b00096d102691ea",
+  "model_load_seconds": 13.278941369615495,
+  "total_seconds": 1755.3488110322505,
+  "total_generation_seconds": 1705.7813417781144,
+  "total_generated_tokens": 66888,
+  "maximum_sequence_tokens_exercised": 16854,
+  "maximum_native_cache_tokens": 16853,
+  "full4096_steps_exercised": true,
+  "prefix_mismatches": 0,
+  "peak_memory_allocated_bytes": 8893641216,
+  "peak_memory_reserved_bytes": 9380560896,
+  "limitations": [
+    "Adaptive budget extension on already inspected scenes, prompted by original Cosmos512 truncation28/36 OOD. This is exploratory and not fresh confirmation.",
+    "Only the reasoning output cap changes to4096. Direct32 predictions are reused from the verified original frozen Cosmos run; no direct rerun, prompt search, model selection or new data.",
+    "All128/512/4096 new endpoints come from one4096-cap trajectory. Earlier endpoints require native EOS by that budget and have no separately measured latency.",
+    "Original512 outcomes remain reported. Raw-prefix disagreements are disclosed without dropping, rerunning or choosing examples; unequal prefixes limit interpretation as continuation of the old run.",
+    "The official Cosmos guide recommends4096 or more output tokens. Native EOS can still arrive later than this cap; the assay retains NF4/bf16, greedy decoding and repetition_penalty1 deviations from the official BF16/sampling example.",
+    "Whole-trace think/answer grammar and native EOS are mandatory. Every truncated/malformed output stays wrong; MAE uses its explicit parsed denominator.",
+    "Within-Cosmos reasoning-policy minus existing direct exact is descriptive. System policy and output budget differ; this is not an isolated causal effect of token count or evidence of an improved aggregation method.",
+    "Bootstrap resamples18 complete anchors, retaining N32/N64 pairs,10000 draws seed20260917. The5pp effect screen is descriptive; no seed-population or cross-model causal inference.",
+    "A natural profile may stop before4096. Report the actually exercised cache length; declaring a4096 cap alone does not demonstrate4096 decode steps."
+  ],
+  "results": {
+    "cells": {
+      "direct32": {
+        "all": {
+          "n": 54,
+          "correct": 8,
+          "exact": 0.14814814814814814,
+          "parsed": 54,
+          "completed": 54,
+          "truncated": 0,
+          "mae": 4.2407407407407405,
+          "mae_denominator": 54
+        },
+        "familiar_ood": {
+          "n": 36,
+          "correct": 4,
+          "exact": 0.1111111111111111,
+          "parsed": 36,
+          "completed": 36,
+          "truncated": 0,
+          "mae": 5.138888888888889,
+          "mae_denominator": 36
+        },
+        "N16": {
+          "n": 18,
+          "correct": 4,
+          "exact": 0.2222222222222222,
+          "parsed": 18,
+          "completed": 18,
+          "truncated": 0,
+          "mae": 2.4444444444444446,
+          "mae_denominator": 18
+        },
+        "N32": {
+          "n": 18,
+          "correct": 2,
+          "exact": 0.1111111111111111,
+          "parsed": 18,
+          "completed": 18,
+          "truncated": 0,
+          "mae": 4.833333333333333,
+          "mae_denominator": 18
+        },
+        "N64": {
+          "n": 18,
+          "correct": 2,
+          "exact": 0.1111111111111111,
+          "parsed": 18,
+          "completed": 18,
+          "truncated": 0,
+          "mae": 5.444444444444445,
+          "mae_denominator": 18
+        },
+        "per_k": {
+          "N16_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N16_K1": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N16_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1.5,
+            "mae_denominator": 2
+          },
+          "N16_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 3.5,
+            "mae_denominator": 2
+          },
+          "N16_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4,
+            "mae_denominator": 2
+          },
+          "N16_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4.5,
+            "mae_denominator": 2
+          },
+          "N16_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4.5,
+            "mae_denominator": 2
+          },
+          "N16_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N16_K8": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2,
+            "mae_denominator": 2
+          },
+          "N32_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N32_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6,
+            "mae_denominator": 2
+          },
+          "N32_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1.5,
+            "mae_denominator": 2
+          },
+          "N32_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2,
+            "mae_denominator": 2
+          },
+          "N32_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6,
+            "mae_denominator": 2
+          },
+          "N32_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4.5,
+            "mae_denominator": 2
+          },
+          "N32_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 5,
+            "mae_denominator": 2
+          },
+          "N32_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 7,
+            "mae_denominator": 2
+          },
+          "N32_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 11.5,
+            "mae_denominator": 2
+          },
+          "N64_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N64_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6.5,
+            "mae_denominator": 2
+          },
+          "N64_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2,
+            "mae_denominator": 2
+          },
+          "N64_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6,
+            "mae_denominator": 2
+          },
+          "N64_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 3.5,
+            "mae_denominator": 2
+          },
+          "N64_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 5,
+            "mae_denominator": 2
+          },
+          "N64_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6,
+            "mae_denominator": 2
+          },
+          "N64_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 10,
+            "mae_denominator": 2
+          },
+          "N64_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 10,
+            "mae_denominator": 2
+          }
+        }
+      },
+      "original_reason512": {
+        "all": {
+          "n": 54,
+          "correct": 5,
+          "exact": 0.09259259259259259,
+          "parsed": 22,
+          "completed": 22,
+          "truncated": 32,
+          "mae": 3.6818181818181817,
+          "mae_denominator": 22
+        },
+        "familiar_ood": {
+          "n": 36,
+          "correct": 1,
+          "exact": 0.027777777777777776,
+          "parsed": 8,
+          "completed": 8,
+          "truncated": 28,
+          "mae": 7,
+          "mae_denominator": 8
+        },
+        "N16": {
+          "n": 18,
+          "correct": 4,
+          "exact": 0.2222222222222222,
+          "parsed": 14,
+          "completed": 14,
+          "truncated": 4,
+          "mae": 1.7857142857142858,
+          "mae_denominator": 14
+        },
+        "N32": {
+          "n": 18,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 4,
+          "completed": 4,
+          "truncated": 14,
+          "mae": 5.25,
+          "mae_denominator": 4
+        },
+        "N64": {
+          "n": 18,
+          "correct": 1,
+          "exact": 0.05555555555555555,
+          "parsed": 4,
+          "completed": 4,
+          "truncated": 14,
+          "mae": 8.75,
+          "mae_denominator": 4
+        },
+        "per_k": {
+          "N16_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N16_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 1,
+            "mae_denominator": 1
+          },
+          "N16_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 3,
+            "mae_denominator": 2
+          },
+          "N16_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N16_K4": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0.5,
+            "mae_denominator": 2
+          },
+          "N16_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 2,
+            "mae_denominator": 1
+          },
+          "N16_K7": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2.5,
+            "mae_denominator": 2
+          },
+          "N16_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4,
+            "mae_denominator": 2
+          },
+          "N32_K0": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1.5,
+            "mae_denominator": 2
+          },
+          "N32_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 6,
+            "mae_denominator": 1
+          },
+          "N32_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 12,
+            "mae_denominator": 1
+          },
+          "N32_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K0": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 0,
+            "mae_denominator": 1
+          },
+          "N64_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 9,
+            "mae_denominator": 2
+          },
+          "N64_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 17,
+            "mae_denominator": 1
+          },
+          "N64_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          }
+        }
+      },
+      "extended_reason128": {
+        "all": {
+          "n": 54,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "completed": 0,
+          "truncated": 54,
+          "mae": null,
+          "mae_denominator": 0
+        },
+        "familiar_ood": {
+          "n": 36,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "completed": 0,
+          "truncated": 36,
+          "mae": null,
+          "mae_denominator": 0
+        },
+        "N16": {
+          "n": 18,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "completed": 0,
+          "truncated": 18,
+          "mae": null,
+          "mae_denominator": 0
+        },
+        "N32": {
+          "n": 18,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "completed": 0,
+          "truncated": 18,
+          "mae": null,
+          "mae_denominator": 0
+        },
+        "N64": {
+          "n": 18,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "completed": 0,
+          "truncated": 18,
+          "mae": null,
+          "mae_denominator": 0
+        },
+        "per_k": {
+          "N16_K0": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K0": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K0": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          }
+        }
+      },
+      "extended_reason512": {
+        "all": {
+          "n": 54,
+          "correct": 5,
+          "exact": 0.09259259259259259,
+          "parsed": 22,
+          "completed": 22,
+          "truncated": 32,
+          "mae": 3.6818181818181817,
+          "mae_denominator": 22
+        },
+        "familiar_ood": {
+          "n": 36,
+          "correct": 1,
+          "exact": 0.027777777777777776,
+          "parsed": 8,
+          "completed": 8,
+          "truncated": 28,
+          "mae": 7,
+          "mae_denominator": 8
+        },
+        "N16": {
+          "n": 18,
+          "correct": 4,
+          "exact": 0.2222222222222222,
+          "parsed": 14,
+          "completed": 14,
+          "truncated": 4,
+          "mae": 1.7857142857142858,
+          "mae_denominator": 14
+        },
+        "N32": {
+          "n": 18,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 4,
+          "completed": 4,
+          "truncated": 14,
+          "mae": 5.25,
+          "mae_denominator": 4
+        },
+        "N64": {
+          "n": 18,
+          "correct": 1,
+          "exact": 0.05555555555555555,
+          "parsed": 4,
+          "completed": 4,
+          "truncated": 14,
+          "mae": 8.75,
+          "mae_denominator": 4
+        },
+        "per_k": {
+          "N16_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N16_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 1,
+            "mae_denominator": 1
+          },
+          "N16_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 3,
+            "mae_denominator": 2
+          },
+          "N16_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N16_K4": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0.5,
+            "mae_denominator": 2
+          },
+          "N16_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N16_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 2,
+            "mae_denominator": 1
+          },
+          "N16_K7": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2.5,
+            "mae_denominator": 2
+          },
+          "N16_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4,
+            "mae_denominator": 2
+          },
+          "N32_K0": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1.5,
+            "mae_denominator": 2
+          },
+          "N32_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 6,
+            "mae_denominator": 1
+          },
+          "N32_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N32_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 12,
+            "mae_denominator": 1
+          },
+          "N32_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K0": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 0,
+            "mae_denominator": 1
+          },
+          "N64_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 9,
+            "mae_denominator": 2
+          },
+          "N64_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          },
+          "N64_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 17,
+            "mae_denominator": 1
+          },
+          "N64_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 0,
+            "completed": 0,
+            "truncated": 2,
+            "mae": null,
+            "mae_denominator": 0
+          }
+        }
+      },
+      "extended_reason4096": {
+        "all": {
+          "n": 54,
+          "correct": 11,
+          "exact": 0.2037037037037037,
+          "parsed": 49,
+          "completed": 49,
+          "truncated": 5,
+          "mae": 5.020408163265306,
+          "mae_denominator": 49
+        },
+        "familiar_ood": {
+          "n": 36,
+          "correct": 6,
+          "exact": 0.16666666666666666,
+          "parsed": 32,
+          "completed": 32,
+          "truncated": 4,
+          "mae": 6.78125,
+          "mae_denominator": 32
+        },
+        "N16": {
+          "n": 18,
+          "correct": 5,
+          "exact": 0.2777777777777778,
+          "parsed": 17,
+          "completed": 17,
+          "truncated": 1,
+          "mae": 1.7058823529411764,
+          "mae_denominator": 17
+        },
+        "N32": {
+          "n": 18,
+          "correct": 3,
+          "exact": 0.16666666666666666,
+          "parsed": 17,
+          "completed": 17,
+          "truncated": 1,
+          "mae": 3.764705882352941,
+          "mae_denominator": 17
+        },
+        "N64": {
+          "n": 18,
+          "correct": 3,
+          "exact": 0.16666666666666666,
+          "parsed": 15,
+          "completed": 15,
+          "truncated": 3,
+          "mae": 10.2,
+          "mae_denominator": 15
+        },
+        "per_k": {
+          "N16_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N16_K1": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0.5,
+            "mae_denominator": 2
+          },
+          "N16_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 3,
+            "mae_denominator": 2
+          },
+          "N16_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N16_K4": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0.5,
+            "mae_denominator": 2
+          },
+          "N16_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2,
+            "mae_denominator": 2
+          },
+          "N16_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 2,
+            "mae_denominator": 1
+          },
+          "N16_K7": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2.5,
+            "mae_denominator": 2
+          },
+          "N16_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4,
+            "mae_denominator": 2
+          },
+          "N32_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N32_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1,
+            "mae_denominator": 2
+          },
+          "N32_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 1.5,
+            "mae_denominator": 2
+          },
+          "N32_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4.5,
+            "mae_denominator": 2
+          },
+          "N32_K4": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 2,
+            "mae_denominator": 2
+          },
+          "N32_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4.5,
+            "mae_denominator": 2
+          },
+          "N32_K6": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 11,
+            "mae_denominator": 1
+          },
+          "N32_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 9,
+            "mae_denominator": 2
+          },
+          "N32_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 4,
+            "mae_denominator": 2
+          },
+          "N64_K0": {
+            "n": 2,
+            "correct": 2,
+            "exact": 1.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 0,
+            "mae_denominator": 2
+          },
+          "N64_K1": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 9,
+            "mae_denominator": 2
+          },
+          "N64_K2": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 2,
+            "mae_denominator": 1
+          },
+          "N64_K3": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 25.5,
+            "mae_denominator": 2
+          },
+          "N64_K4": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 10.5,
+            "mae_denominator": 2
+          },
+          "N64_K5": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 6.5,
+            "mae_denominator": 2
+          },
+          "N64_K6": {
+            "n": 2,
+            "correct": 1,
+            "exact": 0.5,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 0,
+            "mae_denominator": 1
+          },
+          "N64_K7": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 1,
+            "completed": 1,
+            "truncated": 1,
+            "mae": 17,
+            "mae_denominator": 1
+          },
+          "N64_K8": {
+            "n": 2,
+            "correct": 0,
+            "exact": 0.0,
+            "parsed": 2,
+            "completed": 2,
+            "truncated": 0,
+            "mae": 15.5,
+            "mae_denominator": 2
+          }
+        }
+      }
+    },
+    "contrasts_vs_existing_direct": {
+      "original_reason512": {
+        "familiar_ood": {
+          "estimate": -0.08333333333333333,
+          "lower": -0.2222222222222222,
+          "upper": 0,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        },
+        "N16": {
+          "estimate": 0,
+          "lower": -0.2222222222222222,
+          "upper": 0.2222222222222222,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        }
+      },
+      "extended_reason128": {
+        "familiar_ood": {
+          "estimate": -0.1111111111111111,
+          "lower": -0.2777777777777778,
+          "upper": 0,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        },
+        "N16": {
+          "estimate": -0.2222222222222222,
+          "lower": -0.4444444444444444,
+          "upper": -0.05555555555555555,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        }
+      },
+      "extended_reason512": {
+        "familiar_ood": {
+          "estimate": -0.08333333333333333,
+          "lower": -0.2222222222222222,
+          "upper": 0,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        },
+        "N16": {
+          "estimate": 0,
+          "lower": -0.2222222222222222,
+          "upper": 0.2222222222222222,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        }
+      },
+      "extended_reason4096": {
+        "familiar_ood": {
+          "estimate": 0.05555555555555555,
+          "lower": 0,
+          "upper": 0.1388888888888889,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        },
+        "N16": {
+          "estimate": 0.05555555555555555,
+          "lower": -0.1111111111111111,
+          "upper": 0.2222222222222222,
+          "replicates": 10000,
+          "seed": 20260917,
+          "clusters": 18,
+          "unit": "whole_paired_anchor",
+          "quantiles": "ordered_draws[249,9749]"
+        }
+      }
+    },
+    "extension": {
+      "direct32": {
+        "N16_N32": {
+          "n": 18,
+          "both_correct": 2,
+          "short_correct_long_wrong": 2,
+          "both_parsed": 18,
+          "invariant_parsed": 6
+        },
+        "N16_N64": {
+          "n": 18,
+          "both_correct": 2,
+          "short_correct_long_wrong": 2,
+          "both_parsed": 18,
+          "invariant_parsed": 5
+        }
+      },
+      "original_reason512": {
+        "N16_N32": {
+          "n": 18,
+          "both_correct": 0,
+          "short_correct_long_wrong": 4,
+          "both_parsed": 4,
+          "invariant_parsed": 1
+        },
+        "N16_N64": {
+          "n": 18,
+          "both_correct": 1,
+          "short_correct_long_wrong": 3,
+          "both_parsed": 3,
+          "invariant_parsed": 1
+        }
+      },
+      "extended_reason128": {
+        "N16_N32": {
+          "n": 18,
+          "both_correct": 0,
+          "short_correct_long_wrong": 0,
+          "both_parsed": 0,
+          "invariant_parsed": 0
+        },
+        "N16_N64": {
+          "n": 18,
+          "both_correct": 0,
+          "short_correct_long_wrong": 0,
+          "both_parsed": 0,
+          "invariant_parsed": 0
+        }
+      },
+      "extended_reason512": {
+        "N16_N32": {
+          "n": 18,
+          "both_correct": 0,
+          "short_correct_long_wrong": 4,
+          "both_parsed": 4,
+          "invariant_parsed": 1
+        },
+        "N16_N64": {
+          "n": 18,
+          "both_correct": 1,
+          "short_correct_long_wrong": 3,
+          "both_parsed": 3,
+          "invariant_parsed": 1
+        }
+      },
+      "extended_reason4096": {
+        "N16_N32": {
+          "n": 18,
+          "both_correct": 3,
+          "short_correct_long_wrong": 2,
+          "both_parsed": 17,
+          "invariant_parsed": 4
+        },
+        "N16_N64": {
+          "n": 18,
+          "both_correct": 2,
+          "short_correct_long_wrong": 3,
+          "both_parsed": 14,
+          "invariant_parsed": 4
+        }
+      }
+    },
+    "primary_screen_pass": true,
+    "primary": "Extended4096 minus existing direct32 OOD exact >=5pp, descriptive; N16 loss reported separately",
+    "prefix_mismatch_by_n": {
+      "16": {
+        "n": 18,
+        "mismatches": 0
+      },
+      "32": {
+        "n": 18,
+        "mismatches": 0
+      },
+      "64": {
+        "n": 18,
+        "mismatches": 0
+      }
+    }
+  }
+}

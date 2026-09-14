@@ -1,0 +1,46 @@
+{
+  "passed": true,
+  "protocol": "v13_training_null_feature_inventory_only",
+  "source_sha256": {
+    "scripts/stage_native_vision_v13_null_features.py": "3c41fbca44e3c5b429dbd658a7131d4f03df7e120d31febeb31e8bd67b89df63",
+    "slurm/native_vision_v13_null_inventory.sbatch": "05c4a0db15eea9894a913b05510aee2343bbd586a34cc929edd6fca28da0defb"
+  },
+  "plan_file": "/mnt/data/gabriele/gnn_transformer/v13_null_features/stage_442353/plan.json",
+  "plan_sha256": "fa6e3014dff2a083cf45dab1888c065bb52e55244e06379dbca44ae1e03a88ef",
+  "counts": {
+    "questions": 54,
+    "zero_scenes": 108,
+    "occurrences": 1296,
+    "unique_image_question_pairs": 1274,
+    "duplicate_occurrences": 22,
+    "strict_prefixes": 18,
+    "occurrence_feature_positions": 23328,
+    "required_local_features": 22932,
+    "reused_local_features": 3268,
+    "missing_local_features": 19664,
+    "required_global_features": 972,
+    "reused_global_features": 972,
+    "new_global_features": 0,
+    "unchanged_v10_features": 33658,
+    "union_features": 53322
+  },
+  "missing_fp16_payload_bytes": 140951552,
+  "proposed_shard_rows": [
+    4916,
+    4916,
+    4916,
+    4916
+  ],
+  "proposed_shard_model_calls": [
+    77,
+    77,
+    77,
+    77
+  ],
+  "no_tensor_loaded": true,
+  "no_model_loaded": true,
+  "no_harvest_release": true,
+  "no_training_release": true,
+  "seconds": 5.968904465436935,
+  "slurm_job_id": "442353"
+}

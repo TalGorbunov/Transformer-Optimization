@@ -1,0 +1,87 @@
+{
+  "all_seven_methods": true,
+  "check_cap_seconds": 600,
+  "check_job": "447723",
+  "dependencies": [
+    "447702",
+    "447704",
+    "447705",
+    "447706",
+    "447707",
+    "447708",
+    "447709"
+  ],
+  "evaluation_array": "447759",
+  "evaluation_audits": [
+    {
+      "depends_on": "447759_0",
+      "job": "447762",
+      "method": "anchor",
+      "task": 0
+    },
+    {
+      "depends_on": "447759_1",
+      "job": "447763",
+      "method": "answer25",
+      "task": 1
+    },
+    {
+      "depends_on": "447759_2",
+      "job": "447764",
+      "method": "answer26",
+      "task": 2
+    },
+    {
+      "depends_on": "447759_3",
+      "job": "447765",
+      "method": "local25",
+      "task": 3
+    },
+    {
+      "depends_on": "447759_4",
+      "job": "447766",
+      "method": "local26",
+      "task": 4
+    },
+    {
+      "depends_on": "447759_5",
+      "job": "447767",
+      "method": "prefix25",
+      "task": 5
+    },
+    {
+      "depends_on": "447759_6",
+      "job": "447769",
+      "method": "prefix26",
+      "task": 6
+    }
+  ],
+  "evaluation_cap_seconds_each": 3600,
+  "evaluation_dependency": "afterok:447757",
+  "evaluation_max_concurrent": 3,
+  "evaluation_task_order": [
+    "anchor",
+    "answer25",
+    "answer26",
+    "local25",
+    "local26",
+    "prefix25",
+    "prefix26"
+  ],
+  "expected_plan": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_evaluation/check_447723/plan.json",
+  "no_fresh_predictions_yet": true,
+  "protocol": "mmred_prefix_supervision_fresh_evaluation",
+  "resource_release_cap_seconds": 300,
+  "resource_release_dependency": "afterok:447723",
+  "resource_release_job": "447757",
+  "resource_release_source": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_evaluation/release_gate_sources/source_release.json",
+    "sha256": "d6ce3d0b422865b2c89cfd1c11125fc0e6162c77ad2edf528eb43f3f539d61d9"
+  },
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_evaluation/source_release.json",
+    "sha256": "624b8a9996086af28c896aa2479bc659780040ab9dabf0207f024e9687b9011a"
+  },
+  "statistics_job": "447770",
+  "status": "full_pipeline_conditionally_queued"
+}

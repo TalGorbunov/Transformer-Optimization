@@ -1,0 +1,47 @@
+{
+ "full": {
+  "acc": 0.0,
+  "recall": 1.0,
+  "n": 3
+ },
+ "oracle": {
+  "acc": 0.0,
+  "recall": 1.0,
+  "n": 3
+ },
+ "attn": {
+  "acc": 0.0,
+  "recall": 0.20833333333333334,
+  "n": 3
+ },
+ "attn_norp": {
+  "acc": 0.0,
+  "recall": 0.20833333333333334,
+  "n": 3
+ },
+ "lex": {
+  "acc": 0.0,
+  "recall": 0.611111111111111,
+  "n": 3
+ },
+ "rand": {
+  "acc": 0.0,
+  "recall": 0.20833333333333334,
+  "n": 3
+ },
+ "_meta": {
+  "model": "Tiny",
+  "task": "mmred_filtered",
+  "length": "seq_len_16",
+  "k": 4,
+  "sel_layer": 1,
+  "sel_rows": "tail",
+  "sel_chunk": 0,
+  "sel_tournament": 0,
+  "sel_rounds": 1,
+  "yarn": 0.0,
+  "probe": false,
+  "probe_layer": 1,
+  "elapsed_s": 19.57303476333618
+ }
+}

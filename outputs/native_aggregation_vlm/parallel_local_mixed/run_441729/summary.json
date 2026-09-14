@@ -1,0 +1,2034 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "computational_integrity_passed": true,
+  "numerical_gate_passed": false,
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/parallel_local_mixed/check_441727/plan.json",
+  "plan_sha256": "0dd28471db37493db053977821db203d589440801345a899a9a3554e804d5675",
+  "source_sha256": {
+    "scripts/probe_native_vision_parallel_local_mixed.py": "70a5201fa331069d7b6f90f2f4a92e020dfdc694e4bfc17b32f4f00998480d6f",
+    "slurm/native_vision_parallel_local_mixed_check.sbatch": "22c9af1b3795c4b2af703c7f0bf1bc2505e1d205e4e6b11a7d1c7c2892ddfc9d",
+    "slurm/native_vision_parallel_local_mixed.sbatch": "f3bdec9e65886f15ac9d9e71ff12b623420481715d0fb93a52e5eb43ba7da671",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_v5_local_readability.py": "a2d5d395df4cfa88e661eaf7e585006a635cb98dfa781170711cd0d1efccd1ae"
+  },
+  "teacher_binding": {
+    "cache_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/teacher_cache.json",
+    "cache_sha256": "83cc9977763bb6504433da6019d405d6735837736a0da4c2d5eba2a857725a98",
+    "plan_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/stage_441590/plan.json",
+    "plan_sha256": "ca04535fb67e065fcde0408fb23036eef51439d9188340199dc81167fe418b19",
+    "audit_file": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/stage_441590/audit_labels.json",
+    "audit_sha256": "70c08781c7f5068734b8499dcf1ea1adbaad52afb43ee9380d6a22dcbb27b186",
+    "source_sha256": {
+      "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+      "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+      "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+      "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+      "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+      "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+      "slurm/native_vision_v6_teacher_stage.sbatch": "7ae8de4bd47bc36a6b3a6358d46b1b3b798fe74ad92d4a7ad096c3a8f11f4bed",
+      "slurm/native_vision_v6_teacher_profile.sbatch": "dd1be72eb74f3fa7440d6e4543dd36de61fc4fcae0ce4530c16c9b0149451079",
+      "slurm/native_vision_v6_teacher_array.sbatch": "7a00bca2dba0f442d56e6286613b7de385b05fa3b7aa167df8fdf4c3ae8d9994",
+      "slurm/native_vision_v6_teacher_merge.sbatch": "85bd8e9ae29352e6c65400f22c1cbfc1c9a1606af7944f056ebf634679e32166"
+    }
+  },
+  "model": {
+    "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/snapshots/cc594898137f460bfe9f0759e9844b3ce807cfb5",
+    "metadata_sha256": {
+      "README.md": "1fa65dbb08bc9ffe0b020409c8686f08b23008c5a68554353305fd2de6f2b81e",
+      "chat_template.json": "ad60d90252ed0b0705ba14e2d0ad0fec0beac1ea955642b54059b36052d8bc96",
+      "config.json": "77d9ec7321cc572e3579e2c84799c9cadaded63c49ce93b101733349fc330c43",
+      "generation_config.json": "0a3aea82869fe29f20dc95ccf3e2bcff380eca1f5ad6447a4a4b37110b08e43e",
+      "merges.txt": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3",
+      "model.safetensors.index.json": "73b333b0b16e5286ddba615d2caebcd495cf7e616f52eb217a81781393d79de9",
+      "preprocessor_config.json": "f2058c716eef96ccaed1cc1e2d0c08306b62586d535b28d9d08e691b2fab7ca0",
+      "tokenizer.json": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+      "tokenizer_config.json": "4abd3520120e266da84c0864fee064d1fb10806f02225911a47253dd38dc5f56",
+      "vocab.json": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+    },
+    "weight_shard_stat": {
+      "model-00001-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/e97b877e47fde53a6c6e77aafb36e58e91ee9d95c4a3eeac6f1b5c0e6a1c986e",
+        "bytes": 3900233256,
+        "mtime_ns": 1771407935695226945,
+        "inode": 16655068854630583141
+      },
+      "model-00002-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/a9a300a43b4724eee2abe7c18ceb26768d0ab011eb0cad19d9bfd2476a24d024",
+        "bytes": 3864726320,
+        "mtime_ns": 1771407935803226875,
+        "inode": 5832180937620888320
+      },
+      "model-00003-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/111223d173e00bbee81cba1216fad28668df3476706b7fd26f4d5b50f8b3a507",
+        "bytes": 3864726424,
+        "mtime_ns": 1771407935853602650,
+        "inode": 17666152406303428792
+      },
+      "model-00004-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/ef47f634fa57d46ee134edcc09f34085a47da1e16c12a2abe0d67118be6d72ed",
+        "bytes": 3864733680,
+        "mtime_ns": 1771407935446460362,
+        "inode": 11611589105788180313
+      },
+      "model-00005-of-00005.safetensors": {
+        "path": "/mnt/ckpts/huggingface/hub/models--Qwen--Qwen2.5-VL-7B-Instruct/blobs/0c859795ad3a627a9b95bcb762e059d5b768a4a36fdd4affeff269d93fdecc67",
+        "bytes": 1089994880,
+        "mtime_ns": 1771407929007218309,
+        "inode": 5125300042382599384
+      }
+    },
+    "weight_verification": "Resolved immutable shard path/inode/size/mtime; no full weight rehash"
+  },
+  "runtime": {
+    "torch_version": "2.8.0+cu128",
+    "transformers_version": "4.57.6",
+    "bitsandbytes_version": "0.48.2"
+  },
+  "processor": {
+    "transformers_version": "4.57.6",
+    "processor_class": "Qwen2_5_VLProcessor",
+    "tokenizer_class": "Qwen2Tokenizer",
+    "tokenizer_sha256": "706f0e14a1d9746f2692479bac19e9dceb1705e7028c967f5eaf397281f91733",
+    "chat_template_sha256": "4df95d05455c2a6f762616492bba63d0f9bef904ef47daabad35f5715d6d2e4e",
+    "image_processor_sha256": "549c158011407dfb750d9ec578047cf76f5bfe365cd0aa069a50137d3f98d9dd"
+  },
+  "native_weight_dtypes": {
+    "final_norm_weight": "torch.float16",
+    "lm_head_weight": "torch.float16",
+    "final_norm_class": "Qwen2RMSNorm",
+    "lm_head_class": "Linear"
+  },
+  "actual_hidden_dtypes": [
+    "torch.float16"
+  ],
+  "actual_logits_dtypes": [
+    "torch.float16"
+  ],
+  "calls": {
+    "model": 92,
+    "vision": 86,
+    "language": 92,
+    "norm": 92
+  },
+  "response_rows": 492,
+  "comparison_rows": 246,
+  "numerical_groups": {
+    "local_prefill": {
+      "n": 80,
+      "passed": true,
+      "violations": 0,
+      "maximum_full_vocabulary_tv": 0.013297849987736358,
+      "top1_mismatches": 0,
+      "maximum_hidden_relative_l2": 0.03628866024365107,
+      "maximum_conditional_p1_difference": 0.013294406581486395,
+      "maximum_numeric_mass_difference": 2.785718585340824e-05
+    },
+    "full_vocab": {
+      "n": 166,
+      "passed": false,
+      "violations": 1,
+      "maximum_full_vocabulary_tv": 0.020296463569397433,
+      "top1_mismatches": 0,
+      "maximum_hidden_relative_l2": 0.01779436778163527
+    }
+  },
+  "violations": [
+    {
+      "policy": "full_vocab",
+      "full_vocabulary_tv": 0.020296463569397433,
+      "top1_equal": true,
+      "maximum_absolute_logit_difference": 0.185546875,
+      "centered_maximum_absolute_logit_difference": 0.16350169608413445,
+      "centered_rms_logit_difference": 0.031126189742285253,
+      "hidden_maximum_absolute_difference": 1.5,
+      "hidden_rms_difference": 0.09158099192548591,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766,
+      "hidden_state_equality_claimed": false,
+      "passed": false,
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "cached_vs_full_step2",
+      "row_id": "v2c_profile_test_software_N16_K6_0000_N64/local_062",
+      "row_index": 62
+    }
+  ],
+  "per_call": [
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_000",
+      "batch_size": 1,
+      "forward_seconds": 0.5647015385329723,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6213082624,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_000.pt",
+      "state_sha256": "f3bed20137c19dc5b09b14833da1702c2c7b5ef8f06e0c2269d69b0694821b5e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_001",
+      "batch_size": 1,
+      "forward_seconds": 0.08532845228910446,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6213393920,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_001.pt",
+      "state_sha256": "bde77a9f57a50aef15fe5ae6e0acef9f47e429debe6e9053ada050ef3f063ac7"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_002",
+      "batch_size": 1,
+      "forward_seconds": 0.08382154628634453,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6213705216,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_002.pt",
+      "state_sha256": "c788b9b3aacaf6f9167a9fe9c89aad4920749b5997e6cd7bea5f8ba77bb00aa1"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_003",
+      "batch_size": 1,
+      "forward_seconds": 0.08367439452558756,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6214016512,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_003.pt",
+      "state_sha256": "e26b9a64457283ea02cf2b9a71b672ca68e545f7b601a8a7a9a45942af10dba2"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_004",
+      "batch_size": 1,
+      "forward_seconds": 0.08356324024498463,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6214327808,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_004.pt",
+      "state_sha256": "5a091e69810b36544409c359079eb0e3c8db65281fbe31cc282562eb4d3b1a81"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_005",
+      "batch_size": 1,
+      "forward_seconds": 0.08317555580288172,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6214639104,
+      "peak_memory_reserved_bytes": 7870611456,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_005.pt",
+      "state_sha256": "32b1b53da01b3baf970b6ab33de3a8f1bd0ffeb7eb9e2423f705a296e2b2073e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_006",
+      "batch_size": 1,
+      "forward_seconds": 0.08555590361356735,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6214950400,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_006.pt",
+      "state_sha256": "f9c22240ed0f5aff1c8672b613a89f855ec4788024f828ccb25f1188a3af2e51"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_007",
+      "batch_size": 1,
+      "forward_seconds": 0.08288583811372519,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6215261696,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_007.pt",
+      "state_sha256": "153b1980e0f0df4e91992a34b0da10d3b25228be5143fd6ce2534d91c358ce74"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_008",
+      "batch_size": 1,
+      "forward_seconds": 0.08689776342362165,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6215572992,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_008.pt",
+      "state_sha256": "5aba49aa69293cddf5e77f65d6f27eb6462983bb684726da05daafb38b18c35f"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_009",
+      "batch_size": 1,
+      "forward_seconds": 0.08324278146028519,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6215884288,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_009.pt",
+      "state_sha256": "2478eeb2d6d2530e2d5b13e961ed0cecd749860a2754d8cf7c457f61ae5def08"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_010",
+      "batch_size": 1,
+      "forward_seconds": 0.08517520688474178,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6216195584,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_010.pt",
+      "state_sha256": "b7b1a11cbf75eb12e9766fd5158a4e2f3283db5dcf6d815b58987f19572f8507"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_011",
+      "batch_size": 1,
+      "forward_seconds": 0.08304490521550179,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6216506880,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_011.pt",
+      "state_sha256": "7b078e180f84f89e03f2c0d05136f7b70e5d4e24ca81a61a0e9b38ea5f4e3e00"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_012",
+      "batch_size": 1,
+      "forward_seconds": 0.08304957486689091,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6216818176,
+      "peak_memory_reserved_bytes": 7872708608,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_012.pt",
+      "state_sha256": "df1be97ee13d3e695566fd849a9d667145df4b528ad5a6554276586d4f4d3fcd"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_013",
+      "batch_size": 1,
+      "forward_seconds": 0.0833377642557025,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6217129472,
+      "peak_memory_reserved_bytes": 7874805760,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_013.pt",
+      "state_sha256": "ba035a16703c56d0ef2130bce5f0101bd3f244ee5acc6ca254113febe6009440"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_014",
+      "batch_size": 1,
+      "forward_seconds": 0.08382570743560791,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6217440768,
+      "peak_memory_reserved_bytes": 7874805760,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_014.pt",
+      "state_sha256": "85376488996fa1db2b83a94ba4d0441a37e893707b48ddc3cd37c6fc1b3a1cd9"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_015",
+      "batch_size": 1,
+      "forward_seconds": 0.08686453476548195,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6217752064,
+      "peak_memory_reserved_bytes": 7874805760,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_015.pt",
+      "state_sha256": "723ae8f1151701caef40edffe343cad9f349fb1481ce144627bc71667e48fb84"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "serial_016",
+      "batch_size": 1,
+      "forward_seconds": 0.052938224747776985,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6192172544,
+      "peak_memory_reserved_bytes": 7874805760,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__serial_016.pt",
+      "state_sha256": "898497216e2c1b9b5018df786b73aa895835124573531973de79301867b8a04b"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "mixed_prefill",
+      "batch_size": 17,
+      "forward_seconds": 0.4307188671082258,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 4309,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          17,
+          1,
+          265,
+          265
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 7005588992,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__mixed_prefill.pt",
+      "state_sha256": "9b64284a8383ef535fac0d9b63d4c334fdf0ac8425c993ca2eed6aeb2f12511c"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "cached_step1",
+      "batch_size": 17,
+      "forward_seconds": 0.05472918227314949,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 17,
+        "padding_query_rows": 0,
+        "mask_shape": [
+          17,
+          1,
+          1,
+          266
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6817670656,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__cached_step1.pt",
+      "state_sha256": "fe76fc4b0b809e836f804dd013205dc7c9163ee41e52770670075cd72ba49929"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "full_step1",
+      "batch_size": 17,
+      "forward_seconds": 0.3719646595418453,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 4326,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          17,
+          1,
+          266,
+          266
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 7067300352,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__full_step1.pt",
+      "state_sha256": "feba309ee6f5d7a2ffc59ef924d795aa4aa28b44d9822de1ae2d4560a045422a"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "cached_step2",
+      "batch_size": 17,
+      "forward_seconds": 0.04354564845561981,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 17,
+        "padding_query_rows": 0,
+        "mask_shape": [
+          17,
+          1,
+          1,
+          267
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6819620352,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__cached_step2.pt",
+      "state_sha256": "6071319d27429cb55aca5e293e284c7e1e19e76c8d2b7822a5ab813c45161561"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K3_0000_N16",
+      "tag": "full_step2",
+      "batch_size": 17,
+      "forward_seconds": 0.3703694511204958,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 4343,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          17,
+          1,
+          267,
+          267
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 7070097408,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K3_0000_N16__full_step2.pt",
+      "state_sha256": "9b06bd0bac1d11eb80d33e6947165544ce22c0914168139928e0e793c1f46f46"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_000",
+      "batch_size": 1,
+      "forward_seconds": 0.08470212388783693,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6473405440,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_000.pt",
+      "state_sha256": "9536ded4975470c501c286bb20b1db26b76d154c3aca559888a9301808a0fe88"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_001",
+      "batch_size": 1,
+      "forward_seconds": 0.08346685394644737,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6473716736,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_001.pt",
+      "state_sha256": "ca1c6942974be5318477342f7a4781d75e9d51dcc215cdb3d8907548c06d0050"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_002",
+      "batch_size": 1,
+      "forward_seconds": 0.08336230088025331,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6474028032,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_002.pt",
+      "state_sha256": "9b77c1106bc0f4d2bb069d2fb6dba2cd4b9536c0f330d5708864425d82eab8b1"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_003",
+      "batch_size": 1,
+      "forward_seconds": 0.0831732526421547,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6474339328,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_003.pt",
+      "state_sha256": "1b66114072f89548fc30f32c3c4a6c589120d0b9bbd3fa7b37fc61c42c9cf9c4"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_004",
+      "batch_size": 1,
+      "forward_seconds": 0.08672649879008532,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6474650624,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_004.pt",
+      "state_sha256": "7defa7aca5d76cff01bc956d5705e9a56d940bbb99938affea8e0f36b2701918"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_005",
+      "batch_size": 1,
+      "forward_seconds": 0.08353075105696917,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6474961920,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_005.pt",
+      "state_sha256": "e63634e44befc75f395b034f4ef784ff1246357ca331eb6552644dbca927891f"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_006",
+      "batch_size": 1,
+      "forward_seconds": 0.08324541803449392,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6475273216,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_006.pt",
+      "state_sha256": "12b84594f287c38de619be2914e094fbcaf2bd24084e5003659a24179f23a78e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_007",
+      "batch_size": 1,
+      "forward_seconds": 0.08353999070823193,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6475584512,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_007.pt",
+      "state_sha256": "a25fd7ddaad13b88e0a506f04c10e0a72c6d07926cc794fec97134419e79f780"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_008",
+      "batch_size": 1,
+      "forward_seconds": 0.08327744249254465,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6475895808,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_008.pt",
+      "state_sha256": "bc70511ec978004757b1420986edd24af709bcd658bd2fbc2552a28183176e10"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_009",
+      "batch_size": 1,
+      "forward_seconds": 0.08315327949821949,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6476207104,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_009.pt",
+      "state_sha256": "77406fd875c003973cdd7ad6d746de368d7eecfef7127f515323991ef680dbbb"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_010",
+      "batch_size": 1,
+      "forward_seconds": 0.0830401936545968,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6476518400,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_010.pt",
+      "state_sha256": "69c7d9916073d63b6b1fc4078ee9b02d3e4bc921336f9fd72256fe5116e3b54a"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_011",
+      "batch_size": 1,
+      "forward_seconds": 0.08286631479859352,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6476829696,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_011.pt",
+      "state_sha256": "d31cfa55871192a49bb8b7f5aa6ad66eac49f3f993f83719537c4b1f666d3988"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_012",
+      "batch_size": 1,
+      "forward_seconds": 0.08319134078919888,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6477140992,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_012.pt",
+      "state_sha256": "c2f7c39f9e2e03f0300ddd04b1d4738ae5eaf238bd10d4efbfe4344e3a50349f"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_013",
+      "batch_size": 1,
+      "forward_seconds": 0.08332030847668648,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6477452288,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_013.pt",
+      "state_sha256": "3aaf8a42829974f358b3df864f4602f80f3eee7475e6168c991eff619975ff74"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_014",
+      "batch_size": 1,
+      "forward_seconds": 0.08386621810495853,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6477763584,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_014.pt",
+      "state_sha256": "c279160f6f39a7025467758f4a26e902095c65f1cae351e799aae1735908f09d"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_015",
+      "batch_size": 1,
+      "forward_seconds": 0.08291416242718697,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6478074880,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_015.pt",
+      "state_sha256": "535b00d80331cd2fcf61236edadc233b21203eac2c051cf3ece18439cf340b18"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_016",
+      "batch_size": 1,
+      "forward_seconds": 0.0831150971353054,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6478386176,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_016.pt",
+      "state_sha256": "1e359714a992c0dffd32b445fccb91b3b86f590b393092e4eedd08427491ca0e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_017",
+      "batch_size": 1,
+      "forward_seconds": 0.08331893943250179,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6478697472,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_017.pt",
+      "state_sha256": "2595dd79801df2f693f86e9456c9d11fe9e8b75675fbaba4566616e1943201e9"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_018",
+      "batch_size": 1,
+      "forward_seconds": 0.08314955048263073,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6479008768,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_018.pt",
+      "state_sha256": "cad7ff92abf306ae8fce7dd77e2323ec79894d02c977cc7e39cb02af751a757d"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_019",
+      "batch_size": 1,
+      "forward_seconds": 0.08802499528974295,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6479320064,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_019.pt",
+      "state_sha256": "66bf951510e837e5369e61bfc9af4c6aae92969c8b2e120140517dab6e5910a3"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_020",
+      "batch_size": 1,
+      "forward_seconds": 0.08378104586154222,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6479631360,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_020.pt",
+      "state_sha256": "e929063cc573bf13713fe810acdf44dcf14d343df4b09692b453913b1af94b71"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_021",
+      "batch_size": 1,
+      "forward_seconds": 0.08344802912324667,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6479942656,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_021.pt",
+      "state_sha256": "68d497cffb257eb865d52a715dc447f0617c56a48673e3a961f5c34ddb4d9bce"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_022",
+      "batch_size": 1,
+      "forward_seconds": 0.08316777739673853,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6480253952,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_022.pt",
+      "state_sha256": "55f47c3bde19e327cc85e2647b426d504e1fa987c8ea39368a9209d94e13692b"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_023",
+      "batch_size": 1,
+      "forward_seconds": 0.08432980068027973,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6480565248,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_023.pt",
+      "state_sha256": "2ce6ff4e376ec2425253bb77845051c4f7daffbce1c708b7c889df68cac6a6b8"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_024",
+      "batch_size": 1,
+      "forward_seconds": 0.08353258762508631,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6480876544,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_024.pt",
+      "state_sha256": "5673e8b43db4f022b8a0c74a1044bea440829b147b3133fb1a62cf3e0bf072ad"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_025",
+      "batch_size": 1,
+      "forward_seconds": 0.08360578864812851,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6481187840,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_025.pt",
+      "state_sha256": "93cf1b7bfe7193095c25823b69d348a2c4096dc412bac7438ee7a3e3034d354e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_026",
+      "batch_size": 1,
+      "forward_seconds": 0.08574180118739605,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6481499136,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_026.pt",
+      "state_sha256": "4bdc248f303d61395eef641cc401639eaeaeb5ecca27a9beb9c83519f3673119"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_027",
+      "batch_size": 1,
+      "forward_seconds": 0.09858024772256613,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6481810432,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_027.pt",
+      "state_sha256": "435d167f52d2459f2f5b2cd86a10d5933a90d55b8e0f204f9816aa6abf471adf"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_028",
+      "batch_size": 1,
+      "forward_seconds": 0.1152001703158021,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6482121728,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_028.pt",
+      "state_sha256": "d762d822a15d265470a874517ff8c0226bc69dcfd9b697c66e5a646cd5ac7990"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_029",
+      "batch_size": 1,
+      "forward_seconds": 0.10827707219868898,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6482433024,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_029.pt",
+      "state_sha256": "32b5ccfe7831c095c783fce41900b9cbeec5ce2a566e6dc0bd412426208625b9"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_030",
+      "batch_size": 1,
+      "forward_seconds": 0.08309132978320122,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6482744320,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_030.pt",
+      "state_sha256": "b6707abfcc38013d3d161e712b0aba02b076e5e24ca716a76645dab69b1486ff"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_031",
+      "batch_size": 1,
+      "forward_seconds": 0.08314232714474201,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6483055616,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_031.pt",
+      "state_sha256": "b7a9f3c800afb16bdbfc96b415c653cf867a1c405180d05c8def96b14e3c3f6a"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_032",
+      "batch_size": 1,
+      "forward_seconds": 0.08408074360340834,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6483366912,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_032.pt",
+      "state_sha256": "40efbdbf94316aec58061d3347b5668f83e989e9743bf710b598a9ab2d0c53df"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_033",
+      "batch_size": 1,
+      "forward_seconds": 0.08308137953281403,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6483678208,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_033.pt",
+      "state_sha256": "4ed8a47514f4077a8fbe2ed45cdb31c11509de0528194b8e8324e3c59c2d5cbb"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_034",
+      "batch_size": 1,
+      "forward_seconds": 0.08321928791701794,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6483989504,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_034.pt",
+      "state_sha256": "20a5d2ed2e3d2e11a9dadf46e566467ed5df00366e0b1c0ec2014dcca75e0824"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_035",
+      "batch_size": 1,
+      "forward_seconds": 0.08354742918163538,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6484300800,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_035.pt",
+      "state_sha256": "af6777f8f1ef1613ceebe1f3a3846f80bd437492aa732936bea9589f17614ad4"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_036",
+      "batch_size": 1,
+      "forward_seconds": 0.08400825504213572,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6484612096,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_036.pt",
+      "state_sha256": "29eea9ad15ce036e85be2932cb0daec25fda3d5ee695c99917063db422b5e350"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_037",
+      "batch_size": 1,
+      "forward_seconds": 0.08339110016822815,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6484923392,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_037.pt",
+      "state_sha256": "54a23d1509af02744eb755e7a73b72886274a684dc87e0eceacabdb526f3c0bc"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_038",
+      "batch_size": 1,
+      "forward_seconds": 0.08365829102694988,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6485234688,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_038.pt",
+      "state_sha256": "7404b79b5f47a2ff1258a90a7478274635608f8199829d1f4f17b0e0f6dc1918"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_039",
+      "batch_size": 1,
+      "forward_seconds": 0.08354228921234608,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6485545984,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_039.pt",
+      "state_sha256": "e2b6a827951496fd683856618b82e36695c2d1c44b2e7bbc6ea8e0ce21dffcf9"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_040",
+      "batch_size": 1,
+      "forward_seconds": 0.08322814293205738,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6485857280,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_040.pt",
+      "state_sha256": "ad3fbabeb96adb11ac8096e3c5459ab8baf5f16cb4f2976766e69b5b4321e0f2"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_041",
+      "batch_size": 1,
+      "forward_seconds": 0.08382232021540403,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6486168576,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_041.pt",
+      "state_sha256": "10ac61afc6e5b1b1d9be51df20064cbdaf45b5c39c75f2a184f8bb4e76a0e139"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_042",
+      "batch_size": 1,
+      "forward_seconds": 0.08310347981750965,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6486479872,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_042.pt",
+      "state_sha256": "e3ae04375f0c8ff3e92152887e1cd076a7171a333854ac763bd1f35de878f303"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_043",
+      "batch_size": 1,
+      "forward_seconds": 0.08323044329881668,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6486791168,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_043.pt",
+      "state_sha256": "bd1618019bb50a9d63fa817ecce67544d2ed0ef8cfce0889df65f5d1ef393f7d"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_044",
+      "batch_size": 1,
+      "forward_seconds": 0.08356952853500843,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6487102464,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_044.pt",
+      "state_sha256": "4c16e141ea9682c79409813d56cd70d35cc7d47e87bc63a6e8c432cffd113002"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_045",
+      "batch_size": 1,
+      "forward_seconds": 0.08338467311114073,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6487413760,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_045.pt",
+      "state_sha256": "f00e9be578338a0e3a8175afe5ce43e84947c66b2a5e35689c35d42c6d7d0c6c"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_046",
+      "batch_size": 1,
+      "forward_seconds": 0.08335375227034092,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6487725056,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_046.pt",
+      "state_sha256": "0ca5ac5bcb0c6611a9684e330f337ffa0c3ec0488c034f998810c0e7dd491f16"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_047",
+      "batch_size": 1,
+      "forward_seconds": 0.08357401099056005,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6488036352,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_047.pt",
+      "state_sha256": "76a1b09767c19bc20b6b9a68c5ea4de3f336a949a7e45c11fa09126dbbec2c6b"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_048",
+      "batch_size": 1,
+      "forward_seconds": 0.08376303128898144,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6488347648,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_048.pt",
+      "state_sha256": "af4f8f2eaeb68fa513e7582b2d82ccb5d5fb5719ee0297932724d65e048634fa"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_049",
+      "batch_size": 1,
+      "forward_seconds": 0.08347354736179113,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6488658944,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_049.pt",
+      "state_sha256": "cd412d572e560afa384f7f21f108921c9f35d8f65f41ab209c6f1870a93dcd20"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_050",
+      "batch_size": 1,
+      "forward_seconds": 0.08459188137203455,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6488970240,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_050.pt",
+      "state_sha256": "3b5b8d6306a64ab17db122f6367fe723851839eebb8b5ace3cd62d74306ddf81"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_051",
+      "batch_size": 1,
+      "forward_seconds": 0.0831404346972704,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6489281536,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_051.pt",
+      "state_sha256": "00d3fb55e417a73ddccb6175c6323947d0132659edb301d271f77331eca2cbf2"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_052",
+      "batch_size": 1,
+      "forward_seconds": 0.08335453364998102,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6489592832,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_052.pt",
+      "state_sha256": "9b5a080e73e860ada121d03110f5178b2fd8583153f092d999ad0e40f460b3e3"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_053",
+      "batch_size": 1,
+      "forward_seconds": 0.08324184454977512,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6489904128,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_053.pt",
+      "state_sha256": "539911474f328fd7ea6fa1e36651db7785b1988c12e65306804b743b531812db"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_054",
+      "batch_size": 1,
+      "forward_seconds": 0.08368971850723028,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6490215424,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_054.pt",
+      "state_sha256": "eb09490ff598b01ea49c668c78c2eb6782ffa76e849162896bff97d253a4151d"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_055",
+      "batch_size": 1,
+      "forward_seconds": 0.08363209664821625,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6490526720,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_055.pt",
+      "state_sha256": "75cfaee2135b09f2320bac5fa41a31bac6225be130849206031f55280f1cb94f"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_056",
+      "batch_size": 1,
+      "forward_seconds": 0.0836671544238925,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6490838016,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_056.pt",
+      "state_sha256": "fbbb4c7ae56d8322966b0587bcea29d3e6f35502c078973d4c1dbe810ebf01be"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_057",
+      "batch_size": 1,
+      "forward_seconds": 0.08348200842738152,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6491149312,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_057.pt",
+      "state_sha256": "b532d0e3c40c0b23535d48ca0cf45723881ce78525f74308b0751757096b0c2f"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_058",
+      "batch_size": 1,
+      "forward_seconds": 0.08383103087544441,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6491460608,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_058.pt",
+      "state_sha256": "cf26e5c44f06389ec8b9394ee41095a9bc47b82e642811322822c4677d6adffc"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_059",
+      "batch_size": 1,
+      "forward_seconds": 0.08380413986742496,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6491771904,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_059.pt",
+      "state_sha256": "72234310b2f53d1fa6aa9104e22830139f1dc1e0e6f90ead4b51d7295f1eb7c2"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_060",
+      "batch_size": 1,
+      "forward_seconds": 0.08337105810642242,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6492083200,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_060.pt",
+      "state_sha256": "549b9df8089d958de80921a7bf80137cb0d875168fe78b115020ed743fe206ae"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_061",
+      "batch_size": 1,
+      "forward_seconds": 0.08610490243881941,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6492394496,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_061.pt",
+      "state_sha256": "14dbb39d1b38acfdb934c991114ff908c304685d5b588b77a3e6e381c3f7211e"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_062",
+      "batch_size": 1,
+      "forward_seconds": 0.0837033437564969,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6492705792,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_062.pt",
+      "state_sha256": "af3a6fe92d90465929061f86bbe7fb0866653e57b68acba3663499692cd1cc0a"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_063",
+      "batch_size": 1,
+      "forward_seconds": 0.0834267046302557,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6493017088,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_063.pt",
+      "state_sha256": "ae4c1d10fcd91cd74543b0bd4c835faabf8e797ed644d8a0272beba47e5e4fc5"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "serial_064",
+      "batch_size": 1,
+      "forward_seconds": 0.03848368488252163,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": null,
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 6467437568,
+      "peak_memory_reserved_bytes": 7899971584,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__serial_064.pt",
+      "state_sha256": "01b46b44cfcc8884b64bc34b8242e9d02fbb70d95e9f8377bccbaec3a9144c35"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "mixed_prefill",
+      "batch_size": 65,
+      "forward_seconds": 1.3153882063925266,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 17029,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          65,
+          1,
+          265,
+          265
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 10115342336,
+      "peak_memory_reserved_bytes": 10659823616,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__mixed_prefill.pt",
+      "state_sha256": "ba686aa99a237a292311c8ee8e0d0ad062d8fbe3e880ea36704ec36c54a3ff03"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "cached_step1",
+      "batch_size": 65,
+      "forward_seconds": 0.058801027946174145,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 65,
+        "padding_query_rows": 0,
+        "mask_shape": [
+          65,
+          1,
+          1,
+          266
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 8899620352,
+      "peak_memory_reserved_bytes": 10659823616,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__cached_step1.pt",
+      "state_sha256": "7f589ddc3726b62a655af7aca0e9f9c44f42b82d45b0b5e4be07cc6db4933a59"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "full_step1",
+      "batch_size": 65,
+      "forward_seconds": 1.2964786496013403,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 17094,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          65,
+          1,
+          266,
+          266
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 10105192960,
+      "peak_memory_reserved_bytes": 10934550528,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__full_step1.pt",
+      "state_sha256": "6ec33e6ff1aa4c77fa0abdf2eb491161ecfe2be8c7f47bb278cbf1ea8968a2e1"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "cached_step2",
+      "batch_size": 65,
+      "forward_seconds": 0.0525292931124568,
+      "calls": {
+        "model": 1,
+        "vision": 0,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 65,
+        "padding_query_rows": 0,
+        "mask_shape": [
+          65,
+          1,
+          1,
+          267
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 8646792192,
+      "peak_memory_reserved_bytes": 10934550528,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__cached_step2.pt",
+      "state_sha256": "e04b843ede3a8d418ad111ceac8217a7ffdb2417e1c1e2b8362d1cbdc62fb322"
+    },
+    {
+      "scene_id": "v2c_profile_test_software_N16_K6_0000_N64",
+      "tag": "full_step2",
+      "batch_size": 65,
+      "forward_seconds": 1.3034871639683843,
+      "calls": {
+        "model": 1,
+        "vision": 1,
+        "language": 1,
+        "norm": 1
+      },
+      "mask_audit": {
+        "valid_query_rows": 17159,
+        "padding_query_rows": 196,
+        "mask_shape": [
+          65,
+          1,
+          267,
+          267
+        ],
+        "mask_dtype": "torch.bool",
+        "valid_queries_exact": true
+      },
+      "hidden_dtype": "torch.float16",
+      "logits_dtype": "torch.float16",
+      "peak_memory_allocated_bytes": 10118814720,
+      "peak_memory_reserved_bytes": 10934550528,
+      "state_path": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/v2c_profile_test_software_N16_K6_0000_N64__full_step2.pt",
+      "state_sha256": "ccb1611069da52c788feaa6d7824916fc9c6d492e138789bbdc95ee310fc6fb9"
+    }
+  ],
+  "rows_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/parallel_local_mixed/run_441729/rows.jsonl",
+  "rows_sha256": "5598b594a95693b0557d531c9f7ccc0d1baee69544b920394b657191501525aa",
+  "comparisons_sha256": "701df43a8e241af3c7423adf71683b2f3ee32c74fbec8d60317bdf7a97d87343",
+  "cache_checks_sha256": "098a1b6af59c27a957a91c8ed0ab7260735534ba50399a838902143400d27d4e",
+  "state_inventory_file": "/mnt/data/gabriele/gnn_transformer/parallel_local_mixed/run_441729/states.json",
+  "state_inventory_sha256": "9aa6b01cd1087628d7cd559945df8acde78cae9dfd55abad17b72155bd78a0f7",
+  "model_load_seconds": 12.803226428106427,
+  "total_seconds": 30.10380358528346,
+  "slurm_job_id": "441729",
+  "gpu": "NVIDIA B200",
+  "limitations": [
+    "Software fidelity only: independent local rows never send evidence to the text-only global row.",
+    "The Therefore/colon prefix is forced identically, not generated reasoning or a correctness signal.",
+    "Hidden/centered-logit differences are descriptive; local output fidelity does not imply hidden equality.",
+    "Cache prefix retention and mask/position correspondence are exact; cached/full distributions use fixed .02TV/top1 limits.",
+    "Every violation is recorded. No tolerance search, training, aggregation or task-accuracy claim.",
+    "State capture and numerical checks add overhead; timing is for this instrumented harness."
+  ]
+}

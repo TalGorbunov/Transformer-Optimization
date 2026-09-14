@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ".../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_paired_sequence_objectives.py:83: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertEqual(float(result['residual']), 0.); self.assertEqual(float(result['path']), 0.)\n...\n----------------------------------------------------------------------\nRan 6 tests in 0.023s\n\nOK\n",
+  "source_sha256": {
+    "gnnformer/paired_sequence_objectives.py": "055674ea5bf7cc160fb82c61a1407aae06b8c3cdc9a46a25ef1f7c37dee70d97",
+    "tests/test_paired_sequence_objectives.py": "82d2e942e01f907b7f859c1ae071d0cfd9eea6c13107e148f1b4b91bd97c00da",
+    "slurm/native_vision_v10_sequence_check.sbatch": "08d021073d402c3359024d7995db26c7ed0eab5bf7ce590198de7254d9a8b4cf",
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "gnnformer/aggregation_path_bound.py": "eb93b7b1e22f2a244f8587735ef0b56f5f588a6c1b94e4b577e8fde9a15dc79a"
+  },
+  "seconds": 2.043538376688957
+}

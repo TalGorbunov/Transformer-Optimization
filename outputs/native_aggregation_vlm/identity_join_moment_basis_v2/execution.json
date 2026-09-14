@@ -1,0 +1,125 @@
+{
+  "status": "both_training_screens_robustly_failed_strict_numerical_report_failed",
+  "check_job_id": 443836,
+  "check_state": "COMPLETED",
+  "check_exit_code": "0:0",
+  "check_CPU_seconds": 14,
+  "check_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis_v2/check_443836/summary.json",
+  "check_summary_sha256": "a205e2100714242d5352bc3da9a5ec02710f8ce34c8fa4599680f3928bd7209b",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis_v2/check_443836/plan.json",
+  "plan_sha256": "88ae90c63fd0bc08a6e8c3cadec9da46b34f2da3c0214cfa2bba88a884dc1d30",
+  "all_native_and_fresh_held": true,
+  "preserved_original_failed_CPU_seconds": 5,
+  "run_jobs": {
+    "within": 443837,
+    "cross": 443838
+  },
+  "maximum_GPUs": 2,
+  "GPU_seconds_cap": 240,
+  "runs": {
+    "within": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis_v2/run_within_443837",
+      "run_summary_sha256": "5f988e9e277932b7bb5be3555e066bcacc08c9f037938de64cc5f567bae7c0fc",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_seconds": 72,
+      "provisional_first_token_fit": {
+        "passed": false,
+        "first_correct": 77,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 42,
+          "flipped": 35
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    },
+    "cross": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis_v2/run_cross_443838",
+      "run_summary_sha256": "e5158f83449be946f98594b829708a1b7059b12fce96bd05551dea2649697b60",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_seconds": 72,
+      "provisional_first_token_fit": {
+        "passed": false,
+        "first_correct": 73,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 40,
+          "flipped": 33
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    }
+  },
+  "allocated_GPU_seconds": 144,
+  "report_job_id": 443841,
+  "report_state": "FAILED",
+  "report_exit_code": "1:0",
+  "report_CPU_seconds": 55,
+  "report_analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_moment_basis_v2/report_443841/analysis.json",
+  "report_analysis_sha256": "5b206f806cc3787b4b9cf3601839d1ccb872c53932d1fd4c02b14aa779e7c256",
+  "report_failure_sha256": "63a8a8bdaaefc69ece5c9bacc417c1820cc356f8bcf59dcfce2ea199f535c094",
+  "all_44_functional_cast_NLL_audits_passed": true,
+  "all_28_CPU_head_batches_collected": true,
+  "CPU_head_argmax_disagreements": 1,
+  "first_token_fit": {
+    "within": {
+      "passed": false,
+      "first_correct": 77,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 42,
+        "flipped": 35
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    },
+    "cross": {
+      "passed": false,
+      "first_correct": 73,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 40,
+        "flipped": 33
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    }
+  },
+  "optimistic_backend_union_correct_upper_bounds": {
+    "within": 77,
+    "cross": 74
+  },
+  "moment_basis_branch_closed": true
+}

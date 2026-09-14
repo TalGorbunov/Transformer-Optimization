@@ -1,0 +1,48 @@
+{
+  "status": "native_software_passed_efficacy_held_for_background_followup",
+  "gpu_efficacy_released": false,
+  "allocated_gpu_seconds": 114,
+  "software_gpu_seconds_cap": 540,
+  "profile_seconds_cap": 300,
+  "write_locations": [
+    "pre_last",
+    "post_last"
+  ],
+  "common_read_boundary": "output_of_block_D_minus_2",
+  "write_early_boundary": "input_of_final_block_D_minus_1",
+  "model_blocks": 28,
+  "read_block_index": 26,
+  "final_block_index": 27,
+  "rank": 96,
+  "parameters": 1041600,
+  "jobs": {
+    "cpu_selftest": "442222",
+    "cpu_check": "442238",
+    "gpu_profile_failed": "442246",
+    "cpu_check_repaired": "442253",
+    "gpu_profile_retry": "442259",
+    "feature_selftest": "442262"
+  },
+  "software_call_inventory": {
+    "full_vlm": 39,
+    "vision": 19,
+    "max_last_block_only": 16,
+    "same_batch_lastblock": 12,
+    "global_only_descriptive": 2,
+    "differentiable_credit": 2
+  },
+  "cpu_selftest_passed": true,
+  "cpu_test_count": 21,
+  "cpu_plan_sha256": "ddfbc6c23174d0a415a9f22b662878d898bfbb656366f31831c86c332125c430",
+  "failed_attempt_reason": "Exclusive-create JSON helper reused a partial-progress filename on the second forward; no numerical failure observed before interruption.",
+  "efficacy_protocol_registered": true,
+  "campaign_gpu_seconds_cap": 16200,
+  "training_seeds": [
+    16,
+    17
+  ],
+  "fresh_data_seed": 20261010,
+  "bootstrap_seed": 20261011,
+  "native_software_passed": true,
+  "feature_selftest_passed": true
+}

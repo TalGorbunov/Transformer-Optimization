@@ -1,0 +1,15 @@
+{
+  "status": "complete",
+  "gpu_hour_cap": 0.1,
+  "max_concurrent_project_gpus": 4,
+  "initial_gpu_wall_seconds": 180,
+  "allocated_gpu_seconds": 30,
+  "created_utc": "2026-09-10T22:25:14.248272+00:00",
+  "cpu_check_job": 441679,
+  "plan_sha256": "c33c48dce427bf097b727e8322441aa391ced35bce2ab8f9aea7309988a86aeb",
+  "gpu_job": 441680,
+  "numerical_gate_passed": true,
+  "computational_integrity_passed": true,
+  "allocated_gpu_hours": 0.008333333333333333,
+  "cpu_seconds": 19
+}

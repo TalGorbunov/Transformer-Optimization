@@ -1,0 +1,41 @@
+{
+  "status": "numerical_audit_passed_scientific_gate_failed",
+  "timestamp_utc": "2026-09-12T02:42:12.050292+00:00",
+  "gpu_job": 443948,
+  "gpu_cap_seconds": 900,
+  "independent_cpu_job": 443951,
+  "cpu_cap_seconds": 1800,
+  "seed": 91726342,
+  "contexts": 270,
+  "n": 16,
+  "no_n32_n64_release": true,
+  "gpu_seconds": 334,
+  "cpu_job_seconds": 193,
+  "run_summary_sha256": "1d5957b527f62e727b790ae30e3129a633edfe49d27b1433b9e40dcd7a156cfb",
+  "audit_summary_sha256": "19dde19fbb8c85142e72dc58ef4bcca48e24c19651e7240dd8eee8b178c944a7",
+  "panels": {
+    "A": {
+      "correct": 104,
+      "total": 108,
+      "complete_triples": 32,
+      "triples": 36,
+      "passed": false
+    },
+    "B": {
+      "correct": 104,
+      "total": 108,
+      "complete_triples": 32,
+      "triples": 36,
+      "passed": false
+    },
+    "C": {
+      "correct": 52,
+      "total": 54,
+      "complete_triples": 17,
+      "triples": 18,
+      "passed": true
+    }
+  },
+  "longer_lengths_eligible": false,
+  "longer_lengths_released": false
+}

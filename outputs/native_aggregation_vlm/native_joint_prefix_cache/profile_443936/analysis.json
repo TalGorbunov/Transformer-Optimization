@@ -1,0 +1,386 @@
+{
+  "passed": true,
+  "software_only": true,
+  "comparisons": [
+    {
+      "collection": 0,
+      "question_index": 0,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "split_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.00752498507028139,
+          "finite": true,
+          "max_abs_error": 0.083984375,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 2.480830995778708e-06,
+          "finite": true,
+          "max_abs_error": 0.10546875,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 2,
+          "tv": 5.211723347887276e-05,
+          "finite": true,
+          "max_abs_error": 0.109375,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 0,
+      "question_index": 1,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        41484,
+        151645
+      ],
+      "split_generated_ids": [
+        41484,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.018129015095191377,
+          "finite": true,
+          "max_abs_error": 0.08203125,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 5.4055722313549146e-06,
+          "finite": true,
+          "max_abs_error": 0.12109375,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 0,
+      "question_index": 2,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "split_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.00382844439044805,
+          "finite": true,
+          "max_abs_error": 0.1015625,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 1.3915583998601307e-06,
+          "finite": true,
+          "max_abs_error": 0.125,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 2,
+          "tv": 1.0008330954407488e-05,
+          "finite": true,
+          "max_abs_error": 0.125,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 0,
+      "question_index": 3,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        36559,
+        151645
+      ],
+      "split_generated_ids": [
+        36559,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.005134295034313827,
+          "finite": true,
+          "max_abs_error": 0.109375,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 2.5052431118359215e-06,
+          "finite": true,
+          "max_abs_error": 0.1015625,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 1,
+      "question_index": 0,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        41484,
+        151645
+      ],
+      "split_generated_ids": [
+        41484,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.01794107670048678,
+          "finite": true,
+          "max_abs_error": 0.09375,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 2.7924064623453697e-06,
+          "finite": true,
+          "max_abs_error": 0.1640625,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 1,
+      "question_index": 1,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        89074,
+        151645
+      ],
+      "split_generated_ids": [
+        89074,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.017337006578793637,
+          "finite": true,
+          "max_abs_error": 0.0859375,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 1.0822652385079459e-06,
+          "finite": true,
+          "max_abs_error": 0.125,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 1,
+      "question_index": 2,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "split_generated_ids": [
+        50,
+        23274,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.007531493116975426,
+          "finite": true,
+          "max_abs_error": 0.171875,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 5.152317582043882e-06,
+          "finite": true,
+          "max_abs_error": 0.078125,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 2,
+          "tv": 9.036545745117791e-07,
+          "finite": true,
+          "max_abs_error": 0.1328125,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "collection": 1,
+      "question_index": 3,
+      "passed": true,
+      "generated_ids_exact": true,
+      "full_generated_ids": [
+        2753,
+        1466,
+        151645
+      ],
+      "split_generated_ids": [
+        2753,
+        1466,
+        151645
+      ],
+      "raw_logits_exact": false,
+      "metrics": [
+        {
+          "step": 0,
+          "tv": 0.004850195313738549,
+          "finite": true,
+          "max_abs_error": 0.0625,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 1,
+          "tv": 0.006208576361167678,
+          "finite": true,
+          "max_abs_error": 0.169921875,
+          "same_input_history": true,
+          "passed": true
+        },
+        {
+          "step": 2,
+          "tv": 4.927618547380159e-06,
+          "finite": true,
+          "max_abs_error": 0.10546875,
+          "same_input_history": true,
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "order_checks": [
+    {
+      "collection": 0,
+      "question_index": 0,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 0,
+      "question_index": 1,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 0,
+      "question_index": 2,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 0,
+      "question_index": 3,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 1,
+      "question_index": 0,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 1,
+      "question_index": 1,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 1,
+      "question_index": 2,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    },
+    {
+      "collection": 1,
+      "question_index": 3,
+      "passed": true,
+      "generated_ids_exact": true,
+      "raw_logits_exact": true
+    }
+  ],
+  "counters": {
+    "model": 60,
+    "visual": 10,
+    "language": 62,
+    "norm": 62,
+    "head": 60,
+    "broadcast": 0,
+    "fusion": 0,
+    "conditioning": 0,
+    "probe_head": 0,
+    "prefix_decoder": 2
+  },
+  "setup_seconds": 24.824170699343085,
+  "max_allocated_bytes": 7747169280,
+  "max_reserved_bytes": 7899971584,
+  "no_compression": true,
+  "no_efficacy_claim": true,
+  "all24_trajectories_retained": true
+}

@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "scripts/report_native_vision_v9.py": "b52e58f89fa1aa1cf2a4507de49c0b8fc78aa4ffb76eb73f870d37b2cc846259",
+    "slurm/native_vision_v9_report.sbatch": "59ce52430f14f07b3a9cab4e332e6fb7db704e22098540c8e23ec5cf4a070548",
+    "scripts/report_native_vision_v8.py": "66debff0affd88bf232b68f3964c5e3e8116be8ff6ed0b004caac85eae4fbc16",
+    "gnnformer/aggregation_path_bound.py": "eb93b7b1e22f2a244f8587735ef0b56f5f588a6c1b94e4b577e8fde9a15dc79a",
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "scripts/report_native_vision_v7.py": "69b5129b2b4743cf1f55c1fef057c725efdfdc575c119d9bd40202d267a8ad78",
+    "scripts/report_native_vision_v7_storage_repair.py": "05b98e410832e2ff6519463300b265de62bdfd67e8b3a3cff1a90b3c4c359923",
+    "scripts/native_vision_v9_pairs.py": "232cf12958f56e3cf200d659f8796420ee0f2c6cfa8589b31ba24b6c61139eb8",
+    "scripts/stage_native_vision_v9_test.py": "2f0cefd1a9fb3d57e595564038d2859b4583b3c75cad33cf4767cee9c01a2e74",
+    "scripts/stage_native_vision_v7_balanced.py": "30534b339325a577b3a6e0dc06facac0abe7182077ee3b17c55a90bbc0ad3776",
+    "scripts/stage_native_vision_v6_test.py": "92a9d66a68f7452e0a0ece9444592637e2250564927c763599b01c1116650445",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1"
+  },
+  "tests": [
+    "exact_FP32_archive_FP16_roundtrip",
+    "strict_native_integer_parser",
+    "inherited_N64_practical_boundary",
+    "both_unit_weight_regularizer_selections",
+    "separate_count_EOS_component_arithmetic",
+    "reject_malformed_loss_logs",
+    "per_pair_norm_denominator_reconstruction",
+    "descriptive_inequality_flag_recomputation",
+    "retained_self_consistent_numerical_violations",
+    "persistent_paired_seed_orders",
+    "intact_pairs_across_epoch_boundary",
+    "shared_K_stratified_family_bootstrap"
+  ],
+  "seconds": 2.565339222550392,
+  "slurm_job_id": "442033"
+}

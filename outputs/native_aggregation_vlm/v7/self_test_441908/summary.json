@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "scripts/report_native_vision_v7.py": "69b5129b2b4743cf1f55c1fef057c725efdfdc575c119d9bd40202d267a8ad78",
+    "slurm/native_vision_v7_report.sbatch": "63915ef12a650da60871a6dafb18a87e7f02152c2999e86530ce32f9c9a634d1",
+    "scripts/report_native_vision_v7_storage_repair.py": "05b98e410832e2ff6519463300b265de62bdfd67e8b3a3cff1a90b3c4c359923",
+    "slurm/native_vision_v7_storage_repair.sbatch": "b2d09a1839e06f336c0fde5925bfda712dc5c19373cdf7ba4cfa05751723ba24"
+  },
+  "tests": [
+    "strict_parser",
+    "EOS_required",
+    "selection_ties",
+    "optimizer_schedule",
+    "integer_threshold_edges",
+    "matched_complete_orders",
+    "K_stratified_family_bootstrap_shared_across_seeds",
+    "exact_native_fp16_to_fp32_archive_contract"
+  ],
+  "seconds": 3.458662047982216,
+  "slurm_job_id": "441908"
+}

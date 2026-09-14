@@ -1,0 +1,34 @@
+[
+ {
+  "tag": "herbench N=16",
+  "n": 150,
+  "skipped": 0,
+  "exact": 0.12,
+  "verdict_acc": 0.6829166666666666,
+  "verdict_auc": 0.7741574645042419,
+  "min_margin_med": -1.5880608558654785
+ },
+ {
+  "tag": "herbench N=16 frozen",
+  "n": 150,
+  "full_exact": 0.12,
+  "oracle_exact": 0.02,
+  "full_mae": 3.5533333333333332
+ },
+ {
+  "tag": "herbench N=32",
+  "n": 150,
+  "skipped": 0,
+  "exact": 0.04,
+  "verdict_acc": 0.6847916666666667,
+  "verdict_auc": 0.7884073257446289,
+  "min_margin_med": -1.8383307456970215
+ },
+ {
+  "tag": "herbench N=32 frozen",
+  "n": 150,
+  "full_exact": 0.04666666666666667,
+  "oracle_exact": 0.02666666666666667,
+  "full_mae": 4.713333333333333
+ }
+]

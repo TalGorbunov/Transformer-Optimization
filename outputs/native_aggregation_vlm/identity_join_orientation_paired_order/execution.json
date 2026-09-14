@@ -1,0 +1,11 @@
+{
+  "status": "CPU_order_stage_passed",
+  "job_id": "443724",
+  "source_release_sha256": "ace8030f550848b6c22878119591e03965deca55424c5f0de26a434e90685923",
+  "state": "COMPLETED",
+  "exit_code": "0:0",
+  "cpu_elapsed_seconds": 5,
+  "summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_paired_order/stage_443724/summary.json",
+  "summary_sha256": "1f590b71110d1a2509963a52a90ca9f3fb588d938125dcfadac9efc538db96df",
+  "plan_sha256": "856443d8a1d49ec9c8288047cc479ff311abdbd6bf97c65b0dd9506cbd6c1b3d"
+}

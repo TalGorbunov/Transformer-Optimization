@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "protocol": "learned_memory_controller_cpu_fixtures",
+  "completed": true,
+  "passed": true,
+  "tests_run": 8,
+  "failures": [],
+  "errors": [],
+  "skipped": [],
+  "source_sha256": {
+    "tests/test_parallel_local_learned_memory.py": "b1ade47ef5ac352426803eb05f5c65a6384259c051bad5680841679ec12cc6c2",
+    "slurm/native_learned_memory_controller_check.sbatch": "2f51037534efc8138b66caf49a5a7870c13a4fb7259c0b03dbc286d72504895d",
+    "gnnformer/parallel_local_learned_memory.py": "c74d5d065d59d594f43c920f3f05f25b429e70a3e277311bb0440eb4941eb054",
+    "tests/test_parallel_local_memory.py": "fe69aa6eabe729284556bd7711067d66db6a858092f38fff521088275bfee473",
+    "gnnformer/parallel_local_memory.py": "11d15c978daf64e206cc73a870412a2a0d8633b855438c769bf9cd0bfe3d4c73",
+    "gnnformer/parallel_local_learned_selection.py": "b7e5818806a39292f1047f541ce1287a5ae53c8606de39722919e5eee8bce661",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2"
+  },
+  "sources_unchanged": true,
+  "source_ledger_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/learned_memory/controller_check_443092/source_hashes.json",
+  "source_ledger_sha256": "3607ff8e55540012ed9fc1a38a8e4b46075bb2df4578f538b497f2b8df2e94a7",
+  "log_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/learned_memory/controller_check_443092/tests.log",
+  "log_sha256": "9e9266edb46bdd88ae2faac51e4ac6a51482de721fc5c0f618404535680bca0d",
+  "slurm_job_id": "443092",
+  "partition": "cpu",
+  "torch_version": "2.8.0+cu128",
+  "elapsed_seconds": 1.8312215618789196,
+  "no_pretrained_model_loaded": true,
+  "no_gpu_work": true,
+  "no_native_equivalence_or_efficacy_claim": true
+}

@@ -1,0 +1,44 @@
+{
+  "run_id": "global_seed0_20260910_174556_440886_1398893",
+  "arm": "global",
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "parameters": {
+    "backbone": 8292166656,
+    "branch": 688192,
+    "lora": 720896,
+    "total_trainable": 1409088
+  },
+  "selected_checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v2/global_seed0_20260910_162152_440750_2819320/best.pt",
+  "training": [],
+  "results": [
+    {
+      "tag": "test",
+      "mode": "all",
+      "cell": "length_N32",
+      "n_frames": 32,
+      "n": 32,
+      "correct": 8,
+      "exact": 0.25,
+      "parsed": 32,
+      "parse_rate": 1.0,
+      "mae_parsed": 0.875,
+      "bias_parsed": -0.0625,
+      "gold_first_token_nll": 1.734702555462718,
+      "mean_prompt_tokens": 6405.0,
+      "mean_image_tokens": 6272.0,
+      "mean_generated_tokens": 2.0,
+      "mean_preprocessing_seconds": 0.34283015404071193,
+      "mean_model_seconds": 0.922090010404645,
+      "mean_total_seconds": 1.264920164445357,
+      "peak_cuda_allocated_bytes": 7412076032,
+      "peak_cuda_reserved_bytes": 7937720320
+    }
+  ],
+  "metric_notes": {
+    "exact": "Every selected example remains in the denominator; unparsable output is incorrect",
+    "mae_parsed": "Conditional on strict whole-integer parsing; report together with parse_rate",
+    "gold_first_token_nll": "Raw native full-vocabulary first-answer-token NLL from output_logits; not whole-answer likelihood",
+    "timing": "Batch one; preprocessing includes image loading/CPU processor/H2D; model includes vision encoding and language prefill/decode",
+    "scope": "Separate paired length cells K0..8 and unseen-count cells K9..16; count extrapolation also changes answer support"
+  }
+}

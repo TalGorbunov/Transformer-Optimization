@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "report_audit_passed": true,
+  "post_completed": true,
+  "post_computational_integrity_passed": true,
+  "post_native_replay_gate_passed": true,
+  "verification_passed": true,
+  "gpu_accounting_passed": true,
+  "gpu_budget_passed": true,
+  "v10_concurrency_passed": true,
+  "primary_both_seeds": true,
+  "practical_both_seeds": false,
+  "reported_vision_milestone_gate": false,
+  "accepted_vision_milestone": false,
+  "post_strict_cache_numerical_gate_passed": false,
+  "original_mixed_numerical_gate_passed": false,
+  "reasoning_composition_established": false,
+  "source_sha256": {
+    "scripts/finalize_native_vision_v10.py": "492ff9798cd489378fc6fe5386d2fef924db510525c8b08e39300da2eb952f65",
+    "slurm/native_vision_v10_finalize.sbatch": "6c8823e58d68ecc8eb47f3c5acaa8873ebcbd16afe9fb947be64d161b3326d7b"
+  },
+  "artifacts": {
+    "analysis": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/report_442173/analysis.json",
+      "sha256": "88bf85d170d3033c1c24fb48cb36e14034c821d1b4cc5d532369d1afe9bfbdf2"
+    },
+    "independent_report_summary": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/report_442173/summary.json",
+      "sha256": "bbce17a5d9836318b8eedeba2c9c5f10b2f4b131b1389adfbaff177fe2e81bc3"
+    },
+    "selected_checkpoint_audit": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/checkpoint_audit/run_442185/summary.json",
+      "sha256": "bf9d8ab59ad0b11b5d39e05c3f4827126ff30a3c7c93c4d09edf98226cf5a7db"
+    },
+    "gpu_accounting": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/finalization/final_442190/gpu_accounting.json",
+      "sha256": "bf8d0e149a43afb0e530c2c358552493479df3e3c95e9ab4eeae2370773d768b"
+    },
+    "checkpoint_audit_plan": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/checkpoint_audit/check_442174/plan.json",
+      "sha256": "6ebdae5be310f2975b062742687ac3eb6774a85b10cf848da9d149c98b492ecf"
+    },
+    "prospective_source_check": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/finalization/selftest_442144/summary.json",
+      "sha256": "b74afdb311ac2b1ebc3cdd9752628148342b84d9ed0882bf3571f2fd82ac1993"
+    }
+  },
+  "selected_models": [
+    {
+      "condition": "ce",
+      "seed": 14,
+      "run_id": "run_ce_s14_442161",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v10/run_ce_s14_442161/step_4590.pt",
+      "checkpoint_sha256": "89c8196d32bf118a31d8dd6f7d5a065e53aad6a90d43a1ea1b72d19c5505e1e9",
+      "parameter_sha256": "7c95b66def12906e303f2ca21c2fa972a0a41073397c92095001be6d421f10b8"
+    },
+    {
+      "condition": "ce",
+      "seed": 15,
+      "run_id": "run_ce_s15_442163",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v10/run_ce_s15_442163/step_4590.pt",
+      "checkpoint_sha256": "d7fe1e1ff1e21fda493a42aae888dd482ee2ff83eb192c02b4f9cb189c23f33f",
+      "parameter_sha256": "ddab7c1ded596f7c6d582aee8ee3d9c53edad8761a8ddcda2b5bd68e547682e0"
+    },
+    {
+      "condition": "consistency",
+      "seed": 14,
+      "run_id": "run_consistency_s14_442162",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v10/run_consistency_s14_442162/step_4590.pt",
+      "checkpoint_sha256": "db838a78cbfc75e3c3ffd955a6a9bd84f2c98382c574edd2380182599724d98d",
+      "parameter_sha256": "d6f50ebc304a66145ff88cd06ba80000505bfc5b3dde6a921aeb536486b30036"
+    },
+    {
+      "condition": "consistency",
+      "seed": 15,
+      "run_id": "run_consistency_s15_442160",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v10/run_consistency_s15_442160/step_4590.pt",
+      "checkpoint_sha256": "53b838bd898db3b243306b83a60c3e94395539d6d743c86637ccfe9fe2d136b3",
+      "parameter_sha256": "836098f36c268072fc447a841e6eee8430e9c2a1d842e4c56a670d58893e0d36"
+    }
+  ],
+  "reported_decisions": {
+    "14": {
+      "n64_additional_correct": 12,
+      "n64_difference_pp": 8.823529411764707,
+      "n32_additional_correct": 22,
+      "n32_difference_pp": 16.176470588235293,
+      "n64_gain_at_least_5pp": true,
+      "n32_loss_at_most_5pp": true,
+      "primary": true,
+      "consistency_n32_correct": 43,
+      "consistency_n32_at_least_90pct": false,
+      "consistency_n64_correct": 20,
+      "consistency_n64_at_least_80pct": false,
+      "consistency_larger_k_n64_correct": 0,
+      "consistency_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    },
+    "15": {
+      "n64_additional_correct": 19,
+      "n64_difference_pp": 13.970588235294118,
+      "n32_additional_correct": 26,
+      "n32_difference_pp": 19.11764705882353,
+      "n64_gain_at_least_5pp": true,
+      "n32_loss_at_most_5pp": true,
+      "primary": true,
+      "consistency_n32_correct": 52,
+      "consistency_n32_at_least_90pct": false,
+      "consistency_n64_correct": 19,
+      "consistency_n64_at_least_80pct": false,
+      "consistency_larger_k_n64_correct": 0,
+      "consistency_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    }
+  },
+  "plot": {
+    "files": [
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/finalization/final_442190/native_vision_v10.png",
+        "sha256": "c5a6be6b620da21d3be31e9c6e62e0824add895eb518fa50e9d002bd49703f83",
+        "bytes": 319172
+      },
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v10/finalization/final_442190/native_vision_v10.pdf",
+        "sha256": "700ac7e2377bcc5fbc20708d4fafbf895ae9a30189417d0ebc4cb54d82cecf20",
+        "bytes": 18382
+      }
+    ],
+    "matplotlib_version": "3.9.4",
+    "row_count": 32,
+    "no_new_estimation": true,
+    "labels": "Existing correct/n; All K is total and other three categories form its disjoint partition",
+    "intervals": "Use the unchanged independent report"
+  },
+  "plot_input_sha256": "6f10c08038120735823b0da6a124ff03b4718d0b545fc2f1310070d1f23bb4ed",
+  "cache_numerical_failures": [
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_ce_s14_442161",
+      "case_id": "run_ce_s14_442161__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "ce",
+      "seed": 14,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_ce_s15_442163",
+      "case_id": "run_ce_s15_442163__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "ce",
+      "seed": 15,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_consistency_s14_442162",
+      "case_id": "run_consistency_s14_442162__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "consistency",
+      "seed": 14,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_consistency_s15_442160",
+      "case_id": "run_consistency_s15_442160__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "consistency",
+      "seed": 15,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    }
+  ],
+  "native_replay_failures": [],
+  "allocated_gpu_seconds": 4867,
+  "allocated_gpu_hours": 1.3519444444444444,
+  "gpu_seconds_cap": 16200,
+  "retained_noncompleted_attempts": [
+    {
+      "job_id_raw": "442083",
+      "job_id": "442083",
+      "job_name": "v10_data_stage",
+      "state": "FAILED",
+      "allocated_gpus": 0,
+      "elapsed_seconds": 2,
+      "allocated_gpu_seconds": 0,
+      "allocation_tres": "billing=4,cpu=4,mem=16G,node=1",
+      "start": "2026-09-11T03:03:05",
+      "end": "2026-09-11T03:03:07"
+    },
+    {
+      "job_id_raw": "442132",
+      "job_id": "442132",
+      "job_name": "native_v10_report",
+      "state": "FAILED",
+      "allocated_gpus": 0,
+      "elapsed_seconds": 18,
+      "allocated_gpu_seconds": 0,
+      "allocation_tres": "billing=4,cpu=4,mem=16G,node=1",
+      "start": "2026-09-11T03:39:28",
+      "end": "2026-09-11T03:39:46"
+    }
+  ],
+  "scope": "Artifact finalization only; no new predictions, fits, metrics, intervals or selection",
+  "independent_report_interpretation": {
+    "treatment": "CE versus CE plus native residual consistency, on matched data and unchanged native parallel aggregation",
+    "unchanged_inference_operator": true,
+    "additional_inference_work": false,
+    "no_attention_operator_novelty_claim": true,
+    "does_not_establish_reasoning_composition": true,
+    "all_final_answer_labels_used_for_pairing": true,
+    "all_test_answer_values_supported_in_training": true,
+    "no_unseen_answer_value_claim": true,
+    "training_length_count_correlation": "K0..8 cross-length consistency; K9..15 same-length consistency; K16 identity with zero regularizer",
+    "primary_exact": "Complete stripped ASCII integer equals gold AND native EOS within four tokens; malformed/truncated stay in denominators",
+    "native_first_token_nll": "Raw first-token NLL used only for dev tie-break; shared first digit does not distinguish10..16",
+    "raw_logit_storage": "FP32 archives verified exact lossless promotions of FP16 native logits",
+    "matched_control": "Identical paired scene order, targets, initialization,73440scene/36720pair/177120target presentations and4590updates",
+    "bootstrap": "K-stratified intact family intervals condition on these two fitted seeds; pooling cannot rescue per-seed failure",
+    "path_penalty": "Logged diagnostic only; not optimized",
+    "local_visual_atoms_may_recur": true,
+    "loss_audit": "All logged causal-position/scene/pair arithmetic; unavailable intermediate model states are not reconstructed"
+  }
+}

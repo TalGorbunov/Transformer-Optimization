@@ -1,0 +1,44 @@
+{
+  "actual_model_calls": 0,
+  "actual_vision_calls": 1400,
+  "actual_worlds": 1400,
+  "feature_allocated_seconds": 1435,
+  "feature_job": "447702",
+  "feature_plan_sha256": "d24d2221893fb2c94238cf4a698a1a6b9ba616c3e955d253bbf67afeaf5a8b80",
+  "feature_summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_native/harvest_447702/summary.json",
+    "sha256": "06746de90d9633d320e14ca2f05f6a6632ec73275f88eff0eea0fc50ea31d5c6"
+  },
+  "harvest_cap_seconds": 3600,
+  "initial_feature_forecast_seconds": 2080.825924298726,
+  "maximum_feature_gpus": 1,
+  "merge_allocated_seconds": 23,
+  "merge_cap_seconds": 600,
+  "merge_dependency": "afterok:447670",
+  "merge_job": "447674",
+  "merge_passed": true,
+  "no_predictions": true,
+  "prepare_allocated_seconds": 7,
+  "prepare_cap_seconds": 600,
+  "prepare_job": "447665",
+  "prepare_status": "COMPLETED_PASS",
+  "prepare_summary": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_native/prepare_447665/summary.json",
+    "sha256": "83de49e038f16c68c917d49858efd75bd8bed6915eabfbb0de8f098b83ea5a7b"
+  },
+  "protocol": "mmred_fresh_native_inputs",
+  "render_allocated_seconds": [
+    381,
+    381,
+    380,
+    380
+  ],
+  "shard_array": "447670",
+  "shard_cap_seconds": 3000,
+  "shards": 4,
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_fresh_native/source_release.json",
+    "sha256": "2f464f6daacef1c0f433f8f93df86494350145a28edb4aa6852980e93b4def85"
+  },
+  "status": "complete_shared_feature_bank_verified"
+}

@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "returncode": 0,
+  "source_sha256": {
+    "gnnformer/parallel_local_memory.py": "11d15c978daf64e206cc73a870412a2a0d8633b855438c769bf9cd0bfe3d4c73",
+    "tests/test_parallel_local_memory.py": "fe69aa6eabe729284556bd7711067d66db6a858092f38fff521088275bfee473",
+    "scripts/native_vision_v11_last_block.py": "686c91e7c71e17a39bb6b23f45526c075ef9fd56a1dffa8a0096b07f606c0b1d",
+    "tests/test_native_vision_v11_last_block.py": "6d64a35830bc2f18870590d79212b6e8dab6994d5cf7d898abfc35fd2e1ff35f",
+    "slurm/native_vision_v12_reference_selftest.sbatch": "8b993825624beebc077f31a335adc303b6ac77be5364158711a55f83588efec4"
+  },
+  "seconds": 2.102612692862749,
+  "slurm_job_id": "442270"
+}

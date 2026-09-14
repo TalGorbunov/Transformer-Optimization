@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "diagnostic_only": true,
+  "no_fit": true,
+  "vlm_forward_calls": 0,
+  "synthetic_points": 216,
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/response_surface/run_441927/analysis.json",
+  "analysis_sha256": "69d65747cefe28e0e34654de18a54dc277fe1116abddeb148f9e9fb246ec407c",
+  "raw_file": "/mnt/data/gabriele/gnn_transformer/native_aggregation_vlm_v7_response_surface/run_441927/tensors.pt",
+  "raw_sha256": "298fd791bdbc0111ee4da282b7b073e7fdcb33e72ec8ae47cc42bf04a93e6f57",
+  "source_sha256": {
+    "scripts/probe_native_vision_v7_response_surface.py": "4b01f2f85391a678ceb3677406b5954d4b92147b34c7c75d960a6df19ec05242",
+    "slurm/native_vision_v7_response_surface.sbatch": "816b81af998471823351bd6d16bc99f7e511231cf01736d5685ff34667340420",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f"
+  },
+  "elapsed_seconds": 18.42864701524377,
+  "slurm_job_id": "441927"
+}

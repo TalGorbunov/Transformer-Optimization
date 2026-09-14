@@ -1,0 +1,33 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "actual_n_frames": 16,
+      "path": "/mnt/data/gabriele/gnn_transformer/v12_reference_software/profile_442314/parallel_N16__natural.pt",
+      "sha256": "73f00340d7169b364819ee0f6e620a9ff5c671510bebda8113832638d4ca14d5",
+      "dtype": "torch.float32",
+      "shape": [
+        2,
+        152064
+      ],
+      "finite": true,
+      "exact_fp16_roundtrip": true
+    },
+    {
+      "actual_n_frames": 64,
+      "path": "/mnt/data/gabriele/gnn_transformer/v12_reference_software/profile_442314/parallel_N64__natural.pt",
+      "sha256": "8d7508db53f461a1fb1824b0f0345cbc045f22d2e3ad41993d7556416ba96083",
+      "dtype": "torch.float32",
+      "shape": [
+        2,
+        152064
+      ],
+      "finite": true,
+      "exact_fp16_roundtrip": true
+    }
+  ],
+  "source_sha256": "64434cb48edb4c2afb075b978ce85a384b49fb113230dc5d6cd64677f167c027",
+  "software_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v12/reference_software/profile_442314/summary.json",
+  "software_sha256": "52666e4d2bf7ed62ca1dc69e6916e63cffbe73c53338c5803269769addff896c",
+  "slurm_job_id": "442339"
+}

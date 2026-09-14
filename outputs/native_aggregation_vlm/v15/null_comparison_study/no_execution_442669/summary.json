@@ -1,0 +1,9 @@
+{
+  "passed": false,
+  "executed": false,
+  "slurm_job_id": "442669",
+  "scheduler_state": "COMPLETED",
+  "allocated_seconds": 0,
+  "original_sha256": "92be0e1e0d51bfcbf1cffa27f93c619dc33a9cb160bfe8d6460e4cc4c538cf70",
+  "reason": "Missing __main__ entrypoint; zero exit did not execute validation"
+}

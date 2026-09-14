@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "completed": true,
+  "source_sha256": {
+    "scripts/diagnose_native_identity_join_orientation_optimization.py": "55270dcc6c08bd708b78645e0f311b7a47def18538a54e7ffa5d5692229691e7",
+    "slurm/native_identity_join_orientation_optimization.sbatch": "c1e649225b06d7ba20f65407befb4e4f9cc0adaed7aea2dffdac364f5ea1963b"
+  },
+  "elapsed_seconds": 4.076268158853054,
+  "input_bindings": {
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_product_443540/summary.json": "8a76979d069f8ce1976b23f4b5087da76e6187786cd350b4c8924d7ed630e736",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_product_443540/config.json": "edbfbf35eb84ae70f9acbc28f7ce58615e0345df9b615fb0326723b9eb49144e",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/check_443538/plan.json": "3442ba95f15bcb833291f71d078832e7e95b7e0137e423696ff6ea535fd018e2",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_binding/check_443373/rows.json": "e1adf5c861e9850799ba226551b7fb57ab5ae371a960fb3f8aeef7b08e279974",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_product_443540/training.json": "911c9da58a0e5681ee8f83dccecc5d61920652b21a36582fdeca34743fa563c5",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_additive_443541/summary.json": "ff35926da107f660b274c0641995b6017d86f8ea9d8a8ee023450c4275ea5a3c",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_additive_443541/config.json": "da273c328396ce5396fbb8539bfe2fad77431cb2a96dc15df51846d7b6ea6132",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_long/run_additive_443541/training.json": "b232c8025949da6a6e1dba4fb877808b7dc0307c589e5e6e9edef8e3cf27b6ef",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_product_443677/summary.json": "450200843c5fc6c3e72b912dc8db360f05a206afe4ec75db3527087bb8ec328e",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_product_443677/config.json": "92cfd66957fef1e7d9033fd5af965c5a51287fd33dbfbed2f65a2066b367320e",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/check_443676/plan.json": "d299d42a4444520f148f86252e2931ad599e03afac9edadbe9201836229bf097",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/check_443676/rows.json": "44a30ae5f5e1d068b003dea53f8b6bc07ee7cf30b761450405f84d93cb05b38e",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_product_443677/training.json": "149a9eb7313d779bcf2b68b8f3cc6bc3bc1193daafd86f5295d9115b3c68cc3c",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_additive_443678/summary.json": "d5e84fb8bc4dc7ff4db855b1b7528a7b3880e98238bc467c6295de5a1838d12b",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_additive_443678/config.json": "8a10ca26f954be317d10e647e83fbdc97430a0c5199d22df89fb44bbc8d0fa71",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_factor_orientation_training/run_additive_443678/training.json": "132aa19953362a0d330e9d3f2725fd171c6319cdebb23069ea0393c79e43f9e8"
+  },
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/training_budget_review/orientation_optimization_443696/analysis.json",
+  "analysis_sha256": "ff33a51f2bafdc3baaf165f17b4158bf09bfe4921e83b02008d9c73a1f386b89",
+  "report_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/training_budget_review/orientation_optimization_443696/REPORT.md",
+  "report_sha256": "36b6bc89ddbed82dc56ef0c7f9ee5889cd4fa1c5526274e5151eed01189440bd"
+}

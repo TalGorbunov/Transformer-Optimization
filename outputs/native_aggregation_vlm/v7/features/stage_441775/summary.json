@@ -1,0 +1,56 @@
+{
+  "passed": true,
+  "plan_file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/stage_441775/plan.json",
+  "plan_sha256": "5a30b412504d8cd8636c4446a2d83a812b60c37d30e65fc32b4480c1e8ceab65",
+  "counts": {
+    "local_empty": 12215,
+    "local_prefix": 19474,
+    "global_empty": 54,
+    "global_prefix": 486
+  },
+  "total_features": 32229,
+  "native_hidden_payload_bytes": 231017472,
+  "pixel_blob_bytes": 3186668825,
+  "source_sha256": {
+    "scripts/stage_native_vision_v7_features.py": "ff50854d01967843f4b89c18fef9bd5c5e923f951f612365aff6ff3f7f2dfb30",
+    "scripts/cache_native_vision_v7_features.py": "2b27d2a04c6e6942403759e2ef867de8a2dce534cfb0e8359e38c2cd39221e75",
+    "slurm/native_vision_v7_features_stage.sbatch": "a30589dcc3d497d59a483eea0e45e81fb962698d937e9dcc761ebc25410156e2",
+    "slurm/native_vision_v7_features_profile.sbatch": "57e8ba99ac044dd38a994c1adeb804e1cd5894c09ca0f5e52334de36540d512a",
+    "slurm/native_vision_v7_features_array.sbatch": "5adb4a75a9c66cbafcdac8a5436cbe190384a06546b7de34af0d3e202cf6a8ed",
+    "slurm/native_vision_v7_features_merge.sbatch": "16c92342f4ab7c5bbb7e4bc041e282d99b61ae72de41f312cd0929508fa19af3",
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278"
+  },
+  "seconds": 32.324496287852526,
+  "shard_counts": [
+    {
+      "local_empty": 3054,
+      "local_prefix": 4869,
+      "global_empty": 14,
+      "global_prefix": 122
+    },
+    {
+      "local_empty": 3054,
+      "local_prefix": 4869,
+      "global_empty": 14,
+      "global_prefix": 122
+    },
+    {
+      "local_empty": 3054,
+      "local_prefix": 4868,
+      "global_empty": 13,
+      "global_prefix": 121
+    },
+    {
+      "local_empty": 3053,
+      "local_prefix": 4868,
+      "global_empty": 13,
+      "global_prefix": 121
+    }
+  ]
+}

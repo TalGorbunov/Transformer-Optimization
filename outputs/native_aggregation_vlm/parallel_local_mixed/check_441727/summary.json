@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "plan": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/parallel_local_mixed/check_441727/plan.json",
+  "plan_sha256": "0dd28471db37493db053977821db203d589440801345a899a9a3554e804d5675",
+  "source_sha256": {
+    "scripts/probe_native_vision_parallel_local_mixed.py": "70a5201fa331069d7b6f90f2f4a92e020dfdc694e4bfc17b32f4f00998480d6f",
+    "slurm/native_vision_parallel_local_mixed_check.sbatch": "22c9af1b3795c4b2af703c7f0bf1bc2505e1d205e4e6b11a7d1c7c2892ddfc9d",
+    "slurm/native_vision_parallel_local_mixed.sbatch": "f3bdec9e65886f15ac9d9e71ff12b623420481715d0fb93a52e5eb43ba7da671",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_v5_local_readability.py": "a2d5d395df4cfa88e661eaf7e585006a635cb98dfa781170711cd0d1efccd1ae"
+  },
+  "heterogeneous_padding_exercised": true,
+  "seconds": 6.19259275123477
+}

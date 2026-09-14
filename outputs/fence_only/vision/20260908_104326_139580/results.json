@@ -1,0 +1,74 @@
+[
+ {
+  "tag": "vision N=8",
+  "config": "fenced+reset",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.14,
+  "mae": 3.21,
+  "none": 0
+ },
+ {
+  "tag": "vision N=8",
+  "config": "open",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.16,
+  "mae": 2.93,
+  "none": 0
+ },
+ {
+  "tag": "vision N=16",
+  "config": "fenced+reset",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.1,
+  "mae": 3.33,
+  "none": 0
+ },
+ {
+  "tag": "vision N=16",
+  "config": "open",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.18,
+  "mae": 2.51,
+  "none": 0
+ },
+ {
+  "tag": "vision N=32",
+  "config": "fenced+reset",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.07,
+  "mae": 3.74,
+  "none": 0
+ },
+ {
+  "tag": "vision N=32",
+  "config": "open",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.19,
+  "mae": 2.52,
+  "none": 0
+ },
+ {
+  "tag": "vision N=64",
+  "config": "fenced+reset",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.14,
+  "mae": 3.65,
+  "none": 0
+ },
+ {
+  "tag": "vision N=64",
+  "config": "open",
+  "n": 100,
+  "skipped": 0,
+  "exact": 0.19,
+  "mae": 2.8,
+  "none": 0
+ }
+]

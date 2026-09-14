@@ -1,0 +1,19 @@
+{
+  "status": "diagnostic_complete",
+  "gpu_seconds_cap": 360,
+  "job_seconds_cap": 180,
+  "allocated_gpu_seconds": 88,
+  "model_calls": 34,
+  "vision_calls": 34,
+  "head_calls": 442,
+  "diagnostic_only": true,
+  "no_fit": true,
+  "jobs": {
+    "cpu_check": "442244",
+    "gpu_launch_argument_failure": "442251",
+    "gpu_run": "442260"
+  },
+  "computational_integrity_passed": true,
+  "first_token_only": true,
+  "whole_answer_tested": false
+}

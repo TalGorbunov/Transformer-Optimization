@@ -1,0 +1,22 @@
+{
+  "status": "initial_failed_decay_fit_passed_both",
+  "created_utc": "2026-09-10T22:48:01.302852+00:00",
+  "gpu_hour_cap": 0.2,
+  "allocated_gpu_seconds": 71,
+  "max_concurrent_project_gpus": 4,
+  "cpu_job": 441719,
+  "cpu_seconds": 9,
+  "core_cpu_job": 441718,
+  "plan": "check_441719/plan.json",
+  "plan_sha256": "bafd2d7ef06435b78d5b5c01a7b8212dbe8ba985a22d1be9fc7ddcad01d93c63",
+  "gpu_job": 441720,
+  "allocated_gpu_hours": 0.01972222222222222,
+  "summary": "run_441720/summary.json",
+  "updated_utc": "2026-09-10T23:09:46.250615+00:00",
+  "decay_cpu_job": 441730,
+  "decay_cpu_seconds": 9,
+  "decay_plan": "decay/check_441730/plan.json",
+  "decay_gpu_job": 441733,
+  "decay_gpu_seconds": 42,
+  "decay_summary": "decay/run_441733/summary.json"
+}

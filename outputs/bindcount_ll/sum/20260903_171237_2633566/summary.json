@@ -1,0 +1,79 @@
+[
+ {
+  "tag": "mmred N=8",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 24.88680648803711
+ },
+ {
+  "tag": "mmred N=16",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 23.37944984436035
+ },
+ {
+  "tag": "mmred N=32",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 23.600074768066406
+ },
+ {
+  "tag": "mmred N=64",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 22.238327026367188
+ },
+ {
+  "tag": "mmred N=128",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 21.26490020751953
+ },
+ {
+  "tag": "mmred N=256",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 20.355754852294922
+ },
+ {
+  "tag": "mmred N=512",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 19.9244384765625
+ },
+ {
+  "tag": "mmred N=1024",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 18.828834533691406
+ },
+ {
+  "tag": "needles N=64 (K<=32)",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 15.60578727722168
+ },
+ {
+  "tag": "needles N=128 (K<=64)",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 14.199905395507812
+ },
+ {
+  "tag": "needles N=256 (K<=64)",
+  "n": 100,
+  "exact": 1.0,
+  "verdict_acc": 1.0,
+  "min_margin_med": 11.125943183898926
+ }
+]

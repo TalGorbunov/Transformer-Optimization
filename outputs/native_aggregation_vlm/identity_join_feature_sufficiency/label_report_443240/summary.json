@@ -1,0 +1,175 @@
+{
+  "all_method_partition_stratum_rows": 4422,
+  "all_original_coverage_exact": true,
+  "all_original_numeric_metrics_exact": true,
+  "all_original_predictions_and_ties_exact": true,
+  "calls": {
+    "gpu": 0,
+    "head": 0,
+    "model": 0,
+    "solver": 0,
+    "vision": 0
+  },
+  "completed": true,
+  "decisions": {
+    "diagnostic_only": true,
+    "every_person_room": false,
+    "every_question": false,
+    "joint": false,
+    "native_training_released": false,
+    "person": true,
+    "question_majority_advantage": true,
+    "room": false,
+    "strong_linear_accessibility": false
+  },
+  "evaluation_metrics": {
+    "joint": {
+      "accuracy": 0.9656008820286659,
+      "correct": 4379,
+      "occurrence_accuracy": 0.9676477072310405,
+      "occurrence_correct": 35114,
+      "occurrence_total": 36288,
+      "total": 4535
+    },
+    "occurrences": 36288,
+    "person": {
+      "accuracy": 1.0,
+      "correct": 4535,
+      "occurrence_accuracy": 1.0,
+      "occurrence_correct": 36288,
+      "occurrence_total": 36288,
+      "total": 4535
+    },
+    "room": {
+      "accuracy": 0.9656008820286659,
+      "correct": 4379,
+      "occurrence_accuracy": 0.9676477072310405,
+      "occurrence_correct": 35114,
+      "occurrence_total": 36288,
+      "total": 4535
+    },
+    "rows": 4535
+  },
+  "evaluation_rows": 4535,
+  "files": {
+    "input_bindings.json": {
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_feature_sufficiency/label_report_443240/input_bindings.json",
+      "sha256": "3be9708f997e271a3dd9da9cc29b538f1dc6e809fbccd37a1886088e0c8b5aae"
+    },
+    "labelled_metrics.json": {
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_feature_sufficiency/label_report_443240/labelled_metrics.json",
+      "sha256": "48042871a8524852829b5d2e0f02b97684f6cc6198c3c2b54dfe094159d15c43"
+    },
+    "original_report_error.json": {
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_feature_sufficiency/label_report_443240/original_report_error.json",
+      "sha256": "18d6f98330a9121a755a52372829084bc97957bc3fc659b8f46a7bab616c035f"
+    },
+    "selftest.json": {
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_feature_sufficiency/label_report_443240/selftest.json",
+      "sha256": "6cfd5c61c6a4416379b3d60d7a89a3ddf923fbc85835bbd46a270fe7728737bc"
+    }
+  },
+  "fit_rows": 4472,
+  "job_id": "443240",
+  "native_training_released": false,
+  "no_new_predictions": true,
+  "no_refit": true,
+  "no_tensor_deserialization": true,
+  "no_threshold_change": true,
+  "original_checkpoint_roundtrip": {
+    "all_policy_source_and_resolved_input_metadata_exact": true,
+    "file": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_feature_sufficiency/443231/ridge.pt",
+    "passed": true,
+    "predictions_use_reloaded_tensors": true,
+    "sha256": "5613237c3cdbb710d37d47fadec25bfb934736b5e8f363fb3449a7eaa7996e44",
+    "tensors": {
+      "bias": {
+        "dtype": "torch.float64",
+        "sha256": "8357ab7fd21a5ba9391bb02816728709df956450bec25d561fafc9d0918b5a47",
+        "shape": [
+          15
+        ]
+      },
+      "weight": {
+        "dtype": "torch.float64",
+        "sha256": "ae6dd746a0906b3b1f06c08d3e32b7daed8fb9fe7fb24696481d30d5809cf09a",
+        "shape": [
+          3584,
+          15
+        ]
+      },
+      "x_mean": {
+        "dtype": "torch.float64",
+        "sha256": "6301758bc8cf68628c6ce31757c7cef4fd2c6c9a01b4f4c20bd9cd778b86b448",
+        "shape": [
+          3584
+        ]
+      },
+      "y_mean": {
+        "dtype": "torch.float64",
+        "sha256": "17c433ef2988ef70823c67cf44619bae857442ae19732af50586bf6ffbe7ac7c",
+        "shape": [
+          15
+        ]
+      }
+    }
+  },
+  "original_results_preserved": true,
+  "parent_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_feature_sufficiency/443231/summary.json",
+  "parent_summary_sha256": "01f5ebbbb991c7169f3c23e5a8acaf4014d936beed0e63e692157cc4a1b597e1",
+  "passed": true,
+  "protocol": "native_identity_join_feature_sufficiency_label_repair",
+  "seconds": 0.9645326845347881,
+  "source_sha256": {
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "docs/paper/NATIVE_AGGREGATION_FEATURE_SUFFICIENCY_PROPOSAL.md": "bfc7ed371e803d230cde4166d90aab33d95afabf58a5f112e2067ce1bdcdb6ec",
+    "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/paired_sequence_objectives.py": "055674ea5bf7cc160fb82c61a1407aae06b8c3cdc9a46a25ef1f7c37dee70d97",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/parallel_local_learned_selection.py": "b7e5818806a39292f1047f541ce1287a5ae53c8606de39722919e5eee8bce661",
+    "gnnformer/parallel_local_native.py": "c77d680f4271dd7b8b8dd7eae713d4e24c9137f88e155482cfe04df22054fbe2",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/parallel_local_semantic_aggregation.py": "e51ab3859812b4d9c6680f2343883e4e3a00498df99fba74e0591d2bc3994f5a",
+    "gnnformer/parallel_local_semantic_gate.py": "d115044a2f21dea777001838fc3bb3dc64282ea819e2ed048f0626b3584b73a0",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346",
+    "scripts/cache_native_identity_join_features.py": "1042ce2c0f80c7c459cfc522548f9611c119c612bd899c156f4254d8bda19295",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "scripts/diagnose_native_identity_join_feature_sufficiency.py": "816a16c2fdc1147140582d3ee13e687076d17d9ebeef90a9b9d8ef1cb6733ce8",
+    "scripts/native_learned_selection_runtime.py": "1824e313ee852fdbb50cd3f0f503e8bc5d2652a8b73afa6c22eb0da4e4b4df9b",
+    "scripts/native_vision_reasoning_stream.py": "f576bbf5f9c716d56f025ca80e934f343884527945bd47dc88aa7aa7591e7376",
+    "scripts/native_vision_semantic_gate_runtime.py": "9f934bf3c98a8a7fd1d7a94a90cb6d476133b0d222048bb39c4fd6b742efc074",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "scripts/report_native_identity_join_feature_sufficiency_labels.py": "caeab35bd33a0878f690f9d5d7b97e28d9785414b70ee04541da710cfb26bf98",
+    "scripts/stage_native_identity_join.py": "1ccbb48dc28bb4e4e11a182760d497057f056e2237143465eebbf4110e20b287",
+    "scripts/stage_native_identity_join_features.py": "80226c3d521e35e64ae22f94f93b6f3fc183cdb4ab621dfed5fa074692ae362b",
+    "scripts/stage_native_identity_join_learned.py": "cb9552a083f01aee52cf6c8a5a7ee8a4ae908ce027d68994b49e7c74a8223280",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/stage_native_vision_v10_features.py": "bb83e5d9124d47368b07ce4d902f32fc9ca03e5575defcd7230d68eeb3de758f",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "slurm/native_identity_join_check.sbatch": "bb54fa10119b4097c81bc9ebdad91806e3d98bcc1c4b71f57f0fb7eccb625815",
+    "slurm/native_identity_join_feature_merge.sbatch": "be3f31f7c9e370488e57b256409caaeca383e7e254cc06026e17f40aaafaafbe",
+    "slurm/native_identity_join_feature_profile.sbatch": "3ead7e8550cc61d49b2333a757c89b5b18426765817b78bfb683eccf4fa448cb",
+    "slurm/native_identity_join_feature_shard.sbatch": "880c872b6ea8771eebfad59450d7e1b905c14516ff84eb7b21b7d761cb57477a",
+    "slurm/native_identity_join_feature_stage.sbatch": "57e108e1000af866954c3f7eb3678b18f40921bf244b9d4d89b29b54a2d2d765",
+    "slurm/native_identity_join_feature_sufficiency.sbatch": "c249b4d78599129acce1b98f3d9710fc5b777dcfcb06fd2fb5c56dd373257d06",
+    "slurm/native_identity_join_feature_sufficiency_labels.sbatch": "175183f1602bb491645b7319a42aa65a792c0d3fb157c638101a1ce28ca95a2b",
+    "slurm/native_identity_join_learned_check.sbatch": "dc6f213f3e8ec3a04c410f9ad03ae38eb41240cd511d4484527df5c9247b96e4",
+    "slurm/native_identity_join_learned_render.sbatch": "605bc18a5c2611053c1d6265b4a0c1ee292983528d0b4a562570bd3b5e9f1034",
+    "slurm/native_identity_join_render.sbatch": "e107e18e392798a0e64b9ed2ba6fd91e28bb3d2cda8c8fefee495827ee0cb722",
+    "tests/test_parallel_local_learned_selection.py": "dc18c0c36e5556f171fe9c56a5a38603b7c9189c30b94776cd264b336b23c3bb"
+  },
+  "tests": {
+    "passed": true,
+    "tests": [
+      "person_room_label_collision",
+      "legacy_numeric_projection",
+      "unique_occurrence_weights"
+    ]
+  },
+  "three_way_cells_per_partition": 648,
+  "unique_feature_rows": 9007
+}

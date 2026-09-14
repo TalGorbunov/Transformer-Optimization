@@ -1,0 +1,118 @@
+{
+  "status": "computational_audit_passed_all_training_screens_failed",
+  "check_job_id": "443788",
+  "all_native_and_fresh_held": true,
+  "check_state": "COMPLETED",
+  "check_exit_code": "0:0",
+  "check_CPU_seconds": 13,
+  "check_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_post_query_visual/check_443788/summary.json",
+  "check_summary_sha256": "9a082d07dc2783d30c5479fcb0712261f912d5a75b3c841a09c3122708887b36",
+  "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_post_query_visual/check_443788/plan.json",
+  "plan_sha256": "9ddc0f206906af9566df8ca7b9e62cabf78c4f2c2857db6f0a7dc7558d35e82e",
+  "shared_run_jobs": {
+    "joint_code": "443789",
+    "product": "443790",
+    "additive": "443791"
+  },
+  "shared_maximum_GPUs": 3,
+  "shared_GPU_seconds_cap": 360,
+  "report_job_id": "443795",
+  "runs": {
+    "product": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_post_query_visual/run_product_443790",
+      "run_summary_sha256": "19308c665b13c65afbdd7575e7408eb9bdf34b90b5055ad4f946b0e289f38d44",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_seconds": 85,
+      "provisional_first_token_fit": {
+        "passed": false,
+        "first_correct": 84,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 43,
+          "flipped": 41
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    },
+    "additive": {
+      "run_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_post_query_visual/run_additive_443791",
+      "run_summary_sha256": "d9a223ac4f8877a805f749b276a96d87298cf75b6b63d602cf6320cee6268fde",
+      "state": "COMPLETED",
+      "exit_code": "0:0",
+      "GPU_seconds": 85,
+      "provisional_first_token_fit": {
+        "passed": false,
+        "first_correct": 74,
+        "contexts": 216,
+        "orientation_correct": {
+          "original": 37,
+          "flipped": 37
+        },
+        "complete_families": 0,
+        "families": 18,
+        "thresholds": {
+          "pooled": 206,
+          "per_orientation": 103,
+          "complete_families": 16
+        },
+        "cached_first_query_only": true,
+        "whole_answer_claim": false
+      }
+    }
+  },
+  "allocated_GPU_seconds": 170,
+  "report_state": "COMPLETED",
+  "report_exit_code": "0:0",
+  "report_CPU_seconds": 59,
+  "report_summary_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_orientation_post_query_visual/report_443795/summary.json",
+  "report_summary_sha256": "dd56720c974fcbb44e45b55c9d14472f91d6b122af0522d92e60093ce7ee9489",
+  "report_analysis_sha256": "1fd266fa3100d2a2c3f12f45c511f4380f1033cdfaa8bfaf65a0830b3e34d11f",
+  "first_token_fit": {
+    "product": {
+      "passed": false,
+      "first_correct": 84,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 43,
+        "flipped": 41
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    },
+    "additive": {
+      "passed": false,
+      "first_correct": 74,
+      "contexts": 216,
+      "orientation_correct": {
+        "original": 37,
+        "flipped": 37
+      },
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "pooled": 206,
+        "per_orientation": 103,
+        "complete_families": 16
+      },
+      "cached_first_query_only": true,
+      "whole_answer_claim": false
+    }
+  },
+  "query_placement_line_closed": true
+}

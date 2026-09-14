@@ -1,0 +1,428 @@
+{
+  "passed": true,
+  "completed": true,
+  "protocol": "identity_join_learned_selection_plot",
+  "report_directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105",
+  "input_sha256": {
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/summary.json": "6ff5ccedef0f39cb8a6282a6ecc3c0a441b8961544d4209541b1d2eac069ecdf",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/analysis.json": "938216598c2963458b55b041534d9b1cd8adb27d7f2a29acad21b05aab4f8aea",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/outcomes.json": "d9c4ce7d307f7bc8fd37d68ef14e7c28d1679d8c20d0eee830f9455ccbfe9a17"
+  },
+  "source_sha256": {
+    "scripts/plot_native_identity_join_learned.py": "8c6ff144e627984d7b0ec94325bfd8572c132c3249ef5158f4d21225c702a93c",
+    "slurm/native_identity_join_learned_plot.sbatch": "9fa5d360a81361d0825e284f46fd4d4749a12d942dd8f8b02d58cf405c66b1fc"
+  },
+  "output_sha256": {
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/plots/plot_443108/accuracy_by_length.png": "420a156faca5c8074d71932a5d7d84f795f5708937c0ece6f824a1920a3d1f0f",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/plots/plot_443108/accuracy_by_length.pdf": "32e5cf99106647bc0584ba27a617d96bcbb1ab0a41033516c305fc5b7f5944c2"
+  },
+  "counts": [
+    {
+      "mode": "clip",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 17,
+      "examples": 108,
+      "accuracy_percent": 15.74074074074074
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 18,
+      "examples": 108,
+      "accuracy_percent": 16.666666666666668
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 15,
+      "examples": 108,
+      "accuracy_percent": 13.88888888888889
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 17,
+      "examples": 108,
+      "accuracy_percent": 15.74074074074074
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 22,
+      "examples": 108,
+      "accuracy_percent": 20.37037037037037
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 21,
+      "examples": 108,
+      "accuracy_percent": 19.444444444444443
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 20,
+      "examples": 108,
+      "accuracy_percent": 18.51851851851852
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 15,
+      "examples": 108,
+      "accuracy_percent": 13.88888888888889
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 12,
+      "examples": 108,
+      "accuracy_percent": 11.11111111111111
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 16,
+      "examples": 108,
+      "accuracy_percent": 14.814814814814815
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 16,
+      "examples": 108,
+      "accuracy_percent": 14.814814814814815
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 15,
+      "examples": 108,
+      "accuracy_percent": 13.88888888888889
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 17,
+      "examples": 108,
+      "accuracy_percent": 15.74074074074074
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 32,
+      "correct": 31,
+      "examples": 108,
+      "accuracy_percent": 28.703703703703702
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "regime": "seen",
+      "n_frames": 64,
+      "correct": 30,
+      "examples": 108,
+      "accuracy_percent": 27.77777777777778
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 32,
+      "correct": 27,
+      "examples": 108,
+      "accuracy_percent": 25.0
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "regime": "held",
+      "n_frames": 64,
+      "correct": 27,
+      "examples": 108,
+      "accuracy_percent": 25.0
+    }
+  ],
+  "report_criteria": {
+    "primary": false,
+    "absolute_accuracy_target": false,
+    "practical": false,
+    "decisions": [
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 17,
+        "control_N64": 18,
+        "N64_additional_correct": -6,
+        "N32_additional_correct": -5,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 22,
+        "control_N64": 21,
+        "N64_additional_correct": -9,
+        "N32_additional_correct": -10,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 20,
+        "control_N64": 15,
+        "N64_additional_correct": -3,
+        "N32_additional_correct": -8,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 16,
+        "control_N64": 16,
+        "N64_additional_correct": -4,
+        "N32_additional_correct": -4,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 31,
+        "control_N64": 30,
+        "N64_additional_correct": -18,
+        "N32_additional_correct": -19,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 27,
+        "control_N64": 27,
+        "N64_additional_correct": -15,
+        "N32_additional_correct": -15,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      }
+    ],
+    "practical_cells": [
+      {
+        "seed": 22,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      }
+    ],
+    "reasoning_composition_demonstrated": false
+  },
+  "all_modes_and_seeds_retained": true,
+  "denominator_per_point": 108,
+  "chance_baseline": 0.1111111111111111,
+  "baseline_interpretation": "uniform over nine names; not an optimal task-aware chance bound",
+  "absolute_targets": {
+    "seen": 0.9074074074074074,
+    "held": 0.8055555555555556
+  },
+  "targets_do_not_imply_relative_success": true,
+  "no_model_or_tensor_loads": true,
+  "matplotlib_version": "3.9.4",
+  "slurm_job_id": "443108",
+  "seconds": 1.1729036755859852
+}

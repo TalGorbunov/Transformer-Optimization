@@ -1,0 +1,156 @@
+{
+  "status": "complete",
+  "gpu_hour_cap": 4,
+  "conditions": [
+    "sum",
+    "mean"
+  ],
+  "seeds": [
+    4,
+    5
+  ],
+  "data_schedule": "immutable_V4_refresh",
+  "distinct_training_scenes": 1540,
+  "presentations_per_run": 1620,
+  "optimizer_updates_per_run": 405,
+  "test_status": "exploratory_reuse_of_V2_test",
+  "cache_diagnostic": {
+    "cpu_job": "441428",
+    "gpu_job": "441439",
+    "plan": "cache_diagnostic/check_441428/plan.json",
+    "state": "COMPLETED",
+    "allocated_gpu_seconds": 43
+  },
+  "updated_utc": "2026-09-10T21:10:32.730289+00:00",
+  "allocated_gpu_seconds_so_far": 7436,
+  "current_cpu_job": "441447",
+  "current_profile_array": "441450",
+  "current_source_ledger": "check_441447/source_hashes.json",
+  "third_profile": {
+    "array": 441450,
+    "sum_seconds": 64,
+    "mean_seconds": 48,
+    "sum": "passed",
+    "mean": "failed_absolute_tv"
+  },
+  "kernel_diagnostic": {
+    "cpu_job": 441465,
+    "gpu_job": 441467,
+    "gpu_seconds": 41,
+    "state": "COMPLETED",
+    "native_tv": 0.011816622558384969,
+    "forced_matmul_tv": 0.00777062677454993,
+    "native_off_tv": 0.014878734245818327,
+    "forced_off_tv": 0.009714256054864989
+  },
+  "current_report_check_job": 441493,
+  "current_report_check_status": "passed",
+  "strict_numerical_gates_passed": false,
+  "main_launched": true,
+  "native_backend": "unchanged_nf4_bfloat16_sdpa_native_bitsandbytes",
+  "cpu_source_checks": [
+    441256,
+    441410,
+    441447
+  ],
+  "gpu_job_accounting": [
+    {
+      "job": 441258,
+      "kind": "failed_profile_array",
+      "allocated_gpu_seconds": 77
+    },
+    {
+      "job": 441416,
+      "kind": "failed_profile_array",
+      "allocated_gpu_seconds": 84
+    },
+    {
+      "job": 441439,
+      "kind": "cache_localization",
+      "allocated_gpu_seconds": 43
+    },
+    {
+      "job": 441450,
+      "kind": "profile_array_sum_pass_mean_fail",
+      "allocated_gpu_seconds": 112
+    },
+    {
+      "job": 441467,
+      "kind": "kernel_diagnostic",
+      "allocated_gpu_seconds": 41
+    },
+    {
+      "job": 441489,
+      "kind": "same_checkpoint_completion",
+      "allocated_gpu_seconds": 56
+    },
+    {
+      "job": 441498,
+      "kind": "four_main_runs",
+      "allocated_gpu_seconds": 6868
+    },
+    {
+      "job": 441517,
+      "kind": "post_training_checkpoint_audit",
+      "allocated_gpu_seconds": 155
+    }
+  ],
+  "main_array_job": 441498,
+  "main_array_throttle": 4,
+  "engineering_release": "implementation_gates.json",
+  "engineering_release_cpu_job": 441495,
+  "precompletion": {
+    "cpu_job": 441486,
+    "gpu_job": 441489,
+    "allocated_gpu_seconds": 56,
+    "computational_integrity_passed": true,
+    "strict_numerical_gate_passed": false
+  },
+  "post_training_audit": {
+    "cpu_job": 441515,
+    "gpu_job": 441517,
+    "gpu_time_cap_minutes": 5,
+    "cpu_dependency": "afterok:441498",
+    "gpu_dependency": "afterok:441515",
+    "status": "COMPLETED",
+    "cpu_seconds": 5,
+    "allocated_gpu_seconds": 155,
+    "computational_integrity_passed": true,
+    "strict_numerical_gate_passed": true
+  },
+  "local_readability": {
+    "self_test_job": 441532,
+    "self_test_status": "COMPLETED",
+    "source_ledger": "local_readability/check_441532/source_hashes.json",
+    "execution_condition": "complete canonical V5 primary fails",
+    "status": "COMPLETED",
+    "job": 441550,
+    "cpu_seconds": 5,
+    "report": "local_readability/run_441550/REPORT.md"
+  },
+  "allocated_gpu_seconds_so_far_note": "All completed V5 GPU jobs, including failed profiles, diagnostics, four main runs and post-training audit.",
+  "main_elapsed_seconds": {
+    "sum_seed4": 1710,
+    "mean_seed4": 1711,
+    "sum_seed5": 1724,
+    "mean_seed5": 1723
+  },
+  "main_gpu_seconds": 6868,
+  "allocated_gpu_hours": 2.0655555555555556,
+  "report_job": 441547,
+  "report_status": "COMPLETED",
+  "report_cpu_seconds": 18,
+  "primary_both_seeds": false,
+  "message_decomposition": {
+    "job": 441549,
+    "status": "FAILED",
+    "cpu_seconds": 7,
+    "reason": "Prediction schema does not serialize anchor_positions/parent_positions; diagnostic repair registered.",
+    "repair_self_test_job": 441556,
+    "rerun_job": 441558,
+    "rerun_status": "COMPLETED",
+    "rerun_cpu_seconds": 6,
+    "comparisons": 864,
+    "report": "message_decomposition/decomposition_441558/REPORT.md"
+  }
+}

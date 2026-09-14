@@ -1,0 +1,18 @@
+{
+  "status": "completed_native_feature_bank",
+  "prepare_job": "443667",
+  "training_stage_job": "443660",
+  "source_release_sha256": "ef1f1791193466d82da13672be35b9b245de804ba33d6c54575817626770f86d",
+  "harvest_released": true,
+  "fit_released": false,
+  "harvest_job": "443671",
+  "prepare_summary_sha256": "4113f2ff2fd89ebd304c164401af64826b6a4c36e3652f439834bbf56c8c1970",
+  "prepare_plan_sha256": "4cdd2cd026c4857b20ac485e1833acaeb049b828df9db166c8014910b1bf2aad",
+  "merge_job": "443672",
+  "harvest_summary_sha256": "870479dc95c23d2d7774774f8c3a81d98ded024442c9f0ddb0e7019ac4e19050",
+  "allocated_gpu_seconds": 39,
+  "merge_summary_sha256": "8adbff2573e5d64be0b91b50f7ca20aeee4efef5763bbd370fc6a6bfd37cc8e1",
+  "cache_sha256": "a4b7ea5975d7cdd32a5456949417a148e05e348ec249ff2ffd407a6e1fc08feb",
+  "features_sha256": "583b410900186a47bf7b577bb285892b7530bbcc2e903980aeb357b3e5a6eedc",
+  "maximum_native_CPU_head_tv": 0.0003415265959701606
+}

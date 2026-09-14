@@ -1,0 +1,15 @@
+{
+  "status": "cpu_preparation_passed",
+  "cpu_job": 443974,
+  "cpu_job_seconds": 38,
+  "prior_failed_cpu_job_seconds": 73,
+  "cumulative_cpu_job_seconds": 111,
+  "source_release_sha256": "8ed154d9bc65049c94d9a39b3edb11abd941700952410f725465bb50bf7db0f8",
+  "summary_sha256": "25bfcf524f6dd9b8568f219d0f2e4f5217bea8fac98b4fe0151c9a17882d97f7",
+  "plan_sha256": "147070a5819d51802b588f8e3466baa5821d5d2702d08b1cce11627c6903a864",
+  "cases": 8,
+  "maximum_target_tokens": 8,
+  "training_target_rows_per_epoch": 29555,
+  "no_model_calls": true,
+  "original_failures_preserved": true
+}

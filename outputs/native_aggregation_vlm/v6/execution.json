@@ -1,0 +1,98 @@
+{
+  "status": "complete_failed_primary_and_practical",
+  "gpu_hour_cap": 5,
+  "max_concurrent_project_gpus": 4,
+  "conditions": [
+    "control",
+    "aligned"
+  ],
+  "seeds": [
+    6,
+    7
+  ],
+  "operator": "fixed_V5_SUM",
+  "deployed_trainable_parameters": 1762400,
+  "auxiliary_parameters_training_only": 291,
+  "teacher_pairs_expected": 9980,
+  "teacher_raw_training_frames": 18800,
+  "presented_training_frames_per_main": 19440,
+  "training_presentations": 1620,
+  "updates": 405,
+  "fresh_test_seed": 20260919,
+  "teacher_quality_gate": {
+    "conditional_binary_balanced_accuracy_min": 0.95,
+    "each_semantic_category_accuracy_min": 0.9,
+    "mean_full_vocabulary_01_mass_min": 0.9
+  },
+  "allocated_gpu_seconds": 8320,
+  "created_utc": "2026-09-10 21:17:38 UTC",
+  "teacher_stage": {
+    "job": 441590,
+    "cpu_seconds": 25,
+    "plan": "/mnt/data/gabriele/gnn_transformer/v6_local_teacher/stage_441590/plan.json",
+    "plan_sha256": "ca04535fb67e065fcde0408fb23036eef51439d9188340199dc81167fe418b19",
+    "status": "COMPLETED"
+  },
+  "updated_utc": "2026-09-10T22:45:23.154819+00:00",
+  "teacher_profile_job": 441592,
+  "teacher_array_job": 441596,
+  "teacher_merge_job": 441606,
+  "teacher_quality_gate_passed": true,
+  "teacher_original_weighted_balanced_accuracy": 1.0,
+  "teacher_original_weighted_numeric_mass": 0.999839,
+  "teacher_profile_gpu_seconds": 26,
+  "teacher_shard_gpu_seconds": [
+    271,
+    269,
+    272,
+    266
+  ],
+  "training_cpu_job": 441601,
+  "training_cpu_seconds": 4,
+  "training_source_ledger": "check_441601/source_hashes.json",
+  "training_profile_array": 441613,
+  "fresh_dry_job": 441605,
+  "fresh_stage_job": 441607,
+  "fresh_stage_cpu_seconds": 43,
+  "training_profile_gpu_seconds": [
+    49,
+    49
+  ],
+  "training_profiles_passed": true,
+  "main_array_job": 441650,
+  "release_check_job": 441647,
+  "report_self_test_job": 441633,
+  "local_head_self_test_job": 441635,
+  "retained_report_check_failure": 441641,
+  "main_runs": [
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/main/aligned/seed6/aligned_seed6_20260910_215742_441652_2920669",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/main/aligned/seed7/aligned_seed7_20260910_215745_441650_2920672",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/main/control/seed6/control_seed6_20260910_215743_441651_2919846",
+    "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v6/main/control/seed7/control_seed7_20260910_215744_441653_2920193"
+  ],
+  "post_checkpoint_cpu_job": 441654,
+  "post_checkpoint_gpu_job": 441655,
+  "final_report_job": 441682,
+  "local_head_job": 441687,
+  "head_subspace_self_test_job": 441665,
+  "head_subspace_job": 441688,
+  "main_gpu_seconds": [
+    1743,
+    1740,
+    1740,
+    1739
+  ],
+  "post_checkpoint_gpu_seconds": 156,
+  "retained_final_report_failure": 441662,
+  "retained_diagnostic_snapshot_failures": [
+    441663,
+    441668
+  ],
+  "primary_both_seeds": false,
+  "practical_both_seeds": false,
+  "allocated_gpu_hours": 2.311111111111111,
+  "local_head_cpu_seconds": 9,
+  "head_subspace_cpu_seconds": 15,
+  "local_head_report": "local_head/run_441687/REPORT.md",
+  "head_subspace_report": "head_subspace/run_441688/REPORT.md"
+}

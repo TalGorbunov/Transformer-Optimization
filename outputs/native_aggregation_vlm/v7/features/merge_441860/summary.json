@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "cache_file": "/mnt/data/gabriele/gnn_transformer/v7_parallel_local/feature_cache.json",
+  "cache_sha256": "670c115ff872760082eb93a1020ddc7a2e0756b2b2ff3cc55f9a0512845f56a6",
+  "feature_count": 32229,
+  "counts": {
+    "local_empty": 12215,
+    "local_prefix": 19474,
+    "global_empty": 54,
+    "global_prefix": 486
+  },
+  "seconds": 4.066196534782648
+}

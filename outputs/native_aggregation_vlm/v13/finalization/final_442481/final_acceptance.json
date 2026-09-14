@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "report_audit_passed": true,
+  "post_completed": true,
+  "post_computational_integrity_passed": true,
+  "post_native_replay_gate_passed": true,
+  "verification_passed": true,
+  "gpu_accounting_passed": true,
+  "gpu_budget_passed": true,
+  "v13_concurrency_passed": true,
+  "gpu_per_job_caps_passed": true,
+  "gpu_subcaps_passed": true,
+  "primary_both_seeds": false,
+  "practical_both_seeds": false,
+  "reported_vision_milestone_gate": false,
+  "accepted_vision_milestone": false,
+  "post_strict_cache_numerical_gate_passed": false,
+  "original_mixed_numerical_gate_passed": false,
+  "reasoning_composition_established": false,
+  "source_sha256": {
+    "scripts/finalize_native_vision_v13.py": "e99383f4390b5293c032f407fcb029b6be2de6e09661118720e52f85a22ce0e2",
+    "slurm/native_vision_v13_finalize.sbatch": "8b495a72b66e9c7a092e640ce78e5c78bdaeab032473923e73cbc5e34bb9b191",
+    "scripts/finalize_native_vision_v10.py": "492ff9798cd489378fc6fe5386d2fef924db510525c8b08e39300da2eb952f65",
+    "slurm/native_vision_v10_finalize.sbatch": "6c8823e58d68ecc8eb47f3c5acaa8873ebcbd16afe9fb947be64d161b3326d7b"
+  },
+  "artifacts": {
+    "analysis": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/report_442466/analysis.json",
+      "sha256": "bcf73e7102d936743671a02fb058235baa74ce46063e57b24b77ae493b4512d0"
+    },
+    "independent_report_summary": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/report_442466/summary.json",
+      "sha256": "850b51b003901059749dda1ef182e657672f7c540e6e41015fe95b7e726bd071"
+    },
+    "selected_checkpoint_audit": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/checkpoint_audit/audit_442472/summary.json",
+      "sha256": "264f69a181f3e93842c7475919e0b3d4b071b2db89a8d204d115de26447fd8ba"
+    },
+    "gpu_accounting": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/finalization/final_442481/gpu_accounting.json",
+      "sha256": "4a5607ce145ec51e763729b2913e8206b7c49f4efe1c99f2291275a0efdaf819"
+    },
+    "checkpoint_audit_plan": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/checkpoint_audit/check_442467/plan.json",
+      "sha256": "c8fdf6d73f24aab0a3c0f1bd65d1df393a9fae4f2639fdf249db6300fe8f4b5f"
+    },
+    "prospective_source_check": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/finalization/selftest_442477/summary.json",
+      "sha256": "56c5a41cb60c2f8d0a3bf9b51708059b9a41b35950ecee3c4ed8dadc2d8d7c10"
+    }
+  },
+  "selected_models": [
+    {
+      "condition": "offset",
+      "seed": 16,
+      "run_id": "run_offset_s16_442454",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v13/run_offset_s16_442454/step_4590.pt",
+      "checkpoint_sha256": "a92529ed077d50eacccd2deb83aea94b53600748111e67dc0f4c87872ba12dc8",
+      "parameter_sha256": "ed199a3f6a5281bf35ec3ffd739dd933bf33e0067499dd96c577ce18e6b0aabc"
+    },
+    {
+      "condition": "offset",
+      "seed": 17,
+      "run_id": "run_offset_s17_442452",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v13/run_offset_s17_442452/step_4590.pt",
+      "checkpoint_sha256": "1de7804987f885375d78bd26695cc68550040ce6da0ab33a96ccadb9298bb033",
+      "parameter_sha256": "e17515d6eabb3ea6df4276bbbae26175b40bf2c13b9d9e6360b67c967f4f04d0"
+    },
+    {
+      "condition": "centered",
+      "seed": 16,
+      "run_id": "run_centered_s16_442453",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v13/run_centered_s16_442453/step_4590.pt",
+      "checkpoint_sha256": "48a4b36b8232f03302116b827012731000db47c5446d893f9b442a6889d22d84",
+      "parameter_sha256": "e12e47b309201e43c0df636618f0925df8c3581bed5d61691eddbb70d55dd9c0"
+    },
+    {
+      "condition": "centered",
+      "seed": 17,
+      "run_id": "run_centered_s17_442455",
+      "selected_step": 4590,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v13/run_centered_s17_442455/step_4590.pt",
+      "checkpoint_sha256": "6837cbd174af956056f2f28aebf802bd0fea008bbb75a5bda594157690271cd8",
+      "parameter_sha256": "1f664091a9b6530de4ac40fff0a348e5f36ba6a6099a52e1590e76ac6a306a9c"
+    }
+  ],
+  "reported_decisions": {
+    "16": {
+      "n64_additional_correct": -9,
+      "n64_difference_pp": -6.617647058823529,
+      "n32_additional_correct": -17,
+      "n32_difference_pp": -12.5,
+      "n64_gain_at_least_5pp": false,
+      "n32_loss_at_most_5pp": false,
+      "primary": false,
+      "centered_n32_correct": 44,
+      "centered_n32_at_least_90pct": false,
+      "centered_n64_correct": 11,
+      "centered_n64_at_least_80pct": false,
+      "centered_larger_k_n64_correct": 0,
+      "centered_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    },
+    "17": {
+      "n64_additional_correct": 15,
+      "n64_difference_pp": 11.029411764705882,
+      "n32_additional_correct": 22,
+      "n32_difference_pp": 16.176470588235293,
+      "n64_gain_at_least_5pp": true,
+      "n32_loss_at_most_5pp": true,
+      "primary": true,
+      "centered_n32_correct": 48,
+      "centered_n32_at_least_90pct": false,
+      "centered_n64_correct": 15,
+      "centered_n64_at_least_80pct": false,
+      "centered_larger_k_n64_correct": 0,
+      "centered_larger_k_n64_at_least_80pct": false,
+      "practical": false
+    }
+  },
+  "plot": {
+    "files": [
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/finalization/final_442481/native_vision_v13.png",
+        "sha256": "c00790f679d91f57644bf485a0b0060e1d5f747b9c5eede9208a6abb64f4795b",
+        "bytes": 312588
+      },
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v13/finalization/final_442481/native_vision_v13.pdf",
+        "sha256": "9a8284f863898b20d0176839a4d7f83565abaa527839d584a329c964bc4f9260",
+        "bytes": 18668
+      }
+    ],
+    "matplotlib_version": "3.9.4",
+    "row_count": 32,
+    "no_new_estimation": true,
+    "labels": "Existing correct/n; All K is total and other three categories form its disjoint partition",
+    "intervals": "Use the unchanged independent report"
+  },
+  "post_evidence_audit": {
+    "native_head_replays": 46,
+    "selected_head_replays": 40,
+    "bare_native_head_replays": 6,
+    "cache_full_comparisons": 656,
+    "exact_selected_kv_checks": 24,
+    "selected_fusion_checks": 40,
+    "all_forward_artifacts_hash_verified": true
+  },
+  "plot_input_sha256": "37ff12ba9ebe740134e3c3209f1ac8800f1f7462dda4fef7d9dd9c051d51087b",
+  "cache_numerical_failures": [
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_centered_s16_442453",
+      "mode": "centered",
+      "seed": 16,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_centered_s17_442455",
+      "mode": "centered",
+      "seed": 17,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_offset_s16_442454",
+      "mode": "offset",
+      "seed": 16,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "case_id": "parallel_N64",
+      "n_frames": 64,
+      "run_id": "run_offset_s17_442452",
+      "mode": "offset",
+      "seed": 17,
+      "step": 2,
+      "row_index": 62,
+      "role": "local",
+      "binding": false
+    }
+  ],
+  "native_replay_failures": [],
+  "allocated_gpu_seconds": 4579,
+  "allocated_gpu_hours": 1.2719444444444445,
+  "gpu_seconds_cap": 16200,
+  "retained_noncompleted_attempts": [],
+  "scope": "Artifact finalization only; no new predictions, fits, metrics, intervals or selection",
+  "independent_report_interpretation": {
+    "treatment": "Cardinality scaling of the same learned query-conditioned null offset: r-N*b versus r-b",
+    "same_capacity_and_auxiliary_supervision": true,
+    "no_runtime_reference_images": true,
+    "no_attention_operator_novelty_claim": true,
+    "no_unseen_answer_value_claim": true,
+    "does_not_establish_reasoning_composition": true,
+    "all_test_answer_values_supported_in_training": true,
+    "cache_precision_verification": "Failed CPU merge442411 retained; the separately frozen precision dispatcher verifies descriptive hidden reductions without changing native states or binding head gates",
+    "no_claim_final_nonlinear_residual_is_additive": true,
+    "auxiliary_only_updates_predictor": true,
+    "main_losses_update_predictor_and_core": true,
+    "no_claim_calibration_is_exact_or_immune_to_coadaptation": true,
+    "training_length_count_correlation": "K0..8 cross-length consistency; K9..15 same-length; K16 identical pair with zero regularizer and retained CE slots",
+    "primary_exact": "Complete stripped ASCII integer equals gold, no nonterminal special tokens, native EOS within four tokens; all failures remain in denominator",
+    "native_first_token_nll": "Raw first-token NLL for dev tie-break only; it cannot distinguish10..16",
+    "raw_logit_storage": "FP32 archives verified exact lossless promotions of FP16 native logits",
+    "matched_control": "Identical1060224 parameters, ordinary and auxiliary data/order, initial bytes,73440scene and73440auxiliary presentations,4590updates",
+    "bootstrap": "K-stratified intact-family intervals condition on these fitted seeds; pooling cannot rescue either seed",
+    "path_penalty": "Diagnostic only, never optimized",
+    "local_visual_atoms_may_recur": true,
+    "loss_audit": "All logged causal-position/scene/pair/group arithmetic and source-bound routing; unsaved intermediate core/messages/targets are not reconstructed"
+  }
+}

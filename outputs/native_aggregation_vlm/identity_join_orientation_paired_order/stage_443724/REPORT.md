@@ -1,0 +1,3 @@
+# Fixed paired-minibatch order
+
+The stage passes an exact48,000-entry permutation audit. There are5,994 paired updates and six unchanged original-orientation tail updates. Total target rows remain213,330; the new maximum per update is48. Entry dictionaries, target sequences and whole N8/N16 pairs are unchanged. Duplicate base IDs at boundary batches are retained. Examples now meet different learning rates and optimizer states; no identical-trajectory or cancellation claim is made. The failed numerical reports remain failed. This JSON-only stage performs no tensor/head work and releases no fit.

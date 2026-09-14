@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "tests": {
+    "passed": true,
+    "tests": [
+      "mandatory_report_post_gates",
+      "descriptive_cache_failure_retained",
+      "failed_efficacy_not_rescued",
+      "four_selected_models_bound",
+      "reject_checkpoint_mismatch",
+      "fixed_twenty_cells_denominators"
+    ]
+  },
+  "source_sha256": {
+    "scripts/finalize_native_vision_v7.py": "a9093f09f0f0e12602d01271f845b9438f4619a1070ef666a6d57a4835f4633c",
+    "slurm/native_vision_v7_finalize.sbatch": "a81d842e873c63d97014595e6f693ccf3afbd73c79d3dba4e9665feb698808c3"
+  },
+  "seconds": 0.024041518568992615,
+  "slurm_job_id": "441894"
+}

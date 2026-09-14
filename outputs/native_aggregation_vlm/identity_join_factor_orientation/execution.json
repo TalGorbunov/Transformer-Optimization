@@ -1,0 +1,9 @@
+{
+  "status": "CPU_stage_failed_canonical_HF_symlink_rejection",
+  "stage_job": "443650",
+  "source_release_sha256": "1256d1c29acce571b6f5a10bbd0edcbd2f8de1be4671d934615ec770d6210366",
+  "feature_harvest_released": false,
+  "fit_released": false,
+  "failure_sha256": "3e1f12be71eca8837344bcab543556664121059a516d04ece8158ccaa572d04f",
+  "failed_cpu_seconds": 55
+}

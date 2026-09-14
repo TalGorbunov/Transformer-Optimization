@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "completed": true,
+  "source_sha256": {
+    "scripts/probe_native_identity_join.py": "e6a717f9c81bca50d676bf92f032c8a3e36608370c4cf775c6b832bdaadf1f6b",
+    "slurm/identity_join_gate_check.sbatch": "11a67d04832f794b5fb755897fb6baafd868ca453bc165bb03c6b207e4c3a6d3",
+    "slurm/identity_join_gate_profile.sbatch": "01e3588110484e9e78acc4a7c6bea8040390ae0493c18c729961cc06f8b49b51",
+    "slurm/identity_join_gate_run.sbatch": "43e23689ac10711f57674685bcdc9c982e4d73bb56c67975f2e591d8baec6e96",
+    "slurm/identity_join_gate_report.sbatch": "bda1174243a47c89af41a37e8f66329c720efa4b9ad81e3216120d9f7850d094",
+    "datasets/mmred/render_mmred.py": "0d7043b5656e79a77b31f3a9dfacb45fd763b59fd27359481730b2a2394f2bf7",
+    "scripts/stage_native_vision_v2_clean.py": "f2423c7e3b68417f013903dca155c203e1e38a89a91eface24adc4b73c62c0b5",
+    "scripts/stage_native_vision_pilot.py": "547bb5d9ef6f3b52aa48a3e7ef5404cf1308c5f7d6936eec1c5b148b70dd0166",
+    "scripts/native_vision_v7_runtime.py": "a24eb09d53b2bccf4c46bbf3a1c47d1ff514aa197764370b2b94f89413bb61c7",
+    "scripts/stage_native_vision_v10_features.py": "bb83e5d9124d47368b07ce4d902f32fc9ca03e5575defcd7230d68eeb3de758f",
+    "scripts/stage_native_vision_v6_teacher.py": "396c0f1a5e1d8fe945896c49771b56eef86d7f83d68015d15d9b4954e1cc6674",
+    "scripts/probe_native_vision_v2_prefix.py": "54973f6ac2cce88dd40d4113b3132a16e9d20305f0638805e02e5eb43d25979b",
+    "scripts/probe_native_vision_parallel_local.py": "590ee7c877b44998bc60b6e622070734d06fd30272c423277ef092584e580be8",
+    "scripts/cache_native_vision_v6_teacher.py": "43ce9cee58c2387d5bcd90545d688f38e314bb6f24b677d8facf3f012742bee5",
+    "gnnformer/data.py": "fe2234f434716bebaeb048971fbfd76f13704629239e13255c431b7498a1ccc1",
+    "gnnformer/parallel_local_prompts.py": "7b86876a0210cfcdb6d86054bce369c8bce7120b33a79460137174201e214278",
+    "gnnformer/constants.py": "f522537a25a9ce803b814a7021e2d93661dc04c56b1c9ad6761ba3e55adf6e2b",
+    "gnnformer/runtime.py": "75d65b5b046a72d2dd59f1f0aff50dd6f7775574d2177e700fc02e8051c61346"
+  },
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_gate/report_442973/analysis.json",
+  "analysis_sha256": "f769bf3dc39c4472acce79d55143ba6e40448fae3d97cdb6248f8b79a773df20",
+  "feasibility_passed": false,
+  "local_judgments": 4860,
+  "allocated_gpu_seconds": 199,
+  "seconds": 48.103818371891975,
+  "slurm_job_id": "442973"
+}

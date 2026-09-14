@@ -1,0 +1,71 @@
+{
+  "run_id": "sum_seed0_20260908_163259_433106_312950",
+  "arm": "sum",
+  "model": "Qwen/Qwen2.5-3B-Instruct",
+  "parameters": {
+    "backbone": 3085938688,
+    "branch": 393280,
+    "lora": 409600,
+    "total_trainable": 802880
+  },
+  "selected_checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation/sum_seed0_20260908_163259_433106_312950/best.pt",
+  "training": [
+    {
+      "epoch": 1,
+      "step": 2,
+      "n": 8,
+      "mean_answer_token_ce": 13.773744463920593,
+      "seconds": 1.139404718996957,
+      "peak_cuda_allocated_bytes": 6440002560,
+      "peak_cuda_reserved_bytes": 6467616768,
+      "dev": [
+        {
+          "tag": "dev_epoch1",
+          "mode": "all",
+          "n_frames": 8,
+          "n": 9,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 0,
+          "parse_rate": 0.0,
+          "mae_parsed": null,
+          "bias_parsed": null,
+          "gold_first_token_nll": 0.8835210107758434,
+          "mean_prompt_tokens": 127.0,
+          "mean_generated_tokens": 4.0,
+          "mean_seconds": 0.08370405319146812,
+          "total_seconds": 0.7533364787232131,
+          "peak_cuda_allocated_bytes": 6224213504,
+          "peak_cuda_reserved_bytes": 6467616768
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "tag": "test",
+      "mode": "all",
+      "n_frames": 8,
+      "n": 9,
+      "correct": 0,
+      "exact": 0.0,
+      "parsed": 0,
+      "parse_rate": 0.0,
+      "mae_parsed": null,
+      "bias_parsed": null,
+      "gold_first_token_nll": 0.3772277626105481,
+      "mean_prompt_tokens": 127.0,
+      "mean_generated_tokens": 4.0,
+      "mean_seconds": 0.06812971271574497,
+      "total_seconds": 0.6131674144417048,
+      "peak_cuda_allocated_bytes": 6214578176,
+      "peak_cuda_reserved_bytes": 6467616768
+    }
+  ],
+  "metric_notes": {
+    "exact": "All selected samples are in denominator; unparsable outputs are incorrect",
+    "mae_parsed": "MAE only for outputs parsed as a whole nonnegative integer; also report parse_rate",
+    "gold_first_token_nll": "Native full-vocabulary probability at first answer position, not full-answer likelihood",
+    "timing": "Synchronized batch-one generation, includes prefill; no warm-up exclusion"
+  }
+}

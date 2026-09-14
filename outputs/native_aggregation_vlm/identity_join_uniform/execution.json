@@ -1,0 +1,74 @@
+{
+  "status": "completed_diagnostic_failure",
+  "protocol": "identity_join_fixed_uniform_control",
+  "conditional_trigger_met": true,
+  "source_sha256": {
+    "scripts/diagnose_native_identity_join_uniform.py": "3fae2fd6ad2c3bb60ba72681179b7bc188ca0b23e329696f3af60445799e6330",
+    "scripts/report_native_identity_join_uniform.py": "e5b1658c0017fd6ba239a59861e2a52537ea24aadb3fa0433f4b83245fa49fea",
+    "slurm/native_identity_join_uniform_check.sbatch": "4b1ccc2377fdb2d9ae6dc91c1041be6c0900ccbe918cc8a89e566861e84177aa",
+    "slurm/native_identity_join_uniform_profile.sbatch": "14e6f24e7244c23481824ef851c02717db9c17131e93103d28fe472e5743e66a",
+    "slurm/native_identity_join_uniform_main.sbatch": "4c5a63ceb678a87fa97d3ed9deba78f0753f23c789fb078dcd6a3af2ce26801c",
+    "slurm/native_identity_join_uniform_report.sbatch": "83580914f4921f4472522972c0688bfe17745a59f51c0e5b4c42af2b2f71e9f3"
+  },
+  "campaign_gpu_seconds_cap": 990,
+  "per_main_gpu_seconds_cap": 840,
+  "maximum_concurrent_gpus": 1,
+  "steps": 600,
+  "main_released": true,
+  "check_job": "443258",
+  "check_passed": true,
+  "check_cpu_seconds": 18,
+  "profile_job": "443261",
+  "profile_passed": true,
+  "profile_gpu_seconds": 85,
+  "total_gpu_seconds": 293,
+  "release_job": "443263",
+  "main_job": "443264",
+  "release_passed": true,
+  "release_cpu_seconds": 25,
+  "projected_seconds_per_main": 667.1558101777919,
+  "main_passed": true,
+  "main_gpu_seconds": 208,
+  "report_job": "443271",
+  "completed": true,
+  "computational_integrity_passed": true,
+  "report_passed": true,
+  "training_criterion_passed": false,
+  "id_generalization_criterion_passed": false,
+  "report_file": "outputs/native_aggregation_vlm/identity_join_uniform/report_443271/summary.json",
+  "report_sha256": "1be7e5c8e5c598efd71d996035985e6f8f797dd749e977f4ac7817fc0df424f0",
+  "analysis_file": "outputs/native_aggregation_vlm/identity_join_uniform/report_443271/analysis.json",
+  "analysis_sha256": "c2176613b6b1ade6eb4c5a13e7ddfe23cb523b7d7709907a312f834bb5a07056",
+  "criteria": {
+    "trainability": {
+      "passed": false,
+      "first_correct": 36,
+      "whole_correct": 36,
+      "contexts": 108,
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "first_correct": 103,
+        "whole_correct": 103,
+        "all_six_correct_families": 16
+      },
+      "scope": "fixed-seed trainability diagnostic"
+    },
+    "id_generalization": {
+      "passed": false,
+      "first_correct": 18,
+      "whole_correct": 18,
+      "contexts": 54,
+      "complete_families": 0,
+      "families": 18,
+      "thresholds": {
+        "first_correct": 49,
+        "whole_correct": 49,
+        "all_three_correct_families": 16
+      },
+      "scope": "same-question/trio new-context ID diagnostic"
+    }
+  },
+  "no_test_evaluation": true,
+  "no_efficacy_confirmation": true
+}

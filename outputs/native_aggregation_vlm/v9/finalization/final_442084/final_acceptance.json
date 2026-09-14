@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "completed": true,
+  "report_audit_passed": true,
+  "post_completed": true,
+  "post_computational_integrity_passed": true,
+  "post_native_replay_gate_passed": true,
+  "verification_passed": true,
+  "primary_both_seeds": false,
+  "practical_both_seeds": false,
+  "reported_vision_milestone_gate": false,
+  "accepted_vision_milestone": false,
+  "post_strict_cache_numerical_gate_passed": false,
+  "original_mixed_numerical_gate_passed": false,
+  "reasoning_composition_established": false,
+  "source_sha256": {
+    "scripts/finalize_native_vision_v9.py": "4e5a5764d1974043431a02afad257fd3bc7fc2a84fc223a106197767a9c6fe2c",
+    "slurm/native_vision_v9_finalize.sbatch": "a813d6a20b4a90fa77f140f42dca72399da294eaaf9be3b05f23914f6accbb6f"
+  },
+  "artifacts": {
+    "analysis": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/report_442051/analysis.json",
+      "sha256": "cf654b7fd77179a103c1ea65fa59b22f292767a03ac17e5b7177984165a0b559"
+    },
+    "independent_report_summary": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/report_442051/summary.json",
+      "sha256": "029a6e54eef4926d4c44eb9f93130366c5089db2e2c390a95f75c3fd8c382d57"
+    },
+    "selected_checkpoint_audit": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/checkpoint_audit/run_442081/summary.json",
+      "sha256": "ac1b7d582cf79db6918199171e4ac8d65af735098ec98309c829201c523229af"
+    },
+    "checkpoint_audit_plan": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/checkpoint_audit/check_442052/plan.json",
+      "sha256": "e8704e348ab821f6de46dba7edf970ce3a11fea8a0aaba0a402fcbce5b6f380c"
+    },
+    "prospective_source_check": {
+      "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/finalization/selftest_442037/summary.json",
+      "sha256": "d3ab836347aa3214febd2015c1a6b35641385763dd10776a99a074ff517a75a8"
+    }
+  },
+  "selected_models": [
+    {
+      "condition": "residual",
+      "seed": 12,
+      "run_id": "run_residual_s12_442043",
+      "selected_step": 3888,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v9/run_residual_s12_442043/step_3888.pt",
+      "checkpoint_sha256": "f2c1228f4ef0a135f899b69113d1c6d676af18f1318a33a10fbb4db4390c129b",
+      "parameter_sha256": "fbe81c8124cb800bbbe7337188df0939d528ff33f1c53eb0a5cb392c975f5ae0"
+    },
+    {
+      "condition": "residual",
+      "seed": 13,
+      "run_id": "run_residual_s13_442045",
+      "selected_step": 3888,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v9/run_residual_s13_442045/step_3888.pt",
+      "checkpoint_sha256": "fbfb9d02d74683e6b33380001caed1c5c5aab64489584b7c0062e167876c4767",
+      "parameter_sha256": "a08f0eec3acc25d636131f97aeac55ff56f4d48e791df2923221149545534b80"
+    },
+    {
+      "condition": "path",
+      "seed": 12,
+      "run_id": "run_path_s12_442044",
+      "selected_step": 4860,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v9/run_path_s12_442044/step_4860.pt",
+      "checkpoint_sha256": "a9c97e2cd1730df9a1f9525a7a4dbd12fd1116292920722e9b82525041ba7b58",
+      "parameter_sha256": "e3314452f7fa0a4f3c5d03d580d04c1fc487cdc9100e61c8541ceba2f3f8b79e"
+    },
+    {
+      "condition": "path",
+      "seed": 13,
+      "run_id": "run_path_s13_442042",
+      "selected_step": 4860,
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm_v9/run_path_s13_442042/step_4860.pt",
+      "checkpoint_sha256": "3ad571577e93c4171ace5aff02c4ab48128fcd9abc72df5eb1cc6ccd5f20a9a1",
+      "parameter_sha256": "7f2a70a67300878f27e8f61140d1df939a978e1cdbd51cf39621642233d5e2b0"
+    }
+  ],
+  "reported_decisions": {
+    "12": {
+      "ood_additional_correct": -29,
+      "ood_difference_pp": -13.425925925925926,
+      "n16_additional_correct": 0,
+      "n16_difference_pp": 0.0,
+      "ood_gain_at_least_5pp": false,
+      "n16_loss_at_most_5pp": true,
+      "primary": false,
+      "path_ood_at_least_70pct": false,
+      "path_nonzero_ood_at_least_60pct": false,
+      "path_n64_correct": 18,
+      "path_n64_at_least_70pct": false,
+      "practical": false
+    },
+    "13": {
+      "ood_additional_correct": -32,
+      "ood_difference_pp": -14.814814814814815,
+      "n16_additional_correct": 0,
+      "n16_difference_pp": 0.0,
+      "ood_gain_at_least_5pp": false,
+      "n16_loss_at_most_5pp": true,
+      "primary": false,
+      "path_ood_at_least_70pct": false,
+      "path_nonzero_ood_at_least_60pct": false,
+      "path_n64_correct": 18,
+      "path_n64_at_least_70pct": false,
+      "practical": false
+    }
+  },
+  "plot": {
+    "files": [
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/finalization/final_442084/native_vision_v9.png",
+        "sha256": "8038a4c0ede09fdb458e18927a41ff6df18c71b09f9af9b80edcfc40e350006f",
+        "bytes": 251240
+      },
+      {
+        "path": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v9/finalization/final_442084/native_vision_v9.pdf",
+        "sha256": "bbbc055e2eb9eb362505c5dfa5f790288b64e5a4a91136356c9478221e660a9f",
+        "bytes": 17821
+      }
+    ],
+    "matplotlib_version": "3.9.4",
+    "row_count": 20,
+    "no_new_estimation": true,
+    "labels": "Existing report correct/n",
+    "intervals": "Use the unchanged independent report"
+  },
+  "plot_input_sha256": "273f3d4834206bbaa513cca0c4c472ef08a7a622d1f59e796d07c857edfcacc1",
+  "cache_numerical_failures": [
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_path_s12_442044",
+      "case_id": "run_path_s12_442044__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "path",
+      "seed": 12,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_path_s13_442042",
+      "case_id": "run_path_s13_442042__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "path",
+      "seed": 13,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_residual_s12_442043",
+      "case_id": "run_residual_s12_442043__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "residual",
+      "seed": 12,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.020296463569398154,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.185546875,
+      "centered_maximum_absolute": 0.1635016960841337,
+      "centered_rms": 0.031126189742285253,
+      "numerical_rule_passed": false,
+      "run_id": "run_residual_s13_442045",
+      "case_id": "run_residual_s13_442045__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "residual",
+      "seed": 13,
+      "step": 2,
+      "row_index": 62,
+      "row_kind": "local",
+      "descriptive_only": true,
+      "hidden_rms": 0.09158099192548592,
+      "hidden_relative_l2": 0.008768523347149865,
+      "hidden_cosine": 0.999966537411766
+    },
+    {
+      "full_vocabulary_tv": 0.05784709042552635,
+      "top1_equal": true,
+      "raw_maximum_absolute": 0.3125,
+      "centered_maximum_absolute": 0.41156761137524034,
+      "centered_rms": 0.02306287275069257,
+      "numerical_rule_passed": false,
+      "run_id": "run_residual_s13_442045",
+      "case_id": "run_residual_s13_442045__N64",
+      "n_frames": 64,
+      "arm": "parallel",
+      "condition": "residual",
+      "seed": 13,
+      "step": 2,
+      "row_index": 64,
+      "row_kind": "global",
+      "descriptive_only": true,
+      "hidden_rms": 0.08000695606171047,
+      "hidden_relative_l2": 0.0068873691260117895,
+      "hidden_cosine": 0.9999774764785851
+    }
+  ],
+  "native_replay_failures": [],
+  "scope": "Artifact finalization only; no new predictions, fits, metrics, intervals or selection",
+  "independent_report_interpretation": {
+    "treatment": "Fixed native path-bound objective versus residual consistency on identical paired data and native parallel architecture",
+    "unchanged_inference_operator": true,
+    "additional_inference_work": false,
+    "does_not_establish_reasoning_composition": true,
+    "no_attention_operator_novelty_claim": true,
+    "all_final_answer_labels_used_for_pairing": true,
+    "known_method_family": "Path-norm/Lipschitz regularization; no new operator or theorem claim",
+    "path_bound_scope": "Only the learned FP32 residual along measured SUM chords; no guarantee for new scenes, FP16 native carries or answer accuracy",
+    "equal_coefficients_do_not_match_effective_regularization_strength": true,
+    "primary_exact": "Strict ASCII integer equals gold AND native EOS within four tokens; malformed/truncated examples stay in denominators",
+    "native_first_token_nll": "Raw full-vocabulary first-token NLL; not full multi-digit-answer likelihood",
+    "raw_logit_storage": "FP32 generation archives are verified exact lossless promotions of FP16 native logits",
+    "separate_unseen_counts": "All128 K9-16 examples remain a separate whole-answer secondary endpoint",
+    "practical_criteria": "Same absolute OOD/nonzero/N64 criteria as V8; no retrospective threshold change",
+    "matched_control": "Both objectives share paired ordering, scene weights, targets, initialization, unit regularizer weight and 4860 optimizer updates",
+    "bootstrap": "K-stratified complete-family intervals condition on these two fixed fitted seeds; pooling cannot rescue per-seed failure",
+    "local_atom_repetition": true,
+    "step_label_and_real_distribution_effects_not_identified": true,
+    "loss_audit": "Component arithmetic and complete logged update/target coverage, not reconstruction of unavailable intermediate models"
+  }
+}

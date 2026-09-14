@@ -1,0 +1,4471 @@
+{
+  "arms": {
+    "mass": {
+      "arm": "mass",
+      "epoch3_minus_epoch1": [
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.12819316499168054,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.12824137476336878
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.054199661646853206,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.054199661646853206
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.1342179724533344,
+          "n": 1,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.13437942865531666
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.13419876616913826,
+          "n": 1,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.13551817773012081
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.11683751920645591,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.11642364179374898
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.05718537019565702,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.05718537019565702
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.12230586442805362,
+          "n": 2,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.12217362036354769
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.12741182513389504,
+          "n": 2,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.12709988046832665
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.06669846220989711,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.06631603054634025
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.0029824243136681583,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.0029824243136681583
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.07986723723704925,
+          "n": 4,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.08055936803254457
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.0838634081784403,
+          "n": 4,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.08386422685800654
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.04353117169113829,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.04310917664707531
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.024445690333377568,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.024445690333377568
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.046744742598384625,
+          "n": 8,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.04850995620980941
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.055271464018442185,
+          "n": 8,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.0548609499473518
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.024387973130214957,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.023363336108024657
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.052292614392354164,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.05409155192146414
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.03578749633510597,
+          "n": 16,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.034843705377911566
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.021608574261190366,
+          "n": 16,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.021552063160641316
+        }
+      ],
+      "epoch_length_task": [
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.14486381218361202,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.14499934768948475
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.09805329792317935,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.09805329792317935
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.15199656754615717,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.1520429271922076
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.14798481811303646,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.14921371368015365
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.17350756824365818,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.1730897739611812
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.12407590172253549,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.12407590172253549
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.18628905261168258,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.18650635432455837
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.14172466631047428,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.14153147598462576
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.19277251794701442,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.19305456388007594
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.13335619198856874,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.13335619198856874
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.22100624038139358,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.22031875490756897
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.17641550520434976,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.17692806195701302
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.23286756066489034,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.23338164327223054
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.2046762638259679,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.2046762638259679
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.23721485473681242,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.23852891747328941
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.25438682278181657,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.2543004939512919
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.2568663953640498,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.25631089569653415
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.3522756649693474,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.3582734037249954
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.24667987297987565,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.24624186331437345
+        },
+        {
+          "arm": "mass",
+          "epoch": 1,
+          "mean_scene_ce": 0.2480933005514089,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.2484730287079284
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.022608946551335975,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.022575506907266063
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.06016983922745567,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.06016983922745567
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.03149632814591314,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.0319016717088524
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.0290501393188606,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.029110927396246072
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.06598638033610768,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.06693881529810873
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.07683731260127388,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.07683731260127388
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.09959847846475896,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.09943549470449665
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.025170255498669577,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.02528539646903744
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.11681105263764038,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.11844721377049103
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.11605372721911408,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.11605372721911408
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.15603794887312689,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.154900701285083
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.07368242819356965,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.07504619414668522
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.20082057084480767,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.20098597846964267
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.18123964986414648,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.18123964986414648
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.20564514245837928,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.2050000748911826
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.18963480197126045,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.19005257195493783
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.22977519477135502,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.22912912814235867
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.3312076934822835,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.33589801060258445
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.23035374846425838,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.23020243939341525
+        },
+        {
+          "arm": "mass",
+          "epoch": 2,
+          "mean_scene_ce": 0.24041214120108634,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.23946945435610953
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.016670647191931495,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.016757972926115958
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.043853636276326144,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.043853636276326144
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.0177785950928228,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.017663498536890938
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.013786051943898201,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.013695535950032827
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.05667004903720226,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.05666613216743222
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.06689053152687847,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.06689053152687847
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.06398318818362896,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.06433273396101068
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.01431284117657924,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.014431595516299116
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.1260740557371173,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.1267385333337357
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.13037376767490058,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.13037376767490058
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.14113900314434433,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.1397593868750244
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.09255209702590945,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.09306383509900648
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.18933638897375205,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.19027246662515523
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.18023057349259033,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.18023057349259033
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.1904701121384278,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.19001896126348
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.19911535876337438,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.1994395440039401
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.23247842223383486,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.2329475595885095
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.29998305057699326,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.30418185180353124
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.21089237664476967,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.21139815793646188
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "mean_scene_ce": 0.22648472629021854,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.22692096554728708
+        }
+      ],
+      "final_epoch_halves": [
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.01785246360004353,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 92,
+          "target_tokens": 703,
+          "token_weighted_ce": 0.017738090090156873
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.05904671076149138,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 86,
+          "target_tokens": 602,
+          "token_weighted_ce": 0.05904671076149138
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.023879204995561547,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 693,
+          "token_weighted_ce": 0.023601120138274773
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.015926002814168377,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 105,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.015838244112677053
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.059511537615426185,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 99,
+          "target_tokens": 767,
+          "token_weighted_ce": 0.0580779704389149
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.08898888002350046,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.08898888002350046
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.08551001126620268,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 103,
+          "target_tokens": 748,
+          "token_weighted_ce": 0.08615001676389997
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.015720216063972087,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 86,
+          "target_tokens": 662,
+          "token_weighted_ce": 0.01599156508152584
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.13112652566543176,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 97,
+          "target_tokens": 746,
+          "token_weighted_ce": 0.13144175003013692
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.15287932712654365,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.15287932712654365
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.1415257200200218,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 751,
+          "token_weighted_ce": 0.14064699940175096
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.09220380106151266,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 115,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.09288083378596182
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.18092977356404885,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 109,
+          "target_tokens": 829,
+          "token_weighted_ce": 0.18241086823077124
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.19483109084916683,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 714,
+          "token_weighted_ce": 0.19483109084916683
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.1980619184140648,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 105,
+          "target_tokens": 754,
+          "token_weighted_ce": 0.19677046606618545
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.18692368327626435,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.18712685404744364
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.23683683656660529,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 96,
+          "target_tokens": 738,
+          "token_weighted_ce": 0.23771086013383738
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.33374961480446047,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 692,
+          "token_weighted_ce": 0.33739821500507605
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.2198668521876378,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 108,
+          "target_tokens": 779,
+          "token_weighted_ce": 0.22066597342855787
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.22745095810387284,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 96,
+          "target_tokens": 735,
+          "token_weighted_ce": 0.22890157304374742
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.01566391469613235,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 108,
+          "target_tokens": 825,
+          "token_weighted_ce": 0.01592279430027261
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.03239219412085061,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 114,
+          "target_tokens": 798,
+          "token_weighted_ce": 0.03239219412085061
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.012147262874910107,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.012169811260844213
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.011420843087283796,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 95,
+          "target_tokens": 718,
+          "token_weighted_ce": 0.011305133111205491
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.053884827559537225,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 101,
+          "target_tokens": 771,
+          "token_weighted_ce": 0.05526161860812325
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.047683555730749096,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.047683555730749096
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.04112480903409191,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 97,
+          "target_tokens": 695,
+          "token_weighted_ce": 0.040851687145814726
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.013251137314160076,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 114,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.013254058626698099
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.1213159044454037,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.12229163896679614
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.10448027454236503,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.10448027454236503
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.14072005986236036,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.13880574308736823
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.09302332097774042,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 85,
+          "target_tokens": 650,
+          "token_weighted_ce": 0.09331074610137595
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.19940585138757233,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 91,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.19959616486398832
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.16503411665207193,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 686,
+          "token_weighted_ce": 0.16503411665207193
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.18207916836009214,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 95,
+          "target_tokens": 690,
+          "token_weighted_ce": 0.18264122992834966
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.21206115850741908,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 97,
+          "target_tokens": 745,
+          "token_weighted_ce": 0.21247942638739745
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.22845527054204678,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 104,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.22855890065910628
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.2675406653388385,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 722,
+          "token_weighted_ce": 0.2723456698984496
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.20035712274662015,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 92,
+          "target_tokens": 658,
+          "token_weighted_ce": 0.20042607850129052
+        },
+        {
+          "arm": "mass",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.22559282000069147,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 104,
+          "target_tokens": 803,
+          "token_weighted_ce": 0.2251080807279865
+        }
+      ],
+      "independent_loss_reexecution": false,
+      "optimizer_norms": {
+        "all_updates": {
+          "clip_fraction": 0.27266666666666667,
+          "clip_threshold": 1.0,
+          "logged_preclip_total_norm": true,
+          "mean_norm": 0.942634011566639,
+          "norm_greater_than_clip_threshold": 409,
+          "quantiles": {
+            "0": 0.13869425654411316,
+            "0.25": 0.5499539971351624,
+            "0.5": 0.7526055574417114,
+            "0.75": 1.055220127105713,
+            "0.9": 1.48500816822052,
+            "0.95": 1.941136467456817,
+            "0.99": 3.201723341941831,
+            "1": 45.83375549316406
+          },
+          "subgroup_gradient_norms_available": false,
+          "updates": 1500
+        },
+        "by_epoch": {
+          "1": {
+            "clip_fraction": 0.262,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.9085260078310966,
+            "norm_greater_than_clip_threshold": 131,
+            "quantiles": {
+              "0": 0.2932332158088684,
+              "0.25": 0.5607171207666397,
+              "0.5": 0.7540159225463867,
+              "0.75": 1.0264070630073547,
+              "0.9": 1.4762309193611147,
+              "0.95": 2.06162816286087,
+              "0.99": 3.7435416507720904,
+              "1": 6.056126117706299
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "2": {
+            "clip_fraction": 0.306,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.9188171100318432,
+            "norm_greater_than_clip_threshold": 153,
+            "quantiles": {
+              "0": 0.13869425654411316,
+              "0.25": 0.5634344220161438,
+              "0.5": 0.7676776647567749,
+              "0.75": 1.1090564131736755,
+              "0.9": 1.5228185415267945,
+              "0.95": 1.937611144781112,
+              "0.99": 3.201723341941831,
+              "1": 5.78422737121582
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "3": {
+            "clip_fraction": 0.25,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 1.000558916836977,
+            "norm_greater_than_clip_threshold": 125,
+            "quantiles": {
+              "0": 0.20559993386268616,
+              "0.25": 0.5403824150562286,
+              "0.5": 0.7303123772144318,
+              "0.75": 0.9984624236822128,
+              "0.9": 1.4633111596107486,
+              "0.95": 1.844103747606276,
+              "0.99": 2.682232198715207,
+              "1": 45.83375549316406
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          }
+        }
+      },
+      "optimizer_scalar_rows": 1500,
+      "task_balanced_final_epoch_halves": [
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.029176095542816208,
+          "n": 1,
+          "scenes": 379,
+          "token_weighted_ce": 0.02905604127565002,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.06243266124227535,
+          "n": 2,
+          "scenes": 381,
+          "token_weighted_ce": 0.062302108076960294,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.12943384346837747,
+          "n": 4,
+          "scenes": 423,
+          "token_weighted_ce": 0.12946222758609832,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.1901866165258862,
+          "n": 8,
+          "scenes": 419,
+          "token_weighted_ce": 0.1902848197983918,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.2544760654156441,
+          "n": 16,
+          "scenes": 398,
+          "token_weighted_ce": 0.25616915540280466,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 20,
+          "half": 1,
+          "mean_scene_ce": 0.13314105643899987,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.13345487042798104,
+          "weighting": "equal N-by-task cells"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.017906053694794217,
+          "n": 1,
+          "scenes": 421,
+          "token_weighted_ce": 0.017947483198293233,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.038986082409634575,
+          "n": 2,
+          "scenes": 419,
+          "token_weighted_ce": 0.03926273002784629,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.11488488995696738,
+          "n": 4,
+          "scenes": 377,
+          "token_weighted_ce": 0.11472210067447633,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.18964507372678888,
+          "n": 8,
+          "scenes": 381,
+          "token_weighted_ce": 0.18993773445795184,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.23048646965704922,
+          "n": 16,
+          "scenes": 402,
+          "token_weighted_ce": 0.2316096824467082,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "mass",
+          "cells": 20,
+          "half": 2,
+          "mean_scene_ce": 0.11838171388904686,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.1186959461610552,
+          "weighting": "equal N-by-task cells"
+        }
+      ],
+      "task_balanced_second_minus_first_half": [
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.011270041848021991,
+          "n": 1,
+          "token_weighted_ce": -0.011108558077356789
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.02344657883264078,
+          "n": 2,
+          "token_weighted_ce": -0.023039378049114004
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.014548953511410084,
+          "n": 4,
+          "token_weighted_ce": -0.014740126911621992
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.0005415427990973221,
+          "n": 8,
+          "token_weighted_ce": -0.000347085340439951
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.023989595758594884,
+          "n": 16,
+          "token_weighted_ce": -0.02455947295609645
+        },
+        {
+          "arm": "mass",
+          "mean_scene_ce": -0.014759342549953008,
+          "n": "all_lengths",
+          "token_weighted_ce": -0.01475892426692585
+        }
+      ],
+      "training_scalar_rows": 12000
+    },
+    "normalized": {
+      "arm": "normalized",
+      "epoch3_minus_epoch1": [
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.14114575906394747,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.14062164917550748
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.06101574298518245,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.06101574298518245
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.1815021973248804,
+          "n": 1,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.18153317933856936
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.1460565051677986,
+          "n": 1,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.14640335161050375
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.1493556702072965,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.1481450027707475
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.04780343470745718,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.04780343470745718
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.14567974257050081,
+          "n": 2,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.14615341391458292
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.15046163388411515,
+          "n": 2,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.14978435321373937
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.11189797871629709,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.11217977659411256
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.03251817718672101,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.03251817718672101
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.09352921357552987,
+          "n": 4,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.09469535317761693
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.1260464146491722,
+          "n": 4,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.12530613585821854
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.044371557094564196,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.04467758291337123
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.03284778309287503,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.03284778309287503
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.06276977744186296,
+          "n": 8,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.06453390390492222
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.048774889077758454,
+          "n": 8,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.05010524034640368
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.04902477965690194,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.04828277328599284
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.036820268660085254,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.038938171378945396
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.026983068349072714,
+          "n": 16,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.02622625165814685
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.024866010015102802,
+          "n": 16,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.024568825435003577
+        }
+      ],
+      "epoch_length_task": [
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.16204567923443391,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.1612174124871405
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.1022497165913228,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.1022497165913228
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.20273513893480413,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.2026622036751941
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.16123332410526928,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.16134927136977734
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.2084975338500226,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.20798828977027542
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.1271786047844216,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.1271786047844216
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.21600681752432138,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.2166161210058684
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.1634641783250845,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.16275231659386968
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.20853423019114417,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.20901642981241686
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.13433078209345695,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.13433078209345695
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.2380201290221885,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.2377942812693273
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.20082360223983414,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.19982736086678407
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.25079974092164775,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.25128830739935276
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.20763080702163278,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.20763080702163278
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.24741276261862366,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.24875218661210483
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.2571224496071227,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.258177690156353
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.2693508242443204,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.26783382432635744
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.35545282165752723,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.3617097096556542
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.2383750213170424,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.23780058693690337
+        },
+        {
+          "arm": "normalized",
+          "epoch": 1,
+          "mean_scene_ce": 0.24703055728037726,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.24701325364773596
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.04101296220789664,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.04010114055353946
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.0695781837683171,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.0695781837683171
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.06879462733690161,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.06870254248888626
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.043231018102960664,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.04311823210289053
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.09075789530819747,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.08999717683347865
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.08549372698413209,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.08549372698413209
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.13645069909398444,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.1353312113221634
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.04935029508258595,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.04830861934376735
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.14097466812265338,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.1409812745080005
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.123314020584221,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.123314020584221
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.1773138299107086,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.17607662356827922
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.11431236014061141,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.11428729056874101
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.21037331389961764,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.20928710048435578
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.19931167549686507,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.19931167549686507
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.21746001547435298,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.21677663674548403
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.21831715548047215,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.2172338467680532
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.23943316390446853,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.23817432363583543
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.32716286308597775,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.33196369785739077
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.23490707407239825,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.23467228275891613
+        },
+        {
+          "arm": "normalized",
+          "epoch": 2,
+          "mean_scene_ce": 0.26225478581152856,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.26166182096777496
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.02089992017048644,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.020595763311633007
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.04123397360614035,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.04123397360614035
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.021232941609923728,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.021129024336624752
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.01517681893747067,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.014945919759273578
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.05914186364272609,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.059843286999527935
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.07937517007696443,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.07937517007696443
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.07032707495382055,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.0704627070912855
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.01300254444096936,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.012967963380130313
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.09663625147484708,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.0968366532183043
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.10181260490673594,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.10181260490673594
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.14449091544665862,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.14309892809171038
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.07477718759066193,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.07452122500856555
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.20642818382708356,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.20661072448598153
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.17478302392875775,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.17478302392875775
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.1846429851767607,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.1842182827071826
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.20834756052936426,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.20807244980994932
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.22032604458741845,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.2195510510403646
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.318632552997442,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.3227715382767088
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.2113919529679697,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.21157433527875652
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "mean_scene_ce": 0.22216454726527446,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.2224444282127324
+        }
+      ],
+      "final_epoch_halves": [
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.024350395173710043,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 92,
+          "target_tokens": 703,
+          "token_weighted_ce": 0.023352050780852566
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.05956402007858594,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 86,
+          "target_tokens": 602,
+          "token_weighted_ce": 0.05956402007858594
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.026103436869258683,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 693,
+          "token_weighted_ce": 0.025738169376477653
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.018935468149304923,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 105,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.01852421631839489
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.06918167416594283,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 99,
+          "target_tokens": 767,
+          "token_weighted_ce": 0.06885532835332102
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.10092928630339923,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.10092928630339923
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.07934534090833323,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 103,
+          "target_tokens": 748,
+          "token_weighted_ce": 0.0792713126822569
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.01588103827427488,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 86,
+          "target_tokens": 662,
+          "token_weighted_ce": 0.01580209409507847
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.08319023241092134,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 97,
+          "target_tokens": 746,
+          "token_weighted_ce": 0.0838514621480026
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.10900402755398199,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.10900402755398199
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.16888532423651598,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 751,
+          "token_weighted_ce": 0.1677599077002293
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.09923962227969794,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 115,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.0987231082567959
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.1979098694117039,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 109,
+          "target_tokens": 829,
+          "token_weighted_ce": 0.19685790284488472
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.189887208777352,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 714,
+          "token_weighted_ce": 0.189887208777352
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.18675135153212719,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 105,
+          "target_tokens": 754,
+          "token_weighted_ce": 0.18627628368579977
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.19785726462147263,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.199451715961932
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.2235068197672566,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 96,
+          "target_tokens": 738,
+          "token_weighted_ce": 0.22345725198082
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.342275244792049,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 692,
+          "token_weighted_ce": 0.3463809903942565
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.20935120769879884,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 108,
+          "target_tokens": 779,
+          "token_weighted_ce": 0.20900543004427397
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.22565997170750052,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 96,
+          "target_tokens": 735,
+          "token_weighted_ce": 0.22581547775692276
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.01796062664922189,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 108,
+          "target_tokens": 825,
+          "token_weighted_ce": 0.01824707229240713
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.027406043811137544,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 114,
+          "target_tokens": 798,
+          "token_weighted_ce": 0.027406043811137544
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.016737099832076077,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.016864488271714124
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.011022522440180182,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 95,
+          "target_tokens": 718,
+          "token_weighted_ce": 0.010953976104877796
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.049300861248681965,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 101,
+          "target_tokens": 771,
+          "token_weighted_ce": 0.05087800072409435
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.060641218590436974,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.060641218590436974
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0607509781155236,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 97,
+          "target_tokens": 695,
+          "token_weighted_ce": 0.06098236610992349
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.010831049093037125,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 114,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.010828630959040601
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.10929900729233055,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.10911415960416623
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.09353860250614103,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.09353860250614103
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.11806363925764647,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.11660336917039747
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0416809524231426,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 85,
+          "target_tokens": 650,
+          "token_weighted_ce": 0.04186729945672246
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.21663143955539543,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 91,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.21817737561683884
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.15906234173940456,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 686,
+          "token_weighted_ce": 0.15906234173940456
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.18231268552082933,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 95,
+          "target_tokens": 690,
+          "token_weighted_ce": 0.18196939468127338
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.2194867407202183,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 97,
+          "target_tokens": 745,
+          "token_weighted_ce": 0.217202327670467
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.217389944421414,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 104,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.21595207938736075
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.2959170255869371,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 722,
+          "token_weighted_ce": 0.3001430883247101
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.21378761045786593,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 92,
+          "target_tokens": 658,
+          "token_weighted_ce": 0.21461563798037037
+        },
+        {
+          "arm": "normalized",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.21893800162629654,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 104,
+          "target_tokens": 803,
+          "token_weighted_ce": 0.21935884737215963
+        }
+      ],
+      "independent_loss_reexecution": false,
+      "optimizer_norms": {
+        "all_updates": {
+          "clip_fraction": 0.194,
+          "clip_threshold": 1.0,
+          "logged_preclip_total_norm": true,
+          "mean_norm": 0.783446296821038,
+          "norm_greater_than_clip_threshold": 291,
+          "quantiles": {
+            "0": 0.07356138527393341,
+            "0.25": 0.4620954245328903,
+            "0.5": 0.6223308742046356,
+            "0.75": 0.8943766355514526,
+            "0.9": 1.2655654430389407,
+            "0.95": 1.6838918566703793,
+            "0.99": 3.0113626861572254,
+            "1": 11.467037200927734
+          },
+          "subgroup_gradient_norms_available": false,
+          "updates": 1500
+        },
+        "by_epoch": {
+          "1": {
+            "clip_fraction": 0.234,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.8865702875256538,
+            "norm_greater_than_clip_threshold": 117,
+            "quantiles": {
+              "0": 0.27649056911468506,
+              "0.25": 0.49497421830892563,
+              "0.5": 0.6476222574710846,
+              "0.75": 0.9639739096164703,
+              "0.9": 1.5526209354400635,
+              "0.95": 2.100266480445854,
+              "0.99": 4.334766526222227,
+              "1": 11.467037200927734
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "2": {
+            "clip_fraction": 0.212,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.80884694185853,
+            "norm_greater_than_clip_threshold": 106,
+            "quantiles": {
+              "0": 0.17828258872032166,
+              "0.25": 0.48904045671224594,
+              "0.5": 0.66335529088974,
+              "0.75": 0.9492465555667877,
+              "0.9": 1.2828142404556275,
+              "0.95": 1.6614484250545491,
+              "0.99": 2.559125008583067,
+              "1": 11.30629825592041
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "3": {
+            "clip_fraction": 0.136,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.6549216610789299,
+            "norm_greater_than_clip_threshold": 68,
+            "quantiles": {
+              "0": 0.07356138527393341,
+              "0.25": 0.40221522748470306,
+              "0.5": 0.5593250691890717,
+              "0.75": 0.7574373036623001,
+              "0.9": 1.0896201133728027,
+              "0.95": 1.2671067535877212,
+              "0.99": 2.231174361705778,
+              "1": 4.292722702026367
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          }
+        }
+      },
+      "optimizer_scalar_rows": 1500,
+      "task_balanced_final_epoch_halves": [
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.0322383300677149,
+          "n": 1,
+          "scenes": 379,
+          "token_weighted_ce": 0.03179461413857776,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.06633433491298754,
+          "n": 2,
+          "scenes": 381,
+          "token_weighted_ce": 0.0662145053585139,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.11507980162027931,
+          "n": 4,
+          "scenes": 423,
+          "token_weighted_ce": 0.11483462641475245,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.19310142358566393,
+          "n": 8,
+          "scenes": 419,
+          "token_weighted_ce": 0.19311827781749213,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.2501983109914012,
+          "n": 16,
+          "scenes": 398,
+          "token_weighted_ce": 0.2511647875440683,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 20,
+          "half": 1,
+          "mean_scene_ce": 0.13139044023560936,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.1314253622546809,
+          "weighting": "equal N-by-task cells"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.01828157318315392,
+          "n": 1,
+          "scenes": 421,
+          "token_weighted_ce": 0.018367895120034148,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.045381026761919914,
+          "n": 2,
+          "scenes": 419,
+          "token_weighted_ce": 0.045832554095873855,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.09064555036981517,
+          "n": 4,
+          "scenes": 377,
+          "token_weighted_ce": 0.0902808576843568,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.1943733018839619,
+          "n": 8,
+          "scenes": 381,
+          "token_weighted_ce": 0.19410285992699594,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.23650814552312838,
+          "n": 16,
+          "scenes": 402,
+          "token_weighted_ce": 0.23751741326615022,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "normalized",
+          "cells": 20,
+          "half": 2,
+          "mean_scene_ce": 0.11703791954439587,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.11722031601868219,
+          "weighting": "equal N-by-task cells"
+        }
+      ],
+      "task_balanced_second_minus_first_half": [
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.013956756884560977,
+          "n": 1,
+          "token_weighted_ce": -0.013426719018543611
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.020953308151067628,
+          "n": 2,
+          "token_weighted_ce": -0.02038195126264005
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.02443425125046414,
+          "n": 4,
+          "token_weighted_ce": -0.02455376873039565
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": 0.0012718782982979737,
+          "n": 8,
+          "token_weighted_ce": 0.0009845821095038065
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.013690165468272841,
+          "n": 16,
+          "token_weighted_ce": -0.013647374277918067
+        },
+        {
+          "arm": "normalized",
+          "mean_scene_ce": -0.014352520691213497,
+          "n": "all_lengths",
+          "token_weighted_ce": -0.01420504623599872
+        }
+      ],
+      "training_scalar_rows": 12000
+    },
+    "ordinary": {
+      "arm": "ordinary",
+      "epoch3_minus_epoch1": [
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.00011820222787946484,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.00016661703733361773
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.006933445028479355,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.006933445028479355
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0007848350648691849,
+          "n": 1,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.0007793119418361967
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0015075411778138915,
+          "n": 1,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.0016212401574618902
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0006932982551188615,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.0006733653751872026
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.025457150181126164,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.025457150181126164
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.02011174422545537,
+          "n": 2,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.020176929559202816
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0006892718982976476,
+          "n": 2,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.0007551767417418433
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.002217870724352906,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.0021918616669689035
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.016783683944933042,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.016783683944933042
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.02461266076790252,
+          "n": 4,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.02494857840765815
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.009404399563700282,
+          "n": 4,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.009209488459095519
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.026107575868524007,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.02683483606076833
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.025672937500712575,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.025672937500712575
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.05625972509968051,
+          "n": 8,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.056313146611569026
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.06615075057610739,
+          "n": 8,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.06609899172752245
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.07832574572546946,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "token_weighted_ce": -0.07850681203379138
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0521333667264571,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "token_weighted_ce": -0.0536287085455992
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.07840492459707092,
+          "n": 16,
+          "qtype": "spend_together",
+          "token_weighted_ce": -0.07891452724405898
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.06188210021038684,
+          "n": 16,
+          "qtype": "where_spend",
+          "token_weighted_ce": -0.0633428604439261
+        }
+      ],
+      "epoch_length_task": [
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.0010383617993193184,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.0010805707843806144
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.008142471079909229,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.008142471079909229
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.0018574892234482832,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.001848618313995987
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.0024294055703580853,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.0025357106898723815
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.0016224583557186633,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.0015935748265848073
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.02779822759890578,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.02779822759890578
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.024556168492285906,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.024591611913830174
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.0017094266122535374,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.0017677259773069003
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.012228999524886604,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.012529956565298213
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.03491950315360668,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.03491950315360668
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.061990760827502524,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.06137719463377866
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.016455428657559425,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.016237451735485183
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.03819342160354267,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.03908609935196187
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.09666301523240235,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.09666301523240235
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.1077722165736941,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.10750729768736333
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.11219347311540333,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.11249399538895367
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.08986857436265382,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.09000213594269073
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.21290173135435908,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.2159826736423418
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.14912825908602825,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.1495785057399361
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 1,
+          "mean_scene_ce": 0.1620876274213515,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.16263229222113176
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 6.99361376359775e-05,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 6.806825710450373e-05
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.0004884785043964258,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.0004884785043964258
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.00019737986993732194,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.0001998031319981767
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 7.749306912728571e-05,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 7.676038319212639e-05
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.0002232221886629304,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.00022233889288610092
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.004064970299696142,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.004064970299696142
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.004973654402438115,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.005097852392336425
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.00011148466415761505,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.00011154556211636117
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.002831173811400731,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.002904731491055291
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.025789168920416616,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.025789168920416616
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.036742147622298944,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.03642925272380345
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.0076268437498811185,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.007789598541070769
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.005364572217567911,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.005211156679575076
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.07674118672712439,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.07674118672712439
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.07032554266575061,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.06969111914211988
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.05591715372167528,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.0565275035173377
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.023595266617840026,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.023839127771113335
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.1702064374429028,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.1723452674869641
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.1084697685068204,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.10746777575247532
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 2,
+          "mean_scene_ce": 0.11849395934237691,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.11775764936975291
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0009201595714398536,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.0009139537470469966
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0012090260514298734,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.0012090260514298734
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0010726541585790983,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1442,
+          "token_weighted_ce": 0.0010693063721597903
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0009218643925441939,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1519,
+          "token_weighted_ce": 0.0009144705324104913
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0009291601005998018,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.0009202094513976047
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0023410774177796156,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.0023410774177796156
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0044444242668305375,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1443,
+          "token_weighted_ce": 0.004414682354627359
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0010201547139558897,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.001012549235565057
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.010011128800533698,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1535,
+          "token_weighted_ce": 0.01033809489832931
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.01813581920867364,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.01813581920867364
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.0373781000596,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1450,
+          "token_weighted_ce": 0.03642861622612051
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.007051029093859142,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1527,
+          "token_weighted_ce": 0.0070279632763896645
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.012085845735018665,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1528,
+          "token_weighted_ce": 0.012251263291193542
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.07099007773168978,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1400,
+          "token_weighted_ce": 0.07099007773168978
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.051512491474013586,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1444,
+          "token_weighted_ce": 0.05119415107579431
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.046042722539295936,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1534,
+          "token_weighted_ce": 0.04639500366143121
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.011542828637184357,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 200,
+          "target_tokens": 1539,
+          "token_weighted_ce": 0.011495323908899345
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.16076836462790198,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 200,
+          "target_tokens": 1414,
+          "token_weighted_ce": 0.1623539650967426
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.07072333448895733,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 200,
+          "target_tokens": 1437,
+          "token_weighted_ce": 0.07066397849587713
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "mean_scene_ce": 0.10020552721096465,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 200,
+          "target_tokens": 1538,
+          "token_weighted_ce": 0.09928943177720566
+        }
+      ],
+      "final_epoch_halves": [
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.0002642103697039404,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 92,
+          "target_tokens": 703,
+          "token_weighted_ce": 0.0002597117877970439
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.0004307138542175338,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 86,
+          "target_tokens": 602,
+          "token_weighted_ce": 0.0004307138542175338
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.0004207466807883975,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 693,
+          "token_weighted_ce": 0.000417368226200784
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.00033981279528753867,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 105,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.00033880771844563783
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.00029067578011701255,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 99,
+          "target_tokens": 767,
+          "token_weighted_ce": 0.00028980772170189855
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.0024553739639858216,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.0024553739639858216
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.005142199021613071,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 103,
+          "target_tokens": 748,
+          "token_weighted_ce": 0.005099908445460647
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.00028215245343787056,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 86,
+          "target_tokens": 662,
+          "token_weighted_ce": 0.00027867655580848805
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.013982925062665935,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 97,
+          "target_tokens": 746,
+          "token_weighted_ce": 0.014534350634060554
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.019581702998565962,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.019581702998565962
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.05385914306012952,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 751,
+          "token_weighted_ce": 0.0527839737508399
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.009291455680107428,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 115,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.009404151264104653
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.019756068485757495,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 109,
+          "target_tokens": 829,
+          "token_weighted_ce": 0.020159560930694
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.081501347745826,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 714,
+          "token_weighted_ce": 0.081501347745826
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.04285874407011891,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 105,
+          "target_tokens": 754,
+          "token_weighted_ce": 0.04223378822004467
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.059536334163390915,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.060059149506307384
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.009610033901500023,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 96,
+          "target_tokens": 738,
+          "token_weighted_ce": 0.009707056023330243
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.1603988451478082,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 692,
+          "token_weighted_ce": 0.1611253331369055
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.07538991904332054,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 108,
+          "target_tokens": 779,
+          "token_weighted_ce": 0.07534141943127748
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 1,
+          "mean_scene_ce": 0.10164495121087687,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 96,
+          "target_tokens": 735,
+          "token_weighted_ce": 0.10103687242886723
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0014789311136593352,
+          "n": 1,
+          "qtype": "char_at_frame",
+          "scenes": 108,
+          "target_tokens": 825,
+          "token_weighted_ce": 0.001471447198383623
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0017961738493269014,
+          "n": 1,
+          "qtype": "steps_in_room",
+          "scenes": 114,
+          "target_tokens": 798,
+          "token_weighted_ce": 0.0017961738493269014
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.001674414907308976,
+          "n": 1,
+          "qtype": "spend_together",
+          "scenes": 104,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.0016725014791685903
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.00156518457898576,
+          "n": 1,
+          "qtype": "where_spend",
+          "scenes": 95,
+          "target_tokens": 718,
+          "token_weighted_ce": 0.0015566793262626467
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0015550011672116448,
+          "n": 2,
+          "qtype": "char_at_frame",
+          "scenes": 101,
+          "target_tokens": 771,
+          "token_weighted_ce": 0.0015473406144022827
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0022417355598620724,
+          "n": 2,
+          "qtype": "steps_in_room",
+          "scenes": 107,
+          "target_tokens": 749,
+          "token_weighted_ce": 0.0022417355598620724
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.00370348818700991,
+          "n": 2,
+          "qtype": "spend_together",
+          "scenes": 97,
+          "target_tokens": 695,
+          "token_weighted_ce": 0.0036772016122628994
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.00157689326136422,
+          "n": 2,
+          "qtype": "where_spend",
+          "scenes": 114,
+          "target_tokens": 877,
+          "token_weighted_ce": 0.001566510140922923
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.006270699310952851,
+          "n": 4,
+          "qtype": "char_at_frame",
+          "scenes": 103,
+          "target_tokens": 789,
+          "token_weighted_ce": 0.0063705324409712525
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.01647227549342118,
+          "n": 4,
+          "qtype": "steps_in_room",
+          "scenes": 93,
+          "target_tokens": 651,
+          "token_weighted_ce": 0.01647227549342118
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.019523636809026357,
+          "n": 4,
+          "qtype": "spend_together",
+          "scenes": 96,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.018856551131607967
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.004019863712464405,
+          "n": 4,
+          "qtype": "where_spend",
+          "scenes": 85,
+          "target_tokens": 650,
+          "token_weighted_ce": 0.003821937329888057
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0028984360665512774,
+          "n": 8,
+          "qtype": "char_at_frame",
+          "scenes": 91,
+          "target_tokens": 699,
+          "token_weighted_ce": 0.002872180682973395
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.06004977628840514,
+          "n": 8,
+          "qtype": "steps_in_room",
+          "scenes": 98,
+          "target_tokens": 686,
+          "token_weighted_ce": 0.06004977628840514
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.0610771596572656,
+          "n": 8,
+          "qtype": "spend_together",
+          "scenes": 95,
+          "target_tokens": 690,
+          "token_weighted_ce": 0.06098562005149754
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.03171445452608168,
+          "n": 8,
+          "qtype": "where_spend",
+          "scenes": 97,
+          "target_tokens": 745,
+          "token_weighted_ce": 0.03192384786061605
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.013326946854739128,
+          "n": 16,
+          "qtype": "char_at_frame",
+          "scenes": 104,
+          "target_tokens": 801,
+          "token_weighted_ce": 0.013142941511333798
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.16112339314799207,
+          "n": 16,
+          "qtype": "steps_in_room",
+          "scenes": 102,
+          "target_tokens": 722,
+          "token_weighted_ce": 0.1635315458671128
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.06524517001209619,
+          "n": 16,
+          "qtype": "spend_together",
+          "scenes": 92,
+          "target_tokens": 658,
+          "token_weighted_ce": 0.06512640024560835
+        },
+        {
+          "arm": "ordinary",
+          "epoch": 3,
+          "half": 2,
+          "mean_scene_ce": 0.09887682813412259,
+          "n": 16,
+          "qtype": "where_spend",
+          "scenes": 104,
+          "target_tokens": 803,
+          "token_weighted_ce": 0.09768996866516175
+        }
+      ],
+      "independent_loss_reexecution": false,
+      "optimizer_norms": {
+        "all_updates": {
+          "clip_fraction": 0.24666666666666667,
+          "clip_threshold": 1.0,
+          "logged_preclip_total_norm": true,
+          "mean_norm": 0.7699622848303503,
+          "norm_greater_than_clip_threshold": 370,
+          "quantiles": {
+            "0": 4.046030517201871e-05,
+            "0.25": 0.20780332759022713,
+            "0.5": 0.5340569913387299,
+            "0.75": 0.9936705678701401,
+            "0.9": 1.633083260059357,
+            "0.95": 2.236739754676819,
+            "0.99": 4.0709204196929925,
+            "1": 35.6671257019043
+          },
+          "subgroup_gradient_norms_available": false,
+          "updates": 1500
+        },
+        "by_epoch": {
+          "1": {
+            "clip_fraction": 0.278,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.8289621328187641,
+            "norm_greater_than_clip_threshold": 139,
+            "quantiles": {
+              "0": 0.0010067129041999578,
+              "0.25": 0.3804888501763344,
+              "0.5": 0.6472494304180145,
+              "0.75": 1.0367591381072998,
+              "0.9": 1.5668318629264837,
+              "0.95": 2.2430024027824387,
+              "0.99": 3.2783346390724146,
+              "1": 10.697604179382324
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "2": {
+            "clip_fraction": 0.242,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.7577823794310389,
+            "norm_greater_than_clip_threshold": 121,
+            "quantiles": {
+              "0": 4.046030517201871e-05,
+              "0.25": 0.1849859617650509,
+              "0.5": 0.4873580187559128,
+              "0.75": 0.983010783791542,
+              "0.9": 1.4618918538093568,
+              "0.95": 2.0099749088287346,
+              "0.99": 3.9690683984756463,
+              "1": 35.6671257019043
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          },
+          "3": {
+            "clip_fraction": 0.22,
+            "clip_threshold": 1.0,
+            "logged_preclip_total_norm": true,
+            "mean_norm": 0.7231423422412481,
+            "norm_greater_than_clip_threshold": 110,
+            "quantiles": {
+              "0": 0.0019309300696477294,
+              "0.25": 0.10922759398818016,
+              "0.5": 0.40514732897281647,
+              "0.75": 0.924435943365097,
+              "0.9": 1.7310602307319654,
+              "0.95": 2.363458585739132,
+              "0.99": 5.360367231369017,
+              "1": 7.179610252380371
+            },
+            "subgroup_gradient_norms_available": false,
+            "updates": 500
+          }
+        }
+      },
+      "optimizer_scalar_rows": 1500,
+      "task_balanced_final_epoch_halves": [
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.0003638709249993526,
+          "n": 1,
+          "scenes": 379,
+          "token_weighted_ce": 0.0003616503966652499,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.002042600304788444,
+          "n": 2,
+          "scenes": 381,
+          "token_weighted_ce": 0.002030941671739214,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.02417880670036721,
+          "n": 4,
+          "scenes": 423,
+          "token_weighted_ce": 0.024076044661892768,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.05091312361627333,
+          "n": 8,
+          "scenes": 419,
+          "token_weighted_ce": 0.050988461600718016,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 1,
+          "mean_scene_ce": 0.0867609373258764,
+          "n": 16,
+          "scenes": 398,
+          "token_weighted_ce": 0.08680267025509511,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 20,
+          "half": 1,
+          "mean_scene_ce": 0.03285186777446095,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.03285195371722207,
+          "weighting": "equal N-by-task cells"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.001628676112320243,
+          "n": 1,
+          "scenes": 421,
+          "token_weighted_ce": 0.0016242004632854403,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.002269279543861962,
+          "n": 2,
+          "scenes": 419,
+          "token_weighted_ce": 0.0022581969818625445,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.011571618831466199,
+          "n": 4,
+          "scenes": 377,
+          "token_weighted_ce": 0.011380324098972114,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.038934956634575926,
+          "n": 8,
+          "scenes": 381,
+          "token_weighted_ce": 0.03895785622087303,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 4,
+          "half": 2,
+          "mean_scene_ce": 0.0846430845372375,
+          "n": 16,
+          "scenes": 402,
+          "token_weighted_ce": 0.08487271407230418,
+          "weighting": "equal tasks at fixed N"
+        },
+        {
+          "arm": "ordinary",
+          "cells": 20,
+          "half": 2,
+          "mean_scene_ce": 0.027809523131892368,
+          "n": "all_lengths",
+          "scenes": 2000,
+          "token_weighted_ce": 0.02781865836745946,
+          "weighting": "equal N-by-task cells"
+        }
+      ],
+      "task_balanced_second_minus_first_half": [
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": 0.0012648051873208905,
+          "n": 1,
+          "token_weighted_ce": 0.0012625500666201904
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": 0.00022667923907351796,
+          "n": 2,
+          "token_weighted_ce": 0.00022725531012333065
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.01260718786890101,
+          "n": 4,
+          "token_weighted_ce": -0.012695720562920653
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.011978166981697402,
+          "n": 8,
+          "token_weighted_ce": -0.012030605379844989
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.0021178527886389076,
+          "n": 16,
+          "token_weighted_ce": -0.0019299561827909317
+        },
+        {
+          "arm": "ordinary",
+          "mean_scene_ce": -0.005042344642568579,
+          "n": "all_lengths",
+          "token_weighted_ce": -0.005033295349762611
+        }
+      ],
+      "training_scalar_rows": 12000
+    }
+  },
+  "audits": {
+    "mass": {
+      "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444018/analysis.json",
+      "analysis_sha256": "0692b7440d8c64a217c1da74785f685cce6bbff87de4d297ed4c63e5208c7a15",
+      "checkpoint_identity_recorded_only": {
+        "file": "/mnt/ckpts/gabriele/gnn_transformer/mmred_official_native_training/run_444013_2/state_1500.pt",
+        "sha256": "a3b61f851615c90a29da5a5c38ff39833f89384111a5eb3fe520b99b0ba486c2",
+        "updates": 1500
+      },
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444018/summary.json",
+      "main_run": {
+        "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_2/analysis.json",
+        "analysis_sha256": "1ac314acc750477fbcb2f07a05bd7ede8b6765c587f67d4b02a109b893df3551",
+        "config_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_2/config.json",
+        "config_sha256": "8316cee606d56ff539c797d4fb249e46386dbe555bba831dbc57481d643dc628",
+        "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_2",
+        "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/plan.json",
+        "plan_sha256": "94b0c0eeed2130e256c63a5a4777599562b5be4f9b97b79e6356d21892d0b368"
+      },
+      "order_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/order.json",
+      "order_sha256": "a71ae51a24f7dba13d03724da854698d890977bd7083da593e2266655e14c10c",
+      "original_rows_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training/merge_443989/rows.json",
+      "original_rows_sha256": "7980a834b82120654644f2b25ec92848ed9e404dee1522da846d7ac82f6c297a",
+      "scalar_files": {
+        "training_trace": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_2/training.jsonl",
+          "sha256": "cc626e9428eb8987c155db2e471949c6cc76f1a4a9ec47cfb3c0afcbfebee2f4"
+        },
+        "updates": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_2/updates.jsonl",
+          "sha256": "c4f2bcadb648d537b74a24c66aaa93a52de69d098e6856c3d7b0f960c7eba0b5"
+        }
+      },
+      "sha256": "e6b5cd0be16a56f02fa68838d82eb14f2b9e028d75b283ceecf36c19faa6cd1a"
+    },
+    "normalized": {
+      "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444017/analysis.json",
+      "analysis_sha256": "da116ee20513b9224cef344e06cd29d59170f43f5ebf332dfc361f8283a07e3d",
+      "checkpoint_identity_recorded_only": {
+        "file": "/mnt/ckpts/gabriele/gnn_transformer/mmred_official_native_training/run_444013_1/state_1500.pt",
+        "sha256": "627c2141b2827fb70e31fddcced2d9f88a934e27b45f6ecc3ca506500308b043",
+        "updates": 1500
+      },
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444017/summary.json",
+      "main_run": {
+        "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_1/analysis.json",
+        "analysis_sha256": "8d0beb4636960cded650bbac49a3ec76f24da07055ada3ab31b99927196c5391",
+        "config_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_1/config.json",
+        "config_sha256": "290a0f7700029fafe6f2900132b173465c91393eff1547eca98455b70aeb137f",
+        "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_1",
+        "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/plan.json",
+        "plan_sha256": "94b0c0eeed2130e256c63a5a4777599562b5be4f9b97b79e6356d21892d0b368"
+      },
+      "order_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/order.json",
+      "order_sha256": "a71ae51a24f7dba13d03724da854698d890977bd7083da593e2266655e14c10c",
+      "original_rows_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training/merge_443989/rows.json",
+      "original_rows_sha256": "7980a834b82120654644f2b25ec92848ed9e404dee1522da846d7ac82f6c297a",
+      "scalar_files": {
+        "training_trace": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_1/training.jsonl",
+          "sha256": "67f3f1fc9347995f1a6c86674c606a6af65d3f11fd329dd22dcce2ac23f42b71"
+        },
+        "updates": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_1/updates.jsonl",
+          "sha256": "b339c1d3afe11179b384f4fa2dc9c325c11a846b9e15368b11c217eab25df95d"
+        }
+      },
+      "sha256": "da548fb47463ea6a148e0e520af5669d2a25798d6e3c206813504699c2a6ed02"
+    },
+    "ordinary": {
+      "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444016/analysis.json",
+      "analysis_sha256": "59b5200bc69b5581dffd146da5a6d19b192a7f0cc974c9051bbf9419121f1b94",
+      "checkpoint_identity_recorded_only": {
+        "file": "/mnt/ckpts/gabriele/gnn_transformer/mmred_official_native_training/run_444013_0/state_1500.pt",
+        "sha256": "378257c6be24a32da81c760793c2edfe5887543914604709f96e6fbc235b5e15",
+        "updates": 1500
+      },
+      "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/report_444016/summary.json",
+      "main_run": {
+        "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_0/analysis.json",
+        "analysis_sha256": "d61e0a57df1f7d423953b771aa9c6e2e368cf636ea0cff4121ac2613bac584c0",
+        "config_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_0/config.json",
+        "config_sha256": "b757ca19d5f2bf75af2b7f65c26f5203287a3f33434fe069b54403799f096fa1",
+        "directory": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_0",
+        "plan_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/plan.json",
+        "plan_sha256": "94b0c0eeed2130e256c63a5a4777599562b5be4f9b97b79e6356d21892d0b368"
+      },
+      "order_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/order.json",
+      "order_sha256": "a71ae51a24f7dba13d03724da854698d890977bd7083da593e2266655e14c10c",
+      "original_rows_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training/merge_443989/rows.json",
+      "original_rows_sha256": "7980a834b82120654644f2b25ec92848ed9e404dee1522da846d7ac82f6c297a",
+      "scalar_files": {
+        "training_trace": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_0/training.jsonl",
+          "sha256": "d8da83705bd19c9b7c3b62ca964f2a5be7e2b240d4586f1b6870d25d5053bbeb"
+        },
+        "updates": {
+          "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/run_444013_0/updates.jsonl",
+          "sha256": "4eb550cc23acc938ec949e4ed4c68b3a7d6eee2fa0c6c7fde69de9fc08bdae48"
+        }
+      },
+      "sha256": "e8cd7743ca0c84eecdd78f2338829974337a44ef6ce7d0cf93f1dd5392c7d922"
+    }
+  },
+  "completed": true,
+  "inputs": {
+    "order_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_native_training/check_444010/order.json",
+    "order_sha256": "a71ae51a24f7dba13d03724da854698d890977bd7083da593e2266655e14c10c",
+    "original_rows_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_official_training/merge_443989/rows.json",
+    "original_rows_sha256": "7980a834b82120654644f2b25ec92848ed9e404dee1522da846d7ac82f6c297a"
+  },
+  "limitations": [
+    "Posthoc descriptive summaries only.",
+    "CE includes structural JSON tokens and native EOS.",
+    "Token-weighted CE reweights logged per-scene mean CE; it does not replay token losses.",
+    "Fixed final-epoch halves are different shuffled examples, not a convergence or capacity test.",
+    "Norms are whole accumulated optimizer gradients; task/length subgroup norms are not stored.",
+    "Clip fraction means logged total pre-clip norm greater than one; no epsilon-scale clipping claim.",
+    "No retuning, validation/test analysis, or follow-up computation is authorized."
+  ],
+  "no_accuracy_recomputed": true,
+  "no_tensor_files_opened": true,
+  "passed": true,
+  "policy": {
+    "arms": [
+      "ordinary",
+      "normalized",
+      "mass"
+    ],
+    "clip_fraction_definition": "logged pre-clip total norm > 1",
+    "cpu_cores": 4,
+    "cpu_seconds": 60,
+    "epochs": 3,
+    "final_epoch_halves": [
+      [
+        8000,
+        10000
+      ],
+      [
+        10000,
+        12000
+      ]
+    ],
+    "memory_gib": 4,
+    "no_accuracy_recomputed": true,
+    "no_model_or_optimizer_execution": true,
+    "no_retuning_or_followup_release": true,
+    "no_tensor_files_opened": true,
+    "optimizer_records_per_arm": 1500,
+    "posthoc_descriptive_only": true,
+    "quantile_method": "type7",
+    "quantiles": [
+      0,
+      0.25,
+      0.5,
+      0.75,
+      0.9,
+      0.95,
+      0.99,
+      1
+    ],
+    "scenes_per_epoch": 4000,
+    "training_records_per_arm": 12000
+  },
+  "protocol": "mmred_official_training_scalar_dynamics",
+  "scalar_optimizer_rows": 4500,
+  "scalar_training_rows": 36000,
+  "source_sha256": {
+    "scripts/report_mmred_official_training_dynamics.py": "611bab6be675d9481577901c04ce096b43946384bcbe7f9903b6baab964c1e49",
+    "slurm/mmred_official_training_dynamics.sbatch": "20f8573ff38615be9b5a1687322fdb82902897bbdc760ca89efcf4b7aa682a82"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "acceptance_outcome_is_not_completion_gate": true,
+  "analysis_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_suffix_feasibility/audit_444121/analysis.json",
+  "analysis_sha256": "c6c636d026840bb9de989472f647340a5168c822bb22ffe9dff87d4ebc118a18",
+  "artifacts_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_suffix_feasibility/audit_444121/artifacts.json",
+  "artifacts_sha256": "b25688cae52f8fdf89261dc3c418f44a30e543e3398d98ce0bc0c7176e126b97",
+  "completed": true,
+  "elapsed_seconds": 7.669026501476765,
+  "inherited_source_sha256": {
+    "docs/paper/MMRED_FRESH_SUFFIX_COUNTERFACTUAL_DESIGN.md": "182a8ea67df5670ff6472d0723d22f03c0232313b2d1f8e90775ce3f605db42e",
+    "gnnformer/__init__.py": "36c7a94bb10d9c59b25838220e35e9c696b0b9fd4f3cdc7e9352eeda52f10a75",
+    "gnnformer/mmred_hf.py": "3fb97185198d1d9e90eaeef2414e01b07d8f84271598601f0c372bb89e37d492"
+  },
+  "input_bindings": {
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/const.py": "60c9923501568cfab7e9d18a27fa0c04d6d2cd0109aece2867c024c59635106b",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/data_model.py": "b3392d496c95e7f71c7bea98d3289acb2a01beccf0419a47a3ce896565e1ff3d",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/qgen/questions.py": "e33129c9d21c4522d4633005dc2ce7a83a6979698d3bf0d1b142d37483536875",
+    "/mnt/data/gabriele/gnn_transformer/mmred_official/recovery_443939/upstream/mmred/qgen/utils.py": "eab9ee7a900328b6df8166f81539842438fa0a0ab78858b79f241994908a8f27"
+  },
+  "no_followup_release": true,
+  "passed": true,
+  "policy": {
+    "attempts_per_length": 20000,
+    "benchmark_cohort": false,
+    "candidate_families": [
+      "person",
+      "room"
+    ],
+    "choice_seeds": {
+      "16": 2026092216,
+      "32": 2026092232
+    },
+    "cpu_cores": 4,
+    "cpu_seconds": 300,
+    "directions": [
+      "most",
+      "least"
+    ],
+    "gpu_calls": 0,
+    "images": 0,
+    "lengths": [
+      16,
+      32
+    ],
+    "maximum_saved_examples": 48,
+    "memory_gib": 16,
+    "model_calls": 0,
+    "no_current_model_output_access": true,
+    "no_followup_release": true,
+    "one_candidate_per_family_per_world": true,
+    "protocol": "mmred_suffix_feasibility",
+    "recovered_world_overlap_check_deferred": true,
+    "sampling_deadline_seconds": 270,
+    "tensors": 0,
+    "world_seeds": {
+      "16": 2026091216,
+      "32": 2026091232
+    }
+  },
+  "protocol": "mmred_suffix_feasibility",
+  "source_sha256": {
+    "docs/paper/MMRED_SUFFIX_FEASIBILITY_PROTOCOL.md": "2d634136b0e51430d602f5ddda1a0fc746905caa61c807762894b30a0fb8863b",
+    "scripts/audit_mmred_suffix_feasibility.py": "748187f9f4770080a9030bb04a76b5ee738232ae5bffcf69eb0f7ad7cb147898",
+    "slurm/mmred_suffix_feasibility.sbatch": "34719ab298a6ec3b80b5f44f340744add2431785944015fe90e59238fc9244d1"
+  },
+  "world_trials": 40000
+}

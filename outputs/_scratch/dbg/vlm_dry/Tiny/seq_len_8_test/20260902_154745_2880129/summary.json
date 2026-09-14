@@ -1,0 +1,46 @@
+{
+ "full": {
+  "acc": 0.0,
+  "digit_acc": 1.0,
+  "recall": 1.0,
+  "n": 2
+ },
+ "oracle": {
+  "acc": 0.0,
+  "digit_acc": 0.5,
+  "recall": 1.0,
+  "n": 2
+ },
+ "judge": {
+  "acc": 0.0,
+  "digit_acc": 1.0,
+  "recall": 1.0,
+  "n": 2
+ },
+ "attn": {
+  "acc": 0.0,
+  "digit_acc": 0.0,
+  "recall": 0.5,
+  "n": 2
+ },
+ "attn_norp": {
+  "acc": 0.0,
+  "digit_acc": 0.0,
+  "recall": 0.5,
+  "n": 2
+ },
+ "rand": {
+  "acc": 0.0,
+  "digit_acc": 0.0,
+  "recall": 0.6666666666666666,
+  "n": 2
+ },
+ "_meta": {
+  "model": "Tiny",
+  "root": "data/mmred_vfiltered/seq_len_8/test",
+  "k": 4,
+  "sel_layer": 1,
+  "resize": 112,
+  "elapsed_s": 10.629633903503418
+ }
+}

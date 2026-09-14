@@ -1,0 +1,76 @@
+{
+  "run_id": "sum_seed0_20260908_170316_433138_331049",
+  "arm": "sum",
+  "model": "Qwen/Qwen2.5-VL-7B-Instruct",
+  "parameters": {
+    "backbone": 8292166656,
+    "branch": 688192,
+    "lora": 720896,
+    "total_trainable": 1409088
+  },
+  "selected_checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/native_aggregation_vlm/sum_seed0_20260908_170316_433138_331049/best.pt",
+  "training": [
+    {
+      "epoch": 1,
+      "step": 1,
+      "n": 2,
+      "mean_answer_token_ce": 0.8499807715415955,
+      "seconds": 1.849067784147337,
+      "peak_cuda_allocated_bytes": 11079996416,
+      "peak_cuda_reserved_bytes": 11186208768,
+      "dev": [
+        {
+          "tag": "dev_epoch1",
+          "mode": "all",
+          "n_frames": 8,
+          "n": 2,
+          "correct": 0,
+          "exact": 0.0,
+          "parsed": 2,
+          "parse_rate": 1.0,
+          "mae_parsed": 1.0,
+          "bias_parsed": -1.0,
+          "gold_first_token_nll": 1.5047334432601929,
+          "mean_prompt_tokens": 1651.0,
+          "mean_image_tokens": 1568.0,
+          "mean_generated_tokens": 2.0,
+          "mean_preprocessing_seconds": 0.09861587011255324,
+          "mean_model_seconds": 0.274649734958075,
+          "mean_total_seconds": 0.3732656050706282,
+          "peak_cuda_allocated_bytes": 6521460224,
+          "peak_cuda_reserved_bytes": 11186208768
+        }
+      ]
+    }
+  ],
+  "results": [
+    {
+      "tag": "test",
+      "mode": "all",
+      "n_frames": 8,
+      "n": 2,
+      "correct": 1,
+      "exact": 0.5,
+      "parsed": 2,
+      "parse_rate": 1.0,
+      "mae_parsed": 0.5,
+      "bias_parsed": -0.5,
+      "gold_first_token_nll": 1.0260877907276154,
+      "mean_prompt_tokens": 1651.0,
+      "mean_image_tokens": 1568.0,
+      "mean_generated_tokens": 2.0,
+      "mean_preprocessing_seconds": 0.08958642848301679,
+      "mean_model_seconds": 0.26141287141945213,
+      "mean_total_seconds": 0.3509992999024689,
+      "peak_cuda_allocated_bytes": 6504550400,
+      "peak_cuda_reserved_bytes": 11186208768
+    }
+  ],
+  "metric_notes": {
+    "exact": "Every selected example remains in the denominator; unparsable output is incorrect",
+    "mae_parsed": "Conditional on strict whole-integer parsing; report together with parse_rate",
+    "gold_first_token_nll": "Native full-vocabulary NLL at first answer position, not whole-answer likelihood",
+    "timing": "Batch one; preprocessing includes image loading/CPU processor/H2D; model includes vision encoding and language prefill/decode",
+    "scope": "K<=8; longer N tests distractor-length robustness, not numerical extrapolation"
+  }
+}

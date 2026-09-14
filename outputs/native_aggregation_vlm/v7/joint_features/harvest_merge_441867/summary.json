@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "cache_file": "/mnt/data/gabriele/gnn_transformer/v7_joint_features/feature_cache.json",
+  "cache_sha256": "67d39e9757d4d18fea935ade097271ae90048194de87b8d5be189a505439f43f",
+  "feature_count": 3780,
+  "release_file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/v7/joint_features/harvest_release_441852/release.json",
+  "release_sha256": "eae65764663e4eabc863a6f196d25df644784c49b4a4195be8ea0870817da4b8",
+  "counts": {
+    "N8_empty": 918,
+    "N8_prefix": 918,
+    "N16_empty": 972,
+    "N16_prefix": 972
+  },
+  "seconds": 6.155460990965366
+}

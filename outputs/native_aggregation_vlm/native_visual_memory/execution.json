@@ -1,0 +1,11 @@
+{
+  "timestamp_utc": "2026-09-12T02:57:19.987593+00:00",
+  "status": "cpu_core_check_passed",
+  "cpu_job": 443957,
+  "cpu_job_seconds": 2,
+  "tests": 8,
+  "parameters": 469504,
+  "slots": 32,
+  "key_width": 128,
+  "no_model_or_training": true
+}

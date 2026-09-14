@@ -1,0 +1,49 @@
+{
+  "cap_cpu_seconds_each": 3600,
+  "cores_each": 4,
+  "jobs": [
+    {
+      "depends_on": "447689_0",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447704/summary.json",
+      "job": "447704",
+      "task": 0
+    },
+    {
+      "depends_on": "447689_1",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447705/summary.json",
+      "job": "447705",
+      "task": 1
+    },
+    {
+      "depends_on": "447689_2",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447706/summary.json",
+      "job": "447706",
+      "task": 2
+    },
+    {
+      "depends_on": "447689_3",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447707/summary.json",
+      "job": "447707",
+      "task": 3
+    },
+    {
+      "depends_on": "447689_4",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447708/summary.json",
+      "job": "447708",
+      "task": 4
+    },
+    {
+      "depends_on": "447689_5",
+      "expected_summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/report_447709/summary.json",
+      "job": "447709",
+      "task": 5
+    }
+  ],
+  "no_fresh_predictions": true,
+  "protocol": "mmred_prefix_supervision_main_independent_audit",
+  "source_release": {
+    "file": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/mmred_prefix_supervision_main_audit/source_release.json",
+    "sha256": "38f4e57a3b9a4f87db307ce3131c335c3d6427ad9485c97e6b1203fc37e2c4b7"
+  },
+  "status": "queued_after_matching_fit"
+}

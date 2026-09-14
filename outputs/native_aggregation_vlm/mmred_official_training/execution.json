@@ -1,0 +1,28 @@
+{
+  "status": "passed_complete_compact_inputs_boundary_profile_required",
+  "timestamp_utc": "2026-09-12T03:41:43.015491+00:00",
+  "array_job": 443985,
+  "merge_job": 443989,
+  "cpu_seconds_per_shard": 900,
+  "shards": 4,
+  "merge_seconds": 600,
+  "source_release_sha256": "6d18f9d03f44cd2e0a3d6ce6fbee3c2db30ea2f195aeb6b9db78b42b6092885c",
+  "no_gpu_release": true,
+  "no_training_or_inference_release": true,
+  "array_job_seconds": [
+    152,
+    169,
+    169,
+    170
+  ],
+  "array_total_job_seconds": 660,
+  "merge_job_seconds": 10,
+  "summary_sha256": "ece343e085068195b66f4ab316f92d13c160022e396555eaebabc1fd088a5320",
+  "plan_sha256": "d1a3e1b8d00636c703e2f613c49c029abe606c430b0d8faf90ef166648e6720c",
+  "worlds": 4000,
+  "frame_occurrences": 24800,
+  "compact_bytes": 726371296,
+  "omitted_pixel_bytes": 91460812800,
+  "fit_profile_envelope_eligible": false,
+  "envelope_excess_worlds": 1433
+}

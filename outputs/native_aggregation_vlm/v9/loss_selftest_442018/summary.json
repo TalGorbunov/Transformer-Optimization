@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "source_sha256": {
+    "gnnformer/aggregation_path_bound.py": "eb93b7b1e22f2a244f8587735ef0b56f5f588a6c1b94e4b577e8fde9a15dc79a",
+    "tests/test_aggregation_path_bound.py": "31f6bc5085d8ee14af5716222b8fe992be675f8d2739e0ca504a28da88d92517",
+    "slurm/native_vision_v9_loss_check.sbatch": "c6fba64ca14905b728c35f0a98a0446fbcb67b5d5179e2bd6a5660182105ef60",
+    "gnnformer/parallel_local_aggregation.py": "ed600b0ae865108093b74bb1bcf30f905dc38a8a67cb7708cb9f1688f2df7b0f",
+    "gnnformer/aggregation_consistency.py": "67d449825d09a9752ca22e118537e628b60c70bacbdd58c8e930928361dd6816",
+    "tests/test_aggregation_consistency.py": "3a48feebae7e54be460beca1376e0fd08782b097b6afac534f57d141b7a5ebc5"
+  },
+  "runs": [
+    {
+      "test": "tests/test_aggregation_path_bound.py",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "....../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_aggregation_path_bound.py:48: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertGreater(float(value),0.)\n......\n----------------------------------------------------------------------\nRan 12 tests in 0.017s\n\nOK\n"
+    },
+    {
+      "test": "tests/test_aggregation_consistency.py",
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "....../mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/tests/test_aggregation_consistency.py:55: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\nConsider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)\n  self.assertEqual(float(loss), 0.)\n.....\n----------------------------------------------------------------------\nRan 11 tests in 0.013s\n\nOK\n"
+    }
+  ],
+  "seconds": 5.63816099986434
+}

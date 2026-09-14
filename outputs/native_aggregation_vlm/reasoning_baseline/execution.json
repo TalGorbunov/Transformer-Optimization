@@ -1,0 +1,79 @@
+{
+  "status": "complete",
+  "gpu_hour_cap": 1.1,
+  "models": [
+    "qwen",
+    "cosmos"
+  ],
+  "direct_max_new_tokens": 32,
+  "reasoning_max_new_tokens": 512,
+  "prefix_endpoint": 128,
+  "data_seed": 20260915,
+  "main_anchors": 18,
+  "main_scenes": 54,
+  "stage_job": 441018,
+  "stage_status": "passed",
+  "stage_seconds": 17,
+  "main_manifest_sha256": "7625e912d229e39006506cb060c34c9ea8bc5d154ab61c22f14a82a8ba010cdd",
+  "failed_cpu_check": 441193,
+  "cpu_check_job": 441210,
+  "cpu_check_seconds": 69,
+  "cpu_check_status": "passed",
+  "plan_path": "outputs/native_aggregation_vlm/reasoning_baseline/check_441210/plan.json",
+  "plan_sha256": "6de7e0c1610c4ab928fec6b513fc5ef70afb2d90477c7a1b0a88c37812c3373f",
+  "failed_profile_jobs": [
+    441198,
+    441199
+  ],
+  "failed_profile_gpu_seconds": 3,
+  "profile_failure": "Pre-model metadata equality guard; exact field mismatch under investigation",
+  "original_gpu_hour_cap": 1,
+  "completed_gpu_seconds": 1204,
+  "profile_jobs": {
+    "qwen": 441212,
+    "cosmos": 441213
+  },
+  "profile_status": "software_passed_original_cost_gates_failed",
+  "throughput_cpu_job": 441223,
+  "throughput_jobs": {
+    "qwen": 441240,
+    "cosmos": 441241
+  },
+  "throughput_seconds": {
+    "qwen": 99,
+    "cosmos": 56
+  },
+  "original_26minute_timing_gate": {
+    "qwen": false,
+    "cosmos": true
+  },
+  "main_time_limit_seconds": {
+    "qwen": 2160,
+    "cosmos": 1320
+  },
+  "projection_seconds": {
+    "qwen": 2116.556764939465,
+    "cosmos": 1250.3489486034962
+  },
+  "main_jobs": {
+    "qwen": 441249,
+    "cosmos": 441250
+  },
+  "main_completed_gpu_seconds": {
+    "qwen": 161
+  },
+  "report_job": 441252,
+  "main_status": "both_complete",
+  "main_gpu_seconds": {
+    "qwen": 161,
+    "cosmos": 763
+  },
+  "completed_gpu_hours": 0.33444444444444443,
+  "report_status": "passed_independent_raw_token_and_provenance_audit",
+  "report_seconds": 13,
+  "primary_screen_pass": {
+    "qwen": false,
+    "cosmos": false
+  },
+  "report_path": "outputs/native_aggregation_vlm/reasoning_baseline/report_441252/REPORT.md"
+}

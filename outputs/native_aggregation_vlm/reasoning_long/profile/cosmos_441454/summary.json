@@ -1,0 +1,36 @@
+{
+  "protocol": "exploratory_cosmos4096",
+  "completed": true,
+  "profile": true,
+  "scene_count": 1,
+  "plan_sha256": "74f20080553eb59716b2af04a046de45e4f6b120e1fb9b9ec13fabd61106c958",
+  "source_sha256": {
+    "scripts/probe_native_vision_cosmos_long.py": "75d544ee480e3de658ad14bfdca2c5a32c406478cebddbd0746a01a1c9d4e4df",
+    "slurm/native_vision_cosmos_long_check.sbatch": "8fbca16d71296aa1a2269518ae01e80fc0fa36ea1b2db6732b3d275a8b15b2c5",
+    "slurm/native_vision_cosmos_long_profile.sbatch": "1e87d1d770e3a7c41151de1777fb1d9bee9626f33c775464f32b412e7ec76c74",
+    "slurm/native_vision_cosmos_long_main.sbatch": "04813271419b5dbf728e2ccbd681dfd128222e09262c49d1ecc2bb75ac4efe16",
+    "slurm/native_vision_cosmos_long_report.sbatch": "eb30d9b18af66b1ff7feedf208fb6ac0832a6651105f77ecbdf1996f23b88840"
+  },
+  "predictions_sha256": "0e05bbc2a529680d5a3533f6f1456f6e1c122762391a57af749bd6b832f62ed7",
+  "model_load_seconds": 13.355607150122523,
+  "total_seconds": 37.7528687780723,
+  "total_generation_seconds": 22.70672992989421,
+  "total_generated_tokens": 858,
+  "maximum_sequence_tokens_exercised": 13616,
+  "maximum_native_cache_tokens": 13615,
+  "full4096_steps_exercised": false,
+  "prefix_mismatches": 0,
+  "peak_memory_allocated_bytes": 8893641216,
+  "peak_memory_reserved_bytes": 9380560896,
+  "limitations": [
+    "Adaptive budget extension on already inspected scenes, prompted by original Cosmos512 truncation28/36 OOD. This is exploratory and not fresh confirmation.",
+    "Only the reasoning output cap changes to4096. Direct32 predictions are reused from the verified original frozen Cosmos run; no direct rerun, prompt search, model selection or new data.",
+    "All128/512/4096 new endpoints come from one4096-cap trajectory. Earlier endpoints require native EOS by that budget and have no separately measured latency.",
+    "Original512 outcomes remain reported. Raw-prefix disagreements are disclosed without dropping, rerunning or choosing examples; unequal prefixes limit interpretation as continuation of the old run.",
+    "The official Cosmos guide recommends4096 or more output tokens. Native EOS can still arrive later than this cap; the assay retains NF4/bf16, greedy decoding and repetition_penalty1 deviations from the official BF16/sampling example.",
+    "Whole-trace think/answer grammar and native EOS are mandatory. Every truncated/malformed output stays wrong; MAE uses its explicit parsed denominator.",
+    "Within-Cosmos reasoning-policy minus existing direct exact is descriptive. System policy and output budget differ; this is not an isolated causal effect of token count or evidence of an improved aggregation method.",
+    "Bootstrap resamples18 complete anchors, retaining N32/N64 pairs,10000 draws seed20260917. The5pp effect screen is descriptive; no seed-population or cross-model causal inference.",
+    "A natural profile may stop before4096. Report the actually exercised cache length; declaring a4096 cap alone does not demonstrate4096 decode steps."
+  ]
+}

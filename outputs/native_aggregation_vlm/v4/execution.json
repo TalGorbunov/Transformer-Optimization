@@ -1,0 +1,51 @@
+{
+  "status": "complete",
+  "gpu_hour_cap": 4,
+  "conditions": [
+    "repeat",
+    "refresh"
+  ],
+  "seeds": [
+    2,
+    3
+  ],
+  "distinct_training_scenes": {
+    "repeat": 180,
+    "refresh": 1540
+  },
+  "presentations_per_run": 1620,
+  "optimizer_updates_per_run": 405,
+  "test_status": "exploratory_reuse_of_V2_test",
+  "stage_job": 440963,
+  "check_job": 440965,
+  "check_status": "passed_9_tests",
+  "check_seconds": 1,
+  "stage_status": "passed_full_data_and_processor_audit",
+  "stage_seconds": 145,
+  "schedule_check_job": 440975,
+  "schedule_sha256": "c83781a8794dbd662d84cff4e18bc95e554905dd755b66ec4201f3a16f54518c",
+  "schedule_check_status": "passed_real_main_and_profile",
+  "failed_schedule_check_jobs": [
+    440971,
+    440974
+  ],
+  "cancelled_pending_profile_array": 440973,
+  "profile_array": 440978,
+  "profile_status": "both_passed",
+  "profile_gpu_seconds": 93,
+  "main_array": 440986,
+  "report_check_job": 441005,
+  "report_check_status": "passed_synthetic_and_actual_data_checks",
+  "report_job": 441013,
+  "main_status": "all_four_completed",
+  "main_gpu_seconds": 6813,
+  "completed_gpu_seconds": 6906,
+  "completed_gpu_hours": 1.9183333333333332,
+  "report_status": "passed_full_independent_audit",
+  "primary_screen_pass": false,
+  "refresh_minus_repeat_ood_pp": {
+    "seed2": 2.314814814814815,
+    "seed3": 19.90740740740741,
+    "pooled_fixed_seeds": 11.11111111111111
+  }
+}

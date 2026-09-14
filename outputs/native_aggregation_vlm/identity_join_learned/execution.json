@@ -1,0 +1,377 @@
+{
+  "protocol": "native_identity_join_learned_selection",
+  "status": "completed_primary_and_practical_failed",
+  "data_check_job": "442986",
+  "data_render_job": "442988",
+  "modes": [
+    "clip",
+    "sigmoid",
+    "softmax"
+  ],
+  "seeds": [
+    22,
+    23
+  ],
+  "campaign_gpu_seconds_cap": 24000,
+  "maximum_concurrent_project_gpus": 4,
+  "main_fits_released": true,
+  "efficacy_available": true,
+  "prior_binary_route_stopped": true,
+  "data_render": {
+    "job": "442988",
+    "state": "COMPLETED",
+    "elapsed_seconds": 116,
+    "summary": "outputs/native_aggregation_vlm/identity_join_learned/data_staging/render_442988/summary.json",
+    "summary_sha256": "d893bf436db50fdb98c25c45e841b01c209d8f77cd7d744b69ef68044bf3f2b3",
+    "manifest": "/mnt/data/gabriele/gnn_transformer/identity_join_learned/stage_442988/main_manifest.json",
+    "manifest_sha256": "db2045c772a475eb36562c70018f0aa7641efcd6d71a5e3201c7da1bf1a0d94f",
+    "sources_verified": 9
+  },
+  "feature_stage_job": "443005",
+  "software_check_job": "443013",
+  "feature_count": 64847,
+  "software_profile_job": "443015",
+  "software_report_job": "443016",
+  "feature_profile_job": "443017",
+  "feature_shard_jobs": [
+    "443019",
+    "443020",
+    "443021",
+    "443018"
+  ],
+  "feature_merge_job": "443031",
+  "cache_file": "/mnt/data/gabriele/gnn_transformer/identity_join_learned/features/merge_443031/feature_cache.json",
+  "cache_sha256": "db060aed422aa05459d3fde9f512daf44bcab447c1426ff8c5be111764190d46",
+  "allocated_gpu_seconds_so_far": 11508,
+  "training_check_job": "443032",
+  "report_check_job": "443034",
+  "failed_training_profiles": [
+    {
+      "condition": "clip",
+      "job": "443037",
+      "gpu_seconds": 48,
+      "failure_file": "outputs/native_aggregation_vlm/identity_join_learned/training/profile_clip_s22_443037/failure.json",
+      "failure_sha256": "b6568a1f3ad14f470b138a267d11d39bbc67c8c39c87785e7e2a2f008c06e91b",
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/profile_clip_s22_443037/profile.pt",
+      "checkpoint_sha256": "fd944de1ed1e597724cfdf387462d962b160d944a5282eba0384a4831d6ab4e5",
+      "steps": 32,
+      "dev_test_or_timing_execution": false
+    },
+    {
+      "condition": "sigmoid",
+      "job": "443038",
+      "gpu_seconds": 48,
+      "failure_file": "outputs/native_aggregation_vlm/identity_join_learned/training/profile_sigmoid_s22_443038/failure.json",
+      "failure_sha256": "285e563a99934dd57b890895725ece00fa618a5af4f1b8c511cf14dfb43aa8b8",
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/profile_sigmoid_s22_443038/profile.pt",
+      "checkpoint_sha256": "b67fb3560c5852e02e4eb7bea21119f6fb25295f090df519d04fbcbcbb5dea63",
+      "steps": 32,
+      "dev_test_or_timing_execution": false
+    },
+    {
+      "condition": "softmax",
+      "job": "443036",
+      "gpu_seconds": 48,
+      "failure_file": "outputs/native_aggregation_vlm/identity_join_learned/training/profile_softmax_s22_443036/failure.json",
+      "failure_sha256": "bb11dc492067fb099067f253486b49608ebb4820183240b42d6c4665f12d577d",
+      "checkpoint": "/mnt/ckpts/gabriele/gnn_transformer/identity_join_learned/training/profile_softmax_s22_443036/profile.pt",
+      "checkpoint_sha256": "63026147f5ce174cf195c3908aac9ef257ee71c1941b2380ae241b3987954daa",
+      "steps": 32,
+      "dev_test_or_timing_execution": false
+    }
+  ],
+  "serialization_check_job": "443044",
+  "serialization_proof": "outputs/native_aggregation_vlm/identity_join_learned/serialization/check_443044/summary.json",
+  "training_profile_retry_array": "443045",
+  "training_check_v2_job": "443056",
+  "report_check_v2_job": "443057",
+  "training_profile_v2_array": "443058",
+  "source_version": "v2_resource_metadata_only",
+  "per_main_seconds_cap": 3300,
+  "v1_resource_protocol_stopped": true,
+  "v1_pooled_projection_seconds": 3177.6640598215163,
+  "failed_compatibility_retry_profiles": [
+    {
+      "condition": "clip",
+      "job": "443046",
+      "gpu_seconds": 69,
+      "failure": "Scoped allowlist was not restored",
+      "training_steps": 32,
+      "native_timing_cases": 9,
+      "dev_test_execution": false
+    },
+    {
+      "condition": "sigmoid",
+      "job": "443047",
+      "gpu_seconds": 69,
+      "failure": "Scoped allowlist was not restored",
+      "training_steps": 32,
+      "native_timing_cases": 9,
+      "dev_test_execution": false
+    },
+    {
+      "condition": "softmax",
+      "job": "443045",
+      "gpu_seconds": 68,
+      "failure": "Scoped allowlist was not restored",
+      "training_steps": 32,
+      "native_timing_cases": 9,
+      "dev_test_execution": false
+    }
+  ],
+  "training_profile_v2_jobs": [
+    "443059",
+    "443060",
+    "443058"
+  ],
+  "main_array": "443068",
+  "main_release_job": "443066",
+  "main_release_file": "outputs/native_aggregation_vlm/identity_join_learned/reporting/release_443066/release.json",
+  "main_release_sha256": "43e330a2c6d756d14dd5c1f9fa3f9d2c8c04a54518a47580b3806c7afb89a101",
+  "pooled_main_projection_seconds": 3227.959978815168,
+  "allocated_gpu_seconds_scope": "complete learned-selection campaign including all failed attempts",
+  "completed_main_runs": [
+    {
+      "mode": "clip",
+      "seed": 22,
+      "job": "443069",
+      "gpu_seconds": 1501,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_clip_s22_443069/summary.json",
+      "summary_sha256": "cf288437741b44e75e3a3a5491a12afe0855bd33c10c1a80618226de396c4f2b",
+      "completed": true
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 22,
+      "job": "443070",
+      "gpu_seconds": 1480,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_sigmoid_s22_443070/summary.json",
+      "summary_sha256": "fa51c4adec265b5702a78949645a6a34a1597431f69f57012dcf00b320bcdebd",
+      "completed": true
+    },
+    {
+      "mode": "softmax",
+      "seed": 22,
+      "job": "443071",
+      "gpu_seconds": 1480,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_softmax_s22_443071/summary.json",
+      "summary_sha256": "b08b6f16bdd4613d05e569dbf8b4d701e4766a62b945644bad3b38186607191b",
+      "completed": true
+    },
+    {
+      "mode": "clip",
+      "seed": 23,
+      "job": "443072",
+      "gpu_seconds": 1480,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_clip_s23_443072/summary.json",
+      "summary_sha256": "447b2087a4848933fcf5090f913b4e2a2b6f7de8c2b0e66725b8671bdf260fb8",
+      "completed": true
+    },
+    {
+      "mode": "sigmoid",
+      "seed": 23,
+      "job": "443094",
+      "gpu_seconds": 1523,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_sigmoid_s23_443094/summary.json",
+      "summary_sha256": "e9108a27d0ef2a310132ec683f8a41fb5ff1cdeab69dafe898be6bb9c4b231a9",
+      "completed": true
+    },
+    {
+      "mode": "softmax",
+      "seed": 23,
+      "job": "443068",
+      "gpu_seconds": 1523,
+      "summary": "/mnt/home/gabriele.serussi/gnn_transformer/Transformer-Optimization/outputs/native_aggregation_vlm/identity_join_learned/training/run_softmax_s23_443068/summary.json",
+      "summary_sha256": "4b97f6b748532699dffa2d6d49325bc5eb3db8a8e847a973bdf96e560ea5ce91",
+      "completed": true
+    }
+  ],
+  "running_main_runs": [],
+  "independent_final_report_job": "443105",
+  "final_report_dependency": "afterok:443068",
+  "independent_final_report_directory": "outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105",
+  "criteria": {
+    "primary": false,
+    "absolute_accuracy_target": false,
+    "practical": false,
+    "decisions": [
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 17,
+        "control_N64": 18,
+        "N64_additional_correct": -6,
+        "N32_additional_correct": -5,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 22,
+        "control_N64": 21,
+        "N64_additional_correct": -9,
+        "N32_additional_correct": -10,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 22,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 20,
+        "control_N64": 15,
+        "N64_additional_correct": -3,
+        "N32_additional_correct": -8,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 16,
+        "control_N64": 16,
+        "N64_additional_correct": -4,
+        "N32_additional_correct": -4,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "seen",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 31,
+        "control_N64": 30,
+        "N64_additional_correct": -18,
+        "N32_additional_correct": -19,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "sigmoid",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 15,
+        "control_N64": 17,
+        "N64_additional_correct": -5,
+        "N32_additional_correct": -3,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": true,
+        "primary": false
+      },
+      {
+        "seed": 23,
+        "regime": "held",
+        "control": "softmax",
+        "clip_N32": 12,
+        "clip_N64": 12,
+        "control_N32": 27,
+        "control_N64": 27,
+        "N64_additional_correct": -15,
+        "N32_additional_correct": -15,
+        "N64_gain_at_least6": false,
+        "N32_loss_at_most3": false,
+        "primary": false
+      }
+    ],
+    "practical_cells": [
+      {
+        "seed": 22,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 22,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N32",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_seen_N64",
+        "correct": 12,
+        "required": 98,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N32",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      },
+      {
+        "seed": 23,
+        "cell": "test_held_N64",
+        "correct": 12,
+        "required": 87,
+        "passed": false
+      }
+    ],
+    "reasoning_composition_demonstrated": false
+  },
+  "report_summary_sha256": "6ff5ccedef0f39cb8a6282a6ecc3c0a441b8961544d4209541b1d2eac069ecdf",
+  "analysis_sha256": "938216598c2963458b55b041534d9b1cd8adb27d7f2a29acad21b05aab4f8aea",
+  "plot_job": "443108",
+  "plot_directory": "outputs/native_aggregation_vlm/identity_join_learned/reporting/report_443105/plots/plot_443108",
+  "plot_visually_inspected": true,
+  "conditional_joint_and_multi_request_followups_released": false
+}

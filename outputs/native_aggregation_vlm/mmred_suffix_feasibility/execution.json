@@ -1,0 +1,25 @@
+{
+  "status": "completed_passed",
+  "job": 444121,
+  "timestamp_utc": "2026-09-12T05:44:53.612636+00:00",
+  "cpu_seconds_cap": 300,
+  "worlds": 40000,
+  "source_release_sha256": "ab3644263ef41f5173e0fb1e91110ff7015d92f8292a5be72a19337c3730d687",
+  "no_model_or_images": true,
+  "objective_achieved": false,
+  "passed": true,
+  "cpu_allocation_seconds": 7,
+  "measured_seconds": 7.669026501476765,
+  "analysis_sha256": "c6c636d026840bb9de989472f647340a5168c822bb22ffe9dff87d4ebc118a18",
+  "equal_histogram_changed_sample_count": 0,
+  "strong_unique_partial_most_counts": {
+    "16": {
+      "person": 16,
+      "room": 15
+    },
+    "32": {
+      "person": 65,
+      "room": 66
+    }
+  }
+}

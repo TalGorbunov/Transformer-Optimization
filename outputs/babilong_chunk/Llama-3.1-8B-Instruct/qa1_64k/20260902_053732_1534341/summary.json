@@ -1,0 +1,23 @@
+{
+ "attn": {
+  "acc": 0.88,
+  "recall": 0.821218253968254,
+  "n": 100
+ },
+ "attn_norp": {
+  "acc": 0.71,
+  "recall": 0.821218253968254,
+  "n": 100
+ },
+ "_meta": {
+  "model": "meta-llama/Llama-3.1-8B-Instruct",
+  "task": "qa1",
+  "length": "64k",
+  "k": 64,
+  "sel_layer": 20,
+  "sel_rows": "tail",
+  "sel_chunk": 32768,
+  "yarn": 0.0,
+  "elapsed_s": 183.93991780281067
+ }
+}

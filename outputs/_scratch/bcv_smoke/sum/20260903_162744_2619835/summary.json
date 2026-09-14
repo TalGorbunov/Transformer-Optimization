@@ -1,0 +1,18 @@
+[
+ {
+  "tag": "vision N=8",
+  "n": 4,
+  "skipped": 0,
+  "exact": 0.25,
+  "verdict_acc": 0.53125,
+  "min_margin_med": -0.9365900158882141
+ },
+ {
+  "tag": "vision N=32",
+  "n": 4,
+  "skipped": 0,
+  "exact": 0.0,
+  "verdict_acc": 0.8671875,
+  "min_margin_med": -1.2695770263671875
+ }
+]
