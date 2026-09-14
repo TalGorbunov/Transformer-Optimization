@@ -603,7 +603,11 @@ def gated_stack_logits(
     pe = (cos_.to(emb.dtype), sin_.to(emb.dtype))
 
     def _blk(hh: torch.Tensor, li: int) -> torch.Tensor:
-        m = layer_mask_fn(li, S).view(1, 1, S, S)
+        # 2D masks broadcast over heads (the anchored path); 3D (H, S, S) masks are
+        # per-head (condmask HeadGates) — H must be the FULL query-head count, since
+        # SDPA's GQA fast path is disabled whenever a mask is present.
+        m = layer_mask_fn(li, S)
+        m = m.view(1, 1, S, S) if m.dim() == 2 else m.view(1, -1, S, S)
         with sdpa_kernel(SDPA_BACKENDS):
             return eng.layers[li](hh, attention_mask=m, position_embeddings=pe)[0]
 
@@ -680,6 +684,7 @@ def prepare_sample_replicas(
     tail_style: str = "canonical",
     answer_hint: str = "",
     answer_prime: str = "",
+    posreset: bool = True,
 ) -> Optional[Dict[str, Any]]:
     """Replica-scaffold sample prep: [frame_i + question-replica] x N + final question
     — the A3 one-forward supply construction with ZERO trained components (no carrier
@@ -689,10 +694,12 @@ def prepare_sample_replicas(
     Layout: prefix = chat preamble only | block_i = [vision tokens + replica_i] |
     tail = ' '+final question + decode (see locate_replica_layout for why the
     separator is a space, not a newline). Positions: fencing.reset_positions verbatim
-    (no carrier sequential override — that was carrier-specific). Fence init hides
-    replica spans (hide_cols), exactly the legacy replica construction. Returns the
-    sample record (readers, no cpos) or None on any structural check failure (caller
-    counts a skip).
+    (no carrier sequential override — that was carrier-specific); posreset=False keeps
+    NATIVE M-RoPE positions (condmask: the S0 audit showed block-aliased positions
+    cripple exactly the cross-block edges under study — with input-conditioned gates
+    that may open, positions must stay real). Fence init hides replica spans
+    (hide_cols), exactly the legacy replica construction. Returns the sample record
+    (readers, no cpos) or None on any structural check failure (caller counts a skip).
 
     tail_style 'canonical' (default): the tail is data.build_count_prompt — the
     PROMPT-CRITICAL wording ('Respond with a single integer ... Question: {q}
@@ -756,7 +763,8 @@ def prepare_sample_replicas(
             image_grid_thw=inputs.get("image_grid_thw"),
             attention_mask=inputs.get("attention_mask"),
         )
-        pos = reset_positions(base_pos, blocks, fin_start).clone()
+        pos = (reset_positions(base_pos, blocks, fin_start).clone()
+               if posreset else base_pos.clone())
         emb = eng.text_model.embed_tokens(inputs["input_ids"])
         img = eng.model.model.get_image_features(
             inputs["pixel_values"], inputs["image_grid_thw"]
@@ -810,6 +818,121 @@ def gated_greedy_digits(
             toks.append(t)
     text = eng.tok.decode(toks).strip()
     return (int(text) if text.isdigit() else None), first_digit, text
+
+
+# ------------------------------------------------------------------ condmask HeadGates
+
+CROSS_BLOCK_RELS = ("R2", "R4", "R5")  # the condmask binary gate closes exactly these
+
+
+def cross_block_channel_ids() -> List[int]:
+    """Channel ids whose relation is cross-block (R2/R4/R5, all Δ-buckets)."""
+    return [i for i, c in enumerate(CHANNELS) if c.rel in CROSS_BLOCK_RELS]
+
+
+class HeadGates(nn.Module):
+    """condmask vision variant: INPUT-CONDITIONED binary block-vs-full gates per
+    (layer, head) — g[l,h]=1 closes the cross-block relations {R2,R4,R5} for head h at
+    layer l; anchors, R1/R3 (within-block) and R6/R7 (tail rows) stay OPEN, i.e. the
+    tail is fully causal — a deliberate difference from the hand fence.
+
+    Conditioning: masked-mean-pooled prompt embeddings -> MLP -> logits [L, H].
+    Final layer weight ZERO-init; bias = +init_bias (blockwise) or U(-b,b) (random) —
+    the same anti-S0 parameterization as scripts/condmask/gatenet.GateNet (barrier
+    |init_bias|=1.0, not S0's 2.0). Telemetry duck-types MaskGates (p_open / flips /
+    stats_line / state / from_state) against a caller-supplied probe pool."""
+
+    def __init__(self, d_model: int, n_layers: int, n_heads: int, hidden: int = 256,
+                 init: str = "blockwise", init_bias: float = 1.0, seed: int = 0,
+                 norm_input: bool = True):
+        super().__init__()
+        if init not in ("blockwise", "random"):
+            raise ValueError(f"unknown init {init!r}")
+        self.n_layers, self.n_heads, self.init = n_layers, n_heads, init
+        self.d_model, self.hidden_dim, self.init_bias = d_model, hidden, float(init_bias)
+        self.norm_input = bool(norm_input)
+        # LayerNorm on the pooled input: vision-merged prompt embeddings have huge
+        # norms, and without it the gate logits explode within ~10 optimizer steps
+        # (measured max|Δlogit| 574 in the 2026-08-17 vlm smoke) — sigmoid saturates
+        # and the gates freeze in a near-random early configuration.
+        pre = [nn.LayerNorm(d_model)] if self.norm_input else []
+        self.net = nn.Sequential(*pre, nn.Linear(d_model, hidden), nn.GELU(),
+                                 nn.Linear(hidden, n_layers * n_heads))
+        last = self.net[-1]
+        with torch.no_grad():
+            last.weight.zero_()
+            if init == "blockwise":
+                last.bias.fill_(self.init_bias)
+            else:
+                gen = torch.Generator().manual_seed(seed)
+                last.bias.copy_((torch.rand(last.bias.shape, generator=gen) * 2 - 1)
+                                * self.init_bias)
+        self.register_buffer("init_logits",
+                             last.bias.detach().clone().view(n_layers, n_heads))
+
+    def forward(self, pooled: torch.Tensor) -> torch.Tensor:
+        """pooled [B, d] (or [d]) -> logits [B, L, H]."""
+        if pooled.dim() == 1:
+            pooled = pooled.unsqueeze(0)
+        return self.net(pooled.float()).view(-1, self.n_layers, self.n_heads)
+
+    def p_open(self, pooled: torch.Tensor) -> torch.Tensor:
+        """P(block) [L, H] averaged over the probe pool (name kept for MaskGates
+        surface-compatibility; semantics here are P(blockwise))."""
+        return torch.sigmoid(self.forward(pooled)).mean(0)
+
+    def flips(self, pooled: torch.Tensor) -> int:
+        lg = self.forward(pooled)
+        return int((((lg > 0).float().mean(0) > 0.5) != (self.init_logits > 0)).sum())
+
+    def stats_line(self, pooled: torch.Tensor) -> str:
+        lg = self.forward(pooled)
+        d = (lg - self.init_logits).abs()
+        return (f"headgates p_block {float(torch.sigmoid(lg).mean()):.3f} flips "
+                f"{self.flips(pooled)}/{self.n_layers * self.n_heads} "
+                f"max|Δlogit| {float(d.max()):.2f}")
+
+    def state(self) -> Dict[str, Any]:
+        return {"kind": "headgates", "net": self.net.state_dict(),
+                "init_logits": self.init_logits.cpu(), "init": self.init,
+                "init_bias": self.init_bias, "d_model": self.d_model,
+                "hidden": self.hidden_dim, "n_layers": self.n_layers,
+                "n_heads": self.n_heads, "norm_input": self.norm_input}
+
+    @classmethod
+    def from_state(cls, st: Dict[str, Any]) -> "HeadGates":
+        g = cls(int(st["d_model"]), int(st["n_layers"]), int(st["n_heads"]),
+                hidden=int(st["hidden"]), init=st["init"],
+                init_bias=float(st["init_bias"]),
+                norm_input=bool(st.get("norm_input", True)))
+        g.net.load_state_dict(st["net"])
+        with torch.no_grad():
+            g.init_logits.copy_(st["init_logits"])
+        return g
+
+
+def head_mask_parts(cell_map_dev: torch.Tensor
+                    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """-> (base [S,S] fp32 = plain causal, cross [S,S] float = 1 on R2/R4/R5 cells).
+    Per-head mask for layer li: base + g[li].view(H,1,1) * K * cross — assemble inside
+    the (checkpointed) layer block; at N=8 vision the [H,S,S] fp32 tensor is ~0.8 GB
+    transient (per-layer only, never 28 at once)."""
+    all_open = torch.ones(N_CH, dtype=torch.bool)
+    base = hard_mask_lut(cell_map_dev, all_open)
+    ids = torch.tensor(cross_block_channel_ids(), device=cell_map_dev.device,
+                       dtype=torch.int16)
+    cross = torch.isin(cell_map_dev, ids).float()
+    return base, cross
+
+
+def head_layer_mask_fn(base: torch.Tensor, cross: torch.Tensor, g_lh: torch.Tensor,
+                       K: float):
+    """layer_mask_fn(li, S) -> [H, S, S] fp32 for gated_stack_logits (3D = per-head)."""
+    def fn(li: int, S: int) -> torch.Tensor:
+        g = g_lh[li].view(-1, 1, 1)
+        return (base + g * K * cross)[..., :S, :S] if base.dim() == 3 else \
+            base[:S, :S].unsqueeze(0) + g * K * cross[:S, :S].unsqueeze(0)
+    return fn
 
 
 def handfence_tf_logits(eng: Any, d: Dict[str, Any], tgt_ids: Sequence[int],

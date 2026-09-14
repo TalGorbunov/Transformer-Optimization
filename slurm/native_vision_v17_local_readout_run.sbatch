@@ -1,0 +1,15 @@
+#!/bin/bash
+#SBATCH -J v17_local_head
+#SBATCH -p gpu
+#SBATCH --gres=gpu:1
+#SBATCH --constraint=b200-8x-gpu
+#SBATCH --exclude=slurm-b200-8x-gpu-131-255
+#SBATCH -c 4
+#SBATCH --mem=32G
+#SBATCH -t 00:10:00
+#SBATCH -o logs/%x-%j.out
+set -euo pipefail
+cd "${SLURM_SUBMIT_DIR:?}"
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONNOUSERSITE=1 PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4
+.venv/bin/python scripts/audit_native_vision_v17_local_readout.py --run "$@"
