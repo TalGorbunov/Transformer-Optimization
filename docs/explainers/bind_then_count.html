@@ -1,0 +1,67 @@
+<title>Bind, Then Count</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#F6F8F7;--surface:#FFFFFF;--ink:#1B2422;--muted:#5B6B68;--rule:#D8E0DE;--accent:#0F766E;--accent-soft:#DCEFEB;--accent-ink:#0B5C56;--warm:#B2432E;--warm-soft:#F6E3DF}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111716;--surface:#192120;--ink:#E6ECEA;--muted:#9AA9A5;--rule:#2B3634;--accent:#5CC8B8;--accent-soft:#163B37;--accent-ink:#8EDBD0;--warm:#E08A78;--warm-soft:#3E211B}}
+:root[data-theme="dark"]{--bg:#111716;--surface:#192120;--ink:#E6ECEA;--muted:#9AA9A5;--rule:#2B3634;--accent:#5CC8B8;--accent-soft:#163B37;--accent-ink:#8EDBD0;--warm:#E08A78;--warm-soft:#3E211B}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Literata,Georgia,serif;font-size:17px;line-height:1.6;margin:0;padding:0 20px 72px}
+.wrap{max-width:680px;margin:0 auto}
+header{padding:52px 0 6px}
+.eyebrow{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+h1{font-size:40px;line-height:1.1;font-weight:700;margin:10px 0 10px;letter-spacing:-.01em;text-wrap:balance}
+.sub{font-size:19px;color:var(--muted);font-style:italic;margin:0 0 6px}
+h2{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:40px 0 10px;padding-top:14px;border-top:1px solid var(--rule)}
+p{margin:0 0 14px}
+strong{font-weight:600}
+.chain{display:grid;gap:8px;margin:14px 0 6px}
+.step{display:grid;grid-template-columns:28px 1fr;gap:12px;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 14px}
+.step b{font-family:"IBM Plex Sans",system-ui,sans-serif;color:var(--accent-ink);font-size:18px;line-height:1.3}
+.step p{margin:0;font-size:16px}
+.step p em{color:var(--muted);font-style:normal;font-size:14.5px;display:block;margin-top:4px}
+.kill{background:var(--warm-soft);border-left:4px solid var(--warm);padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0}
+.kill p{margin:0;font-size:15.5px}
+.note{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;color:var(--muted);line-height:1.55}
+</style>
+<div class="wrap">
+<header>
+<div class="eyebrow">Single-forward aggregation · what we found and what we will build · 3 September 2026</div>
+<h1>Bind, Then Count</h1>
+<p class="sub">Why a frozen language model cannot gather many pieces of evidence in one pass, and the shape of a fix.</p>
+</header>
+
+<h2>Motivation</h2>
+<p>Many questions about a long context are answered by <em>aggregating</em> several pieces of evidence: how many frames show Mary in the kitchen, whether A and B were ever together, which came first. Every current remedy sidesteps the aggregation instead of performing it: pruning shrinks the context, chain of thought walks it one item at a time, retrieval hands the model fewer items. We want to know what caps aggregation inside one forward pass, and to remove the cap there, because that is where the cost is lowest and where the model's knowledge lives.</p>
+
+<h2>What we established, causally, on three frozen 7–8B models</h2>
+<div class="chain">
+<div class="step"><b>1</b><p>The count of matching items reaches the answer through a small <strong>excess of attention</strong> on those items (2–13% of the weight), spread over many heads and layers. Fix that excess and the model answers a fixed number; inflate it and the count goes up.<em>Clamp and amplification interventions; minimal-pair patching locates the hand-off from the items to the question tokens in a mid-depth band.</em></p></div>
+<div class="step"><b>2</b><p>The excess is <strong>small, noisy and linear</strong> in the count: each true item adds about half a standard deviation of signal. The model reads it exactly to 4–8 and compresses beyond.<em>Per-needle d′ ≈ .5; the labelled share itself decodes the count only to ±2.</em></p></div>
+<div class="step"><b>3</b><p>Nothing else is the cap. Not numerical precision (fp32 = bf16), not a running counter in the items, not the softmax normalizer, not any single head or layer, not statistics of the attention pattern (the heads are diffuse: no peaks to count).<em>Each excluded by a pre-registered test whose falsifier fired.</em></p></div>
+<div class="step"><b>4</b><p>The models <strong>over-count</strong> when distractors share a feature with the evidence (same person, other room), and never when the haystack is unrelated text.<em>The one fact a dilution story cannot produce.</em></p></div>
+</div>
+
+<h2>The cause: two bottlenecks, weighted differently per model</h2>
+<p><strong>Selectivity.</strong> At the layers where the question reads the items, a true item outscores a same-domain non-match by only ~0.5 nats (against 3–4 nats over unrelated text), and almost all of that comes from the person, almost none from the room. The read matches <em>Mary</em>, not <em>Mary in the kitchen</em>: a dot product is additive in features and does not implement the conjunction. Partial matches leak in proportion, and on a faithful readout (Llama) they produce over-counts. In graph-network terms, single-hop attention is 1-WL-like; evidence defined by a relation between two features is a 2-WL problem.</p>
+<p><strong>Readout.</strong> Even when the read is selective (unrelated filler), the model's map from attention share to number is compressive on Qwen: multiplying the evidence share by four still yields "4"–"6". Llama's map is nearly linear, which is why Llama counts to 12 in clean context and over-counts in leaky context. The number of competitors as such is not the cap for counting: 63 unrelated competitors give the same curve as none.</p>
+<div class="kill"><p><strong>What the falsification tests said.</strong> Unrelated filler removed the over-count at small K on all models but did not restore counting past 4–8 on Qwen (E1 fired as stated). Half-matches by person score at .8 of a full match, by room at .25 (E2: more asymmetric than predicted). Sharpening the read helped only Llama, and only at K = 8, while compressing larger counts (E3 fired on Qwen). The share-to-number map is compressive on Qwen and linear on Llama (E4 split). More partial matches in a story, higher emitted count (E5 held on all three).</p></div>
+
+<h2>The method that follows</h2>
+<p><strong>Bind, then count.</strong> Give each unit of evidence its own carrier token behind a block-diagonal attention fence, so the full depth of the network computes that unit's verdict with no competitors in the softmax: the conjunction becomes a nonlinear per-unit computation, where it belongs. Then read the carriers with a sum-type aggregator, counting the ones that say yes. The second stage is linear in the count by construction, so it generalizes to lengths never trained on. Virtual nodes and register tokens add tokens read by the same additive mean; this changes the type of computation per unit and the type of aggregation across units, and the same diagnostics that show frozen attention has no peaks should show the carriers do.</p>
+<h2>First results (text, Qwen2.5-7B frozen, trained on N ≤ 32)</h2>
+<div class="chain">
+<div class="step"><b>✓</b><p><strong>Fence + verdict + sum read: exact count 1.00 at every N from 8 to 1024</strong> on MMRED text and 1.00 on needle stories with same-domain distractors to N = 256, with 7.2k trainable parameters.<em>The invariance is by construction: each carrier's verdict depends on its own unit and the question only.</em></p></div>
+<div class="step"><b>✗</b><p><strong>Same carriers without the fence: 1.00 → .30 at N = 1024.</strong> Per-unit verdicts stay .997 accurate, but the weakest verdict in a story degrades once units see each other, and a count is exact only if all N verdicts are.<em>Selectivity is the first ingredient.</em></p></div>
+<div class="step"><b>✗</b><p><strong>Fenced carriers read by a mean (digit LoRA at the answer row): 1.00 in-length → .09 at N = 1024.</strong> Plain digit-LoRA on the frozen model: .92 in-length → .25. Both fit the training range and fall off past it.<em>The sum is the second ingredient.</em></p></div>
+<div class="step"><b>✗</b><p><strong>Fence but native positions: 1.00 to N = 64, then .98 → .63 → .32 → .23 at N = 1024.</strong> With competition removed and distance left in, the per-unit verdict degrades as its unit moves away from the question; the per-block position reset removes it.<em>The two axes of the retrieval analysis, competition and distance, each have their own ingredient and their own ablation.</em></p></div>
+<div class="step"><b>✓</b><p><strong>Same construction on Qwen2.5-3B and Llama-3.1-8B: 1.00 at every N to 1024</strong>, with the same 7.2k parameters.<em>Not a property of one backbone.</em></p></div>
+<div class="step"><b>✓</b><p><strong>Six set functions from the same forward:</strong> count, exists, first and last occurrence are 1.00 at every N; distinct-rooms and most-visited-room, read from a 7-way per-unit room head, fall to .71 / .82 at N = 1024 because a per-unit error of .2% is raised to the power N.<em>Any per-unit head must be trained to an error rate far below 1/N; the count head, trained with a count-aware loss, is.</em></p></div>
+</div>
+<div class="chain">
+<div class="step"><b>✓</b><p><strong>Vision (Qwen2.5-VL-7B, 4-bit, per-frame verdicts from rendered frames): exact count .99 / .99 / 1.00 / .99 at N = 8 / 16 / 32 / 64</strong>, per-frame verdict accuracy .999, from 450 training examples and 7.2k parameters. The frozen model scores .20–.40 on the same frames, and .65–.80 even when handed only the relevant frames.<em>Without the fence: .60 → .27, per-frame accuracy .91–.96. Frames interfere with each other far more than sentences do, and a count multiplies that loss N times.</em></p></div>
+<div class="step"><b>✓</b><p><strong>No training at all (7 September): put the question inside each block and read the model's own yes/no.</strong> Block = unit + "Is Mary in the Kitchen in this frame? Answer:"; verdict = logit(Yes) − logit(No) at that token; count = number of yes. Text: exact 1.00 and per-unit 1.000 at every N from 8 to 1024. Rendered frames: .98 / .97 / .99 / .98 at N = 8–64, per-frame ≥ .996. Stories with confusable distractors: .89–.92 with per-unit .995–.998 and a perfect ranking (AUC 1.00), so the 7.2k-parameter head is a threshold calibration, nothing more.<em>Same cue without the fence: text .65 → .00, vision .31–.41, and the ranking itself degrades with N. Question only in the prefix: .49–.80 with a perfect ranking (calibration lost). A vague cue ("relevant to the question?"): fine on MMRED, .09–.19 on the confusable stories (selectivity lost). Isolation, calibration and selectivity each have their own control.</em></p></div>
+<div class="step"><b>✓</b><p><strong>What the serial program does instead (Qwen3-8B thinking traces).</strong> It writes a running tally in .97 of traces; a corrupted numeral is followed by the next one in .63–.86 of cases and never repaired by a latent counter, yet the final answer survives because the tape holds redundant tallies (index and count). Its per-item chunks attend to the target sentence with .42–.45 of their context attention in clean stories and .07–.10 with 64 same-domain distractors, where it loops and fails (.33 / .42 / .00).<em>Bind-then-count is the parallel form of this program: the fence replaces the per-item retrieval, the sum replaces the tape. An in-model tally written into the residual stream reads back only as a single digit (1.00 at layer 24; two digits ≤ .26), so the sum stays outside the softmax for now.</em></p></div>
+<div class="step"><b>✗</b><p><strong>The boundary: HERBench action counting on real egocentric video.</strong> Per-frame verdict AUC .77–.80 and accuracy .68–.82 whatever the aggregator; exact counts .04–.15 for every arm, the frozen model .12 / .05, the frozen model handed only the evidence frames .02. On real frames the fence <em>hurts</em> (no-fence verdict .75 / .82 vs fenced .68 / .69): neighbouring frames help a frozen VLM judge one frame when the action recurs and the camera is continuous.<em>Bind-then-count turns aggregation error into per-unit error, and here the per-unit error is the backbone's perception ceiling, which isolation cannot lower. Reported as the limit of the method, not as a gain.</em></p></div>
+</div>
+<p class="note">Everything above traces to dated entries in <span style="font-family:'IBM Plex Sans',system-ui,sans-serif">PREREG_AGG.md</span> and run directories under <span style="font-family:'IBM Plex Sans',system-ui,sans-serif">outputs/needles_*</span>; cell sizes are 24–50 stories, so single-cell differences under ~.15 are noise.</p>
+</div>

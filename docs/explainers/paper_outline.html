@@ -1,0 +1,230 @@
+<title>The Bind, Then Count Paper</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;0,7..72,700;1,7..72,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#F6F8F7;--surface:#FFFFFF;--ink:#1B2422;--muted:#5B6B68;--rule:#D8E0DE;--accent:#0F766E;--accent-soft:#DCEFEB;--accent-ink:#0B5C56;--warm:#B2432E;--warm-soft:#F6E3DF;--mark:#FFF3C4}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#111716;--surface:#192120;--ink:#E6ECEA;--muted:#9AA9A5;--rule:#2B3634;--accent:#5CC8B8;--accent-soft:#163B37;--accent-ink:#8EDBD0;--warm:#E08A78;--warm-soft:#3E211B;--mark:#3A3320}}
+:root[data-theme="dark"]{--bg:#111716;--surface:#192120;--ink:#E6ECEA;--muted:#9AA9A5;--rule:#2B3634;--accent:#5CC8B8;--accent-soft:#163B37;--accent-ink:#8EDBD0;--warm:#E08A78;--warm-soft:#3E211B;--mark:#3A3320}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:Literata,Georgia,serif;font-size:16.5px;line-height:1.6;margin:0;padding:0 20px 72px}
+.wrap{max-width:720px;margin:0 auto}
+header{padding:52px 0 6px}
+.eyebrow{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+h1{font-size:38px;line-height:1.1;font-weight:700;margin:10px 0 10px;letter-spacing:-.01em;text-wrap:balance}
+.sub{font-size:18px;color:var(--muted);font-style:italic;margin:0 0 6px}
+h2{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--accent-ink);font-weight:600;margin:40px 0 10px;padding-top:14px;border-top:1px solid var(--rule)}
+h3{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;font-weight:600;margin:22px 0 6px}
+p{margin:0 0 12px}
+ul,ol{margin:0 0 12px;padding-left:22px}
+li{margin:0 0 7px}
+li li{margin:3px 0}
+strong{font-weight:600}
+.story{display:grid;gap:8px;margin:12px 0 6px}
+.beat{display:grid;grid-template-columns:96px 1fr;gap:12px;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:11px 14px}
+.beat b{font-family:"IBM Plex Sans",system-ui,sans-serif;color:var(--accent-ink);font-size:13px;letter-spacing:.05em;text-transform:uppercase;padding-top:3px}
+.beat p{margin:0;font-size:15.5px}
+.abs{background:var(--surface);border-left:4px solid var(--accent);padding:14px 18px;border-radius:0 6px 6px 0;margin:12px 0;font-size:15.5px}
+.abs p{margin:0}
+.abs strong{color:var(--accent-ink)}
+.check{background:var(--mark);padding:0 4px;border-radius:3px;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px}
+.kill{background:var(--warm-soft);border-left:4px solid var(--warm);padding:10px 16px;border-radius:0 6px 6px 0;margin:14px 0;font-size:15px}
+.kill p{margin:0}
+table{border-collapse:collapse;width:100%;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13.5px;margin:10px 0 14px;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+td:first-child{white-space:nowrap;color:var(--accent-ink);font-weight:500}
+.note{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;color:var(--muted);line-height:1.55}
+code{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.88em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.deadline{display:flex;gap:18px;flex-wrap:wrap;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;color:var(--muted);margin:6px 0 0}
+.deadline span b{color:var(--ink);font-weight:600}
+</style>
+<div class="wrap">
+<header>
+<div class="eyebrow">Paper outline · ICLR 2027 · 7 September 2026</div>
+<h1>The Bind, Then Count Paper</h1>
+<p class="sub">Story, abstract draft, section plan, figures, house style, and the gaps to close before the text is final.</p>
+<div class="deadline"><span>Abstract <b>18 Sept</b> AoE</span><span>Paper <b>25 Sept</b> AoE</span><span>Main text <b>9 pages</b></span><span>References + appendix <b>unlimited</b></span><span>Required <b>AI-use statement</b></span></div>
+</header>
+
+<p class="note">Every number traces to a dated entry in <code>PREREG_AGG.md</code> / <code>PREREG_OSQ.md</code> and a run dir. Items marked <span class="check">check</span> are re-read from the run dir before they enter the manuscript. Source of truth: <code>docs/paper/OUTLINE.md</code>.</p>
+<div class="kill"><p><strong>Update 2026-09-07.</strong> The construction is training-free where the units are cleanly judged: with a per-block question and the frozen model's own yes/no behind the fence, MMRED text is exact at every N to 1024 and rendered frames reach .97–.99 to N = 64, with zero trained parameters. The 2d + 1 head is a calibration that matters only on stories with confusable distractors (.9 → 1.0). Removing the fence collapses the zero-shot judge (text .65 → .00, vision .31–.41); removing the cue costs calibration; a vague cue costs selectivity on the hard family. Items marked ⟨TF⟩ carry the update.</p></div>
+
+<h2>0 · The story in one breath</h2>
+<div class="story">
+<div class="beat"><b>Goal</b><p>Answer questions that need several pieces of evidence from one long input, in one forward pass of a frozen model.</p></div>
+<div class="beat"><b>Problem</b><p>Frozen transformers stop aggregating after a handful of items. Every remedy in use sidesteps the aggregation instead of performing it.</p></div>
+<div class="beat"><b>Nugget</b><p>The count travels as a small excess of attention on the matching items, read into one node by a softmax. That read is additive in features (it cannot bind <em>Mary</em> to <em>kitchen</em>) and its output is a share, which the model maps to a number compressively. Both limits are properties of a one-hop mean read into a single node, not of the model's knowledge.</p></div>
+<div class="beat"><b>Solution</b><p>Bind first, count second: give each unit its own carrier behind an attention fence so the full depth computes a per-unit verdict without competitors, then aggregate the verdicts with a sum. The second stage is linear in the count by construction, so length generalization is guaranteed by the architecture rather than hoped for.</p></div>
+<div class="beat"><b>Result</b><p>⟨TF⟩ With no trained parameters, the frozen model's own per-unit yes/no behind the fence counts exactly at every N to 1024 on text and at .97–.99 to N = 64 on rendered frames; a 2d + 1 calibration head trained at N ≤ 32 makes it exact on stories with confusable distractors and on three backbones. Each ingredient has an ablation that fails in the way the diagnosis predicts (no fence, no cue, no reset, mean read). On real egocentric video the per-frame judgment is the ceiling, which marks the scope.</p></div>
+</div>
+<p>One story, three parts: diagnosis, the method that follows from it, the boundary. The BABILong retrieval program (distance axis) is a subplot with one figure; select-and-repack (our August program) is a baseline and a related-work paragraph; the learned-mask negative goes to the appendix.</p>
+
+<h2>1 · Title</h2>
+<p>Recommended: <strong>Bind, Then Count: Single-Pass Evidence Aggregation in Frozen Transformers</strong>. Three words name the method, the two-verb rhythm mirrors the two ingredients, the subtitle says the setting.</p>
+<ul>
+<li><em>Why Transformers Cannot Count in One Pass, and How to Make Them</em>: analysis-first; stronger hook, weaker recall of the method.</li>
+<li><em>Read-Node Dispersion: Two Bottlenecks of Single-Pass Aggregation</em>: names the analysis, drops the method.</li>
+</ul>
+<p>No acronym: the method name is already two words and searchable. "GNN" stays out of the title; the graph lineage lives in the text where it does work.</p>
+
+<h2>2 · Figure 1, the teaser</h2>
+<p>Form: the problem, and how the solution changes it. Two panels, full column width.</p>
+<ul>
+<li><strong>(a) Emitted count vs. true count K</strong>, three frozen models, clean context and with same-domain distractors. What to notice: exact to K = 4, then a constant (Qwen emits 4, Llama 12); with distractors the curves start above the diagonal (over-count at K ≤ 3).</li>
+<li><strong>(b) Exact match vs. N (log axis, 8 → 1024)</strong> for bind-then-count and its three ablations, plus frozen and digit-LoRA, all trained at N ≤ 32 (shaded training range). What to notice: one flat line at 1.00; the others fall in the order the diagnosis predicts (mean read first, then no-reset, then no-fence).</li>
+</ul>
+<p>The caption must be readable without the text. Axis labels with units.</p>
+
+<h2>3 · Abstract (draft, ~210 words)</h2>
+<p class="note">The bold transition words are the scaffold; keep them unless a sentence reads better without.</p>
+<div class="abs"><p>Many questions about a long input are answered by aggregating several pieces of evidence: how many frames show a person in a room, whether two events co-occur, which of them comes first. Doing this in one forward pass is the cheapest route and the one where the model's knowledge lives. <strong>Unfortunately</strong>, frozen transformers stop aggregating after a handful of items, and every current remedy sidesteps the aggregation instead of performing it: chain of thought walks the items one at a time, pruning and retrieval hand the model fewer of them. <strong>In contrast</strong>, we ask what caps aggregation inside one pass. On three frozen 7–8B models we locate the count in a small excess of attention on the matching items at the question tokens, spread over many heads and layers, and show causally that it is the channel: clamping it fixes the answer, amplifying it raises the count. <strong>However</strong>, the channel has two bottlenecks. The read is a dot product, additive in features, so it matches the person but not the person-in-room conjunction and leaks partial matches; and the map from attention share to number is compressive. Precision, the softmax normalizer, competitor count and single heads are not the cause. <strong>Consequently</strong>, we make the per-unit judgment nonlinear and the cross-unit aggregation linear: each unit receives a carrier token behind a block-diagonal attention fence with a per-block position reset, a linear head reads a verdict off each carrier, and the answer is the sum of verdicts. ⟨TF⟩ With no trained parameters, the model's own yes/no to a per-unit question behind the fence counts exactly at every length to 1024 on text and at .97–.99 on up to 64 rendered video frames, where the same frozen model scores .2–.4 in one pass; a 2d + 1 calibration head trained at N ≤ 32 makes it exact on stories with confusable distractors and on three backbones. Removing the fence, the cue, the reset or the sum read fails in the way the diagnosis predicts. On real egocentric video the per-frame judgment, not aggregation, is the ceiling, which marks the method's scope.</p></div>
+
+<h2>4 · Introduction (≈1.25 pages incl. Fig. 1)</h2>
+<p>Rhythm: goal → problem → solution → problem → solution, one paragraph each. By the end the reader knows why to care, what is unsolved, and what we do.</p>
+<ol>
+<li><strong>Goal.</strong> The aggregation question with the running example ("how many frames was Mary in the kitchen?"). Where it appears: multi-fact document QA, video QA (HERBench action counting), agents reading logs. Why one pass: no O(N) generated tokens, no recall-limited retrieval stage, the model's knowledge applied to every unit.</li>
+<li><strong>Problem.</strong> Frozen models answer exactly to 4–8 items and then emit a constant (Fig. 1a). Chain of thought, pruning and retrieval each serialize or shrink the problem; chain of thought costs O(N) tokens and loops when items are confusable (with 64 distractors every arm ≤ .38 at K ≥ 2). What caps aggregation inside the pass?</li>
+<li><strong>What is believed, and what it gets right.</strong> Attention is a normalized mean, so evidence mass disperses as Θ(1/n); over-squashing in graph networks names the same bottleneck. This predicts a failure that grows with competitor count. Two facts do not fit: 63 unrelated competitors give the same counting curve as none on Qwen, and the models <em>over</em>-count when distractors share a feature with the evidence, which dilution cannot produce.</li>
+<li><strong>The nugget.</strong> The count travels as a small excess of attention share on true items at the question row (2–13% of the weight), spread over many heads and layers; this is causal. Two properties of a one-hop softmax read cap it. The score is additive in features, so the read matches <em>Mary</em> (.8 of the full margin) far more than <em>kitchen</em> (.25) and cannot implement the conjunction; partial matches leak in proportion. The output is a share, and the model's map from share to number is compressive (×4 the share still reads "4"–"6" on Qwen). Both are limits of the read, not of the representation.</li>
+<li><strong>The method that follows.</strong> If the read cannot bind, bind before reading: one carrier per unit behind a block-diagonal fence, so the full depth computes a per-unit verdict with no competitors in any softmax; a per-block position reset removes distance; a sum over verdicts replaces the compressive map. Three ingredients, each tied to one measured cause, each with its own ablation.</li>
+<li><strong>Results and scope.</strong> 1.00 exact at every N from 8 to 1024 on Qwen2.5-3B/7B and Llama-3.1-8B, 1.00 on needle stories with distractors, .99–1.00 on rendered frames to N = 64 (frozen .20–.40), from 7.2k parameters and N ≤ 32 training. Ablations at N = 1024: no fence .30, no reset .23, mean read .09. On HERBench the per-frame AUC is .78 for every architecture and the fence hurts: the method converts aggregation error into per-unit error and cannot lower the latter.</li>
+<li><strong>Contributions.</strong> Write the reviewer's summary for them: "Our key ideas are …", then "Our contributions are: (i) a causal localization of the counting channel in frozen LMs; (ii) a two-bottleneck diagnosis with pre-registered tests that exclude precision, normalizer, competitor count, single heads and running counters; (iii) bind-then-count, a 7.2k-parameter construction whose length invariance follows from the architecture, validated across three backbones and two modalities with cause-matched ablations; (iv) a scope result on real video."</li>
+</ol>
+
+<h2>5 · Related work (≈0.75 page)</h2>
+<p>By theme, present tense; each paragraph says what the line gets right and what it misses.</p>
+<ul>
+<li><strong>Dispersion and over-squashing.</strong> Softmax mass falls as Θ(1/n) (Hahn 2020; Veličković et al. 2025); entropy grows Ω(log n) (Han et al. 2024); over-squashing in message passing (Alon &amp; Yahav; Topping et al.; Di Giovanni et al.) and in decoder LMs (Barbero et al. 2024); attention dilution with a mean-margin law (Gollapudi et al. 2026; Nakanishi 2025). Right: the mechanism of mass loss. Missed: which quantity carries the answer. We measure it causally, find the mean-margin law off by 1–6 nats on frozen models, and show competitor count is not the cap for counting.</li>
+<li><strong>Counting and cardinality in transformers.</strong> Counting fails without inductive bias (Chang &amp; Bisk 2024; Barbero et al. 2024; Yehudai et al. 2024); a depth-limited running counter lives in item tokens on haystack-free inputs (Hasani et al. 2026a,b); many-needle benchmarks report listing recall (RULER; Needle Threading; NeedleChain). Missed: with a haystack the count is read at the question tokens (later items carry ≤ .37 of the signal, earlier items none), and two bottlenecks, not one, explain the curves.</li>
+<li><strong>Chain of thought as serial computation.</strong> Expressivity results (Merrill &amp; Sabharwal; Feng et al.; Li et al. 2024) explain why a tape helps. Missed: it is a serial retrieval plus a counter in digits, O(N) tokens, and it fails when items are confusable.</li>
+<li><strong>Selection and compression for long context.</strong> SnapKV, GemFilter, InfiniRetri, LongLLMLingua, EHPC, and our own select-and-repack. Right: fewer competitors restore retrieval. Missed: the read over survivors is still a mean, and a count needs recall 1.0 per sample; a frozen VLM given only the gold frames scores .65–.80.</li>
+<li><strong>Independent context encoding and register tokens.</strong> Parallel Context Windows (Ratner et al. 2023), CEPE (Yen et al. 2024), APE (Yang et al. 2025), landmark/memory/gist/beacon tokens, register tokens (Darcet et al. 2024), virtual nodes (Southern et al. 2025). Right: encoding blocks independently at shared positions is the fence. Missed: all are read by the same additive softmax mean, and the mean is the second bottleneck. Our mean-read ablation is exactly this family and falls to .09 at N = 1024; the sum read is the difference.</li>
+<li><strong>Sum versus mean aggregators.</strong> DeepSets, GIN's sum over mean, PNA degree scalers, Set Transformer. Right: cardinality needs a sum. Missed: inside a frozen LM the sum must act on bounded per-unit verdicts, not token states; the correspondence is load-bearing because each ablation fails as the graph account predicts.</li>
+</ul>
+
+<h2>6 · Notation</h2>
+<div class="tw"><table>
+<tr><th>Symbol</th><th>Meaning</th></tr>
+<tr><td>N</td><td>number of units (sentences, frames)</td></tr>
+<tr><td>K, J</td><td>matching items, non-matching items (K + J = N)</td></tr>
+<tr><td>u_i, q</td><td>unit i, question</td></tr>
+<tr><td>c_i, h_i^(L)</td><td>carrier token of unit i and its final-layer state</td></tr>
+<tr><td>M, π</td><td>fence mask; position map with per-block reset</td></tr>
+<tr><td>s, g</td><td>attention share on matching items at the read row; needle-vs-junk logit margin</td></tr>
+<tr><td>k_eff</td><td>effective fan-in 1 / Σ a²</td></tr>
+<tr><td>z_i, ĉ</td><td>verdict logit of unit i; ĉ = Σ_i 1[z_i &gt; 0]</td></tr>
+<tr><td>H0 / HF / HC / HU</td><td>needle regimes: clean / same-domain filler / length-controlled / unrelated filler</td></tr>
+</table></div>
+
+<h2>7 · Anatomy of the failure (≈3 pages)</h2>
+<p>Each subsection: claim → instrument → figure → what it means. Text, equation, figure for every important concept. All tests pre-registered; falsifiers reported as fired.</p>
+<ul>
+<li><strong>7.1 Instruments.</strong> Needle stories (bAbI-style; K = 1…64; regimes H0/HF/HC/HU; minimal pairs K vs. K+1 differing in one same-length sentence), MMRED text (N = 8…1024). Three frozen models. Metrics: exact match, emitted count, share s, k_eff, margins g, per-needle d′. <span class="check">check</span> replicate the figure cells at n ≥ 100 (now 24–50).</li>
+<li><strong>7.2 The failure.</strong> (Figs. 1a, 2.) Exact to K = 4 on all three, then constant (Qwen2.5-7B .86 → .02 at K = 6, emits 4; Llama exact to 12). With distractors: K = 1 → "2"–"4", K-independent ≈ 4 to K = 8, then compressed (K = 32 → 8, K = 64 → 14). Chain of thought in one paragraph, with the trace anatomy: Qwen3-8B thinking counts .92–1.00 at K ≤ 16 in clean context and .33 / .42 / .00 with 64 same-domain distractors, mostly by looping; .97 of traces write a running tally, a corrupted numeral is followed by the next one in .63–.86 of cases and never repaired by a latent counter, yet the final answer survives because the tape holds redundant tallies; the chunk-onset attention on the target sentence drops 4.5–6× with distractors. The serial program is per-item retrieval plus a written tally, and it fails where retrieval does.</li>
+<li><strong>7.3 Where the count lives.</strong> (Fig. 3.) Minimal-pair patching: the K → K+1 signal rides the flipped sentence's tokens to mid-depth, hands off to the question tokens in a band (Qwen-3B L18–24, Qwen-7B L15–18, Llama L11–15), then to the answer row; later items ≤ .37, earlier exactly 0. Clamping the question-row share on needles at all layers to the K = 4 reference makes Qwen answer 4–6 at every K and Llama 12; amplifying raises the count; a single-layer clamp is inert. The channel is s = Σ_{i∈needles} a_i at the read rows, distributed over layers.</li>
+<li><strong>7.4 Bottleneck 1, selectivity.</strong> (Fig. 4.) At the band a true item outscores a same-domain non-match by .5–.8 nats (3–4 nats over unrelated text). Half-matches by person keep .77–.85 of the margin, by room .21–.28: the read matches the person, not the conjunction. Leakage predicts over-count (ρ = +.25…+.46). One paragraph of graph reading: a one-hop additive read is 1-WL-like; a relation between two features needs a nonlinear per-unit computation.</li>
+<li><strong>7.5 Bottleneck 2, readout.</strong> (Fig. 5.) ×4 the evidence share at K = 4 still yields "4"–"6" on Qwen; Llama's map is near-linear (×2 → 8), which is why Llama counts to 12 in clean context and over-counts in leaky context. Per added needle d′ ≈ .5. Sharpening trades leakage for compression (helps Llama at K = 8 only).</li>
+<li><strong>7.6 What is not the cause.</strong> (Table 1.) fp32 = bf16; running counter in items; softmax normalizer log Z decodes K worse than the residual and adapts upstream; single head or layer; label-free pattern statistics (no head is sentence-selective, k_eff 21–33 of 64 for all K); competitor count per se (HU ≈ H0 on Qwen); individuation prompts. Two lines each.</li>
+<li><strong>7.7 The distance axis.</strong> (Fig. 6, one panel; App. C.) BABILong factorial full / same-tokens-at-original-positions / repacked: up to 32k, removing competitors recovers most of the loss (Llama qa1 32k .735 → .86 → .875); beyond it positions dominate (128k .29 → .40 → .85) and the 1M-context model removes the distance term while dispersion alone still costs 5–7pp. Two axes → two ingredients.</li>
+</ul>
+
+<h2>8 · Bind, then count (≈1.25 pages)</h2>
+<ul>
+<li><strong>8.1 From diagnosis to design.</strong> Three sentences: selectivity needs a nonlinear per-unit computation with no competitors in the softmax → fence; distance degrades the per-unit verdict → per-block position reset; the compressive share-to-number map → sum over bounded verdicts.</li>
+<li><strong>8.2 Construction.</strong> (Fig. 7.) Layout: prefix (system + question), N blocks each "\n" + u_i + c_i, tail "\nQuestion: q\nAnswer:". Mask M: causal within the prefix and within each block; cross-block cells closed at every layer; tail rows see prefix and carriers. Positions π: each block restarts at prefix_end; the tail follows the longest block. Carrier embedding e_c trained; verdict z_i = wᵀh_i^(L) + b; ĉ = Σ_i 1[z_i &gt; 0]; exists = max, first/last = extreme index with z_i &gt; 0; distinct/mode from a per-unit class head. Loss BCE(z_i, y_i) + λ (Σ_i σ(z_i) − y)² / N. Parameters 2d + 1 (7.2k on the 7B) <span class="check">check</span> per backbone. Trained 3–4 epochs on N ≤ 32. ⟨TF⟩ Training-free form: block_i ends with the per-unit question and " Answer:"; z_i = logit(Yes) − logit(No) at that token; no e_c, no head. The trained head is the calibrated version of the same read (AUC ≈ 1.00 in both; only the threshold differs). Equations must match <code>train_bindcount.py</code> <span class="check">check</span> move it into <code>scripts/</code>.</li>
+<li><strong>8.3 Why it generalizes.</strong> One proposition: z_i depends only on (prefix, u_i, q), so its distribution is independent of N; exact-count accuracy is the probability that all N verdicts are correct. Design rule: per-unit error must be ≪ 1/N, which the count-aware loss delivers for the verdict head and the 7-way room head does not (9.5).</li>
+<li><strong>8.4 Cost.</strong> One forward; block-diagonal attention costs no more than full attention. Vision: carrier per frame via the VL model's box token, M-RoPE reset per frame; nothing else changes.</li>
+</ul>
+
+<h2>9 · Experiments (≈2.25 pages)</h2>
+<p>Simplest baseline first; change one thing at a time; say what each number means.</p>
+<ul>
+<li><strong>9.1 Setup.</strong> MMRED text, needle stories, MMRED rendered frames, HERBench action counting (HD-EPIC, N = 16/32). Qwen2.5-3B, Qwen2.5-7B, Llama-3.1-8B, Qwen2.5-VL-7B (4-bit). Exact match; per-unit verdict accuracy and AUC; MAE. Training N ≤ 32; n = 100 per cell. <span class="check">check</span> seeds.</li>
+<li><strong>9.2 Baselines.</strong> Frozen model (.59 → .15 from N = 8 to 1024); frozen model given only the gold units (vision .65–.80); digit-LoRA (.92 in-length → .25); chain of thought (7.2); select-and-repack <span class="check">check</span> re-run on the same backbone and split.</li>
+<li><strong>9.3 Main result.</strong> (Table 2, Fig. 1b.) ⟨TF⟩ Training-free: MMRED text 1.00 at every N from 8 to 1024 (per-unit 1.000), rendered frames .98 / .97 / .99 / .98 (per-frame ≥ .996), needles with distractors .89 / .92 / .91 (per-unit .995–.998, AUC ≈ 1.00). Calibrated (2d + 1 head): 1.00 at every N on all three text backbones, 1.00 on needles, .99–1.00 on frames. The head buys the threshold, not the ranking.</li>
+<li><strong>9.3b Training-free ablations.</strong> (Table 3a.) No fence (same cue, causal, native positions): text .65 / .14 / .18 / .01 / .00 … with AUC falling .99 → .88, needles AUC .90 → .71, vision .33 / .41 / .31 / .31 → isolation. No cue (question only in the prefix): text .49 / .16 / .07 / .22 / .41 / .66 / .66 / .80 with AUC ≥ .999 → calibration. Vague cue ("relevant to the question?"): MMRED ≈ direct, needles .19 / .09 / .10 with over-counting, vision .62–.74 → selectivity on partial matches.</li>
+<li><strong>9.4 Ablations, one ingredient at a time.</strong> (Table 3.) No fence: .81/.62/.56/.44/.30 at N = 64…1024 with per-unit accuracy .997 → selectivity. No reset: 1.00 to N = 64, then .98/.63/.32/.23; worst-case margin 14 → 5.8 → distance. Mean read (fenced carriers, digit LoRA at the answer row): 1.00/.98/.94 in-length → .60/.26/.10/.09/.09 → readout; also the PCW/APE-style control.</li>
+<li><strong>9.5 Set functions from one forward.</strong> (Table 4.) count / exists / first / last 1.00 at every N; distinct rooms 1.00 → .71 and most-visited room 1.00 → .82 at N = 1024 with a .998-accurate room head: (1 − ε)^N, the design rule of 8.3.</li>
+<li><strong>9.6 Vision.</strong> (Table 5.) N = 8/16/32/64: .99/.99/1.00/.99, per-frame verdict .999; no fence .60/.33/.33/.27 (verdict .91–.96); frozen .20–.40; oracle frames .65–.80. Frames interfere more than sentences.</li>
+<li><strong>9.7 Scope: real video.</strong> (Table 6.) HERBench: per-frame AUC .77–.80 for fenced, unfenced and frozen; exact .04–.15 for every arm; frozen full .12/.05; oracle .02. The fence hurts (no-fence verdict .75/.82 vs. fenced .68/.69): neighbouring frames help a frozen VLM judge one frame. The limit of the method, stated as such.</li>
+<li><strong>9.8 Mechanistic check on the carriers.</strong> (Fig. 8.) Verdict-margin distribution vs. N is flat under the full construction (median worst-case margin 19–25) and decays without the reset (14 → 5.8). <span class="check">check</span> make the figure from the run dirs.</li>
+</ul>
+
+<h2>10 · Limitations and future work (≈0.35 page)</h2>
+<ul>
+<li>Units must be pre-segmented. Path: learned segmentation or overlapping windows.</li>
+<li>The verdict head is trained (2d + 1 parameters); fully training-free variants were negative.</li>
+<li>The verdict is a per-unit predicate; relations between two units need a second stage over carriers.</li>
+<li>Isolation costs context: on real video the fence hurts. Path: a fixed local window, not a learned mask (App. H).</li>
+<li>Per-unit error must be ≪ 1/N; multi-class heads need margin-aware losses.</li>
+<li>Synthetic aggregation data; real-data gains shown only where per-unit judgment is reliable.</li>
+</ul>
+
+<h2>11 · Conclusion (≈0.15 page)</h2>
+<p>Present tense. Restate the nugget with the numbers: a one-hop softmax read into one node cannot bind and cannot count; binding each unit behind a fence and summing bounded verdicts makes the aggregation exact at any length; the remaining error is the model's per-unit judgment.</p>
+
+<h2>12 · Figures and tables</h2>
+<div class="tw"><table>
+<tr><th>#</th><th>Content</th><th>What the caption says to notice</th></tr>
+<tr><td>Fig. 1</td><td>teaser: (a) emitted vs. true count, (b) EM vs. N with ablations</td><td>plateau at 4–12; one flat line at 1.00; ablations fall in predicted order</td></tr>
+<tr><td>Fig. 2</td><td>emitted vs. true per model × regime</td><td>over-count above the diagonal only with same-domain distractors</td></tr>
+<tr><td>Fig. 3</td><td>patching path heatmap + clamp/amplify curves</td><td>hand-off band; clamp pins the answer, amplify raises it</td></tr>
+<tr><td>Fig. 4</td><td>margins by competitor type; half-match bars</td><td>.5–.8 vs. 3–4 nats; person ≫ room</td></tr>
+<tr><td>Fig. 5</td><td>emitted number vs. imposed share, Qwen vs. Llama</td><td>compressive vs. near-linear map</td></tr>
+<tr><td>Fig. 6</td><td>BABILong factorial vs. length</td><td>competitor axis ≤ 32k, distance axis beyond</td></tr>
+<tr><td>Fig. 7</td><td>method layout: blocks, carriers, fence, reset, sum read</td><td>which cells are closed; where the verdict is read</td></tr>
+<tr><td>Fig. 8</td><td>verdict margin vs. N, full vs. no-reset</td><td>flat vs. decaying</td></tr>
+<tr><td>Table 1</td><td>excluded hypotheses: falsifier → outcome</td><td>one line each</td></tr>
+<tr><td>Table 2</td><td>main result: EM vs. N, three backbones</td><td>all 1.00</td></tr>
+<tr><td>Table 3</td><td>ablations with per-unit accuracy and worst-case margin</td><td>which ingredient buys what</td></tr>
+<tr><td>Table 4</td><td>set functions vs. N</td><td>exact ones vs. (1 − ε)^N ones</td></tr>
+<tr><td>Table 5</td><td>vision: method / no fence / frozen / oracle</td><td>frames interfere more than sentences</td></tr>
+<tr><td>Table 6</td><td>HERBench: exact, verdict acc, AUC per arm</td><td>perception ceiling; fence hurts</td></tr>
+</table></div>
+
+<h2>13 · Appendices</h2>
+<ul>
+<li>A. Pre-registration documents with predictions and dated outcomes, fired falsifiers and post-hoc corrections labelled.</li>
+<li>B. Needle instrument. C. Retrieval program: BABILong grids, LSE decomposition, 1M-context test, k-identity.</li>
+<li>D. Softmax-normalizer probe (falsified). E. Attention-pattern statistics (falsified). F. Chain-of-thought test.</li>
+<li>G. Training-free selection on MMRED (negative). H. Learned attention masks (negative). I. What fine-tuning buys: a fixed margin, one octave of length.</li>
+<li>J. HERBench preparation. K. Compute. L. AI-use statement (required); reproducibility statement.</li>
+</ul>
+
+<h2>14 · Page budget</h2>
+<div class="tw"><table>
+<tr><th>Section</th><th>Pages</th></tr>
+<tr><td>Introduction + Fig. 1</td><td>1.25</td></tr>
+<tr><td>Related work</td><td>0.75</td></tr>
+<tr><td>Anatomy of the failure</td><td>3.00</td></tr>
+<tr><td>Bind, then count</td><td>1.25</td></tr>
+<tr><td>Experiments</td><td>2.25</td></tr>
+<tr><td>Limitations + conclusion</td><td>0.50</td></tr>
+</table></div>
+
+<h2>15 · House style</h2>
+<ul>
+<li>Present tense throughout, including related work. Past tense only for how data were generated.</li>
+<li>Active voice; the method does things. No "allows to", "enables", "provides", "showcases", "delve", "novel", "aims to", "may". No contractions, no exclamation marks.</li>
+<li>Every comparative names its comparison. No over-claiming: exact where the per-unit verdict is reliable, and say where it is not.</li>
+<li>Every important concept three ways: gist, equation, figure. Equations match the code; notation table from day one.</li>
+<li>No sentence starts with a citation; citation numbers sorted; cite the published version. Captions say what to notice.</li>
+<li>Fewer words. No "in this section we". No paragraph ending with one or two words on its last line. Fill the nine pages.</li>
+</ul>
+
+<h2>16 · Evidence gaps to close</h2>
+<div class="kill"><p>None of these change the story; all of them change whether a reviewer can trust a figure.</p></div>
+<ol>
+<li>Replicate the analysis cells behind Figs. 2–5 at n ≥ 100 (now 24–50; differences under .15 are noise).</li>
+<li>Seeds for every method cell; mean over 3 seeds where cheap.</li>
+<li>Select-and-repack baseline row on the same backbone and split as Table 2.</li>
+<li>Parameter count per backbone (2d + 1; 7.2k holds for d = 3584 only).</li>
+<li>Fig. 8 from existing run dirs.</li>
+<li>Move the trainers from <code>outputs/_scratch/dbg/</code> into <code>scripts/</code> with a CPU test.</li>
+<li>Compute table (GPU-hours per arm).</li>
+<li>Optional: rendered frames N &gt; 64; HERBench 5-way mapping and the training-free judge on HERBench; a second real benchmark with reliable per-unit verdicts (the main reviewer gap).</li>
+<li>⟨TF⟩ Decide the headline: training-free exactness (text to 1024, frames to 64) with the 2d + 1 head as calibration for hard families, or the trained construction with the training-free result as an ablation. Recommendation: training-free headline; it is the stronger and simpler claim.</li>
+<li>In-model tally (S2) stays in the appendix as a boundary: a patched answer row is read as one token (single digits 1.00 at layer 24, two digits ≤ .26); the helix + linear basis explains R² ≈ .7 of the number vectors.</li>
+<li>Draft order: Fig. 1 and Table 2 → abstract → introduction → method → experiments → analysis → related work → limitations. Full draft by 14 Sept; abstract registered 18 Sept.</li>
+</ol>
+</div>

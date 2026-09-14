@@ -1,0 +1,9 @@
+# Orientation staging V2: canonical Hugging Face symlink binding
+
+CPU stage443650 failed after54.30 measured seconds (55 allocated CPU-seconds), before feature inventory, model calls or fitting. The generic input binder rejected the canonical Hugging Face snapshot `config.json` because it is a symlink into that model cache's immutable blob store. Preserve the original four sources,104 inherited sources, failed output and source release unchanged.
+
+The separate V2 stager changes only path binding and versioned provenance. Accept a symlink only under the exact held Qwen snapshot when its resolved target is a regular file within that snapshot's own cache `blobs` directory. Require the previously bound expected content hash and record both the original snapshot path and resolved target with that same hash. Ordinary artifact symlinks remain rejected. No cache/model file is modified. A small CPU fixture checks the real snapshot config's dual binding, a wrong expected hash, and rejection of an unrelated symlink.
+
+Keep the original216 scenes, room swap, original initialization/global statistics, exact48000 alternating pair presentations,6000-update targets/head-row counts, feature reuse/missing inventory and all scientific criteria. Reuse the unchanged independent verifier. New output/data namespace: `identity_join_factor_orientation_v2`. One separately authorized300-second/four-core/16GiB CPU attempt remains a staging operation; it releases no feature harvest, fit or inference.
+
+V2 binds original failure SHA `3e1f12be71eca8837344bcab543556664121059a516d04ece8158ccaa572d04f` and source-release SHA `1256d1c29acce571b6f5a10bbd0edcbd2f8de1be4671d934615ec770d6210366`. Its three new sources inherit all108 original sources. The original failure remains an input to the successful or failed retry, never a replaced result.

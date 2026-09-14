@@ -1,0 +1,15 @@
+# Ordinary joint-image LoRA: software and cost profile
+
+No full training or fresh evaluation has run. The baseline remains a competence control, not evidence for a new aggregation method.
+
+The original CPU preparation443875 passed in145seconds. GPUprofile443880 failed after34seconds at a literal saved-configuration check: PEFT shortens long target selectors internally. Exact actual112-module/224-tensor checks had already passed. Its four frozen-base trajectories contain10 model/head calls and4 vision prefills; no zero-LoRA trajectory, backward or optimizer update occurred. The original source release and failure remain unchanged.
+
+The separate V2 CPU443888 passed in150seconds. Its112-module fixture exercised actual PEFT condensation, preserved the exact effective scope, and rejected a selector that included visual modules. All216 reconstructed input/teacher metadata and the twelve-epoch schedule matched the original preparation exactly.
+
+V2 GPUprofile443890 completed in63seconds. Summary SHA256: `5c75b6919698a8b9832fc6a4bd75106d4937610832999aa1463d497ddf43705a`. All four native/zero-LoRA trajectory pairs had exactly equal raw logits, generated IDs and shapes. Two accumulation-eight updates passed the gradient, base-state and precision checks. Saving, resetting to the original adapter and reloading restored identical deterministic teacher logits. Observed inventory:40 model/language/norm/head calls,28 vision prefills,16 backwards,two updates and80 selected head rows. Peak allocated GPU memory was25.62GiB. Independent CPU numerical auditing is still pending.
+
+The original resource forecast failed:28,545.2075seconds against3,600. The fixed rule multiplied both instrumented first-call times (N8:5.7944s;N16:10.4050s) across all training examples. Those calls include tracing and first-call work; the measurements do not isolate their separate contributions. Preserve the failed forecast.
+
+A separate main-protocol accounting amendment was selected after these cost measurements and before any full fit. The main does not invoke the tracing profiler. Take maxima over all seven ordinary profile calls at each N (0.53999s and1.02077s), and charge both complete instrumented first calls once as an additional setup reserve. Retain every natural-generation allowance, optimizer/checkpoint observation, the1.25 multiplier,60second reserve and3,600second cap. Root independently computes3,029.585seconds, about50.5minutes; independent audit and source review are required before release. This is a resource estimate, not a runtime guarantee or a retroactive pass of the original gate.
+
+Actual cost so far:97 GPU-seconds (34 failed+63 completed) and295 CPU preparation job-seconds, each CPU allocation using four cores. No claim of training competence, extrapolation, relevant-load improvement or reasoning benefit follows from these software checks. See the [main draft](NATIVE_AGGREGATION_JOINT_LORA_MAIN_PROPOSAL.md) and [execution record](../../outputs/native_aggregation_vlm/identity_join_joint_lora_v2/execution.json).

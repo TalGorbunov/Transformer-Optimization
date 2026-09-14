@@ -1,0 +1,11 @@
+# Fixed CPU diagnostic of the failed orientation head audit
+
+The original independent training report443682 remains FAILED. Its product final batch10 contains one native FP16 head argmax mismatch, although the recorded full-vocabulary TV is0.0036688551772385836, below0.02. The reported functional metrics passed up to that point. The saved GPU endpoints provisionally score79/216 product and72/216 additive, with no complete families; these are not accepted independent results.
+
+Authorize one300-second Slurm CPU diagnostic with four cores and16GiB. Bind the exact failure, failing audit JSON, both completed GPU summaries, frozen preparation, original sources and native norm/head identity. Preserve every original file. Replay the actual native FP16 norm and head on all14 final batches per arm, at their original[1,B,H] shape:28 norm calls and28 head calls,432 rows. Add exactly one head-only call on product batch10's saved GPU-normalized[1,16,H] values. Total29 CPU head calls/448 rows; no GPU, backbone, core, fit or generated answer.
+
+Save complete CPU FP16 normalized/logit tensors before evaluating fidelity. Keep every row, including disagreements. Report actual GPU and CPU argmax IDs, tied maxima, top logits, full-vocabulary probabilities, target probabilities, top-two margins, FP16-logit differences and the unchanged prior FP32 TV/exact-argmax rule. The extra fixed route distinguishes changing the normalization input from projecting the saved normalized values; it is descriptive and does not replace the registered replay.
+
+Recount the GPU and CPU first-token screens independently. Give lower/upper criteria under either observed backend prediction per row, plus the conservative bound treating every disagreeing row as potentially correct. These are deterministic sensitivity bounds, not confidence intervals or permission to accept a failed audit. The original native/fresh gate remains closed regardless of the diagnostic outcome.
+
+Without further heads, summarize each current run's logged first-token, name-continuation and EOS loss, scene-mean CE, gradient norm and clipping frequency in fixed update windows1–600,601–2000,2001–4000,4001–6000. These logged descriptions do not rerun optimization or establish a cause. No prior fitted checkpoint, threshold, training horizon or source is amended.

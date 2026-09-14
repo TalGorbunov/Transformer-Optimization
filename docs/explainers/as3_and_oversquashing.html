@@ -1,0 +1,228 @@
+<title>AS3 and Over-Squashing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#F5F6F4;--surface:#FFFFFF;--ink:#1B211F;--muted:#5D6864;--rule:#D7DDDA;--frozen:#9AA39F;--ft:#C58A2A;--as3:#2F5D8A;--as3-soft:#DDE8F3;--warn:#B2432E;--warn-soft:#F6E3DF;--mark:#FFF1C2;--ev:#0F766E;--ev-soft:#D9EFEB}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#121615;--surface:#1A1F1E;--ink:#E7ECEA;--muted:#9FA9A5;--rule:#2C3532;--frozen:#7A837F;--ft:#E0B25A;--as3:#7FB0DE;--as3-soft:#1B2E40;--warn:#E08A78;--warn-soft:#3E211B;--mark:#3A3320;--ev:#5CC8B8;--ev-soft:#163B37}}
+:root[data-theme="dark"]{--bg:#121615;--surface:#1A1F1E;--ink:#E7ECEA;--muted:#9FA9A5;--rule:#2C3532;--frozen:#7A837F;--ft:#E0B25A;--as3:#7FB0DE;--as3-soft:#1B2E40;--warn:#E08A78;--warn-soft:#3E211B;--mark:#3A3320;--ev:#5CC8B8;--ev-soft:#163B37}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.55;margin:0;padding:0 20px 72px}
+.wrap{max-width:820px;margin:0 auto}
+header{padding:48px 0 8px}
+.eyebrow{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+h1{font-size:36px;line-height:1.1;font-weight:700;margin:10px 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.sub{font-size:18px;color:var(--muted);margin:0 0 6px}
+h2{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:38px 0 12px;padding-top:14px;border-top:1px solid var(--rule)}
+h3{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;font-weight:600;margin:16px 0 4px}
+p{margin:0 0 12px}
+ul{margin:0 0 12px;padding-left:22px}li{margin:0 0 7px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:14px 16px;margin:10px 0}
+.steps{counter-reset:s;list-style:none;padding:0;margin:8px 0}
+.steps li{counter-increment:s;position:relative;padding-left:30px;margin:0 0 8px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:20px;height:20px;border-radius:50%;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;background:var(--as3-soft);color:var(--as3)}
+.diagram{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px}
+.fr{border:1px solid var(--rule);border-radius:4px;padding:4px 8px;background:var(--bg)}
+.fr.keep{border-color:var(--as3);background:var(--as3-soft)}.fr.drop{color:var(--muted);text-decoration:line-through}
+.arrow{color:var(--muted);font-size:18px;padding:0 2px}
+.out{border-radius:4px;padding:4px 9px;font-weight:600;background:var(--as3-soft);color:var(--as3)}
+table{border-collapse:collapse;width:100%;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:14px;margin:8px 0 14px;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+td.a{color:var(--as3);font-weight:600}td.w{color:var(--warn)}td.g{color:var(--ev);font-weight:600}
+.note{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13.5px;color:var(--muted);line-height:1.5}
+.law{background:var(--mark);border-left:4px solid var(--as3);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+.kill{background:var(--warn-soft);border-left:4px solid var(--warn);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+.law p,.kill p{margin:0}
+svg{width:100%;height:auto;display:block}
+.fig{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 12px 8px;margin:10px 0}
+.fig .cap{font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13.5px;color:var(--muted);margin:6px 4px 0;line-height:1.45}
+.fig .cap b{color:var(--ink);font-weight:600}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:12.5px;color:var(--muted);margin:2px 4px 0}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;background:var(--c);border-radius:2px}
+.legend i.d{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
+.pie{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:6px 0}
+@media (max-width:640px){.pie{grid-template-columns:1fr}}
+.pie div{text-align:center;font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:13px;color:var(--muted)}
+.pie b{display:block;color:var(--ink);font-size:14px;margin-top:2px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+@media (max-width:640px){.grid3{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+<header>
+<div class="eyebrow">Single-forward aggregation · 14 September 2026</div>
+<h1>AS3 and Over-Squashing</h1>
+<p class="sub">Why a frozen transformer stops counting as the input grows, and how letting it pick and repack its own evidence fixes that in one forward pass.</p>
+</header>
+
+<h2>1. The problem, in one picture</h2>
+<p>Ask "how many frames show Mary in the kitchen?" over N frames. The answer token gathers evidence from all N frames in one attention step, and attention is a weighted average that must sum to one. Three of the frames are relevant. Watch what happens to their share as the number of frames grows:</p>
+<div class="fig">
+<div class="pie">
+<div><svg viewBox="0 0 120 120" id="p1"></svg><b>N = 8</b>3 relevant frames get most of the attention</div>
+<div><svg viewBox="0 0 120 120" id="p2"></svg><b>N = 64</b>the same 3 frames get a quarter</div>
+<div><svg viewBox="0 0 120 120" id="p3"></svg><b>N = 1024</b>they get 6%, the rest is noise</div>
+</div>
+<p class="cap">Measured evidence share of the answer token's attention on the frozen 1.5B model (layer 16): <b>.79 → .25 → .06</b> from N = 8 to 1024. Green is the relevant frames, grey the distractors. Nothing about the relevant frames changed; there are simply more competitors in the average. This is what the GNN literature calls over-squashing: one node (the answer) with too many neighbours, too little signal from each.</p>
+</div>
+
+<h2>2. The same thing as curves</h2>
+<p>Three numbers describe the read at the answer token: how many frames the attention is spread over (<strong>fan-in</strong>), what share lands on the relevant frames (<strong>evidence mass</strong>), and whether the answer is still right. Frozen, fine-tuned at N ≤ 32, and AS3 (also trained at N ≤ 32), all on MMReD text with the 1.5B model:</p>
+<div class="fig"><div id="tri" class="grid3"></div>
+<div class="legend"><span><i style="--c:var(--frozen)"></i>frozen</span><span><i style="--c:var(--ft)"></i>fine-tuned at N ≤ 32</span><span><i style="--c:var(--as3)"></i>AS3, trained at N ≤ 32</span></div>
+<p class="cap"><b>Left:</b> the frozen model's attention spreads over more and more frames (fan-in 15 → 179). Fine-tuning fixes that: fan-in stays at 13–30. AS3 keeps it at about 6. <b>Middle:</b> evidence mass follows the same order. <b>Right:</b> accuracy. Fine-tuning has sharp attention and still collapses at about twice its training length (N = 64). AS3 stays above .9 to N = 128 and .63 at 1024. Shaded band = training range. AS3's middle panel plots evidence influence (share of the answer's gradient on relevant frames), the closest recorded quantity; its fan-in series is the recorded 5-point probe at N = 8–128.</p>
+</div>
+<p><strong>The mechanism in one line.</strong> To keep the same evidence share while the number of distractors grows c times, the model must raise its relevant-vs-distractor score gap by log c. A frozen model's gap is fixed by its weights, so its evidence share must fall as N grows.</p>
+<p><strong>Why fine-tuning is not enough.</strong> It does sharpen the attention (fan-in flat, evidence mass .45 at N = 128). But a model fine-tuned at N ≤ 32 scores .27 at N = 128, while a model fine-tuned at N = 1024 with the <em>same</em> fan-in and mass scores .75. The attention is equally good; what differs is the positions the readout has seen. Fine-tuning fixes the attention, not the decoding at unseen positions. Every fine-tuned model we trained hits its wall at about twice its training cap.</p>
+
+<h2>3. It is not only counting</h2>
+<p>The same measurement on BABILong retrieval (find one fact in a book-length haystack), Qwen2.5-7B frozen, 4k to 128k tokens. The dashed line is the same model reading only the sentences its own attention selected, repacked at compact positions:</p>
+<div class="fig"><div id="bab" class="grid3"></div>
+<div class="legend"><span><i style="--c:var(--frozen)"></i>full context</span><span><i class="d" style="--c:var(--as3)"></i>selected sentences, repacked</span></div>
+<p class="cap"><b>Left:</b> fan-in of the full-context read grows 16 → 78; the repacked read stays at 15–17. <b>Middle:</b> evidence mass .30 → .04 versus .30 → .20. <b>Right:</b> accuracy .92 → .24 versus .94 → .90. Same sentences at their original positions, not repacked, score .54 at 128k: past ~32k tokens, distance matters as much as competition. The pattern repeats on Qwen2.5-3B and Llama-3.1-8B (evidence mass at least halves in 14 of 15 model × task cells). One more result: the textbook "uniform dilution" formula overestimates the evidence mass by 0.4–6.9 nats, because a few sink-like tokens carry most of the competition.</p>
+</div>
+<div class="law"><p><strong>The law.</strong> Judge a fix by how the gap between the margin the read needs and the margin the model has grows with N. Fine-tuning shifts the intercept; selecting and repacking makes the slope zero. And whatever does the selecting must itself be length-invariant, or it over-squashes in turn.</p></div>
+
+<h2>4. AS3: select, repack, answer</h2>
+<div class="card">
+<ol class="steps">
+<li><strong>Encode each frame alone</strong> (layers 0–15). Other frames are masked out, every frame gets the same "as-if-first" positions, and the question cannot see the frames yet. Nothing here depends on N.</li>
+<li><strong>Select</strong> (layer 16). The answer token's attention share on each frame is its relevance score; frames above a fixed threshold (0.5/N) are kept. Both sides of this comparison are N-independent, so the selector cannot over-squash.</li>
+<li><strong>Repack and answer</strong> (layers 16–27). Dropped frames leave the attention graph; kept frames are renumbered to consecutive positions; the model writes the number itself.</li>
+</ol>
+<div class="diagram"><span class="fr keep">F1</span><span class="fr drop">F2</span><span class="fr drop">F3</span><span class="fr keep">F4</span><span class="fr drop">F5</span><span class="fr keep">F6</span><span class="arrow">→</span><span class="fr keep">F1 F4 F6</span><span class="arrow">→</span><span class="out">"3"</span></div>
+<p class="note">Training at N ≤ 32: cross-entropy on the digit through a LoRA, plus a loss that pushes the layer-16 attention toward the model's own zero-shot yes/no judgment of each frame. No gold selection labels, no external model. Deployment: one forward pass, one threshold.</p>
+</div>
+<p><strong>Why "3".</strong> AS selected with attention over frames at their native long positions and decayed with length (.44 at N = 128): the selector over-squashed. AS2 made the frame encodings N-independent but still built the selecting query from a diluted read of all frames, and collapsed on transfer (.23 at N = 64). AS3 made both sides N-independent.</p>
+
+<h2>5. Results</h2>
+<div class="fig"><div id="res"></div>
+<div class="legend"><span><i style="--c:var(--frozen)"></i>in-length baseline (LoRA)</span><span><i style="--c:var(--as3)"></i>AS3</span><span><i class="d" style="--c:var(--ev)"></i>oracle selection + repack</span></div>
+<p class="cap">Text MMReD, exact match, 1.5B, trained at N ≤ 32, 3 seeds. The oracle (perfect selection, same repack) is flat at .98–1.00, so the remaining gap is selection recall, not the repack.</p>
+</div>
+
+<h3>Text MMReD, exact match</h3>
+<div class="tw"><table>
+<tr><th>arm</th><th>N=8</th><th>16</th><th>32</th><th>64</th><th>128</th><th>256</th><th>512</th><th>1024</th></tr>
+<tr><td>in-length baseline, 1.5B (LoRA, N ≤ 32)</td><td>1.00</td><td>.98</td><td>1.00</td><td>.56</td><td>.29</td><td></td><td></td><td></td></tr>
+<tr><td>two-pass self-judged select-and-repack, 1.5B</td><td>1.00</td><td>1.00</td><td>.99</td><td>.97</td><td>.91</td><td></td><td></td><td>.19</td></tr>
+<tr><td class="a">AS3, 1.5B</td><td class="a">.999</td><td class="a">.958</td><td class="a">1.00</td><td class="a">.995</td><td class="a">.919</td><td class="a">.813</td><td class="a">.756</td><td class="a">.633</td></tr>
+<tr><td class="a">AS3, 3B</td><td></td><td></td><td></td><td class="a">.982</td><td class="a">.981</td><td class="a">.950</td><td></td><td></td></tr>
+<tr><td>top-16 by own attention + repack, no selector training</td><td>1.00</td><td></td><td>.89</td><td>.91</td><td>.95</td><td></td><td></td><td>.80</td></tr>
+<tr><td class="g">oracle selection + repack</td><td class="g">1.00</td><td class="g">.95</td><td class="g">.98</td><td class="g">1.00</td><td class="g">.98</td><td></td><td></td><td class="g">1.00</td></tr>
+</table></div>
+
+<h3>Four question types, one model, no per-task engineering (1.5B; N = 8 / 16 / 32 / 64 / 128)</h3>
+<div class="tw"><table>
+<tr><th>task</th><th>baseline</th><th>AS3</th><th>oracle</th></tr>
+<tr><td>steps in room (count)</td><td>1.0 / .91 / 1.0 / .79 / .52</td><td class="a">1.0 / .99 / .97 / .96 / .83</td><td>.99 / .97 / .80 / .86 / .86</td></tr>
+<tr><td>entity count</td><td>1.0 / .90 / .97 / .71 / .42</td><td class="a">1.0 / 1.0 / 1.0 / 1.0 / .93</td><td>1.0 / .99 / .98 / .97 / .99</td></tr>
+<tr><td>distinct rooms (nonlinear)</td><td>1.0 / .98 / .99 / .98 / .77</td><td class="a">1.0 / .99 / 1.0 / .98 / .83</td><td>1.0 / .98 / 1.0 / .99 / .99</td></tr>
+<tr><td>co-occurrence (relational)</td><td>1.0 / .91 / .95 / .63 / .36</td><td class="a">1.0 / 1.0 / 1.0 / .96 / .81</td><td>1.0 / .98 / .93 / .92 / .94</td></tr>
+</table></div>
+
+<h3>Vision MMReD, the same mechanism with the model as its own judge (frozen 4-bit VLMs; zero-shot per-frame yes/no, kept frames re-fed compactly, LoRA answer pass trained at N ≤ 32)</h3>
+<div class="tw"><table>
+<tr><th>model</th><th>selection</th><th>N=8</th><th>16</th><th>32</th><th>64</th></tr>
+<tr><td>Qwen2.5-VL-7B</td><td>none</td><td>.99</td><td>.88</td><td>.80</td><td>.66</td></tr>
+<tr><td>Qwen2.5-VL-7B</td><td class="a">zero-shot judge + repack</td><td class="a">1.00</td><td class="a">1.00</td><td class="a">.998</td><td class="a">1.00</td></tr>
+<tr><td>Qwen2.5-VL-7B</td><td class="g">oracle</td><td class="g">1.00</td><td class="g">1.00</td><td class="g">.996</td><td class="g">.998</td></tr>
+<tr><td>Qwen2.5-VL-3B</td><td class="a">zero-shot judge + repack</td><td></td><td class="a">.976</td><td class="a">.956</td><td class="a">.900 (none .547)</td></tr>
+<tr><td>Qwen2-VL-2B</td><td class="a">zero-shot judge + repack</td><td></td><td class="a">.966</td><td class="a">.916</td><td class="a">.883 (none .260)</td></tr>
+</table></div>
+<p class="note">Judge recall 1.000 on all three VLMs (86,400 frame judgments on the 7B, zero false keeps). The direct visual question "Is C in this image?" works; the meta-question "is this frame relevant?" scores only .73.</p>
+
+<h3>Controls</h3>
+<ul>
+<li><strong>Repack is the payoff</strong>: oracle-selected frames masked in place at N = 64 score .25; the same frames deleted and renumbered score 1.00. Positions are labels on the attention edges; rewiring without renumbering breaks the read.</li>
+<li><strong>Selection is the payoff too</strong>: shared positions with nothing dropped scores .15 at N = 32.</li>
+<li><strong>Training lengths</strong>: the answer pass needs only N = 8; the selector needs one distractor-rich length (N = 32 is enough for 1024). AS3 trained at N = 8 only: .68 / .65 / .54 / .28 at N = 16 … 128.</li>
+</ul>
+<div class="kill"><p><strong>What did not work.</strong> The selector cannot be learned from the task loss alone: at initialization the layer-16 attention is uniform over frames, and six controlled attempts at end-to-end learning through differentiable repacking failed, because keeping everything already solves the training lengths. Dense inputs where every frame is relevant leave token-level selection at .51 against a .89 ceiling. Backbones without a retrieval signal (Qwen 0.5B, SmolLM2) gain nothing from any selection method.</p></div>
+
+<h2>6. Where this sits in the literature</h2>
+<div class="tw"><table>
+<tr><th>line of work</th><th>what it has</th><th>what we add</th></tr>
+<tr><td>Over-squashing in GNNs (Alon &amp; Yahav; Topping; Di Giovanni)</td><td>sensitivity bounded by node degree; rewiring as the cure</td><td>the transformer instance: fan-in is the degree of the read node, measured on frozen, fine-tuned and repacked models</td></tr>
+<tr><td>Softmax dispersion (Veličković; Barbero; Gollapudi; SSMax)</td><td>attention mass on a target falls with competitors; a mean-margin law</td><td>the law tested on frozen LLMs and falsified by 0.4–6.9 nats; competition vs distance separated with a 1M-context model</td></tr>
+<tr><td>Attention-guided selection (SnapKV, GemFilter, InfiniRetri)</td><td>the model's own attention picks what to keep</td><td>their selector reads the full long input and over-squashes; ours is N-invariant by construction, and we repack positions (75 points)</td></tr>
+<tr><td>Retrieval heads (Wu et al.)</td><td>a few heads copy from context, present in pretrained models</td><td>for aggregation queries the head is uniform at initialization and is created by our auxiliary loss</td></tr>
+<tr><td>Independent context encoding (Parallel Context Windows, APE, register tokens)</td><td>blocks encoded separately at shared positions</td><td>this is our stage 1; alone it fails (.15) because the read over all blocks is still one average</td></tr>
+<tr><td>Co-GNN (Finkelshtein et al.)</td><td>per-node isolate / listen actions learned against over-squashing</td><td>the transformer port, plus what GNNs get for free: action-consistent positions and separate supervision of the action network</td></tr>
+<tr><td>Length fine-tuning and position extension (YaRN, LongLoRA)</td><td>longer usable context</td><td>they sharpen attention but not decoding at unseen positions; the wall moves to ~2× the training cap</td></tr>
+</table></div>
+<p>Ours in one sentence: the read node of a joint prompt over-squashes in a degree-governed way, fine-tuning changes the intercept of the margin it needs and not the slope, and attention-guided select-and-repack keeps degree, positional coverage and sensitivity constant in N inside one forward pass.</p>
+
+<h2>7. Next steps</h2>
+<ul>
+<li><strong>Before the paper (25 Sept)</strong>: AS3 on the 7B backbone and the current data split; replicate the analysis cells at n ≥ 100 with seeds; the three-panel figure above, redrawn from a single run with all three models on the same probe; move the AS3 scripts into the package with CPU tests.</li>
+<li><strong>Selector without distillation</strong>: use a per-frame yes/no computed behind a fence as the keep signal, so the auxiliary loss goes away and the model still writes its own answer.</li>
+<li><strong>Dense inputs</strong>: token-level selection precision is the open gap.</li>
+<li><strong>Beyond counting</strong>: case analysis over hypotheses and relations between frames; co-occurrence at .81 is the first relational evidence.</li>
+<li><strong>Composition with reasoning</strong>: the same selector and control crossed with direct and free-reasoning outputs in one reasoning backbone; no evidence either way yet.</li>
+<li><strong>Real data</strong>: HERBench showed a per-frame perception ceiling; a real benchmark with reliable per-frame evidence is the main open question.</li>
+</ul>
+<p class="note">Sources: frozen and fine-tuned curves from outputs/_scratch/ft_effects_fixed.json (true answer row, layer 16; CONDMASK_REPORT.md Addenda 11, 12b); AS3 probe from Addendum 13b (outputs/bat16/osq2, 1.5B trained at N ≤ 16); BABILong from outputs/babilong_osq (qa1, Qwen2.5-7B, layer 22, n = 100–200; PREREG_OSQ.md outcomes 2026-09-02); AS3 results from outputs/coformer_as3 and Addenda 5–8; vision from Addenda 6–7; theory in docs/theory/osq_read_node.md. Frozen, fine-tuned and AS3 rows in section 2 are separate probe runs on the same 1.5B backbone and data law.</p>
+</div>
+<script>
+(function(){
+  var C=getComputedStyle(document.documentElement);function col(v){return C.getPropertyValue(v).trim();}
+  var ink=col("--ink"),muted=col("--muted"),rule=col("--rule"),surf=col("--surface"),ev=col("--ev"),gr=col("--frozen"),ft=col("--ft"),as=col("--as3");
+  var FS='font-family="IBM Plex Sans,system-ui" ';
+  // ---- pies: measured evidence mass on the frozen 1.5B model
+  function pie(id,share){var r=50,cx=60,cy=60;var a=share*2*Math.PI;var x=cx+r*Math.sin(a),y=cy-r*Math.cos(a);var large=a>Math.PI?1:0;
+    var s='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="'+gr+'" opacity=".55"/>';
+    s+='<path d="M'+cx+' '+cy+' L'+cx+' '+(cy-r)+' A'+r+' '+r+' 0 '+large+' 1 '+x.toFixed(2)+' '+y.toFixed(2)+' Z" fill="'+ev+'"/>';
+    s+='<text x="'+cx+'" y="'+(cy+4)+'" font-size="13" font-weight="600" text-anchor="middle" fill="'+surf+'" '+FS+'>'+Math.round(share*100)+'%</text>';
+    document.getElementById(id).innerHTML=s;}
+  pie("p1",.794);pie("p2",.254);pie("p3",.063);
+  // ---- small-multiple line panel
+  function panel(o){var W=270,H=200,L=40,R=8,T=22,B=34,pw=W-L-R,ph=H-T-B;var xs=o.xs;
+    function x(i){return L+pw*i/(xs.length-1);}
+    var lo=o.ylo,hi=o.yhi,logy=!!o.logy;
+    function y(v){var t=logy?(Math.log(v)-Math.log(lo))/(Math.log(hi)-Math.log(lo)):(v-lo)/(hi-lo);return T+ph*(1-Math.max(0,Math.min(1,t)));}
+    var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+o.title+'">';
+    s+='<text x="'+L+'" y="14" font-size="12.5" font-weight="600" fill="'+ink+'" '+FS+'>'+o.title+'</text>';
+    (o.ticks||[]).forEach(function(g){s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(g)+'" y2="'+y(g)+'" stroke="'+rule+'"/><text x="'+(L-5)+'" y="'+(y(g)+4)+'" font-size="10.5" text-anchor="end" fill="'+muted+'" '+FS+'>'+g+'</text>';});
+    if(o.band){s+='<rect x="'+x(0)+'" y="'+T+'" width="'+(x(o.band)-x(0))+'" height="'+ph+'" fill="'+rule+'" opacity=".35"/>';}
+    xs.forEach(function(n,i){s+='<text x="'+x(i)+'" y="'+(H-B+16)+'" font-size="10.5" text-anchor="middle" fill="'+ink+'" '+FS+'>'+n+'</text>';});
+    s+='<text x="'+(L+pw/2)+'" y="'+(H-3)+'" font-size="10.5" text-anchor="middle" fill="'+muted+'" '+FS+'>'+o.xlabel+'</text>';
+    o.series.forEach(function(sr){var d="",pen=false;sr.v.forEach(function(v,i){if(v==null){pen=false;return;}d+=(pen?"L":"M")+x(i).toFixed(1)+" "+y(v).toFixed(1)+" ";pen=true;});
+      s+='<path d="'+d+'" fill="none" stroke="'+sr.c+'" stroke-width="2.4" stroke-dasharray="'+(sr.dash||"")+'" stroke-linejoin="round"/>';
+      sr.v.forEach(function(v,i){if(v==null)return;s+='<circle cx="'+x(i)+'" cy="'+y(v)+'" r="3" fill="'+sr.c+'" stroke="'+surf+'" stroke-width="1.3"/>';});});
+    return s+'</svg>';}
+  function row(id,panels){document.getElementById(id).innerHTML=panels.map(function(p){return '<div>'+p+'</div>';}).join("");}
+  // ---- triptych (MMReD text, 1.5B; ft_effects_fixed.json true answer row; AS3 from Addendum 13b)
+  var ns=[8,16,32,64,128,256,1024];
+  var frozen={keff:[15.3,20.6,31.1,48.2,98.6,159.2,178.9],mass:[.794,.586,.429,.254,.172,.092,.063],em:[.60,.375,.146,.083,.125,.281,.125]};
+  var ft32={keff:[16.0,13.7,14.1,13.3,16.3,21.7,30.3],mass:[.787,.639,.567,.492,.451,.379,.262],em:[1,.979,1,.604,.271,.156,.062]};
+  var as3={keff:[5.3,7.9,6.1,6.8,6.1,null,null],infl:[1,1,1,.94,.94,null,null],em:[.999,.958,1,.995,.919,.813,.633]};
+  row("tri",[
+    panel({title:"fan-in (frames the read is spread over)",xs:ns,ylo:4,yhi:200,logy:true,ticks:[5,10,20,50,100,200],band:2,xlabel:"N frames",
+      series:[{c:gr,v:frozen.keff},{c:ft,v:ft32.keff},{c:as,v:as3.keff}]}),
+    panel({title:"evidence share of the read",xs:ns,ylo:0,yhi:1,ticks:[0,.5,1],band:2,xlabel:"N frames",
+      series:[{c:gr,v:frozen.mass},{c:ft,v:ft32.mass},{c:as,v:as3.infl,dash:"5 4"}]}),
+    panel({title:"exact match",xs:ns,ylo:0,yhi:1,ticks:[0,.5,1],band:2,xlabel:"N frames",
+      series:[{c:gr,v:frozen.em},{c:ft,v:ft32.em},{c:as,v:as3.em}]})]);
+  // ---- BABILong qa1, Qwen2.5-7B (outputs/babilong_osq summaries)
+  var bl=["4k","8k","16k","32k","64k","128k"];
+  var full={keff:[16.1,24.4,30.6,43.8,56.6,78.3],mass:[.302,.240,.206,.136,.136,.042],acc:[.92,.86,.84,.79,.71,.24]};
+  var attn={keff:[15.3,16.2,16.4,17.0,17.2,17.4],mass:[.301,.264,.259,.234,.208,.195],acc:[.94,.91,.94,.90,.93,.90]};
+  row("bab",[
+    panel({title:"fan-in",xs:bl,ylo:10,yhi:100,logy:true,ticks:[10,20,50,100],xlabel:"context length",series:[{c:gr,v:full.keff},{c:as,v:attn.keff,dash:"5 4"}]}),
+    panel({title:"evidence share of the read",xs:bl,ylo:0,yhi:.4,ticks:[0,.2,.4],xlabel:"context length",series:[{c:gr,v:full.mass},{c:as,v:attn.mass,dash:"5 4"}]}),
+    panel({title:"accuracy",xs:bl,ylo:0,yhi:1,ticks:[0,.5,1],xlabel:"context length",series:[{c:gr,v:full.acc},{c:as,v:attn.acc,dash:"5 4"}]})]);
+  // ---- results chart
+  var W=820,H=230,L=44,R=14,T=12,B=40,pw=W-L-R,ph=H-T-B;var rn=[8,16,32,64,128,256,512,1024];
+  function rx(i){return L+pw*i/(rn.length-1);}function ry(v){return T+ph*(1-v);}
+  var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="exact match versus number of frames">';
+  [0,.25,.5,.75,1].forEach(function(g){s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+ry(g)+'" y2="'+ry(g)+'" stroke="'+rule+'"/><text x="'+(L-6)+'" y="'+(ry(g)+4)+'" font-size="11" text-anchor="end" fill="'+muted+'" '+FS+'>'+(g===0?'0':g.toFixed(2).replace(/^0/,''))+'</text>';});
+  s+='<rect x="'+rx(0)+'" y="'+T+'" width="'+(rx(2)-rx(0))+'" height="'+ph+'" fill="'+rule+'" opacity=".35"/><text x="'+rx(1)+'" y="'+(T+12)+'" font-size="11" text-anchor="middle" fill="'+muted+'" '+FS+'>training range</text>';
+  rn.forEach(function(n,i){s+='<text x="'+rx(i)+'" y="'+(H-B+18)+'" font-size="11.5" text-anchor="middle" fill="'+ink+'" '+FS+'>'+n+'</text>';});
+  s+='<text x="'+(L+pw/2)+'" y="'+(H-4)+'" font-size="11.5" text-anchor="middle" fill="'+muted+'" '+FS+'>number of frames N · exact match</text>';
+  [{c:gr,v:[1,.982,.999,.56,.29,null,null,null]},{c:as,v:[.999,.958,1,.995,.919,.813,.756,.633]},{c:ev,v:[1,.952,.983,.997,.976,null,null,1],dash:"5 4"}].forEach(function(sr){var d="",pen=false;
+    sr.v.forEach(function(v,i){if(v==null){pen=false;return;}d+=(pen?"L":"M")+rx(i).toFixed(1)+" "+ry(v).toFixed(1)+" ";pen=true;});
+    s+='<path d="'+d+'" fill="none" stroke="'+sr.c+'" stroke-width="2.5" stroke-dasharray="'+(sr.dash||"")+'" stroke-linejoin="round"/>';
+    sr.v.forEach(function(v,i){if(v==null)return;s+='<circle cx="'+rx(i)+'" cy="'+ry(v)+'" r="3.5" fill="'+sr.c+'" stroke="'+surf+'" stroke-width="1.5"/>';});});
+  document.getElementById("res").innerHTML=s+'</svg>';
+})();
+</script>

@@ -1,0 +1,13 @@
+# Fixed input conditioning: the identity join still does not fit
+
+The two fixed conditioning fits failed the registered cached training screen. Global centering produced 64/108 correct first tokens; question-specific centering produced 56/108. Neither solved all six variants and lengths in any of the 18 families. The required screen was at least 103/108 and 16 complete families. No native generation, development evaluation, extrapolation or reasoning test was released.
+
+Both arms used the same original 108 MMReD Vision training contexts, initial parameter bytes, 600 full name-plus-EOS CE updates, and one shared scale. Only mean granularity differed. The previous uniform control had 36/108 correct training first tokens. These within-training comparisons suggest sensitivity to parameterization; they establish neither generalization nor a sufficient repair. Centering and scaling changed together relative to the original control.
+
+The independent CPU report 443351 passed all source, statistics, training reduction, functional capture, checkpoint and head replay checks. Replay covered all 108 final first queries per arm. Maximum probability total variation was 0.003256 for global and 0.003819 for question; all replay argmax IDs matched. The fits used 58 allocated GPU-seconds in total, with two GPUs concurrently. The original CPU check 443321 failed on scalar fingerprinting before either fit; its source and evidence remain preserved. The separate V2 repair changed fingerprinting only and passed CPU check 443335.
+
+Global conditioning can be folded algebraically into the existing local projection and bias; no conversion was tested. It changes effective initialization and optimization, rather than adding representational capacity. Activation-aware initialization methods such as [EVA](https://arxiv.org/html/2410.07170v3) and [CorDA](https://arxiv.org/html/2406.05223v1) are relevant precedents. This scalar rescaling is not covariance whitening.
+
+Stop this normalization comparison. The next bounded diagnostic tests explicit within-image feature products against an equally sized nonlinear additive map, with identical global conditioning. The existing nonlinear map can already encode conjunctions, so this tests whether a different parameterization makes binding easier to learn. The broader aggregation and reasoning objective remains open.
+
+Evidence: [independent report](../../outputs/native_aggregation_vlm/identity_join_conditioning_v2/report_443351/REPORT.md). Summary SHA256: `134af48d0e3be92d8fd542fa01c6eea0da4cc9fd85bd03e688ab87cf16b69012`; analysis: `37904d35314ab4cf04afdf41241c9cf03fc0bff91e220966d565ae624c65c77c`.

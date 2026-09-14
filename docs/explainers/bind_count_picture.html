@@ -1,0 +1,142 @@
+<title>Bind, Then Count in One Picture</title>
+<style>
+:root{--bg:#F7F7F5;--surface:#FFFFFF;--ink:#1C1F1E;--muted:#5F6664;--rule:#D9DCDA;--ours:#0F766E;--ours-soft:#D9EFEB;--bad:#B2432E;--bad-soft:#F6E3DF;--gray:#9AA09E;--frame:#EEF1F0}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#141716;--surface:#1C201F;--ink:#E8ECEA;--muted:#A0A8A5;--rule:#2E3533;--ours:#5CC8B8;--ours-soft:#183B36;--bad:#E08A78;--bad-soft:#3E211B;--gray:#7B837F;--frame:#242A28}}
+:root[data-theme="dark"]{--bg:#141716;--surface:#1C201F;--ink:#E8ECEA;--muted:#A0A8A5;--rule:#2E3533;--ours:#5CC8B8;--ours-soft:#183B36;--bad:#E08A78;--bad-soft:#3E211B;--gray:#7B837F;--frame:#242A28}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;margin:0;padding:0 20px 60px}
+.wrap{max-width:900px;margin:0 auto}
+h1{font-size:28px;margin:40px 0 4px}
+.sub{color:var(--muted);margin:0 0 24px}
+h2{font-size:18px;margin:34px 0 10px;padding-top:12px;border-top:1px solid var(--rule)}
+p{margin:0 0 10px}
+.row{display:flex;gap:16px;flex-wrap:wrap;align-items:stretch}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:14px 16px;flex:1 1 400px}
+.card h3{margin:0 0 8px;font-size:15px}
+.frames{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.fr{background:var(--frame);border:1px solid var(--rule);border-radius:4px;padding:6px 8px;font-size:13px;min-width:120px}
+.fr.hit{border-color:var(--ours);background:var(--ours-soft)}
+.box{border:2px dashed var(--ours);border-radius:6px;padding:6px;font-size:13px;min-width:190px;background:var(--surface)}
+.box .q{color:var(--muted);margin-top:4px}
+.box .v{font-weight:600;color:var(--ours)}
+.box .v.no{color:var(--muted);font-weight:500}
+.arrow{font-size:22px;color:var(--muted);align-self:center;margin:0 4px}
+.answer{display:inline-block;border:1px solid var(--rule);border-radius:6px;padding:6px 12px;font-weight:600;margin-top:8px;background:var(--surface)}
+.answer.bad{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.answer.good{border-color:var(--ours);color:var(--ours);background:var(--ours-soft)}
+.note{color:var(--muted);font-size:14px}
+.why{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+.why div{background:var(--bad-soft);border-left:3px solid var(--bad);padding:8px 12px;border-radius:0 6px 6px 0;font-size:14px}
+svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:6px 0 0}
+.legend span::before{content:"";display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-2px;background:var(--c)}
+table{border-collapse:collapse;width:100%;font-size:14px;margin-top:6px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);font-variant-numeric:tabular-nums}
+th{color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+td.g{color:var(--ours);font-weight:600}
+.take{background:var(--ours-soft);border-left:3px solid var(--ours);padding:10px 14px;border-radius:0 6px 6px 0}
+@media (max-width:700px){.why{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+<h1>Bind, Then Count in One Picture</h1>
+<p class="sub">Counting evidence across many frames with a frozen model, in one forward pass. Text and vision MMReD, September 2026.</p>
+
+<h2>1. The task</h2>
+<p>"How many frames show Mary in the kitchen?" Each frame is one unit of evidence. The answer is the number of matching frames (here 3 of 8). The same question works for text descriptions of frames and for rendered images.</p>
+<div class="frames">
+<div class="fr hit">Frame 1: Mary is in the kitchen</div><div class="fr">Frame 2: John is in the garden</div><div class="fr">Frame 3: Mary is in the office</div><div class="fr hit">Frame 4: Mary is in the kitchen</div>
+<div class="fr">Frame 5: Bill is in the kitchen</div><div class="fr hit">Frame 6: Mary is in the kitchen</div><div class="fr">Frame 7: John is in the office</div><div class="fr">Frame 8: Mary is in the garden</div>
+</div>
+
+<h2>2. Before: the normal forward pass, and why it fails</h2>
+<div class="row">
+<div class="card">
+<h3>What the model does</h3>
+<p>All frames sit in one long prompt. The answer token looks at all of them at once through a single attention step, which is a weighted average (softmax). The count has to be read off how much of that average lands on the matching frames.</p>
+<div class="frames"><div class="fr hit">F1</div><div class="fr">F2</div><div class="fr">F3</div><div class="fr hit">F4</div><div class="fr">F5</div><div class="fr hit">F6</div><div class="fr">F7</div><div class="fr">F8</div><span class="arrow">→</span><span class="answer bad">"about 4 or 5"</span></div>
+<p class="note">Exact answers stop at 4 to 8 items. Beyond that the model gives roughly the same number no matter how many frames match. With frames that half-match (same person, other room) it over-counts.</p>
+</div>
+<div class="card">
+<h3>Two things break, both measured causally</h3>
+<div class="why">
+<div><strong>The read cannot bind.</strong> Attention scores add up features. A frame with Mary in the office gets about 80% of the score of a true match; a frame with Bill in the kitchen only 25%. "Mary" is matched, "Mary in the kitchen" is not, so half-matches leak in.</div>
+<div><strong>The share is read as a number badly.</strong> Making the matching frames' attention share 4× larger still gives "4 to 6" on Qwen. The map from share to number is compressed. Precision, the softmax normalizer, single heads and a running counter were all ruled out.</div>
+</div>
+</div>
+</div>
+
+<h2>3. After: bind first, count second (no training)</h2>
+<div class="row">
+<div class="card">
+<h3>What we change</h3>
+<p>Each frame goes into its own box. Frames cannot see each other (an attention mask, the "fence"), and every box restarts its position count so distance does not matter. Inside each box we append the question and let the frozen model answer yes or no. Then we count the yeses outside the model. One forward pass, zero trained parameters.</p>
+<div class="frames">
+<div class="box">F1: Mary in the kitchen<div class="q">Is Mary in the kitchen here? Answer:</div><div class="v">Yes</div></div>
+<div class="box">F2: John in the garden<div class="q">Is Mary in the kitchen here? Answer:</div><div class="v no">No</div></div>
+<div class="box">F3: Mary in the office<div class="q">Is Mary in the kitchen here? Answer:</div><div class="v no">No</div></div>
+<div class="box">…</div>
+<span class="arrow">→</span><span class="answer good">count the yeses = 3</span>
+</div>
+<p class="note">Reading: the fence removes the competition (no other frame in the softmax), the position reset removes distance, the per-box question turns the read into one verdict per frame, and the sum is linear in the count, so length does not matter by construction. In graph terms: cut the cross-frame edges, one virtual node per frame, sum aggregator.</p>
+</div>
+</div>
+
+<h2>4. Results: exact-match accuracy vs number of frames N</h2>
+<div class="row">
+<div class="card"><h3>Text (Qwen2.5-7B, frozen)</h3><div id="c1"></div>
+<div class="legend"><span style="--c:var(--gray)">frozen model, normal prompt</span><span style="--c:var(--bad)">fence + reset only, model answers itself</span><span style="--c:var(--ours)">fence + question per box + count yeses</span></div></div>
+<div class="card"><h3>Vision (Qwen2.5-VL-7B, 4-bit, frozen)</h3><div id="c2"></div>
+<div class="legend"><span style="--c:var(--gray)">frozen model, all frames</span><span style="--c:var(--bad)">fence + reset only, model answers itself</span><span style="--c:var(--ours)">fence + question per box + count yeses</span></div></div>
+</div>
+
+<div class="card" style="margin-top:16px"><h3>What each ingredient buys (text unless noted)</h3>
+<table>
+<tr><th>variant</th><th>N=8</th><th>N=64</th><th>N=1024</th><th>reads as</th></tr>
+<tr><td class="g">fence + question + count (ours, no training)</td><td class="g">1.00</td><td class="g">1.00</td><td class="g">1.00</td><td>exact at every length</td></tr>
+<tr><td>same, fence removed</td><td>.65</td><td>.01</td><td>.00</td><td>frames interfere; the per-frame yes/no itself degrades with N</td></tr>
+<tr><td>same, question only in the prefix (no cue in the box)</td><td>.49</td><td>.22</td><td>.80</td><td>ranking still perfect (AUC ≥ .999), the yes/no threshold is off</td></tr>
+<tr><td>vague cue "is this frame relevant?", confusable stories N=64…256</td><td colspan="3">.19 / .09 / .10 (direct question: .89 / .92 / .91)</td><td>the question wording sets selectivity on half-matches</td></tr>
+<tr><td>fence + reset only, model writes the number</td><td>.16</td><td>.07</td><td>.05</td><td>one softmax read of many frames still cannot count</td></tr>
+<tr><td>confusable stories, + a 7k-parameter calibration head</td><td colspan="3">.89–.92 → 1.00</td><td>the head only fixes the threshold</td></tr>
+<tr><td>vision: frozen model given only the gold frames</td><td colspan="3">.65–.80 (N=8…64)</td><td>the frozen model cannot count even what it is shown</td></tr>
+</table>
+</div>
+
+<h2>5. Takeaways</h2>
+<div class="take">
+<p><strong>One frozen forward pass counts exactly at any length</strong> once each frame is judged alone and the verdicts are summed outside the softmax. Text: 1.00 from 8 to 1024 frames. Vision: .97–.99 up to 64 frames, against .20–.40 for the frozen model.</p>
+<p><strong>Mask and repack alone do not do it.</strong> Letting the model write the number after the fence gives .05–.16. The per-box question is the mechanism, not a detail.</p>
+<p><strong>Reasoning models do the same thing serially:</strong> one item per step, a written tally on the tape (verified on Qwen3-8B traces). Ours is the parallel form.</p>
+<p><strong>Boundary:</strong> on real egocentric video (HERBench) the per-frame judgment itself is unreliable (AUC ≈ .78), so no aggregation fix helps there.</p>
+</div>
+<p class="note" style="margin-top:14px">Sources: PREREG_AGG.md outcomes 2026-09-07/08; run dirs outputs/judge_fenced, outputs/judge_fenced_vlm, outputs/fence_only, outputs/bindcount_vlm, outputs/mmred_vfrozen. n = 100 per cell.</p>
+</div>
+<script>
+(function(){
+  var C = getComputedStyle(document.documentElement);
+  function col(v){return C.getPropertyValue(v).trim();}
+  var text = {ns:[8,16,32,64,128,256,512,1024], series:[
+    {name:"frozen", c:col("--gray"), v:[.72,.57,.53,.43,.27,.30,.23,.24]},
+    {name:"fence only", c:col("--bad"), v:[.16,.07,.07,.07,.07,.10,.03,.05]},
+    {name:"ours", c:col("--ours"), v:[1,1,1,1,1,1,1,1]}]};
+  var vis = {ns:[8,16,32,64], series:[
+    {name:"frozen", c:col("--gray"), v:[.40,.28,.20,.215]},
+    {name:"fence only", c:col("--bad"), v:[.14,.10,.07,.14]},
+    {name:"ours", c:col("--ours"), v:[.98,.97,.99,.98]}]};
+  function chart(id, d){
+    var W=420,H=230,L=36,B=34,T=10,R=8; var pw=W-L-R, ph=H-T-B; var g=d.ns.length, k=d.series.length; var gw=pw/g, bw=Math.min(18,(gw-10)/k);
+    var s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="exact match by N">';
+    var ink=col("--ink"), muted=col("--muted"), rule=col("--rule");
+    [0,.5,1].forEach(function(y){var yy=T+ph*(1-y); s+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" stroke="'+rule+'" stroke-width="1"/><text x="'+(L-6)+'" y="'+(yy+4)+'" font-size="11" text-anchor="end" fill="'+muted+'">'+y.toFixed(1)+'</text>';});
+    d.ns.forEach(function(n,i){var x0=L+i*gw+(gw-k*bw-(k-1)*2)/2;
+      d.series.forEach(function(sr,j){var v=sr.v[i]; var x=x0+j*(bw+2);
+        if(v==null){s+='<text x="'+(x+bw/2)+'" y="'+(T+ph-4)+'" font-size="10" text-anchor="middle" fill="'+muted+'">…</text>';return;}
+        var h=Math.max(2,ph*v); s+='<rect x="'+x+'" y="'+(T+ph-h)+'" width="'+bw+'" height="'+h+'" fill="'+sr.c+'" rx="2"/>';
+        if(j==k-1||v>=.5) s+='<text x="'+(x+bw/2)+'" y="'+(T+ph-h-3)+'" font-size="10" text-anchor="middle" fill="'+ink+'">'+(v>=1?'1.0':v.toFixed(2).replace(/^0/,''))+'</text>';});
+      s+='<text x="'+(L+i*gw+gw/2)+'" y="'+(H-B+16)+'" font-size="11" text-anchor="middle" fill="'+ink+'">'+n+'</text>';});
+    s+='<text x="'+(L+pw/2)+'" y="'+(H-4)+'" font-size="11" text-anchor="middle" fill="'+muted+'">number of frames N</text>';
+    s+='<text x="10" y="'+(T+ph/2)+'" font-size="11" text-anchor="middle" fill="'+muted+'" transform="rotate(-90 10 '+(T+ph/2)+')">exact match</text></svg>';
+    document.getElementById(id).innerHTML=s;}
+  chart("c1", text); chart("c2", vis);
+})();
+</script>

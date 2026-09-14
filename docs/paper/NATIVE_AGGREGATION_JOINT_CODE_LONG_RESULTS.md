@@ -1,0 +1,26 @@
+# Longer optimization fits the privileged local-code training screen
+
+Independent [report 443511](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/report_443511/REPORT.md) passed its computation and provenance audits. **The fixed step-6,000 endpoint passed: 108/108 training first tokens and 18/18 complete families.** The unchanged local-code readout can fit this screen under the longer optimization horizon and annealing schedule. The earlier 600-update failure remains a valid result under its shorter recipe.
+
+| Endpoint | Correct first tokens | Complete families | Mean first-token NLL | Registered role |
+|---|---:|---:|---:|---|
+| 600 | 36/108 | 0/18 | 1.2221487155416146 | Descriptive |
+| 2,000 | 36/108 | 0/18 | 1.0238207185486736 | Descriptive |
+| 6,000 | 108/108 | 18/18 | 0.08028224142585737 | Primary: PASS |
+
+The unchanged screen required at least 103/108 first tokens and 16/18 completely correct families. Each family contains three answer-changing variants at both N8 and N16. At the final endpoint both lengths scored 54/54, every name scored 12/12, and every question scored 18/18. All 324 endpoint outcomes and [strata](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/report_443511/strata.json) are retained. These are cached training first queries; generated full names and EOS completion were not evaluated.
+
+The intervention changed **both the update horizon and cosine annealing horizon**, from 600 to 6,000. Peak learning rate 0.001, 50-step warmup and final rate 0.00001 stayed fixed. Training restarted from the exact same original unfitted four readout tensors; it did not continue a fitted checkpoint. The original seed-24 pair order was extended to 48,000 presentations, with its first 4,800 exactly preserved. The earlier [short control](NATIVE_AGGREGATION_JOINT_CODE_ORACLE_RESULTS.md) scored 38/108 and 0/18 after its own 600-update schedule. Its endpoint is not equivalent to step 600 of the newly extended schedule, which already uses a different learning-rate decay.
+
+Inputs and model stayed fixed: 108 contexts, 54 pairs, 1,296 image occurrences, raw per-image person-by-requested-room codes in 18 coordinates padded to 96, and zero codes for other rooms. The mapping supplied no answer or precomputed intersection. The 697,440 trainable readout parameters consumed half the sum of these codes and the cached global query through the same aggregate projection, SiLU and output projection. Actual frozen FP16 native norm/head tensors, full-name-plus-EOS mean-scene/mean-token CE, AdamW settings, clipping and batch size were unchanged. The run used 6,000 updates, 96,000 scene presentations and 213,330 training target positions.
+
+The three endpoint evaluations preserved optimizer state, parameter identities/versions, native weights, inputs and subsequent training mode. Only step 6,000 determined the decision; no intermediate score selected a restart, checkpoint or schedule. Final reset and restricted checkpoint reload passed. The final minibatch CE was 0.045895. In the last complete 54-pair cycle, first-token NLL averaged 0.080139 over 108 positions, while EOS and continuation losses were below 0.000025. [Loss descriptions](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/report_443511/training_loss_descriptions.json) retain all 888 complete cycles and the final 48-pair partial cycle separately. These observations establish a late training fit, without a convergence or grokking claim.
+
+All 29 captures—eight training batches and 21 endpoint batches—passed independent functional and semantic-code audits. CPU native-head replay covered all 324 endpoint rows with exact argmax agreement and maximum full-vocabulary TV **0.003452907083556056**, below the unchanged 0.02 gate. FP32 functional and FP64-reference NLL tolerances were unchanged. GPU run 443498 used **69 allocated GPU-seconds**, one attempt and maximum one GPU, within its 180-second cap. It made 6,021 core, norm and head calls each over 213,654 head rows; VLM and vision calls were zero. CPU check 443496 and report 443511 passed.
+
+This result shows that the short recipe did not settle learnability of this privileged training screen. It does not show that native visual features can supply the codes, that the join generalizes, or that an aggregation or reasoning method improves. Both lengths were training inputs. No development, test, native generation, vision or reasoning evaluation occurred. Previous failed screens and closed architecture branches remain unchanged; no subsequent experiment is automatically released.
+
+Provenance: [proposal](NATIVE_AGGREGATION_JOINT_CODE_LONG_PROPOSAL.md), [CPU plan](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/check_443496/plan.json), [summary](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/report_443511/summary.json), [analysis](../../outputs/native_aggregation_vlm/identity_join_joint_code_long/report_443511/analysis.json). The audit binds six new sources and 106 inherited sources, including their archived copies. Final checkpoint SHA256: `9309b5ac38798a02b424f642bbc7ad780e77c458cb81e9919404e9a6181c7f74`.
+
+Summary SHA256: `b702fa30ab354708f3d82192c7e54ba83af491ebf5010ca880b4df6996718fed`.
+Analysis SHA256: `d0938deeb7212851b6f044ee88d7d09803c17535894c77db4951c2a8ef636ef5`.
