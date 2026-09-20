@@ -1785,7 +1785,10 @@ anomaly at 14B leaves (null-propagation schema filled with present-characters) n
 - Trained-support view across the N-free family (gold ∈ trained support, oracle):
   S9 (no mixture) = 1.0000 on gold 0–8 at every N (827/827) but 0.89–0.97 with
   the thin g12/g16 included; S9b-ep10 = 1.0000 on the FULL 0–16 support at N ≥
-  64 (32-cell: 2 misses in 22). **Canonical calls: S8 = N-prompt canonical;
+  64 (32-cell: ONE miss in 128 — a single k12→"13"). Consolidated trained-support
+  tally, verified from prediction CSVs across all ep10 cells: **992/993 = 0.9990**
+  (perfect at N=8/16/64/128; the sole miss = steps_in_room_N32_K12_0017).
+  **Canonical calls: S8 = N-prompt canonical;
   S9b-ep10 = N-free canonical and the campaign's best long-N profile** (labeled
   prompt variants, never one table row unlabeled).
 - Caveats: single task family/model; k-strata 9–11 at N=32 exam cells; pf at

@@ -1,26 +1,15 @@
 #!/usr/bin/env python3
-"""SPARSE S10 — the attention photograph (LORAMECH's unrun L4).
+"""SELFGATE G0a — per-head evidence/non-evidence separation scan (copy-extended from
+scripts/sparse/probe_attn_photo.py; the original stays the S10 anchor).
 
-Measures, at the LAST PROMPT ROW, the attention mass placed on evidence blocks /
-non-evidence blocks / everything else (prompt+sink), per head x layer, as k and N
-vary. sdpa exposes no weights, so they are computed MANUALLY from FenceHooks
-captures: q/k projections + rotary cos/sin -> apply_multimodal_rotary_pos_emb ->
-scores = q_row . k / sqrt(d) + injected mask row -> softmax. Per-row sum==1 is
-asserted (the sanity the brief requires).
+Deltas vs the original: (1) --nfree-prompt (the S9b adapter's eval contract);
+(2) --ungated forces hide=[] for ANY adapter (G0a scans the UNGATED forward);
+(3) the report computes per-(layer,head) AUC of block mass vs is_evid — the number
+that found L24h20 (S10: AUC ≥0.9927 in P1b) — plus the best-head table per layer.
 
-Hook order matters: the PEFT adapter is loaded BEFORE FenceHooks(capture) is
-installed, so q_proj/k_proj hooks sit on the LoRA-wrapped modules and capture the
-TRAINED projections (the wave-1 lesson inverted: capture hooks must be post-wrap;
-the mask pre-hook is wrap-agnostic).
-
-One invocation = one arm x one N over a comma-set of k strata:
-  --arm p1b    : P1b adapter, UNGATED fence (hide=[])       [the (N-k) term visible]
-  --arm gated  : S8 adapter (default), oracle gate           [k-only prediction]
-  --arm frozen : no adapter, ungated fence                   [untrained reference]
-
-Usage:
-  python scripts/sparse/probe_attn_photo.py --arm p1b --n 32 --k-list 2,4,8 \
-      --limit 30 --output outputs/sparse/s10/p1b_N32
+One invocation = one adapter x one N over a comma-set of k strata:
+  python scripts/selfgate/probe_headscan.py --adapter checkpoints/sft_fenced_gated_vn_nfree_adapter \
+      --nfree-prompt --n 32 --k-list 2,4,8 --limit 30 --output outputs/selfgate/g0a/s9b_N32
 """
 from __future__ import annotations
 
@@ -59,30 +48,55 @@ if str(_SPARSE) not in sys.path:
     sys.path.insert(0, str(_SPARSE))
 from train_sft_gated import build_fenced_messages, parse_layout  # noqa: E402
 
+_QGATE = _REPO / "scripts" / "qgate"
+if str(_QGATE) not in sys.path:
+    sys.path.insert(0, str(_QGATE))
+from qgate_common import build_task_messages_layout as build_task_messages  # noqa: E402
+
 _REDUX = _REPO / "scripts" / "redux"
 if str(_REDUX) not in sys.path:
     sys.path.insert(0, str(_REDUX))
 from tasks import target_of  # noqa: E402
 
 FENCED_SDPA = [SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
-POOLS = {2: "data/mmred_images_park/seq_len_2/all_uniform",   # S10b small-N (2026-09-19)
-         4: "data/mmred_images_park/seq_len_4/all_uniform",
-         8: "data/mmred_images_park/seq_len_8/all_uniform",
+POOLS = {8: "data/mmred_images_park/seq_len_8/all_uniform",
          16: "data/mmred_longN_park/seq_len_16/all_uniform",
          32: "data/mmred_longN_park/seq_len_32/all_uniform",
          64: "data/mmred_longN_park/seq_len_64/all_uniform",
          128: "data/mmred_longN_park/seq_len_128/all_uniform"}
-ADAPTERS = {"p1b": "checkpoints/sft_fenced_le16_ep10_adapter",
-            "gated": "checkpoints/sft_fenced_gated_vn_adapter",
-            "frozen": None}
+
+
+def auc(pos, neg):
+    """Rank AUC of pos vs neg score lists (ties = 0.5)."""
+    if not pos or not neg:
+        return float("nan")
+    allv = sorted(pos + neg)
+    rank = {}
+    i = 0
+    while i < len(allv):
+        j = i
+        while j < len(allv) and allv[j] == allv[i]:
+            j += 1
+        r = (i + j - 1) / 2 + 1
+        rank[allv[i]] = r
+        i = j
+    rp = sum(rank[v] for v in pos)
+    return (rp - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--arm", choices=("p1b", "gated", "frozen"), required=True)
-    ap.add_argument("--adapter", type=Path, default=None,
-                    help="override the arm's default adapter")
+    ap.add_argument("--adapter", default=None, help="PEFT adapter dir (None = frozen)")
+    ap.add_argument("--task", default="count", choices=("count", "exists", "majority"),
+                    help="G0c: question type for the layout (count = byte-identical "
+                         "original path); AUC labels stay the same occupancy set")
+    ap.add_argument("--layout", default="replica",
+                    choices=("replica", "qfirst-once", "qlast-once", "replica-neutral"),
+                    help="QGATE A1: query-side layout (replica = byte-identical path)")
+    ap.add_argument("--nfree-prompt", action="store_true")
+    ap.add_argument("--ungated", action="store_true", default=True,
+                    help="G0a default: hide=[] regardless of adapter")
     ap.add_argument("--n", type=int, required=True)
     ap.add_argument("--k-list", default="2,4,8")
     ap.add_argument("--limit", type=int, default=30, help="samples per k stratum")
@@ -90,16 +104,9 @@ def main() -> int:
     ap.add_argument("--resize", type=int, default=392)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--output", type=Path, required=True)
-    ap.add_argument("--attn-sharpen", type=float, default=0.0,
-                    help="S10b: multiply attention logits by TAU (sets module.scaling on "
-                         "decoder attention modules >= --sharpen-from-layer, and scales the "
-                         "photographed scores the same way). 0 = off (byte-identical anchor).")
-    ap.add_argument("--sharpen-from-layer", type=int, default=0,
-                    help="S10b: first decoder layer index the sharpening applies to (S0 used 12).")
     args = ap.parse_args()
     klist = [int(x) for x in args.k_list.split(",")]
     LAYERS = [int(x) for x in args.layers.split(",")]
-    gated = args.arm == "gated"
 
     rt = load_runtime()
     model, processor, tok = rt.model, rt.processor, rt.tokenizer
@@ -107,23 +114,13 @@ def main() -> int:
     rope_fn = get_rope_index_fn(model)
     vs_id = int(model.config.vision_start_token_id)
     dims = attention_dims(model)
-    # S10b: static sharpening, set PRE-wrap on the raw attention modules (the S0 hook, verbatim)
-    attn_mods = [ly.self_attn for ly in layers]
-    base_scaling = float(attn_mods[0].scaling)
-    if args.attn_sharpen > 0:
-        for i_, m_ in enumerate(attn_mods):
-            if i_ >= args.sharpen_from_layer:
-                m_.scaling = base_scaling * args.attn_sharpen
-        print(f"[sharpen] tau={args.attn_sharpen} on layers >= {args.sharpen_from_layer} "
-              f"(base_scaling={base_scaling:.6g})", flush=True)
-    adapter = args.adapter or ADAPTERS[args.arm]
-    if adapter is not None:
+    if args.adapter:
         from peft import PeftModel
 
-        model = PeftModel.from_pretrained(model, str(adapter), is_trainable=False)
+        model = PeftModel.from_pretrained(model, str(args.adapter), is_trainable=False)
         model.eval()
-        print(f"adapter loaded (frozen): {adapter}", flush=True)
-    # capture hooks POST-wrap so q/k reflect the LoRA-adapted projections
+        print(f"adapter loaded (frozen): {args.adapter}", flush=True)
+    # capture hooks POST-wrap (S10 lesson): q/k must reflect the trained projections
     hooks = FenceHooks(layers, capture_layers=LAYERS).install()
 
     from transformers.models.qwen2_5_vl.modeling_qwen2_5_vl import (
@@ -134,10 +131,6 @@ def main() -> int:
     out = args.output
     out.mkdir(parents=True, exist_ok=True)
     (out / "config.json").write_text(json.dumps(vars(args), indent=2, default=str))
-    rows_f = open(out / "mass.csv", "w", newline="")
-    w = csv.writer(rows_f)
-    w.writerow(["sample", "N", "k", "layer", "head", "evid_mass", "nonevid_mass",
-                "other_mass"])
     sep_f = open(out / "block_mass.csv", "w", newline="")
     ws = csv.writer(sep_f)
     ws.writerow(["sample", "N", "k", "layer", "head", "block", "is_evid", "mass"])
@@ -160,16 +153,16 @@ def main() -> int:
             assert len(evid) == gold
             frames = [f.resize((args.resize, args.resize)) for f in frames]
             inp = move_to_device(dict(processor.apply_chat_template(
-                build_fenced_messages(frames, q0), add_generation_prompt=True,
+                build_task_messages(frames, args.task, char, room, q0,
+                                    nfree=args.nfree_prompt, layout=args.layout),
+                add_generation_prompt=True,
                 tokenize=True, return_dict=True, return_tensors="pt")), rt.device)
             ids = inp["input_ids"][0].tolist()
             parsed = parse_layout(ids, tok, q0, len(frames), vs_id)
             if parsed is None:
                 continue
             blocks, fin_start = parsed
-            hide = ([p for t, (a, b) in enumerate(blocks) if t not in evid
-                     for p in range(int(a), int(b))] if gated else [])
-            mask = build_block_mask(len(ids), blocks, hide_cols=hide)
+            mask = build_block_mask(len(ids), blocks, hide_cols=[])
             with torch.inference_mode():
                 pos, _ = rope_fn(inp["input_ids"],
                                  image_grid_thw=inp.get("image_grid_thw"),
@@ -192,50 +185,48 @@ def main() -> int:
                 qr, kr = apply_multimodal_rotary_pos_emb(
                     q.float(), kk.float(), hooks.cos.float(), hooks.sin.float(),
                     dims["mrope_section"])
-                kr = repeat_kv(kr, nH // nKV)[0]            # [H, T, D]
-                qrow = qr[0][:, row]                        # [H, D]
+                kr = repeat_kv(kr, nH // nKV)[0]
+                qrow = qr[0][:, row]
                 sc = torch.einsum("hd,htd->ht", qrow, kr) / (hd ** 0.5)
-                if args.attn_sharpen > 0 and L >= args.sharpen_from_layer:
-                    sc = sc * args.attn_sharpen           # S10b: photograph under the same tau
                 sc = sc + mask_row.to(sc.device)
-                wgt = torch.softmax(sc, -1)                 # [H, T]
+                wgt = torch.softmax(sc, -1)
                 ssum = float(wgt.sum(-1).mean())
                 assert abs(ssum - 1.0) < 1e-3, f"softmax rows sum to {ssum}"
                 for h in range(nH):
-                    ev = ne = 0.0
                     for t, (a, b) in enumerate(blocks):
-                        m_ = float(wgt[h, a:b].sum())
                         ws.writerow([sd.name, args.n, gold, L, h, t, int(t in evid),
-                                     f"{m_:.6f}"])
-                        if t in evid:
-                            ev += m_
-                        else:
-                            ne += m_
-                    w.writerow([sd.name, args.n, gold, L, h, f"{ev:.6f}",
-                                f"{ne:.6f}", f"{1.0 - ev - ne:.6f}"])
+                                     f"{float(wgt[h, a:b].sum()):.6f}"])
         except Exception as e:
             print(f"  [skip] {sd.name}: {e}", flush=True)
             continue
         need[gold] -= 1
         n_done += 1
-        rows_f.flush(); sep_f.flush()
+        sep_f.flush()
         if n_done % 10 == 0:
             print(f"  {n_done} samples {time.time()-t0:.0f}s (need {need})", flush=True)
     hooks.remove()
-    rows_f.close(); sep_f.close()
+    sep_f.close()
 
-    # per-cell head-mean summary
-    agg = defaultdict(lambda: [0.0, 0.0, 0.0, 0])
-    for r in csv.DictReader(open(out / "mass.csv")):
-        a = agg[(int(r["k"]), int(r["layer"]))]
-        a[0] += float(r["evid_mass"]); a[1] += float(r["nonevid_mass"])
-        a[2] += float(r["other_mass"]); a[3] += 1
-    lines = [f"=== ATTN PHOTO arm={args.arm} N={args.n} adapter={adapter} "
-             f"(head-mean masses; n_samples={n_done}) ==="]
-    for (k, L) in sorted(agg):
-        a = agg[(k, L)]
-        lines.append(f"  k={k:<3} L{L:<3} evid {a[0]/a[3]:.4f}  nonevid {a[1]/a[3]:.4f}"
-                     f"  other {a[2]/a[3]:.4f}")
+    # per-(layer,head) AUC of mass vs is_evid — the L24h20 readout
+    by_lh = defaultdict(lambda: ([], []))
+    for r in csv.DictReader(open(out / "block_mass.csv")):
+        pos_neg = by_lh[(int(r["layer"]), int(r["head"]))]
+        (pos_neg[0] if r["is_evid"] == "1" else pos_neg[1]).append(float(r["mass"]))
+    aucs = {lh: auc(p, n) for lh, (p, n) in by_lh.items()}
+    lines = [f"=== HEADSCAN adapter={args.adapter or 'frozen'} N={args.n} "
+             f"task={args.task} nfree={args.nfree_prompt} n_samples={n_done} ===",
+             "heads with AUC >= 0.98:"]
+    for (L, h), a in sorted(aucs.items(), key=lambda kv: -kv[1]):
+        if a >= 0.98:
+            lines.append(f"  L{L} h{h}: AUC {a:.4f}")
+    lines.append("best head per layer:")
+    for L in LAYERS:
+        cand = {h: a for (l, h), a in aucs.items() if l == L}
+        if cand:
+            h = max(cand, key=cand.get)
+            lines.append(f"  L{L}: h{h} AUC {cand[h]:.4f}")
+    (out / "auc.json").write_text(json.dumps(
+        {f"L{L}_h{h}": round(a, 6) for (L, h), a in sorted(aucs.items())}, indent=1))
     (out / "report.txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
     return 0

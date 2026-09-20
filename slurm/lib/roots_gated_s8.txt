@@ -1,0 +1,2 @@
+data/mmred_images_park/seq_len_8/all_uniform
+data/mmred_longN_park/seq_len_16/all_uniform

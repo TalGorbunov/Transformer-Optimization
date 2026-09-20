@@ -19,6 +19,19 @@ SPARSE deltas (brief `outputs/sparse/CAMPAIGN_BRIEF.md`):
                          head_dim^-0.5 * TAU on the LM decoder attn modules...
   --sharpen-from-layer L ...restricted to module index >= L (default 0 = all layers).
                          Mutually exclusive with --attn-logn-sref.
+  --lora-targets {all,attn,qv}  (minimal-fix ladder, 2026-09-14) which projections
+                         carry LoRA: all = q/k/v/o + gate/up/down (anchor; NOTE this
+                         also wraps the vision tower's gate/up/down by name),
+                         attn = q/k/v/o (LM only), qv = q/v (LM only).
+  --lora-min-layer M     LoRA only on LM decoder layers >= M (layers_pattern="layers",
+                         so vision blocks are never included). -1 = all layers (anchor).
+  --layout {replica,qfirst-once,qlast-once}  (query-side ablation, 2026-09-14) replica =
+                         N x [frame + question replica] blocks (anchor). qfirst-once =
+                         the question ONCE before all frames (in the prefix every block
+                         sees) + N single-frame blocks. qlast-once = N single-frame blocks
+                         and the question only in the final prompt (frames never see it).
+                         The fence/posreset/gate machinery is unchanged: blocks are still
+                         [vision_start_i, vision_start_{i+1}) and the prefix is visible to all.
 
 Layout, recipe, decode: byte-identical to the loramech trainer (N x [frame_i + q]
 blocks, block fence + posreset, count prompt, r8 a32 q/k/v/o+MLP lr 2e-4 accum 8,
@@ -83,6 +96,27 @@ from tasks import (  # noqa: E402  (REDUX label module — count path stays byte
 FENCED_SDPA = [SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]  # 4-D mask: no FLASH
 INTEGER_RE = re.compile(r"[+-]?\d+")
 MAX_NEW = 4
+LORA_TARGETS = {
+    "all": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+    "attn": ["q_proj", "k_proj", "v_proj", "o_proj"],
+    "qv": ["q_proj", "v_proj"],
+}
+
+
+def make_lora_config(r, alpha, targets="all", min_layer=-1, n_layers=28):
+    """LoraConfig for the trainer. targets='all' + min_layer=-1 is byte-identical to
+    the anchor recipe (r8 a32 q/k/v/o+MLP, every matching module incl. the vision
+    tower's MLP). min_layer >= 0 restricts to LM decoder layers [min_layer, n_layers)
+    via layers_to_transform + layers_pattern='layers' (Qwen2.5-VL LM modules live under
+    model.language_model.layers.{i}; the vision tower uses visual.blocks.{i})."""
+    from peft import LoraConfig
+
+    kw = dict(r=r, lora_alpha=alpha, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM",
+              target_modules=list(LORA_TARGETS[targets]))
+    if min_layer >= 0:
+        kw["layers_to_transform"] = list(range(min_layer, n_layers))
+        kw["layers_pattern"] = "layers"
+    return LoraConfig(**kw)
 
 
 def build_nfree_prompt(question):
@@ -97,17 +131,24 @@ def build_nfree_prompt(question):
     )
 
 
-def build_fenced_messages(frames, question, answer=None, declare_n=None, nfree=False):
+def build_fenced_messages(frames, question, answer=None, declare_n=None, nfree=False,
+                          layout="replica"):
     """[frame_0, q, frame_1, q, ..., frame_{N-1}, q, count_prompt] (+ assistant answer).
 
     declare_n (WAVE 3, S7/S8): overrides ONLY the frame count used in the prompt
     TEXT ("You will be shown {N} frames ... 0 to {N}"); frames, mask, gate and
     positions are untouched. None = byte-identical legacy behavior.
+    layout (query-side ablation): "replica" = anchor; "qfirst-once" = question text
+    once before all frames, no replicas; "qlast-once" = frames only, question only
+    in the final prompt.
     """
     content = []
+    if layout == "qfirst-once":
+        content.append({"type": "text", "text": question})
     for im in frames:
         content.append({"type": "image", "image": im})
-        content.append({"type": "text", "text": question})
+        if layout == "replica":
+            content.append({"type": "text", "text": question})
     content.append({"type": "text",
                     "text": (build_nfree_prompt(question) if nfree else
                              build_count_prompt(question, declare_n or len(frames)))})
@@ -118,11 +159,11 @@ def build_fenced_messages(frames, question, answer=None, declare_n=None, nfree=F
 
 
 def build_task_messages(frames, task, char, room, q0, answer=None, declare_n=None,
-                        nfree=False):
+                        nfree=False, layout="replica"):
     """REDUX task-aware fenced layout. count == build_fenced_messages byte-identical."""
     if task == "count":
         return build_fenced_messages(frames, q0, answer=answer, declare_n=declare_n,
-                                     nfree=nfree)
+                                     nfree=nfree, layout=layout)
     nf = len(frames)
     content = []
     for im in frames:
@@ -167,6 +208,13 @@ def main() -> int:
     ap.add_argument("--grad-accum", type=int, default=8)
     ap.add_argument("--lora-r", type=int, default=8)
     ap.add_argument("--lora-alpha", type=int, default=32)
+    ap.add_argument("--lora-targets", choices=sorted(LORA_TARGETS), default="all",
+                    help="minimal-fix ladder: which projections carry LoRA "
+                         "(default all = anchor recipe)")
+    ap.add_argument("--lora-min-layer", type=int, default=-1,
+                    help="LoRA only on LM decoder layers >= this (-1 = all, anchor)")
+    ap.add_argument("--layout", choices=["replica", "qfirst-once", "qlast-once"],
+                    default="replica", help="query-side ablation (default replica = anchor)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--eval-dirs-file", action="append", default=[])
     ap.add_argument("--eval-longn-limit", type=int, default=150)
@@ -221,6 +269,8 @@ def main() -> int:
             raise SystemExit("--gate model requires --gate-npz and --eval-only-adapter")
         if args.gate_from_layer >= 0:
             raise SystemExit("--gate model is full-depth only (no --gate-from-layer)")
+    if args.layout != "replica" and (args.gate == "model" or args.tasks != "count"):
+        raise SystemExit("--layout != replica supports count + gate none/oracle only")
     if args.virtual_n and (args.gate != "oracle" or args.tasks != "count"):
         raise SystemExit("--virtual-n requires --gate oracle and --tasks count")
     if args.nfree_prompt and args.declare_n:
@@ -278,16 +328,18 @@ def main() -> int:
     elif args.epochs == 0:
         emit("frozen eval: no adapter, no LoRA")
     else:
-        from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+        from peft import get_peft_model, prepare_model_for_kbit_training
 
         model = prepare_model_for_kbit_training(model)
-        lcfg = LoraConfig(r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=0.05,
-                          bias="none", task_type="CAUSAL_LM",
-                          target_modules=["q_proj", "k_proj", "v_proj", "o_proj",
-                                          "gate_proj", "up_proj", "down_proj"])
+        lcfg = make_lora_config(args.lora_r, args.lora_alpha, args.lora_targets,
+                                args.lora_min_layer, len(layers))
         model = get_peft_model(model, lcfg)
         model.print_trainable_parameters()
-    emit("[template] FENCED frames-first: N x [frame+q] blocks + posreset + count prompt")
+        emit(f"[lora] r={args.lora_r} alpha={args.lora_alpha} targets={args.lora_targets} "
+             f"min_layer={args.lora_min_layer}")
+    emit(f"[template] FENCED frames-first, layout={args.layout}: "
+         + ("N x [frame+q] blocks" if args.layout == "replica" else "N x [frame] blocks")
+         + " + posreset + count prompt")
     emit(f"[gate] {args.gate}"
          + (f" from layer {args.gate_from_layer}" if args.gate_from_layer >= 0 else ""))
 
@@ -448,12 +500,13 @@ def main() -> int:
     def train_loss(frames, task, char, room, q0, gold, evid, declare_n=None):
         full = processor.apply_chat_template(
             build_task_messages(frames, task, char, room, q0, answer=gold,
-                                declare_n=declare_n, nfree=args.nfree_prompt),
+                                declare_n=declare_n, nfree=args.nfree_prompt,
+                                layout=args.layout),
             add_generation_prompt=False, tokenize=True, return_dict=True,
             return_tensors="pt")
         prompt = processor.apply_chat_template(
             build_task_messages(frames, task, char, room, q0, declare_n=declare_n,
-                                nfree=args.nfree_prompt),
+                                nfree=args.nfree_prompt, layout=args.layout),
             add_generation_prompt=True, tokenize=True, return_dict=True,
             return_tensors="pt")
         full = move_to_device(dict(full), rt.device)
@@ -516,7 +569,7 @@ def main() -> int:
         inp = processor.apply_chat_template(
             build_task_messages(frames, task, char, room, q0,
                                 declare_n=args.declare_n or None,
-                                nfree=args.nfree_prompt),
+                                nfree=args.nfree_prompt, layout=args.layout),
             add_generation_prompt=True, tokenize=True, return_dict=True,
             return_tensors="pt")
         inp = move_to_device(dict(inp), rt.device)
