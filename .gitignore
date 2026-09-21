@@ -15,7 +15,8 @@ venv/
 .idea/
 .vscode/
 *.code-workspace
-.claude/
+.claude/*
+!.claude/skills/
 .mypy_cache/
 .pytest_cache/
 .ipynb_checkpoints
@@ -36,6 +37,8 @@ outputs/*/*
 !outputs/*/INDEX.md
 !outputs/*/STATE.md
 !outputs/*/CAMPAIGN_BRIEF.md
+# the smoke dump is a symlink to /rg (2026-09-21 migration); one level deep, so the rule above misses it
+outputs/_scratch
 outputs_legacy
 outputs_*
 output_*
@@ -50,3 +53,4 @@ sbatch/migrate/*.submitted
 
 # ---- generated exports (source of truth is the .md)
 *.docx
+.claude/skills/*-workspace/

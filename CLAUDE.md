@@ -40,56 +40,19 @@ source .venv/bin/activate          # Python 3.11: model stack + the official mmr
 
 ## 3. Cluster & SLURM
 
-**Scheduler:** SLURM. No `--account` line (the default account works; an explicit
-`--account=shocher_partition` is REJECTED on l40s-shared).
+**For any submission, monitoring or job diagnosis, use the `sbatch-submit` skill**
+(`.claude/skills/sbatch-submit/`): partition/QOS tables, the submit loop (plan → preflight →
+dry-run → submit → verify → monitor → collect), `scripts/preflight.sh`, `scripts/verify_submit.sh`,
+the wrapper template and the failure decoder all live there.
 
-### Partitions
-
-| Partition | GPUs | Notes |
-|-----------|------|-------|
-| `l40s-shared` | L40S 48 GB ×2 nodes | default (`*`); also the proven partition for CPU jobs (`--qos=4h_0g`) |
-| `h200-shared` | H200 ~140 GB | biggest; usually busiest |
-| `rtx6k-shared` | RTX6000 ~48 GB | overflow; **`--exclude=n317`** (silent stalls) |
-| `a100-public` | A100 **40 GB** (not 80) | usually idle; 4-bit 7B fits |
-| `l40s-public` | L40S | usually idle |
-
-**ALWAYS check free GPUs across ALL partitions before submitting:**
-```bash
-sinfo -p l40s-shared,h200-shared,rtx6k-shared,a100-public,l40s-public \
-  -N -O "Partition:16,NodeHost:12,Gres:26,GresUsed:30,StateLong"
-```
-
-### QOS rules (most cap at 3 running jobs/user; 4h_0g caps at 10 in queue)
-
-| QOS | Wall | Max GPU | Jobs/user | Use for |
-|-----|------|---------|-----------|---------|
-| `4h_0g` | 4 h | 0 | 10 | CPU: data prep, copies, fits, plots (**mem cap ~16G**) |
-| `2h_2g` | 2 h | 2 | 3 | smokes, short evals (per-user MEMORY cap — keep `--mem` modest) |
-| `12h_4g` | 12 h | 4 | 3 | standard GPU runs |
-| `24h_1g` | 24 h | 1 | 4 | long single-GPU; good overflow |
-| `24h_4g` / `72h_8g` / `4d_1g` | — | — | 3/1/8 | long multi-GPU / huge / many-parallel-slots |
-| `contrib` | 7 d | — | — | ask first |
-
-**DefaultTime is 2 h on every partition** — long jobs need an explicit `--time`.
-
-### Submitting
-
-Wrappers live in [sbatch/](sbatch/) — env-var driven, one per `experiments/` entrypoint, all
-source `sbatch/lib/common.sh` (repo-root cd, venv, `run_logged` tee into the run dir, `DRY_RUN=1`,
-`stage_split` = per-split tarball → node-local NVMe `$TMPDIR`):
-```bash
-SLURM_SUBMIT_DIR=$PWD DRY_RUN=1 bash sbatch/<wrapper>.sbatch      # check the assembled command
-sbatch -p a100-public --qos=24h_1g --time=12:00:00 --export=ALL,QTYPES=steps_in_room,... sbatch/<wrapper>.sbatch
-```
-**NEVER put comma-lists in `--export` values** — sbatch silently splits them; use files.
-
-### Monitoring
-
-```bash
-squeue -u $USER
-sacct -j <jobid> --format=JobID,JobName,State,Elapsed,MaxRSS
-tail -f logs/<jobname>-<jobid>.out      # run_logged also tees into the run dir
-```
+The non-negotiables, so they are never out of context:
+- SLURM, default account, no `--account` line, no `--wrap`.
+- Every partition's DefaultTime is 2 h: GPU jobs always get an explicit `--time`.
+- **Never put a comma inside a `--export` value** (silent truncation); lists go through files.
+- `rtx6k-shared` needs `--exclude=n317`; `a100-public` GPUs are 40 GB; `4h_0g` is CPU-only
+  (`--mem` ≤ 16G, cpus ≤ 8); `2h_2g` is 2 GPUs total per user.
+- Wrappers live in [sbatch/](sbatch/), one per `experiments/` entrypoint, all sourcing
+  `sbatch/lib/common.sh` (`run_logged`, `DRY_RUN=1`, `stage_split`).
 
 ### Run conventions
 
