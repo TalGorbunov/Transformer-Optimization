@@ -78,6 +78,13 @@ SRC = {'frozen read': ({2: "outputs/armor/hahn/short_N2/pairs.csv", 4: "outputs/
        'trained read': ({N: (glob.glob(f"outputs/loramech/n2_hahn/p1fence_ep10_N{N}*/pairs.csv") or [""])[0] for N in (2, 4, 8, 16, 32, 64, 128)}, 'p1fence', 'final'),
        'gated read': ({N: f"outputs/sparse/s11/gate_oracle_N{N}/pairs.csv" for N in (2, 4, 8, 16, 32, 64, 128)}, 'p1fence', 'final')}
 STRAT = {name: {N: strat_med(paths.get(N, ""), arm, locus, 0) for N in (2, 4, 8, 16, 32, 64, 128)} for name, (paths, arm, locus) in SRC.items()}
+# FIXEDK (2026-09-21) supersedes the ad-hoc small-N strata: 30 matched pairs per cell, fresh pools for N>=16.
+_fk = "outputs/fixedk/fig/fixedk_medians.csv"
+if os.path.exists(_fk):
+    _map = {'frozen read': 'frozen read', 'fenced fact': 'fenced fact', 'trained read': 'trained read', 'gated read (S9)': 'gated read'}
+    for r in csv.DictReader(open(_fk)):
+        if int(r['gold']) == 0 and r['median'] and r['cond'] in _map:
+            STRAT[_map[r['cond']]][int(r['N'])] = float(r['median'])
 with open(f"{FIG}/F10_flip_stratified_gold0.csv", "w", newline="") as f:
     w = csv.writer(f); w.writerow(["N"] + list(STRAT)); 
     for N in (2, 4, 8, 16, 32, 64, 128): w.writerow([N] + [STRAT[k][N] for k in STRAT])
@@ -118,7 +125,7 @@ for name, col in [('fenced fact', C['fact']), ('gated read', C['gated']), ('trai
     ax.plot(xs, [STRAT[name][N] for N in xs], '-o', color=col, lw=2, ms=4)
 ax.set_xscale('log', base=2); ax.set_yscale('log'); ax.set_xticks([2, 8, 32, 128]); ax.set_xticklabels(['2', '8', '32', '128']); ax.set_ylim(1, 150)
 ax.set_xlabel('N, frames in context'); ax.set_ylabel('‖Δh‖ (layer 20), flip 0 → 1 only')
-ax.set_title('b′  Same, at fixed count', loc='left', fontweight='bold', color=C['ink']); ax.text(0.99, 0.98, 'N = 2…128, n = 5–31 per cell', transform=ax.transAxes, ha='right', va='top', fontsize=7.5, color=C['muted'])
+ax.set_title('b′  Same, at fixed count', loc='left', fontweight='bold', color=C['ink']); ax.text(0.99, 0.98, 'flip 0 → 1, N = 2…128, 30 pairs per cell', transform=ax.transAxes, ha='right', va='top', fontsize=7.5, color=C['muted'])
 ax.grid(axis='y', color=C['grid'], lw=0.6)
 ax = axs[2]
 Ns, e24 = series('p1b', 'evid_L24h20'); _, n24 = series('p1b', 'nonevid_L24h20')

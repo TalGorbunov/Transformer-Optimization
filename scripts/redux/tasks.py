@@ -59,7 +59,10 @@ def evidence_count(states: Sequence[Dict[str, Any]], char: str, room: str) -> in
 
 # ------------------------------------------------------------------ prompts
 
-def build_prompt(task: str, char: str, room: str, num_frames: int, q0: str = "") -> str:
+def build_prompt(task: str, char: str, room: str, num_frames: int, q0: str = "",
+                 nfree: bool = False) -> str:
+    if nfree and task != "count":
+        return build_prompt_nfree(task, char, room)
     if task == "count":
         # byte-identical scaffold: q0 is the pool's own question text
         return build_count_prompt(q0, num_frames)
@@ -81,15 +84,39 @@ def build_prompt(task: str, char: str, room: str, num_frames: int, q0: str = "")
     raise ValueError(f"unknown task {task}")
 
 
-def replica_text(task: str, char: str, room: str, num_frames: int, q0: str = "") -> str:
+def replica_text(task: str, char: str, room: str, num_frames: int, q0: str = "",
+                 nfree: bool = False) -> str:
     """The per-block replica question (fenced trainer): the bare question sentence."""
     if task == "count":
         return q0
+    if nfree and task == "majority":
+        return f"Was {char} in the {room} in more than half of the frames?"
     if task == "exists":
         return f"Was {char} ever in the {room}?"
     if task == "majority":
         return (f"Was {char} in the {room} in more than half of the "
                 f"{num_frames} frames?")
+    raise ValueError(f"unknown task {task}")
+
+
+def build_prompt_nfree(task: str, char: str, room: str) -> str:
+    """REDUX v3 (2026-09-20): N-free final prompts for exists/majority — same opener as the S9
+    N-free count prompt so parse_layout's "You will be shown" needle is unchanged; no frame
+    count anywhere in the text. count uses build_nfree_prompt in the sparse trainer."""
+    if task == "exists":
+        return (
+            "You will be shown a sequence of frames describing steps in a house.\n"
+            "Respond with a single word: yes or no.\n"
+            f"Question: Was {char} ever in the {room}?\n"
+            "Answer: "
+        )
+    if task == "majority":
+        return (
+            "You will be shown a sequence of frames describing steps in a house.\n"
+            "Respond with a single word: yes or no.\n"
+            f"Question: Was {char} in the {room} in more than half of the frames?\n"
+            "Answer: "
+        )
     raise ValueError(f"unknown task {task}")
 
 

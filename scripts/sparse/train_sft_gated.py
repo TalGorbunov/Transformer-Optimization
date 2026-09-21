@@ -69,6 +69,7 @@ from gnnformer.data import (  # noqa: E402
     read_dirs_file,
     rooms_to_room2chars,
 )
+from gnnformer.constants import MASK_MIN
 from gnnformer.fencing import (  # noqa: E402
     FenceHooks,
     build_block_mask,
@@ -168,8 +169,8 @@ def build_task_messages(frames, task, char, room, q0, answer=None, declare_n=Non
     content = []
     for im in frames:
         content.append({"type": "image", "image": im})
-        content.append({"type": "text", "text": replica_text(task, char, room, nf)})
-    content.append({"type": "text", "text": task_prompt(task, char, room, nf)})
+        content.append({"type": "text", "text": replica_text(task, char, room, nf, nfree=nfree)})
+    content.append({"type": "text", "text": task_prompt(task, char, room, nf, nfree=nfree)})
     msgs = [{"role": "user", "content": content}]
     if answer is not None:
         msgs.append({"role": "assistant", "content": [{"type": "text", "text": str(answer)}]})
@@ -232,6 +233,9 @@ def main() -> int:
                          "model (S2a, eval-only): two-forward — ungated pass 1, "
                          "logistic gate (--gate-npz) on the replica-slot states, "
                          "gated decode; per-sample gate errors logged.")
+    ap.add_argument("--gate-bonus", type=float, default=0.0,
+                    help="SOFTGATE: finite penalty -log(B) on gated (non-evidence) columns instead of "
+                         "MASK_MIN; 0 = hard gate (byte-identical). Requires --gate oracle.")
     ap.add_argument("--gate-npz", type=Path, default=None,
                     help="train_gate.py output (w,b,mu,sd,layer) for --gate model")
     ap.add_argument("--gate-from-layer", type=int, default=-1,
@@ -260,10 +264,14 @@ def main() -> int:
     args = ap.parse_args()
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
+    if args.gate_bonus > 0 and args.gate != "oracle":
+        raise SystemExit("--gate-bonus requires --gate oracle")
     if args.attn_sharpen > 0 and args.attn_logn_sref > 0:
         raise SystemExit("--attn-sharpen and --attn-logn-sref are mutually exclusive")
-    if args.gate != "none" and args.tasks != "count":
-        raise SystemExit("--gate requires --tasks count (evidence labels are count's)")
+    # REDUX v3 (2026-09-20): the oracle gate uses the task-agnostic C-in-R evidence set (same
+    # predicate as tasks.derive_gold), so it is allowed with any task list; the MODEL gate stays count-only.
+    if args.gate == "model" and args.tasks != "count":
+        raise SystemExit("--gate model requires --tasks count")
     if args.gate == "model":
         if args.gate_npz is None or args.eval_only_adapter is None:
             raise SystemExit("--gate model requires --gate-npz and --eval-only-adapter")
@@ -277,8 +285,9 @@ def main() -> int:
         raise SystemExit("--nfree-prompt excludes --declare-n (no N in text)")
     # S9b: --nfree-prompt + --virtual-n = k-balanced evidence-subset oversampling
     # (the S8 coverage trick with the N~ dimension collapsed away).
-    if args.nfree_prompt and args.tasks != "count":
-        raise SystemExit("--nfree-prompt is count-only")
+    # REDUX v3 (2026-09-20): --nfree-prompt now covers exists/majority via tasks.build_prompt_nfree
+    if args.virtual_n and args.tasks != "count":
+        raise SystemExit("--virtual-n is count-only")
     gate_npz = None
     if args.gate_npz is not None:
         g_ = np.load(args.gate_npz)
@@ -487,11 +496,19 @@ def main() -> int:
             for t, (a, b) in enumerate(blocks):
                 if t not in evid:
                     hide.extend(range(int(a), int(b)))
+        def _gate_mask(h):
+            hard = build_block_mask(len(ids), blocks, hide_cols=h)
+            if args.gate_bonus > 0 and h:  # SOFTGATE: soften only the gate entries, never the fence
+                import math
+                base = build_block_mask(len(ids), blocks, hide_cols=[])
+                soft = base.clone()
+                soft[(hard == MASK_MIN) & (base != MASK_MIN)] = -math.log(args.gate_bonus)
+                return soft
+            return hard
         if gate_split is None:
-            masks = (build_block_mask(len(ids), blocks, hide_cols=hide),)
+            masks = (_gate_mask(hide),)
         else:
-            masks = (build_block_mask(len(ids), blocks, hide_cols=[]),
-                     build_block_mask(len(ids), blocks, hide_cols=hide))
+            masks = (build_block_mask(len(ids), blocks, hide_cols=[]), _gate_mask(hide))
         with torch.no_grad():
             base_pos, _ = rope_fn(inp["input_ids"], image_grid_thw=inp.get("image_grid_thw"),
                                   attention_mask=inp.get("attention_mask"))

@@ -54,6 +54,7 @@ from gnnformer.data import (  # noqa: E402
     probe_evidence,
     rooms_to_room2chars,
 )
+from gnnformer.constants import MASK_MIN
 from gnnformer.fencing import (  # noqa: E402
     FenceHooks,
     build_block_mask,
@@ -232,6 +233,10 @@ def main() -> int:
                     help="SPARSE S3: oracle = per-member evidence gate on the p1fence "
                          "arm (base hides flip block t, evid member exposes it). "
                          "No flag = byte-identical behavior.")
+    ap.add_argument("--gate-bonus", type=float, default=0.0,
+                    help="SOFTGATE: finite penalty instead of MASK_MIN on the gated (non-evidence) "
+                         "columns: -log(B) added to their logits (B=1 -> no penalty; 0 = hard gate, "
+                         "byte-identical path). Requires --gate oracle.")
     ap.add_argument("--nfree-prompt", action="store_true",
                     help="S11: build the p1fence layout with the S9 N-free prompt "
                          "(single source: the sparse trainer's builder). Text is then "
@@ -252,6 +257,8 @@ def main() -> int:
         raise SystemExit(f"unknown arm in --arms: {arms}")
     if args.gate != "none" and arms != {"p1fence"}:
         raise SystemExit("--gate oracle is defined for --arms p1fence only")
+    if args.gate_bonus > 0 and args.gate != "oracle":
+        raise SystemExit("--gate-bonus requires --gate oracle")
 
     rt = load_runtime(args.model) if args.model else load_runtime()
     model, processor, tok = rt.model, rt.processor, rt.tokenizer
@@ -404,7 +411,14 @@ def main() -> int:
                     for t, (a, b) in enumerate(p_blocks):
                         if t not in evid_set:
                             hide.extend(range(int(a), int(b)))
-                    return build_block_mask(p_seq, p_blocks, hide_cols=hide)
+                    hard = build_block_mask(p_seq, p_blocks, hide_cols=hide)
+                    if args.gate_bonus > 0:  # SOFTGATE: soften ONLY the gate entries, never the fence
+                        import math
+                        base = build_block_mask(p_seq, p_blocks, hide_cols=[])
+                        soft = base.clone()
+                        soft[(hard == MASK_MIN) & (base != MASK_MIN)] = -math.log(args.gate_bonus)
+                        return soft
+                    return hard
 
                 p_mask_base = gated_mask(pair["evid"])
                 p_mask_evid = gated_mask(pair["evid"] | {flip_t})
@@ -584,7 +598,7 @@ def main() -> int:
              f"adapter={args.peft_adapter or 'none'}, "
              f"gold_set={sorted(gold_set) if gold_set else 'none'}, "
              f"logn_sref={args.attn_logn_sref}, gate={args.gate}, "
-             f"nfree={args.nfree_prompt}) ===",
+             f"nfree={args.nfree_prompt} gate_bonus={args.gate_bonus}) ===",
              "[gold-hist] " + format_gold_histogram(gold_hist)]
     import collections
     acc = collections.defaultdict(list)
