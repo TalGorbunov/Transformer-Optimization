@@ -1,76 +1,61 @@
-# GNN-Transformer (`gnnformer`)
+# Transformer-Optimization — relieving over-squashing in a frozen VLM
 
-**Relieving the aggregation (over-squashing) bottleneck in frozen vision-language
-transformers with GNN-style message passing** — MSc thesis code, Tal Gorbunov, 2026.
+MSc thesis code, Tal Gorbunov, 2026. **Rewrite in progress (branch `rewrite`, since
+2026-09-21):** the repo is being rebuilt by hand around the official MMReD benchmark; the
+July–September code that produced the current results is frozen under `legacy/v1/`.
 
-A frozen VLM (Qwen2.5-VL-7B, 4-bit) collapses on multi-frame counting: joint attention
-dilutes per-frame evidence like an over-squashed GNN (a measured d′/√N law), and the
-single-token readout cannot use what does arrive. This repo implements and evaluates a
-three-part repair, all on the frozen backbone (~2M trainable parameters total):
+## The problem and the method
 
-1. **Fencing (supply).** Per-frame carrier tokens behind a block-diagonal attention
-   fence with per-block M-RoPE position reset — every frame is read as if in isolation,
-   in ONE forward. Supply d′: 5.95 (joint) → **13.54** ([RESULTS.md](RESULTS.md) E1).
-2. **Learned carriers (aggregation).** A distilled carrier embedding `e_c` + a small
-   LoRA above the separator layer L\*=12 integrates the per-frame messages in-model.
-3. **Scratchpad readout (expressivity).** The answer is decoded as a caption-format
-   frame scan with an inline tally — a read-off, not a squashed single token.
+A frozen Qwen2.5-VL-7B (4-bit) must answer questions about a sequence of N frames (characters
+moving between rooms). Joint attention over all frames dilutes each frame's evidence like an
+over-squashed GNN, and accuracy collapses with N. The method keeps the backbone frozen and
+changes only how information flows:
 
-**Headline** (MMRED counting, exact match; frozen baseline 0.219 @N=8):
-in-distribution **0.999** · held-out N=32 **0.987** (3 seeds: 0.982 ± 0.007) ·
-N=64 in-length **0.981**, parse-fail 0 · no-harm on MME/POPE (|Δ| ≤ 1.4 pts) ·
-exact cached decode **16–311×** faster. Full record + honesty flags: [RESULTS.md](RESULTS.md).
+1. **Fence.** Every frame is encoded in its own attention block (block-diagonal mask + per-block
+   position reset) with the question visible in the shared prefix. No frame sees another frame,
+   so per-frame evidence is never diluted, in one forward.
+2. **Gate.** A small classifier on each block's `<|vision_end|>` state decides whether the frame
+   is evidence for the question; non-evidence blocks are hidden from the readout. The gate is
+   N-independent by construction (a block's state is the same at N = 8 and N = 128).
+3. **Read.** A small LoRA decodes the answer from the prefix plus the kept blocks only. With the
+   blocks batched over a shared prefix, encode cost is linear in N and the read costs k blocks.
 
-## Repo map
+Everything is measured on the **official MMReD benchmark** (HF `ef1e43ce/mmred`, frames from the
+authors' renderer at native resolution, their prompt verbatim), with the paper's protocol: train
+on sequence lengths ≤ 16, test on all lengths up to 128.
+
+## Layout
 
 ```
-gnnformer/        the method as a small package
-  fencing.py        block-fence masks + position reset + hooks + message recompute
-  carriers.py       lo/hi masks, LoRA, checkpoint I/O        engine.py   all forwards/decodes
-  data.py           MMRED loading + task parsing             runtime.py  model loading (7B, 4-bit, sdpa)
-  scratchpad.py     readout targets + parser                 metrics.py  d' estimator, √N law
-scripts/          one entrypoint per concern (probe, trainers, exam, baselines, pipeline)
-slurm/            sbatch wrappers + lib/common.sh (env-var driven; DRY_RUN=1 supported)
-tests/            CPU tests: mask parity vs legacy (bit-for-bit), invariants, round-trips
-checkpoints/      stable names for canonical checkpoints/caches (symlinks into outputs_legacy/)
-datasets/mmred/   MMRED dataset generators (park renders + corruptions)
-data/             generated datasets (untracked; see the generators + per-root metadata)
-outputs/          fresh run dirs, post-refactor only (untracked except INDEX.md per group)
-outputs_legacy/   ALL pre-refactor result trees, frozen (path translation: ARCHIVE_MAP.md)
-legacy/           the ENTIRE pre-refactor code world, frozen (see legacy/README.md)
-docs/             method/theory docs, citations, archives (incl. the pre-fencing RESULTS)
-RESULTS.md        append-only research log (live era)      METHOD.md  the method recipe
-ARCHIVE_MAP.md    old cited output path -> real location
+core/          the method: constants · model · fence · mmred · prompt · metrics   (tests/ pin each)
+experiments/   one file per experiment (prepare_data, train, evaluate, probes, baselines, figs/)
+sbatch/        SLURM wrappers + lib/common.sh + migrate/
+tests/         CPU tests, seconds:  python tests/test_fence.py  (etc.)
+checkpoints/   README.md = the stable-name → run-dir record; symlinks are local
+data/          symlinks to /rg (mmred_hf = the official benchmark; the rest = legacy archives)
+outputs/       run dirs; INDEX.md / STATE.md / CAMPAIGN_BRIEF.md per group are tracked
+docs/          paper plan, prior art, framing audits, theory explainers, archive/
+legacy/        pre-July-2026 code + v1/ (July–Sept 2026), frozen; run with PYTHONPATH=legacy/v1
+RESULTS.md     append-only research log
 ```
 
 ## Quickstart
 
 ```bash
-cd <repo-root> && source .venv/bin/activate     # python 3.9; deps pinned in pyproject.toml
-
-# CPU tests (mask parity vs frozen legacy, scratchpad round-trips, d' estimator):
-python tests/test_fencing.py && python tests/test_carrier_masks.py
-
-# Supply probe (A3: blockfence + posreset + qfirst), N=8:
-python scripts/probe_supply.py --question-first --fence-frames --fence-blocks \
-    --reset-positions --limit 300 --shuffle-dirs 0 --output outputs/carrier/probe
-
-# The exam: caption-winner checkpoint on the pinned N=32 held-out dirs (anchor: 0.987):
-python scripts/eval_carrier.py --ckpt checkpoints/carrier_layer_fmt_caption_best.pt \
-    --dirs-file checkpoints/carrier_tally_l12v2_run/eval_dirs_N32all.txt \
-    --limit 150 --decode-tokens 320 --output outputs/carrier/exam
-
-# Train the production carrier layer (caption recipe; ~14 h on one A100):
-sbatch slurm/train_carrier_layer.sbatch          # knobs via --export, see the wrapper
+source .venv/bin/activate                    # Python 3.11: model stack + official `mmred` + `core`
+python tests/test_fence.py                   # CPU; every core module has one
+python experiments/prepare_data.py --help    # HF rows -> json, official renderer -> frames
 ```
-
-On the cluster, submit through `slurm/` (partitions/QOS rules: [CLAUDE.md](CLAUDE.md) §3).
+On the cluster submit through `sbatch/` ([CLAUDE.md](CLAUDE.md) §3 has the partition/QOS rules).
 
 ## Reproducibility contract
 
-- Every number in [RESULTS.md](RESULTS.md) traces to a run dir on disk; canonical
-  checkpoints have stable names under [checkpoints/](checkpoints/README.md).
-- Each script's docstring names the logged anchor it must reproduce; `tests/` pin the
-  mask/position/target semantics bit-for-bit against the frozen legacy implementations.
-- `legacy/` is the complete pre-refactor tree and still runs
-  (`PYTHONPATH=legacy python legacy/experiments/...`) — never edited, never deleted.
+- Every number in [RESULTS.md](RESULTS.md) traces to a run dir on disk; canonical adapters have
+  stable names in [checkpoints/README.md](checkpoints/README.md).
+- Each experiment's docstring names the logged anchor it must reproduce.
+- `tests/test_fence.py` pins the mask and position reset bit-for-bit against both frozen
+  implementations; `tests/test_prompt.py` pins the prompt byte-for-byte against the benchmark
+  authors' inference script; `tests/test_mmred.py` demands 100 % gold parity over all 24 question
+  types.
+- Results from before the rewrite (park-generator data, the carrier/scratchpad method) are
+  reproducible from `legacy/v1/` and labelled as legacy data in the log.
