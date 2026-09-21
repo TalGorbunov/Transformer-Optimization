@@ -1,34 +1,45 @@
-# data/ — generated datasets (untracked; this manifest is the record)
+# data/ — where the datasets live (2026-09-21 layout)
 
-Nothing under `data/` is in git. Reproducibility = the generators in `datasets/mmred/`
-(+ each root's own `metadata.json`/`generation_summary.json`/`BUILD_INFO`, written by the
-generator with the exact args/seed). The main park generator was recovered byte-exact and
-committed 2026-07-29 (`datasets/mmred/generate_mmred_park_dataset.py`).
+Nothing under `data/` is in git, and since the 2026-09-21 migration nothing under `data/` is
+even on `/home`: every entry is a **symlink** to `/rg`. This file is the manifest.
 
-## Canonical (referenced by live code / RESULTS.md entries / the training mixture)
+## The official benchmark (the ONLY dataset the current code reads)
 
-| root | what | source |
+| entry | target | contents |
 |---|---|---|
-| `mmred_images_park` | THE main dataset (park renders, seq 1–8, 4400 samples, seed 0) | `generate_mmred_park_dataset.py` (metadata.json = full record) |
-| `mmred_longN_park`, `mmred_longN_park2` | long-N ladder (N=16..128; park2 = N=32×312 + N=48×210 in-length) | park generator, longN configs |
-| `mmred_cooc_balanced`, `mmred_rooms_balanced`, `mmred_niah_which`, `mmred_union_or` | the 5-task mixture roots | `generate_mmred_balanced.py` family |
-| `mmred_cooc_longN` | LOTO N=32 eval-only cooc (n=299, seed 7, gen job 125261) | balanced generator |
-| `mmred_steps_balanced`, `mmred_sft_p41` | balanced steps / P4.1 SFT training set | balanced generator |
-| `mmred_natural`, `mmred_natural_v2`, `mmred_natural_mm` | natural-image cells (judge-gated pools; _mm = composed, image-half split, BUILD_INFO in root) | `legacy/experiments/natural/` builders |
-| `mlvu_ac`, `mlvu_ac_mmred` | MLVU-AC benchmark leg (converted) | `legacy/experiments/mlvu/convert_ac_to_mmred.py` |
-| `herbench_ac`, `vnbench_cnt`, `vnbench_cnt_n32exact` | benchmark-ladder legs | `legacy/experiments/{herbench,vnbench}/prep_*.py` |
-| `mmred_text_longN`, `mmred_text_arch` | text-MMRED (arch battery / text anchors) | text generators (legacy) |
-| `coco_val2017` | natural-image source pool | download |
+| `data/mmred_hf` | `/rg/shocher_prj/lab_data/mmred` (lab-shared, permanent) | `hf/` Arrow cache of HF `ef1e43ce/mmred` · `json/<config>_<split>.json` prepped rows (`legacy/v1/scripts/mmred_hf/prep.py`, to be replaced by `experiments/prepare_data.py`) · `images/<config>_<split>/<qid>/frame_%04d.png` official renders at native 512 px (Fr0do/mmred renderer, commit 56c6ee7, deterministic) · `upstream_repo/` the pinned generator clone (no LICENSE file — internal use) · `dirsfiles/`, `headfit_raw.json`, `*_probe/` small helpers |
 
-## Archive candidates (no references found by the 2026-07-29 audit — kept in place, never delete)
+Splits present: train 2/4/8/16 · val 8/16 · test 8/16/32/64/128 · headfit 32/64/128
+(1,200 rows per test/val config, 4,800 per train config, 24 qtypes balanced). 605 K frames, 13 G.
+NOT copied: `dirs/` (1 M hardlinks — the legacy `qa.txt` bridge); it exists only in the retired
+original `data/mmred_hf.moved-20260921` on /home; regenerate on /rg with
+`legacy/v1/scripts/mmred_hf/materialize_dirs.py` if a legacy/v1 run ever needs it.
 
-`mmred_longN_co_occupancy` · `mmred_longN_rooms_visited` · `herbench_ac_hi` ·
-`mmred_smallN_park` · `mmred_perm_bias_seq8` · `mmred_corrupted_park_rooms_visited` ·
-`mmred_corrupted_park_co_occupancy` · `mmred_park` · `mmred_cooc_2char/3char` ·
-`mmred_rooms_1char*/2char` · `_smoke` — plus legacy-era roots used only by `legacy/` code:
-`mmred_corrupted`, `mmred_agg`, `mmred_images`, `mmred`,
-`mmred_images_park_no_step_marker`, `mmred_images_park_evidence_only_seq1_8`.
-`oxford_pets`: probably a natural-pool source — verify before archiving.
+## External video benchmarks (not regenerable — source videos are gone; kept for a possible paper row)
 
-If disk pressure ever demands it: move candidates into `data/_archive/` (move, never
-delete) and update this manifest.
+| entry | target |
+|---|---|
+| `data/mlvu_ac`, `data/mlvu_ac_mmred`, `data/mlvu_ac_n32judge` | `/rg/shocher_prj/lab_data/mlvu/<name>` |
+| `data/herbench_ac`, `data/herbench_ac_hi`, `data/herbench_retrieve_opt_clips` | `/rg/shocher_prj/lab_data/herbench/<name>` |
+| `data/vnbench_cnt`, `data/vnbench_cnt_n32exact` | `/rg/shocher_prj/lab_data/vnbench/<name>` |
+
+Built by `legacy/experiments/{mlvu,herbench,vnbench}/prep_*.py` (PyAV; `~/.local/pyav-py39`).
+
+## Custom-generator roots (legacy only — the rewrite does not read them)
+
+Every other `data/mmred_*` root, `coco_val2017`, `oxford_pets`, `_smoke`, `_scratch_herb_smoke`
+→ `/rg/shocher_prj/tal.gorbunov/archive/data/<name>` (personal archive; moved, never deleted).
+Generators: `legacy/v1/datasets/mmred/*.py`; each root carries `metadata.json` (the three that
+lacked one — `mmred_longN_park`, `mmred_longN_park2`, `mmred_redux` — got a reconstructed one on
+2026-09-21 with the runner args and per-count histograms read back from the directory names).
+The main park dataset is `mmred_images_park` (seq 1–8, 4,400 samples, seed 0).
+
+## Migration bookkeeping
+
+- Copies: `sbatch/migrate/copy_tree.sbatch` via `submit.sh` + the two manifests; every job log
+  (`logs/copy_tree-<jobid>.out`) ends with `OK (rsync clean)` and a file-count MATCH.
+- Switch: `sbatch/migrate/switch_symlinks.sh <manifest>` re-verifies counts + sampled md5s, then
+  renames the original to `<name>.moved-20260921` and puts the symlink in place. The originals
+  are deleted by hand, never by a script (`cleanup_2026-09-21.sh`).
+- Job-time staging: `sbatch/lib/common.sh:stage_split` copies a per-split tarball
+  (`images/<split>.tar`, written by `experiments/prepare_data.py`) to the node-local NVMe.

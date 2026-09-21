@@ -11,6 +11,8 @@ grep -vE '^\s*#|^\s*$' "$manifest" | while read -r src dst ex; do
     [ -n "$ex" ] && { echo "SKIP $src (has excludes; handled by its sub-trees)"; continue; }
     [ -L "$src" ] && { echo "already a symlink: $src"; continue; }
     [ -d "$src" ] && [ -d "$dst" ] || { echo "MISSING side: $src / $dst"; continue; }
+    # a parent of $src may already be a symlink to /rg (e.g. data/mmred_hf): then src IS dst — never switch
+    [ "$(realpath "$src")" = "$(realpath "$dst")" ] && { echo "same tree (parent already switched): $src"; continue; }
     n_src=$(find "$src" -type f | wc -l); n_dst=$(find "$dst" -type f | wc -l)
     if [ "$n_src" -ne "$n_dst" ]; then echo "COUNT MISMATCH $src ($n_src) vs $dst ($n_dst) — not switched"; continue; fi
     # sampled checksum: 20 files spread through the tree
