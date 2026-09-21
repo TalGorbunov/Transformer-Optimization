@@ -1,5 +1,11 @@
 # checkpoints/ — stable names for the live checkpoint chain
 
+> **2026-09-21 (rewrite):** this README is the tracked record; the symlinks themselves are now
+> git-ignored (local). Paths below of the form `outputs_legacy/...` resolve through a symlink to
+> `/rg/shocher_prj/tal.gorbunov/archive/outputs/outputs_legacy/...` after the data migration, and
+> every runner/script cited as `slurm/...` or `scripts/...` now lives under `legacy/v1/`.
+> Nothing was re-pointed; every link still resolves (checked 2026-09-21).
+
 Created 2026-07-29 (phase 0 of the `serious-refactor` reorg). Every entry is a **relative
 symlink** into `outputs*/` — nothing was moved or copied. Purpose: give the checkpoints and
 caches that live runners hardcode a stable path, so reorganizing `outputs/` cannot break the
