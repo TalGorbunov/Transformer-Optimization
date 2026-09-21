@@ -1,0 +1,28 @@
+# SRC (relative to repo root)   DST (absolute on /rg)   [EXCLUDES]
+# Wave 1 — the official MMReD benchmark -> lab_data/mmred (shared, permanent).
+# dirs/ (1 M hardlinks, legacy qa.txt bridge) and the *_probe subsets are NOT copied; regenerate dirs/ on /rg
+# with legacy/v1/scripts/mmred_hf/materialize_dirs.py if a legacy run ever needs it.
+data/mmred_hf   /rg/shocher_prj/lab_data/mmred   dirs images images_probe json_probe
+data/mmred_hf/images/seq_len_2_train      /rg/shocher_prj/lab_data/mmred/images/seq_len_2_train
+data/mmred_hf/images/seq_len_4_train      /rg/shocher_prj/lab_data/mmred/images/seq_len_4_train
+data/mmred_hf/images/seq_len_8_train      /rg/shocher_prj/lab_data/mmred/images/seq_len_8_train
+data/mmred_hf/images/seq_len_8_val        /rg/shocher_prj/lab_data/mmred/images/seq_len_8_val
+data/mmred_hf/images/seq_len_8_test       /rg/shocher_prj/lab_data/mmred/images/seq_len_8_test
+data/mmred_hf/images/seq_len_16_train     /rg/shocher_prj/lab_data/mmred/images/seq_len_16_train
+data/mmred_hf/images/seq_len_16_val       /rg/shocher_prj/lab_data/mmred/images/seq_len_16_val
+data/mmred_hf/images/seq_len_16_test      /rg/shocher_prj/lab_data/mmred/images/seq_len_16_test
+data/mmred_hf/images/seq_len_32_test      /rg/shocher_prj/lab_data/mmred/images/seq_len_32_test
+data/mmred_hf/images/seq_len_32_headfit   /rg/shocher_prj/lab_data/mmred/images/seq_len_32_headfit
+data/mmred_hf/images/seq_len_64_test      /rg/shocher_prj/lab_data/mmred/images/seq_len_64_test
+data/mmred_hf/images/seq_len_64_headfit   /rg/shocher_prj/lab_data/mmred/images/seq_len_64_headfit
+data/mmred_hf/images/seq_len_128_test     /rg/shocher_prj/lab_data/mmred/images/seq_len_128_test
+data/mmred_hf/images/seq_len_128_headfit  /rg/shocher_prj/lab_data/mmred/images/seq_len_128_headfit
+# Wave 2 — external benchmark frames (not regenerable) -> lab_data/<benchmark>/<root>
+data/mlvu_ac                     /rg/shocher_prj/lab_data/mlvu/mlvu_ac
+data/mlvu_ac_mmred               /rg/shocher_prj/lab_data/mlvu/mlvu_ac_mmred
+data/mlvu_ac_n32judge            /rg/shocher_prj/lab_data/mlvu/mlvu_ac_n32judge
+data/herbench_ac                 /rg/shocher_prj/lab_data/herbench/herbench_ac
+data/herbench_ac_hi              /rg/shocher_prj/lab_data/herbench/herbench_ac_hi
+data/herbench_retrieve_opt_clips /rg/shocher_prj/lab_data/herbench/herbench_retrieve_opt_clips
+data/vnbench_cnt                 /rg/shocher_prj/lab_data/vnbench/vnbench_cnt
+data/vnbench_cnt_n32exact        /rg/shocher_prj/lab_data/vnbench/vnbench_cnt_n32exact

@@ -3,12 +3,14 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gnnformer"
-version = "1.0.0"
-description = "GNN-style message passing in a frozen vision-language transformer: attention fencing, learned carrier tokens, scratchpad readout (MSc thesis, Tal Gorbunov)"
-requires-python = ">=3.9"
-# Working versions pinned from the shared .venv on 2026-07-30 (thesis-number reproducibility).
-# NOTE: never pip-install into the shared cluster .venv without approval (CLAUDE.md).
+name = "core"
+version = "2.0.0"
+description = "Fenced per-frame encoding + evidence gate + gated read on a frozen VLM, evaluated on the official MMReD benchmark (MSc thesis, Tal Gorbunov)"
+requires-python = ">=3.10"
+# Same pinned model stack as the 2026-07-30 .venv (thesis-number reproducibility), now on
+# Python 3.11 so the official mmred generator/renderer (requires >=3.10) lives in the SAME env.
+# Build: see ~/.claude/plans/ok-i-want-to-nifty-brook.md §7.4. Never pip-install into a shared
+# env without asking (CLAUDE.md).
 dependencies = [
     "torch==2.8.0",
     "torchvision==0.23.0",
@@ -16,18 +18,21 @@ dependencies = [
     "bitsandbytes==0.48.2",
     "accelerate==1.10.1",
     "peft==0.17.1",
-    "datasets==4.5.0",
-    "scikit-learn==1.6.1",
-    "numpy==2.0.2",
-    "pillow==11.3.0",
-    "matplotlib==3.9.4",
-    "num2words==0.5.14",
+    "datasets>=4.5,<6",
+    "scikit-learn>=1.6",
+    "numpy>=2.0",
+    "pillow>=11",
+    "matplotlib>=3.9",
     "huggingface-hub>=0.34.0,<1.0",
+    "regex",
+    "json_repair",
 ]
 
 [project.optional-dependencies]
-# only legacy/ code imports nnsight; install with `pip install -e ".[legacy]"` if rerunning it
-legacy = ["nnsight==0.5.12"]
+# the official benchmark package, installed editable from the pinned clone:
+#   pip install -e "data/mmred_hf/upstream_repo[viz]"
+# (not a PyPI dependency: Fr0do/mmred has no release and no LICENSE file — internal use)
+legacy = ["nnsight==0.5.12"]   # only legacy/ (pre-July-2026) code imports nnsight
 
 [tool.setuptools.packages.find]
-include = ["gnnformer", "gnnformer.*"]
+include = ["core", "core.*"]
