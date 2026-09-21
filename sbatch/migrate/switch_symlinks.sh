@@ -17,10 +17,10 @@ grep -vE '^\s*#|^\s*$' "$manifest" | while read -r src dst ex; do
     if [ "$n_src" -ne "$n_dst" ]; then echo "COUNT MISMATCH $src ($n_src) vs $dst ($n_dst) — not switched"; continue; fi
     # sampled checksum: 20 files spread through the tree
     bad=0
-    for f in $(find "$src" -type f | awk 'NR%997==1' | head -20); do
+    while IFS= read -r f; do                       # space-safe (legacy run dirs contain "attention comparison/")
         rel="${f#$src/}"
         [ "$(md5sum < "$f")" = "$(md5sum < "$dst/$rel")" ] || { bad=1; echo "CHECKSUM DIFF $rel"; }
-    done
+    done < <(find "$src" -type f | awk 'NR%997==1' | head -20)
     [ "$bad" -eq 0 ] || { echo "not switched: $src"; continue; }
     echo "OK $src ($n_src files) -> symlink to $dst"
     if [ "$dry" != "--dry-run" ]; then
