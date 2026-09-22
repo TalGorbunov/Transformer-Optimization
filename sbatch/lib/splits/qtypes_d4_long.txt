@@ -1,0 +1,15 @@
+# D4 long-N captures: the 9 DC types + 5 NIAH types with a content evidence rule
+room_empty
+where_spend
+crowded_room
+who_spend
+spend_alone
+spend_together
+steps_in_room
+rooms_visited
+crowd_count
+first_at_room
+last_at_room
+char_on_char_first_app
+char_on_char_final_app
+char_at_frame

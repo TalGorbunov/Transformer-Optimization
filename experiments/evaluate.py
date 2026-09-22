@@ -40,6 +40,7 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from core.fence import FENCED_SDPA, FenceHooks, fenced_setup, greedy_decode, layout_blocks  # noqa: E402
+from experiments._diag_common import cond_tag, set_logn, set_sharpen  # noqa: E402
 from core.metrics import bootstrap_ci, em_table, split_by_answer  # noqa: E402
 from core.mmred import NUMERIC_QTYPES, QTYPES, evidence_frames, frames, load_split, recompute_answer, states, stratified_order  # noqa: E402
 from core.model import get_layers, get_rope_index_fn, load_runtime, move_to_device, special_ids  # noqa: E402
@@ -74,6 +75,9 @@ def main() -> int:
     ap.add_argument("--gate", choices=["none", "oracle"], default="none")
     ap.add_argument("--max-new-tokens", type=int, default=24)
     ap.add_argument("--max-seq-tokens", type=int, default=24000, help="refuse the dense fenced path above this")
+    ap.add_argument("--attn-sharpen", type=float, default=0.0, help="DIAG: tau on decoder modules >= --sharpen-from-layer (0 = off)")
+    ap.add_argument("--sharpen-from-layer", type=int, default=12)
+    ap.add_argument("--attn-logn-sref", type=int, default=0, help="DIAG: log-N logit scaling reference length in tokens (0 = off)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--model", default=None)
     ap.add_argument("--port-check", choices=sorted(PORT_CHECKS), default=None)
@@ -103,9 +107,10 @@ def main() -> int:
     if adapter_cfg and args.layout is None and pc is None and adapter_cfg.get("layout") != layout:
         print(f"[warn] adapter trained with layout={adapter_cfg.get('layout')} fence={adapter_cfg.get('fence')}", flush=True)
 
-    run_dir = args.output / f"{time.strftime('%Y%m%d_%H%M%S')}_{'pc-' + pc.name if pc else 'faithful'}"
+    cond = cond_tag(args.attn_sharpen, args.sharpen_from_layer, args.attn_logn_sref)
+    run_dir = args.output / f"{time.strftime('%Y%m%d_%H%M%S')}_{'pc-' + pc.name if pc else 'faithful'}{'' if cond == 'base' else '_' + cond}"
     run_dir.mkdir(parents=True, exist_ok=True)
-    cfg = {**vars(args), "layout": layout, "fence": fence, "gate": gate, "port_check": pc.name if pc else None,
+    cfg = {**vars(args), "layout": layout, "fence": fence, "gate": gate, "port_check": pc.name if pc else None, "cond": cond,
            "adapter_train_config": adapter_cfg}
     (run_dir / "config.json").write_text(json.dumps(cfg, indent=1, default=str))
 
@@ -137,6 +142,7 @@ def main() -> int:
     rt = load_runtime(args.model) if args.model else load_runtime()
     model, processor, tok = rt.model, rt.processor, rt.tokenizer
     layers = get_layers(model)                            # structural refs BEFORE the PEFT wrap
+    base_scaling = set_sharpen(layers, args.attn_sharpen, args.sharpen_from_layer)   # DIAG knobs (eval-only)
     rope_fn = get_rope_index_fn(model)
     sid = special_ids(processor)
     im_end_id = int(tok.convert_tokens_to_ids("<|im_end|>"))
@@ -186,6 +192,7 @@ def main() -> int:
                 continue
             keep = [t in ev for t in range(n)]
         raw = ""
+        set_logn(layers, int(ids.shape[1]), args.attn_logn_sref, base_scaling)   # per prompt length
         with torch.inference_mode():
             if not fence:
                 gen = model.generate(**enc, max_new_tokens=max_new, do_sample=False, pad_token_id=eos_id)
