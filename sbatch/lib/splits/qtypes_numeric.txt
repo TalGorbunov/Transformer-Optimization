@@ -1,0 +1,8 @@
+# numeric-answer qtypes (reported split by answer <=16 / >16)
+n_room_on_char_first_app
+n_room_on_char_final_app
+n_char_at_frame
+n_empty
+steps_in_room
+rooms_visited
+crowd_count

@@ -1,0 +1,10 @@
+# 9 dense-context qtypes
+room_empty
+where_spend
+crowded_room
+who_spend
+spend_alone
+spend_together
+steps_in_room
+rooms_visited
+crowd_count

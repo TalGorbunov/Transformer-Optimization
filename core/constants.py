@@ -9,7 +9,7 @@ from __future__ import annotations
 
 # --- the benchmark (order = upstream mmred.const) ---------------------------------------
 ROOMS = ["Kitchen", "Bathroom", "Garden", "Office", "Bedroom", "Hallway"]
-CHARS = ["Daniel", "John", "Mary", "Michael", "Sandra"]
+CHARS = ["Sandra", "Mary", "John", "Daniel", "Michael"]
 NOBODY = "Nobody"
 
 # HF release: ef1e43ce/mmred. Train/val/test exist for seq_len <= 16; 32/64/128 are test-only.

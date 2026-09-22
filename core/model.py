@@ -40,37 +40,91 @@ class ModelRuntime:
 
 def load_runtime(model_name: str = MODEL_ID, *, attn_implementation: str = "sdpa",
                  use_4bit: bool = True, device_map: Any = "cuda") -> ModelRuntime:
-    """Frozen Qwen2.5-VL runtime. Twin: runtime.py:47. sdpa is required for 4-D masks."""
-    raise NotImplementedError
+    """Frozen Qwen2.5-VL runtime. Twin: runtime.py:47 (+ its build_4bit_quantization_config,
+    inlined). sdpa is required for 4-D masks; "eager" is refused."""
+    from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
+
+    if attn_implementation == "eager":
+        raise ValueError("eager attention is forbidden in this codebase (masks + speed).")
+    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
+    kwargs: Dict[str, Any] = {
+        "attn_implementation": attn_implementation,
+        "trust_remote_code": True,
+        "device_map": device_map,
+    }
+    if use_4bit:
+        kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_quant_type="nf4",
+        )
+    model = AutoModelForImageTextToText.from_pretrained(model_name, **kwargs)
+    model.eval()
+    return ModelRuntime(model_name=str(model_name), processor=processor, model=model)
 
 
 def get_layers(model: Any) -> Any:
     """The LM decoder layer list (model.model.language_model.layers on this HF version).
-    Twin: runtime.py:70."""
-    raise NotImplementedError
+    Twin: runtime.py:70 (verbatim)."""
+    for getter in (
+        lambda m: getattr(getattr(getattr(m, "model", None), "language_model", None), "layers", None),
+        lambda m: getattr(getattr(m, "language_model", None), "layers", None),
+        lambda m: getattr(getattr(m, "model", None), "layers", None),
+    ):
+        layers = getter(model)
+        if layers is not None and len(layers) > 0:
+            return layers
+    raise RuntimeError("couldn't find transformer decoder layers on this model")
 
 
 def text_config(model: Any) -> Any:
     """The text sub-config (hidden_size, num_hidden_layers, rope_scaling...). Twin: runtime.py:83."""
-    raise NotImplementedError
+    return model.config.text_config if hasattr(model.config, "text_config") else model.config
 
 
 def special_ids(processor: Any) -> Dict[str, int]:
     """{'vision_start': id, 'vision_end': id, 'image_pad': id} via the tokenizer.
     Pinned by tests/test_model.py::test_special_ids (CPU: tokenizer only)."""
-    raise NotImplementedError
+    tok = processor.tokenizer if hasattr(processor, "tokenizer") else processor
+    ids = {name: int(tok.convert_tokens_to_ids(t))
+           for name, t in (("vision_start", VISION_START), ("vision_end", VISION_END), ("image_pad", IMAGE_PAD))}
+    unk = getattr(tok, "unk_token_id", None)
+    bad = [n for n, i in ids.items() if i is None or i < 0 or (unk is not None and i == unk)]
+    if bad:
+        raise ValueError(f"special tokens not in this tokenizer: {bad}")
+    return ids
 
 
 def image_token_groups(input_ids_1d: torch.Tensor, image_pad_id: int) -> List[List[int]]:
     """Consecutive runs of IMAGE_PAD positions, one list per image, in order.
     Twin: runtime.py:115 (there it re-derived the id from the processor each call)."""
-    raise NotImplementedError
+    positions = (input_ids_1d == int(image_pad_id)).nonzero(as_tuple=True)[0]
+    if positions.numel() == 0:
+        return []
+    groups: List[List[int]] = []
+    current = [int(positions[0].item())]
+    for pos in positions[1:]:
+        p = int(pos.item())
+        if p == current[-1] + 1:
+            current.append(p)
+        else:
+            groups.append(current)
+            current = [p]
+    groups.append(current)
+    return groups
 
 
 def get_rope_index_fn(model: Any) -> Any:
     """The model's multimodal RoPE position builder (its location differs across HF versions).
     Twin: runtime.py:110."""
-    raise NotImplementedError
+    fn = getattr(model, "get_rope_index", None)
+    if fn is None:
+        inner = getattr(model, "model", None)
+        fn = getattr(inner, "get_rope_index", None)
+    if fn is None:
+        raise RuntimeError("get_rope_index not found on this model")
+    return fn
 
 
 def move_to_device(inputs: Dict[str, Any], device: Any) -> Dict[str, Any]:

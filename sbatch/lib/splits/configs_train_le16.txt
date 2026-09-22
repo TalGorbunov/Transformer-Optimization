@@ -1,0 +1,6 @@
+# every training config (seq_len <= 16)
+seq_len_1
+seq_len_2
+seq_len_4
+seq_len_8
+seq_len_16

@@ -1,0 +1,4 @@
+# the 127776 fidelity-anchor triple (34/qtype, JSON order)
+final_app
+steps_in_room
+where_spend

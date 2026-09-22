@@ -1,0 +1,16 @@
+# 15 needle-in-a-haystack qtypes
+first_app
+final_app
+char_on_char_first_app
+char_on_char_final_app
+char_at_frame
+first_at_room
+last_at_room
+room_on_char_first_app
+room_on_char_final_app
+room_at_frame
+char_on_char_at_frame
+n_room_on_char_first_app
+n_room_on_char_final_app
+n_char_at_frame
+n_empty

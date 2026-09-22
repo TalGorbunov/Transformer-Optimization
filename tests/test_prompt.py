@@ -42,7 +42,7 @@ def test_layouts():
     assert set(LAYOUTS) == {"paper", "question-first", "replica"}
     for layout in LAYOUTS:
         msgs = build_messages(FRAMES, Q, layout=layout)
-        assert msgs[0]["role"] == "system" and msgs[0]["content"] == SYSTEM_PROMPT
+        assert msgs[0]["role"] == "system" and _texts(msgs[:1]) == [SYSTEM_PROMPT]
         content = _user_content(msgs)
         imgs = [c for c in content if c["type"] == "image"]
         assert [c["image"] for c in imgs] == FRAMES, "all frames, in order, exactly once"
@@ -57,7 +57,7 @@ def test_layouts():
 
 def test_training_target():
     msgs = build_messages(FRAMES, Q, layout="question-first", answer="3")
-    assert msgs[-1]["role"] == "assistant" and msgs[-1]["content"] == answer_target("3")
+    assert msgs[-1]["role"] == "assistant" and _texts(msgs[-1:]) == [answer_target("3")]
     assert parse_answer(answer_target("3")) == "3"
     assert parse_answer(answer_target("Kitchen")) == "Kitchen"
     assert parse_answer(answer_target("Nobody")) == "Nobody"
@@ -87,11 +87,18 @@ def test_parse_answer_agrees_with_upstream():
     """Cross-check against the upstream parser when its dependencies are installed."""
     sys.path.insert(0, str(UPSTREAM.parents[1]))
     try:
-        from scripts.utils.parse_answers import parse_answer as up_parse  # type: ignore
+        from scripts.utils.parse_answers import parse_predicted_answer, strip_until_first_brace  # type: ignore
     except Exception as exc:
         print(f"  [skip] upstream parser not importable: {exc}"); return
+
+    def up_parse(raw):
+        v = parse_predicted_answer(strip_until_first_brace(raw))
+        if isinstance(v, set):                       # upstream returns {"Nobody"} / {name}
+            v = next(iter(v)) if len(v) == 1 else "None"
+        return None if str(v) == "None" else str(v)
+
     for raw, _ in CASES:
-        assert str(parse_answer(raw)) == str(up_parse(raw)), raw
+        assert parse_answer(raw) == up_parse(raw), (raw, parse_answer(raw), up_parse(raw))
 
 
 def test_exact_match():

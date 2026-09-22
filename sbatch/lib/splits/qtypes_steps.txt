@@ -1,0 +1,2 @@
+# the counting qtype of the P2 / fixed-k lines
+steps_in_room

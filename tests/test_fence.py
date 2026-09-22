@@ -23,6 +23,7 @@ from core.fence import (
     find_subseq,
     frame_blocks,
     hide_cols_for,
+    layout_blocks,
     reset_positions,
     slot_positions,
 )
@@ -57,7 +58,8 @@ def test_frame_blocks():
 
 def test_causality():
     m = build_block_mask(SEQ, BLOCKS, hide_cols=[])
-    assert torch.all(m.triu(1) == MASK_MIN)
+    upper = torch.triu(torch.ones(SEQ, SEQ, dtype=torch.bool), 1)
+    assert torch.all(m[upper] == MASK_MIN), "every strictly-upper entry is forbidden"
     assert m.shape == (SEQ, SEQ) and m.dtype == torch.float32
 
 
@@ -160,6 +162,30 @@ def test_legacy_parity():
         print("  legacy (pre-July) parity: OK")
     except Exception as exc:  # heavy import chain (nnsight etc.) -> skip
         print(f"  [skip] pre-July legacy import unavailable: {exc}")
+
+
+def test_layout_blocks():
+    """question-first: blocks = image spans; replica: block i reaches the next vision_start and
+    the last block ends at the <|im_end|> closing the user turn (the per-frame question copy is
+    inside its block, not a joint reader)."""
+    sid = {"vision_start": VS_ID, "vision_end": VE_ID, "image_pad": PAD_ID}
+    IM_END = 151645
+    ids = ids_synthetic()
+    blocks, fin = layout_blocks(ids, "question-first", sid, im_end_id=IM_END)
+    assert blocks == BLOCKS and fin == FIN
+    # replica: [q][vs img*4 ve q][vs img*4 ve q][vs img*4 ve q]<|im_end|> tail
+    rep = [1] * PREFIX
+    for _ in range(NF):
+        rep += [VS_ID] + [PAD_ID] * IMG + [VE_ID] + [7, 7]          # 2 question tokens per replica
+    rep += [IM_END] + [2] * TAIL
+    rep_t = torch.tensor(rep)
+    blocks, fin = layout_blocks(rep_t, "replica", sid, im_end_id=IM_END)
+    stride = BLK + 2
+    want = [(PREFIX + stride * i, PREFIX + stride * (i + 1)) for i in range(NF)]
+    assert blocks == want, blocks
+    assert fin == PREFIX + stride * NF and rep[fin] == IM_END
+    for a, b in blocks:                                    # every replica token is inside its block
+        assert rep[b - 1] == 7 and rep[b - 2] == 7
 
 
 if __name__ == "__main__":

@@ -2,9 +2,11 @@
 
 > Read automatically at the start of every Claude Code session. Keep it **operational**: how to
 > work in this repo and on this cluster. Research findings go in `RESULTS.md`, not here.
-> **2026-09-21: the repo is being rewritten** (branch `rewrite`; plan in
-> `~/.claude/plans/ok-i-want-to-nifty-brook.md`). `core/` is a skeleton Tal fills in himself —
-> do not implement its bodies unasked.
+> **2026-09-21: the repo is being rewritten** (branch `rewrite`). Scope and decisions:
+> `~/.claude/plans/ok-i-want-to-nifty-brook.md`. Execution plan (who does what, in what order, how
+> each step is proven): `docs/REWRITE_EXECUTION_2026-09-21.md`. Working agreement: Claude drafts
+> each `core/` / `experiments/` body only after a per-module mini-plan Tal has OK'd; Tal reads every
+> diff before it is committed. Nothing in `core/` is implemented unasked.
 
 ---
 
