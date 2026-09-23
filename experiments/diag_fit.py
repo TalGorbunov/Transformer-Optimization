@@ -160,7 +160,15 @@ def concat(tables: List[Table]) -> Optional[Table]:
 
 
 def run_dirs(patterns: Sequence[str]) -> List[str]:
-    return sorted({d for p in patterns for d in glob.glob(p) if Path(d).is_dir()})
+    """Run dirs matching the globs, FINISHED ones only: a probe writes report.txt and a capture
+    meta.json as its last act, so a dir without either is a job still running (partial CSVs)."""
+    out = set()
+    for p in patterns:
+        for d in glob.glob(p):
+            dp = Path(d)
+            if dp.is_dir() and ((dp / "report.txt").exists() or (dp / "meta.json").exists()):
+                out.add(d)
+    return sorted(out)
 
 
 def load_runs(dirs: Sequence[str], name: str) -> Optional[Table]:
@@ -355,7 +363,7 @@ def _floors(controls: Optional[Table], key: tuple) -> dict:
 
 def fit_alpha(pairs: Table, controls: Optional[Table] = None, n_boot: int = 2000, seed: int = 0, min_gold_pairs: int = 5) -> dict:
     """alpha per (qtype, arm, cond, model, layer, locus) from evid flips; floors; by_gold; by_position."""
-    evid = pairs["flip_kind"] == "evid" if "flip_kind" in pairs else np.ones(len(pairs["N"]), bool)
+    evid = pairs["flip_kind"] != "ctrl" if "flip_kind" in pairs else np.ones(len(pairs["N"]), bool)
     cells = []
     for key, idx in groups(pairs, FLIP_KEY, np.flatnonzero(evid)).items():
         by_n = {n: pairs["dnorm"][ii] for (n,), ii in groups(pairs, ("N",), idx).items()}
@@ -389,7 +397,29 @@ def fit_alpha(pairs: Table, controls: Optional[Table] = None, n_boot: int = 2000
 
 
 # ----------------------------------------------------------------------------------- B. margins
-def _same(a, b) -> bool:
+_LABELS = {"digits": [str(d) for d in range(10)],
+           "rooms": ["Kitchen", "Bathroom", "Garden", "Office", "Bedroom", "Hallway"],
+           "people": ["Sandra", "Mary", "John", "Daniel", "Michael", "Nobody"]}
+_ROOM_Q = {"first_app", "final_app", "char_on_char_first_app", "char_on_char_final_app", "char_at_frame",
+           "room_empty", "where_spend", "crowded_room"}
+_PEOPLE_Q = {"first_at_room", "last_at_room", "room_on_char_first_app", "room_on_char_final_app", "room_at_frame",
+             "char_on_char_at_frame", "who_spend", "spend_alone", "spend_together"}
+
+
+def _label_of(qtype, pred) -> str:
+    """probe_hahn writes pred_* as an INDEX into the qtype's answer vocabulary (digits / rooms / people,
+    in core.constants order); map it back to the label so it can be compared with the gold string."""
+    try:
+        i = int(float(pred))
+    except (TypeError, ValueError):
+        return str(pred)
+    vocab = _LABELS["rooms"] if qtype in _ROOM_Q else _LABELS["people"] if qtype in _PEOPLE_Q else _LABELS["digits"]
+    return vocab[i] if 0 <= i < len(vocab) else str(pred)
+
+
+def _same(a, b, qtype=None) -> bool:
+    if qtype is not None:
+        a = _label_of(qtype, a)
     try:
         return float(a) == float(b)
     except (TypeError, ValueError):
@@ -406,14 +436,14 @@ def fit_margins(logits: Table) -> dict:
         for (n,), ii in groups(logits, ("N",), idx).items():
             _, first = np.unique(logits["qid"][ii], return_index=True)      # one base row per pair
             base = ii[first]
-            ev, ct = ii[kind[ii] == "evid"], ii[kind[ii] == "ctrl"]
+            ev, ct = ii[kind[ii] != "ctrl"], ii[kind[ii] == "ctrl"]
             mb = logits["margin_base"][base]
             dm = np.abs(logits["margin_flip"] - logits["margin_base"])
             cell["N"].append(int(n))
             cell["margin_median"].append(float(np.median(mb)))
             cell["iqr_lo"].append(float(np.percentile(mb, 25)))
             cell["iqr_hi"].append(float(np.percentile(mb, 75)))
-            cell["accuracy"].append(float(np.mean([_same(a, b) for a, b in zip(logits["pred_base"][base], logits["gold"][base])])) if "gold" in logits else np.nan)
+            cell["accuracy"].append(float(np.mean([_same(a, b, q) for a, b, q in zip(logits["pred_base"][base], logits["gold"][base], logits["qtype"][base])])) if "gold" in logits else np.nan)
             cell["flip_changes_answer"].append(float(np.mean([not _same(a, b) for a, b in zip(logits["pred_flip"][ev], logits["pred_base"][ev])])) if len(ev) else np.nan)
             cell["dmargin_evid"].append(float(np.median(dm[ev])) if len(ev) else np.nan)
             cell["noise_floor"].append(float(np.median(dm[ct])) if len(ct) else np.nan)
@@ -476,9 +506,21 @@ def fit_sharelaw(mass: Table, blocks: Optional[Table] = None, n_boot: int = 500,
                           for c in ("evid_mass", "nonevid_mass", "other_mass") if c in mass}
             e = per_sample["evid_mass"]
             samples[(n, k)] = e
-            cells.append({"N": int(n), "k": int(k), "evid": float(e.mean()), "evid_median": float(np.median(e)),
-                          "nonevid": float(per_sample["nonevid_mass"].mean()) if "nonevid_mass" in per_sample else np.nan,
-                          "other": float(per_sample["other_mass"].mean()) if "other_mass" in per_sample else np.nan, "n": int(len(e))})
+            cell = {"N": int(n), "k": int(k), "evid": float(e.mean()), "evid_median": float(np.median(e)),
+                    "nonevid": float(per_sample["nonevid_mass"].mean()) if "nonevid_mass" in per_sample else np.nan,
+                    "other": float(per_sample["other_mass"].mean()) if "other_mass" in per_sample else np.nan, "n": int(len(e))}
+            # frame-only decomposition (identifiable from mass.csv alone): the prompt+sink takes a FRACTION of the
+            # mass (constant in N on the official prompt), the frames split the rest; the per-frame edge
+            # e^s = (evid/k) / (nonevid/(N-k)) is read directly, no 2-parameter fit needed.
+            if "nonevid_mass" in per_sample and 0 < int(k) < int(n):
+                ne = per_sample["nonevid_mass"]
+                edge = (e / int(k)) / (ne / (int(n) - int(k)))
+                edge = edge[np.isfinite(edge) & (edge > 0)]
+                cell["edge"] = float(np.mean(edge)) if edge.size else np.nan
+                cell["edge_median"] = float(np.median(edge)) if edge.size else np.nan
+                cell["s_frame"] = float(np.log(np.mean(edge))) if edge.size else np.nan
+                cell["frame_share"] = float(np.mean(e / (e + ne))) if edge.size else np.nan
+            cells.append(cell)
         primary = "gated" if "gated" in str(rec["arm"]) else "ungated"
         both = {form: fit_law_boot(samples, form, n_boot, seed) for form in ("ungated", "gated")}
         rec.update(form=primary, **both[primary])
@@ -489,6 +531,23 @@ def fit_sharelaw(mass: Table, blocks: Optional[Table] = None, n_boot: int = 500,
         rec["alpha_pred"] = {str(k): alpha_pred(rec["s"], rec["C"], k, B=B) for k in K_PRED} if np.isfinite(rec["s"]) else {}
         rec["cells"] = cells
         rec["perframe"] = perframe_from_blocks(blocks, block_groups[key]) if key in block_groups else {}
+        # frame-law summary per N (pooled over k cells, weighted by n): edge, s_frame, sink fraction
+        by_n = defaultdict(list)
+        for c in cells:
+            if np.isfinite(c.get("edge", np.nan)):
+                by_n[c["N"]].append(c)
+        fl = {"N": sorted(by_n), "edge": [], "s_frame": [], "sink": [], "frame_share": []}
+        for n in fl["N"]:
+            w = np.array([c["n"] for c in by_n[n]], float)
+            fl["edge"].append(float(np.average([c["edge"] for c in by_n[n]], weights=w)))
+            fl["s_frame"].append(float(np.log(fl["edge"][-1])))
+            fl["sink"].append(float(np.average([c["other"] for c in by_n[n]], weights=w)))
+            fl["frame_share"].append(float(np.average([c["frame_share"] for c in by_n[n]], weights=w)))
+        if fl["N"]:
+            fl["s_frame_mean"] = float(np.mean(fl["s_frame"]))
+            fl["sink_mean"] = float(np.mean(fl["sink"]))
+            fl["alpha_pred_frame"] = {str(k): alpha_pred(fl["s_frame_mean"], 0.0, k, B=1.0) for k in K_PRED}
+        rec["frame_law"] = fl
         fits.append(rec)
     return {"fits": fits}
 
@@ -550,7 +609,7 @@ def fit_gamma(pairs: Table, n_boot: int = 2000, seed: int = 0, C_grid=GAMMA_C_GR
     C re-selected per iteration). C_fixed pins C (the record's S3/S11 gamma = 1.19 used a fixed offset)."""
     if C_fixed is not None:
         C_grid = (float(C_fixed),)
-    evid = pairs["flip_kind"] == "evid" if "flip_kind" in pairs else np.ones(len(pairs["N"]), bool)
+    evid = pairs["flip_kind"] != "ctrl" if "flip_kind" in pairs else np.ones(len(pairs["N"]), bool)
     cells = []
     for key, idx in groups(pairs, FLIP_KEY + ("N",), np.flatnonzero(evid)).items():
         by_k = {int(k): pairs["dnorm"][ii] for (k,), ii in groups(pairs, ("gold",), idx).items() if len(ii) > 0}

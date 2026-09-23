@@ -1,0 +1,3 @@
+steps_in_room
+char_at_frame
+where_spend

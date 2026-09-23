@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import csv
 import hashlib
 import json
@@ -160,7 +161,8 @@ def main() -> int:
         if mask is not None:
             hooks.set_mask(mask, rt.device)
         try:
-            with torch.inference_mode(), sdpa_kernel(FENCED_SDPA):
+            with torch.inference_mode(), (sdpa_kernel(FENCED_SDPA) if mask is not None else contextlib.nullcontext()):
+                # a 4-D additive mask needs EFFICIENT/MATH; mask-free forwards keep the default (FLASH) backend
                 outp = model(**cur, position_ids=pos.to(rt.device) if pos is not None else None, use_cache=False)
         finally:
             hooks.clear_mask()

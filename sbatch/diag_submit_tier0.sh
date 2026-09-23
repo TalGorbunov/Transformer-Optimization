@@ -29,7 +29,7 @@ wave1)
   done
   sub "D3 N32" -p a100-public --qos=12h_4g --time=08:00:00 --export=ALL,SPLIT=seq_len_32_test,NOBLOCK=1 sbatch/diag_d3.sbatch
   for N in 8 16 32; do
-    sub "D2 N$N" -p l40s-shared --qos=12h_4g --time=06:00:00 --export=ALL,SPLIT=seq_len_${N}_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated",NOBLOCK=1 sbatch/diag_d2.sbatch
+    sub "D2 N$N" -p l40s-shared --qos=12h_4g --time=06:00:00 --export=ALL,SPLIT=seq_len_${N}_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated" sbatch/diag_d2.sbatch
   done
   for N in 16 32; do
     sub "grid N$N faithful" -p l40s-shared --qos=24h_1g --time=06:00:00 --export=ALL,SPLIT=seq_len_${N}_test,LAYOUT=paper,OUTPUT=outputs/diag/eval/grid/N$N sbatch/evaluate.sbatch
@@ -42,15 +42,15 @@ wave2)
     done
   done
   sub "D1 N64" -p a100-public --qos=24h_1g --time=10:00:00 --export=ALL,SPLIT=seq_len_64_test,QTYPES="$D1Q",ARMS="plain qfirst fenced gated" sbatch/probe_hahn.sbatch
-  sub "D2 N64" -p l40s-shared --qos=24h_1g --time=10:00:00 --export=ALL,SPLIT=seq_len_64_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated",NOBLOCK=1 sbatch/diag_d2.sbatch
+  sub "D2 N64" -p l40s-shared --qos=24h_1g --time=10:00:00 --export=ALL,SPLIT=seq_len_64_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated" sbatch/diag_d2.sbatch
   for N in 64 128; do
     sub "grid N$N faithful" -p a100-public --qos=4d_1g --time=12:00:00 --export=ALL,SPLIT=seq_len_${N}_test,LAYOUT=paper,OUTPUT=outputs/diag/eval/grid/N$N sbatch/evaluate.sbatch
   done
   ;;
 h200)
   sub "D1 N128" -p h200-shared --qos=24h_1g --time=14:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test,QTYPES="$D1Q",ARMS="plain qfirst fenced gated" sbatch/probe_hahn.sbatch
-  sub "D2 N128" -p h200-shared --qos=24h_1g --time=14:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated",NOBLOCK=1 sbatch/diag_d2.sbatch
-  sub "D3 N128" -p h200-shared --qos=24h_1g --time=16:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test,NOBLOCK=1 sbatch/diag_d3.sbatch
+  sub "D2 N128" -p h200-shared --qos=24h_1g --time=14:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test,QTYPES="$D2Q",ARMS="plain qfirst fenced gated" sbatch/diag_d2.sbatch
+  sub "D3 N128" -p h200-shared --qos=24h_1g --time=16:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test sbatch/diag_d3.sbatch
   for ARM in fenced_qlast fenced_qfirst; do
     sub "D4 seq_len_128_test $ARM" -p h200-shared --qos=4d_1g --time=08:00:00 --mem=96G --export=ALL,SPLIT=seq_len_128_test,ARM=$ARM,QTYPES_FILE=sbatch/lib/splits/qtypes_d4_long.txt sbatch/gate_capture.sbatch
   done

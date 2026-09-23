@@ -45,6 +45,7 @@ from core.fence import FENCED_SDPA, FenceHooks, fenced_setup, greedy_decode, lay
 from core.mmred import QTYPES, evidence_frames, frames, load_split, recompute_answer, states, stratified_order  # noqa: E402
 from core.model import get_layers, get_rope_index_fn, load_runtime, move_to_device, special_ids  # noqa: E402
 from core.prompt import build_messages, exact_match, parse_answer  # noqa: E402
+from experiments._diag_common import set_logn, set_sharpen  # noqa: E402
 
 LORA_TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 
@@ -56,7 +57,9 @@ def main() -> int:
     ap.add_argument("--qtypes", nargs="+", default=None, choices=QTYPES, help="default: all 24")
     ap.add_argument("--limit", type=int, default=0, help="train rows per config after stratified_order")
     ap.add_argument("--val-limit", type=int, default=100, help="val rows total after stratified_order")
-    ap.add_argument("--layout", choices=["question-first", "replica"], default="question-first")
+    ap.add_argument("--layout", choices=["paper", "question-first", "replica"], default="question-first")
+    ap.add_argument("--no-fence", action="store_true", help="plain LoRA SFT: no block mask, no position reset (the comparison arm)")
+    ap.add_argument("--attn-logn-sref", type=int, default=0, help="log-N logit scaling as a TRAINING prior (comparison arm; 0 = off)")
     ap.add_argument("--gate", choices=["none", "oracle", "model"], default="none")
     ap.add_argument("--epochs", type=int, default=5)
     ap.add_argument("--patience", type=int, default=0, help="0 = run every epoch")
@@ -84,7 +87,7 @@ def main() -> int:
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    run_dir = args.output / f"{time.strftime('%Y%m%d_%H%M%S')}_{args.layout}_{args.gate}"
+    run_dir = args.output / f"{time.strftime('%Y%m%d_%H%M%S')}_{args.layout}_{'nofence' if args.no_fence else 'fence'}_{args.gate}{'_logn' + str(args.attn_logn_sref) if args.attn_logn_sref else ''}"
     run_dir.mkdir(parents=True, exist_ok=True)
     (run_dir / "config.json").write_text(json.dumps(vars(args), indent=1, default=str))
     log = (run_dir / "run.log").open("w", encoding="utf-8")
@@ -126,8 +129,13 @@ def main() -> int:
                       task_type="CAUSAL_LM", target_modules=LORA_TARGETS)
     model = get_peft_model(model, lcfg)
     model.print_trainable_parameters()
+    fence = not args.no_fence
+    if not fence and args.gate != "none":
+        raise SystemExit("--no-fence is incompatible with a gate (the gate hides blocks)")
+    base_scaling = set_sharpen(layers, 0.0, 0)          # records the base scaling for the log-N prior
     hooks = FenceHooks(layers).install()
-    train_config = {"layout": args.layout, "fence": True, "gate": args.gate, "configs": args.configs,
+    train_config = {"layout": args.layout, "fence": fence, "gate": args.gate, "configs": args.configs,
+                    "attn_logn_sref": args.attn_logn_sref,
                     "qtypes": args.qtypes, "prompt": "paper-verbatim", "resize": "native-512", "core": "2.0.0"}
 
     def keep_for(row, n):
@@ -146,13 +154,16 @@ def main() -> int:
         prompt = processor.apply_chat_template(build_messages(fr, row["question"], args.layout),
                                                add_generation_prompt=True, tokenize=True, return_dict=True, return_tensors="pt")
         full = move_to_device(dict(full), rt.device)
+        bnd = int(prompt["input_ids"].shape[1])
+        labels = full["input_ids"].clone()
+        labels[:, :bnd] = -100
+        set_logn(layers, int(full["input_ids"].shape[1]), args.attn_logn_sref, base_scaling)
+        if not fence:                                   # plain LoRA SFT: the model's own causal attention
+            return model(**full, labels=labels).loss
         blocks, fin = layout_blocks(full["input_ids"][0].cpu(), args.layout, sid, im_end_id=im_end_id)
         if len(blocks) != len(fr):
             raise ValueError("layout parse failed")
         mask, pos = fenced_setup(full, blocks, fin, keep, rope_fn)
-        bnd = int(prompt["input_ids"].shape[1])
-        labels = full["input_ids"].clone()
-        labels[:, :bnd] = -100
         full.pop("attention_mask", None)
         hooks.set_mask(mask, rt.device)                 # stays set through backward (see docstring)
         with sdpa_kernel(FENCED_SDPA):
@@ -165,6 +176,10 @@ def main() -> int:
         enc = processor.apply_chat_template(build_messages(fr, row["question"], args.layout), add_generation_prompt=True,
                                             tokenize=True, return_dict=True, return_tensors="pt")
         enc = move_to_device(dict(enc), rt.device)
+        set_logn(layers, int(enc["input_ids"].shape[1]), args.attn_logn_sref, base_scaling)
+        if not fence:
+            gen = model.generate(**enc, max_new_tokens=args.max_new_tokens, do_sample=False, pad_token_id=eos_id)
+            return parse_answer(tok.decode(gen[0, enc["input_ids"].shape[1]:], skip_special_tokens=True))
         blocks, fin = layout_blocks(enc["input_ids"][0].cpu(), args.layout, sid, im_end_id=im_end_id)
         if len(blocks) != len(fr):
             raise ValueError("layout parse failed")
@@ -238,7 +253,7 @@ def main() -> int:
     hooks.remove()
     summary = f"best_epoch,val_acc,n_val,n_train,majority_baseline\n{best_epoch},{best_val:.4f},{len(val_rows)},{len(train_rows)},{majority:.4f}\n"
     (run_dir / "summary.csv").write_text(summary)
-    report = (f"FENCED SFT layout={args.layout} gate={args.gate} configs={args.configs} qtypes={args.qtypes or 'all'}\n"
+    report = (f"{'FENCED' if fence else 'PLAIN'} SFT layout={args.layout} gate={args.gate} logn={args.attn_logn_sref} configs={args.configs} qtypes={args.qtypes or 'all'}\n"
               f"train={len(train_rows)} val={len(val_rows)} epochs={args.epochs} best_epoch={best_epoch} "
               f"val_acc={best_val:.3f} (majority {majority:.3f}) skips={n_skip}\n"
               f"adapter: {run_dir / 'adapter'}  (eval contract: layout={args.layout}, fence, gate={args.gate})\n")

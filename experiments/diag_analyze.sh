@@ -33,15 +33,16 @@ echo "== D3 eval summary -> outputs/diag/eval_summary.csv"
 python - <<'PY'
 import csv, glob, json, os
 rows=[]
-for d in sorted(glob.glob('outputs/diag/eval/*/*/N*/2*')+glob.glob('outputs/diag/eval/grid/N*/2*')):
+for d in sorted(glob.glob('outputs/diag/eval/*/*/N*/2*')+glob.glob('outputs/diag/eval/grid/N*/2*')+glob.glob('outputs/port/evaluate/seq_len_8_test/*/2*_faithful')):
     s=os.path.join(d,'summary.csv'); c=os.path.join(d,'config.json')
+    if '/tier1/' in d: continue                 # Tier-1 adapter chains -> experiments/diag_table.py
     if not (os.path.exists(s) and os.path.exists(c)): continue
     cfg=json.load(open(c)); N=cfg.get('config','').replace('seq_len_','')
     arm='plain' if cfg.get('layout')=='paper' else ('gated' if cfg.get('gate')=='oracle' else ('fenced' if cfg.get('fence') else 'qfirst'))
     for r in csv.DictReader(open(s)):            # summary.csv: group,n,correct,acc,ci_lo,ci_hi
         g=r.get('group','')
         if g.startswith('atype_') or g.startswith('numeric'): continue
-        rows.append({'qtype':g,'arm':arm,'cond':cfg.get('cond','base'),'N':N,'acc':r.get('acc',''),'n':r.get('n',''),'ci_lo':r.get('ci_lo',''),'ci_hi':r.get('ci_hi',''),'run':d})
+        rows.append({'qtype':g,'arm':arm,'cond':cfg.get('cond','base'),'N':N,'acc':r.get('acc',''),'n':r.get('n',''),'ci_lo':r.get('ci_lo',''),'ci_hi':r.get('ci_hi',''),'run':(d if 'outputs/port' not in d else d.replace('outputs/port/evaluate','outputs/diag/eval/grid'))})
 if rows:
     with open('outputs/diag/eval_summary.csv','w',newline='') as fh:
         w=csv.DictWriter(fh,fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
@@ -49,6 +50,8 @@ if rows:
 else:
     print('no eval summaries yet')
 PY
+echo "== Tier-1 comparison table -> outputs/diag/tier1_table.{csv,md}"
+python -u experiments/diag_table.py || true
 [ "${1:-all}" = "fits" ] && exit 0
 echo "== figures"
 python -u experiments/figs/diag_fig.py all-available --fits $F --out outputs/diag/fig || true

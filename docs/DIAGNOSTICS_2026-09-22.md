@@ -240,3 +240,122 @@ figure); F8_sens_3variants (three trained variants nobody needs → F4).
 1. Branch for the DIAG code: `rewrite` (assumed) or `theory`.
 2. Whether Tier 1 waits for the B3 adapter or DIAG ships as frozen-only first (recommended: frozen-only first; it is the "deployed model" question).
 3. Whether the qtype set above (3 + 1 control) is enough for the paper or the full 24 go into D4 only.
+
+---
+
+## 7. Results — Tier 0, run 2026-09-22 (frozen Qwen2.5-VL-7B nf4, official MMReD test rows, 50 per type per N)
+
+Branch `theory-2`; run dirs and job ids in `outputs/diag/INDEX.md`, the dated log in `outputs/diag/STATE.md`,
+fits in `outputs/diag/fits/`, figures in `outputs/diag/fig/`. Every number below is on the official
+benchmark under the paper's prompt (images then question = "deployed"; their `--prefix_question` order =
+"question-first"), native 512 px, upstream parser. Nothing here is on park data. RESULTS.md untouched.
+
+### 7.1 Port gates and the faithful frozen baseline
+
+| gate | result |
+|---|---|
+| B1 prepare_data verify (seq_len_8_val, 50 qids) | JSON bytes equal; gold parity 1200/1200; 400/400 frames pixel-identical |
+| C1 port check (legacy 392 px preset) | 637/1200 = 0.531 vs anchor 640/1200 = 0.533; per-type identical to the legacy grid |
+| Faithful frozen grid, 24 types | **0.515 / 0.415 / 0.348 / 0.285 / 0.220** at N = 8/16/32/64/128 (CI ±0.03); steps_in_room 0.56 → 0.42 → 0.14 → 0.04 → 0.00; char_at_frame 0.86 → 0.64 → 0.54 → 0.30 → 0.24; first_app 0.80 → 0.80 → 0.80 → 0.58 → 0.50 |
+
+### 7.2 D4 — the per-frame slot carries the fact only when the question precedes the frames (H-D4 MET)
+
+Logistic readout of each frame's `<|vision_end|>` state, held out by sample, all 24 types.
+
+| arm (layout × fence) | N = 8+16 train, L12 / L20 / L24 (acc / AUC) | trained N ≤ 16 → tested N = 32 (14 types, 22,400 frames), L20 |
+|---|---|---|
+| deployed (images then question), no fence | 0.48 / 0.51 / 0.49 (chance) | — |
+| question-first, no fence | 0.76 / 0.84 / 0.84 (AUC 0.88 / 0.93 / 0.93) | — |
+| fenced, question after the frames (question-blind blocks) | 0.50 / 0.49 / 0.48 (chance) | 0.49 / AUC 0.51 |
+| **fenced, question-first** | 0.89 / **0.975 / 0.998** / 0.969 | **0.982 / 0.9987** (recall 0.988, specificity 0.975) |
+
+Per type at L20 under fenced question-first: every needle and count type ≥ 0.96 (char_at_frame 1.00,
+steps_in_room 1.00, who_spend 1.00, crowd_count 0.99, first/last_at_room 1.00); the "when B first/last
+appeared" family 0.82–0.95 (its predicate is partly global, the readout's job). Question-blind blocks read
+only question-independent visual facts (crowd present AUC 0.96–0.97, first/last frame 1.00). Transfer to
+N = 32 / 64 / 128 (gate fitted at N ≤ 16): pooled 0.982 / 0.980 / 0.9725 (22,400 / 44,800 / 89,600 frames); per
+type at N = 128: char_at_frame 0.986, steps_in_room 0.976, first_at_room 0.986, crowd_count 0.970. The
+1.8–2.7 %/frame error still compounds at exact match ((0.98)^64 ≈ 0.27).
+
+### 7.3 D2 — the attention photograph: a constant per-frame edge, 1/N dilution, a constant sink share
+
+Layer 20, answer row (last token of the teacher-forced `{ "answer": "` prefix), head-mean then sample-mean.
+
+| arm | prompt+sink share (N = 8…128) | needle edge e^s = evid/frame ÷ non-evid/frame | count (steps_in_room) edge | evidence mass, needle, N = 8…128 |
+|---|---|---|---|---|
+| deployed | 0.63 / 0.60 / 0.60 / 0.60 / 0.57 | 2.2 / 1.8 / 2.2 / 2.1 / 1.6 | 1.4 / 1.4 / 1.2 / — / — | 0.083 / 0.040 / 0.024 / 0.013 / 0.006 |
+| question-first | 0.43 / 0.42 / 0.42 / 0.41 / 0.39 | 2.4 / 2.6 / 2.9 / 2.6 / 3.1 | 1.1 / 1.2 / 1.1 / — / — | 0.140 / 0.083 / 0.046 / 0.025 / 0.013 |
+| fenced (frozen) | 0.25 / 0.18 / 0.11 / 0.08 / — | 1.15 / 1.17 / 1.24 / 1.08 / 1.03 | 1.06 / 0.98 / 0.99 / 0.98 / — | 0.106 / 0.060 / 0.034 / 0.017 / 0.009 |
+| gated (evidence only) | 0.52 / 0.52 / 0.53 / 0.53 / — | — | — | **0.477 / 0.475 / 0.474 / 0.473** (flat) |
+
+What this says. (i) The sink takes a constant fraction of the answer row's mass per layout, not a constant
+number of frame-equivalents; the two-parameter fit m = k·eˢ/(k·eˢ + (N−k) + C) is therefore not identifiable
+on this prompt (it returns s = −0.34 for a needle whose measured edge is ×2). The identifiable form is
+(1 − sink) × k·eˢ/(k·eˢ + (N−k)) with the edge read directly from the photograph. (ii) The edge is constant
+in N and is set by the task: ×2 for a needle, ×1.1–1.4 for a count-evidence frame, ≈1 under the frozen
+fence. (iii) Deleting the (N−k) term makes the mass N-invariant with nothing trained. (iv) A per-head
+median shows the deployed needle edge below 1 at N ≥ 64: a minority of heads carries it. (v) No frozen
+head separates evidence at AUC ≥ 0.98 at any N (best 0.86 → 0.78); the selector head of the record is
+trained-in.
+
+### 7.4 D3 — sharpening raises the needle's edge, the sink takes the mass, both classes lose accuracy (H-D3 accuracy clause REFUTED)
+
+N = 32, question-first, τ multiplies the logits of decoder modules ≥ 12 at eval time; log-N: scaling =
+ln(seq)/ln(3000). Layer 20; EM = exact match with greedy decoding and the upstream parser.
+
+| condition | needle char_at_frame: evidence mass · competitor mass · sink · edge · EM (margin) | count steps_in_room: edge · EM | where_spend EM |
+|---|---|---|---|
+| τ = 1 | 0.046 · 0.535 · 0.419 · ×2.67 · **0.60** (+0.30) | ×1.10 · **0.22** | 0.24 |
+| τ = 1.5 | 0.042 · 0.416 · 0.542 · ×3.17 · 0.54 (+0.29) | ×1.11 · 0.18 | 0.16 |
+| τ = 2 | 0.036 · 0.319 · 0.645 · ×3.50 · 0.44 (−0.20) | ×1.05 · 0.16 | 0.14 |
+| τ = 3 | 0.030 · 0.265 · 0.705 · ×3.53 · 0.34 (−0.77) | ×1.05 · 0.02 | 0.10 |
+| τ = 4 | 0.026 · 0.281 · 0.694 · ×2.86 · 0.22 (−1.70) | ×1.10 · 0.12 | 0.04 |
+| log-N (sref 3000) | 0.044 · 0.513 · 0.443 · ×2.68 · 0.54 (+0.02) | ×1.14 · 0.18 | 0.26 |
+
+The k = 1 half of the two-constraint argument holds in the weights (the needle's relative edge rises, the
+count's stays flat) but the freed competitor mass goes to the prompt/sink, the needle's absolute mass
+falls monotonically, and exact match falls for both classes. A global eval-time temperature does not
+rescue even a needle on the frozen read; log-N scaling is a null at this N.
+
+N = 128 (same protocol): needle EM 0.24 / 0.26 / 0.24 / 0.14 / 0.10 for τ = 1 / 1.5 / 2 / 3 / 4 with the sink
+share 0.39 → 0.50 → 0.60 → 0.71 → 0.73 and the needle's mass 0.0145 → 0.0050 (edge ×3.1 → ×3.6 → ×2.4);
+count EM 0.00 under every condition; log-N: needle 0.22, count 0.00, where_spend 0.30 (vs 0.18 at τ = 1;
+±0.13 on 50 rows). The picture is the same at 4× and 16× the training length.
+
+### 7.5 D1 — single-frame influence at the answer, N = 8…128 (H-D1: slot clause MET; deployed needle α below the [0.5, 1.0] band)
+
+Median ‖Δh‖ at the layer-20 answer row over 50 pairs per cell; floors: replay exactly 0 in every cell,
+permutation 0.6–0.7, answer-preserving control edit elsewhere 0.7–5.8 (deployed), 0 under the gate.
+
+| edit | deployed read | question-first read | frozen fence, answer row | gated read (evidence blocks only) | the frame's own slot |
+|---|---|---|---|---|---|
+| needle char_at_frame | 19.6 / 14.1 / 10.8 / 7.6 / 5.3 — α 0.46 [0.36, 0.59] | 14.3 / 10.7 / 5.0 / 2.5 / 2.0 — α 0.79 [0.67, 0.89] | 4.7 / 2.9 / 1.7 / 1.3 / 1.5 (floor) | **27.9 / 28.0 / 27.0 / 28.8 / 26.6 — α 0.01 [−0.02, 0.03]** | 8.9 / 9.9 / 9.2 / — / 9.4 — α −0.02 |
+| needle n_char_at_frame | 11.3 / 10.9 / 7.8 / 4.9 / 3.6 — α 0.44 | 14.4 / 11.8 / 8.2 / 3.2 / 1.7 — α 0.80 | at floor | 18.8 / 16.5 / 19.5 / 17.1 / 16.7 — α 0.03 | flat |
+| count steps_in_room, fixed count 0 → 1 | α 0.75 [0.40, 1.44] | α 0.89 [0.70, 1.22] | 0.74 | **0.03** | flat (0.05) |
+| count, pooled (k grows with N) | 16.8 / 7.8 / 4.1 / 1.9 / 1.3 — 0.94 | 8.8 / 4.6 / 1.8 / 0.9 / 0.8 — 0.93 | — | 38.5 / 12.8 / 5.1 / 3.0 / 2.1 — 1.05 (k-composition) | — |
+
+(α ranges above are from the final fit over the N values present per cell; the N = 8–32 fits give the
+same picture: deployed 0.43 [0.20, 0.61], question-first 0.77 [0.48, 0.96], gated 0.02 [−0.03, 0.09].)
+Flip position (terciles, ~17 pairs each): no monotone distance effect for the needle (0.57 / 0.22 / 0.34).
+Reading: removing the (N−k) term makes the read's response N-invariant over 16× with nothing trained,
+for needle and (at fixed count) count edits alike; the deployed needle read decays with a sub-unit
+exponent, shallower than the needle's own attention share (≈0.9 from the frame law), because the answer
+row's response is not proportional to the share alone and the control edit already moves it by 0.7–5.8.
+The frozen fence without a trained read is at the floor: isolation supplies the fact to the slot (flat,
+decodable at 0.97) but does not route it to the answer.
+
+### 7.6 Band verdicts and what changed
+
+| band | verdict |
+|---|---|
+| H-D1 slot |α| ≤ 0.05 | MET (−0.02 / 0.05 / 0.05, CIs ∋ 0) |
+| H-D1 plain/qfirst α ∈ [0.5, 1.0] both classes | question-first MET (0.79 / 0.80 / 0.89); deployed needle 0.46 BELOW (the sink holds 0.60 of the mass at every N); count fixed-count 0.75 MET |
+| H-D1 gated α CI ∋ 0 (Tier 1 clause) | already MET on the frozen model |
+| H-D2 frame-law R² ≥ 0.9, α_pred within D1 CI | the 2-parameter share fit is not identifiable on this prompt; the frame-only law with a constant sink fits the mass ladders; its predicted share exponent (≈0.9) exceeds the measured answer-row α (0.46) — not within CI |
+| H-D3 needle accuracy +0.15 under τ | REFUTED (0.60 → 0.22); weight-level dissociation MET (needle edge ×2.7 → ×3.5, count flat) |
+| H-D4 fenced-qfirst ≥ 0.99, qlast ≤ 0.85 | MET (0.975 pooled; needles/counts 1.00; qlast 0.49) |
+| H-D6 position within ±0.15 | descriptive only (17 pairs per tercile) |
+
+Caveats: one backbone, nf4, frozen only (Tier 1 = the trained read + the trained gate is next), 50 rows
+per cell, τ applied globally at eval time (a per-head or trained temperature is a different experiment),
+the wave-1 photograph chains did not store per-block CSVs (no within-evidence concentration at N ≤ 32).

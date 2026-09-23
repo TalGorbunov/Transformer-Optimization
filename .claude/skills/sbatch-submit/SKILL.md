@@ -24,8 +24,12 @@ step is the only cheap moment to catch a wrong command line.
    how long (`--time`), how much memory, and the expected GPU-hours. Tal OKs it (CLAUDE.md §5).
    Right-size first: a `--limit` smoke on `2h_2g` before the real run. CPU jobs on `4h_0g` need no OK.
 2. **Preflight.** `bash .claude/skills/sbatch-submit/scripts/preflight.sh` prints free GPUs per
-   node, your queue and your QOS slot usage. Pick a partition with free GPUs and the smallest QOS
-   whose caps fit.
+   node, your queue and a per-QOS table CAP / RUN / PEND / FREE. Pick a partition with free GPUs
+   and a QOS with a FREE slot whose walltime cap fits. **For a batch, count first**: never queue
+   more jobs on one QOS than its FREE column (the caps are per user, running + pending); spread
+   single-GPU jobs over `12h_4g` → `24h_1g` → `24h_4g` → `4d_1g` → `72h_8g` (all accept 1-GPU jobs),
+   or chain several cells inside one job (`sbatch/diag_d2.sbatch` / `diag_d3.sbatch` are the
+   pattern). Total single-GPU concurrency is about 19 jobs; a bigger batch waits no matter what.
 3. **Dry-run the wrapper.** `SLURM_SUBMIT_DIR=$PWD DRY_RUN=1 bash sbatch/<wrapper>.sbatch` prints
    the assembled command without running it. Read the flags, paths, `--limit` and output dir.
 4. **Submit.**
@@ -62,7 +66,7 @@ step is the only cheap moment to catch a wrong command line.
 | `12h_4g` | 12 h | 4 | 3 | | standard GPU runs |
 | `24h_1g` | 24 h | 1 | 4 | cpu ≤ 32, mem ≤ 275G | long single-GPU; first overflow |
 | `4d_1g` | 4 d | 1 | 8 | cpu ≤ 32, mem ≤ 275G | many parallel single-GPU slots |
-| `24h_4g` / `72h_8g` | 24 h / 72 h | 4 / 8 | 3 / 1 | | multi-GPU |
+| `24h_4g` / `72h_8g` | 24 h / 72 h | 4 / 8 | 3 / 1 | | multi-GPU **or** overflow for 1-GPU jobs (verified 2026-09-22) |
 | `contrib` | 7 d | | | | ask Tal first |
 
 Decision guide:
@@ -71,7 +75,17 @@ Decision guide:
 - **GPU smoke under 2 h:** `--qos=2h_2g`. The cap is 2 GPUs total per user, so a third 1-GPU smoke
   pends on QOSMaxGRESPerUser even with idle nodes. Overflow to `24h_1g`.
 - **Standard run under 12 h:** `--qos=12h_4g --time=<needed>`.
-- **Long single-GPU (trainers, N=128 ladders):** `--qos=24h_1g` (4 slots), then `4d_1g` (8 slots).
+- **Long single-GPU (trainers, N=128 ladders):** `--qos=24h_1g` (4 slots), then `4d_1g` (8 slots),
+  then `24h_4g` (3) and `72h_8g` (1) — the multi-GPU QOS take 1-GPU jobs and are usually empty.
+- **A pending job stuck on a cap** (reason `QOSMaxJobsPerUserLimit` / `QOSMaxGRESPerUser`) is moved,
+  not resubmitted: `scontrol update JobId=<id> QOS=<qos>` (+ `TimeLimit=HH:MM:SS` when the new QOS
+  wall is shorter than the request, + `Partition=<p>` to change partition). Works on PENDING jobs
+  only; a running job keeps its QOS. Reasons `Resources` / `Priority` mean the GPUs themselves are
+  busy: nothing to fix on our side except a different partition.
+- **N=128 at 512 px (≈ 41.8k tokens):** a masked (fenced/gated) forward needs h200 (`--mem 96G`,
+  the [S,S] mask alone is 7 GB fp32 + 3.5 GB bf16); mask-free arms (paper / question-first layouts,
+  `model.generate`) run on the 40 GB A100s. Split the arms across jobs so the h200's single free
+  GPU is not a serial bottleneck for cells that do not need it.
 - **Partition:** the 4-bit 7B fits every GPU here including the 40 GB A100s. Prefer whatever
   preflight shows idle. Listing several (`-p a100-public,l40s-public,rtx6k-shared`) starts fastest
   on a busy day. Long single-shot runs prefer l40s/a100/h200 over rtx6k because a NODE_FAIL loses a
@@ -101,7 +115,10 @@ Decision guide:
 | Symptom | Cause | Do |
 |---|---|---|
 | `TIMEOUT` with Elapsed ≈ 2:00:xx | no `--time` | resubmit with `--time` |
-| pending, reason `QOSMaxGRESPerUser` or `QOSMaxJobsPerUser` | QOS slot cap | move to `24h_1g` / `4d_1g` |
+| pending, reason `QOSMaxGRESPerUser` or `QOSMaxJobsPerUserLimit` | QOS slot cap (per user, running + pending) | `scontrol update JobId=<id> QOS=<qos with FREE>0>` (preflight table); next time count slots before the batch |
+| pending, reason `Resources` or `Priority` | the GPUs are busy, not a cap | wait, or `scontrol update JobId=<id> Partition=<p>` to a partition with free GPUs |
+| `RuntimeError: No CUDA GPUs are available` within a minute of start, sibling jobs on the same node fine | node GRES hiccup (n314, 2026-09-22, two jobs) | resubmit (a different partition is safest); nothing to debug in the code |
+| CUDA OOM "Tried to allocate 40–50 GiB" inside `scaled_dot_product_attention` on a mask-free long prompt | `sdpa_kernel([EFFICIENT, MATH])` wrapped a forward that has no 4-D mask, so MATH materialised the full [H,S,S] score matrix | restrict the backend context to masked forwards; mask-free forwards use the default (FLASH) path — fixed in probe_hahn / probe_attention / gate_capture 2026-09-22 |
 | `cli_filter plugin terminated with error` at submit | `--wrap` or `--account` | wrapper file, no account line |
 | rejected on `4h_0g` (`QOSMaxMemoryPerJob` / cpu) | `--mem` > 16G or cpus > 8 | lower it |
 | CUDA OOM "total capacity 39.49 GiB" | a100-public is 40 GB | fine for 4-bit 7B; bigger models go to h200 |
@@ -109,6 +126,7 @@ Decision guide:
 | executed cmd shorter than intended, flags missing | comma in `--export` | scancel; move the list to a `*_FILE` |
 | `[DRY_RUN] not executing` in a real job's log | `DRY_RUN=1` exported in the shell | `unset DRY_RUN`; resubmit |
 | `NODE_FAIL` mid-run | node blip | resubmit; nothing to debug |
+| pending, reason `ReqNodeNotAvail, May be reserved or down` / `Nodes required for job are DOWN` | the partition's nodes are draining (`sinfo -N -O NodeHost,StateLong,Reason` shows e.g. `admin_maint`; l40s 2026-09-23) | `scontrol update JobId=<id> Partition=<other>`; submit with a partition list (`-p a100-public,l40s-shared`) so the scheduler picks whatever is up |
 | `MISMATCH` in copy_tree / tar_split logs | partial copy | resubmit the same SRC/DST (idempotent) |
 | completed job, degenerate decodes | eval-mode / checkpoint mismatch, not hardware | spot-check decode samples early |
 
@@ -131,6 +149,15 @@ one wrapper per `experiments/` file with the same name. The conventions the temp
   reproduce. Flag names must match the entrypoint's argparse; check with `--help` before the dry-run.
 
 Then dry-run it, run a `--limit` smoke, then the real thing.
+
+## Batch submissions (the 2026-09-22 incident)
+
+A 17-job wave queued 4 jobs on `12h_4g` (cap 3) and 5 on `24h_1g` (cap 4), and the N=128 wave
+put five jobs behind the h200's one free GPU. The rules above encode the fix: read the FREE column
+before a batch, spread across QOS by remaining slots, chain cells inside one job when the batch is
+bigger than ~19, move stuck pending jobs with `scontrol update`, and send only masked N=128 forwards
+to the h200. `sbatch/diag_submit_tier0.sh` is an example of a wave script that records every job id
+in `outputs/<group>/jobs.tsv` so a monitor can follow them.
 
 ## Provenance
 

@@ -21,5 +21,5 @@ for c in "${cfgs[@]}"; do stage_split "${c}_train"; stage_split "${c}_val"; done
 OUTPUT="${OUTPUT:-outputs/port/train/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}}"
 QT_ARGS=(); if [ -n "${QTYPES_FILE:-}" ]; then mapfile -t qt < <(grep -vE '^\s*#|^\s*$' "$QTYPES_FILE"); QT_ARGS=(--qtypes "${qt[@]}"); fi
 run_logged "$OUTPUT" python -u experiments/train.py \
-    --data-root "$DATA_ROOT" --configs "${cfgs[@]}" "${QT_ARGS[@]}" --gate "${GATE:-none}" --layout "${LAYOUT:-question-first}" \
+    --data-root "$DATA_ROOT" --configs "${cfgs[@]}" "${QT_ARGS[@]}" --gate "${GATE:-none}" --layout "${LAYOUT:-question-first}" ${NOFENCE:+--no-fence} ${LOGN:+--attn-logn-sref "$LOGN"} \
     --epochs "${EPOCHS:-5}" ${LIMIT:+--limit "$LIMIT"} --val-limit "${VAL_LIMIT:-100}" ${EXTRA:-} --output "$OUTPUT"

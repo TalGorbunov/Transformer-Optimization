@@ -92,6 +92,8 @@ def main() -> int:
             adapter_cfg = json.loads(p.read_text())
     layout = args.layout or adapter_cfg.get("layout") or "paper"
     fence = bool(args.fence or adapter_cfg.get("fence", False))
+    if args.attn_logn_sref == 0 and adapter_cfg.get("attn_logn_sref"):
+        args.attn_logn_sref = int(adapter_cfg["attn_logn_sref"])      # the log-N training prior is part of the adapter contract
     gate = args.gate
     pc = PORT_CHECKS[args.port_check] if args.port_check else None
     if pc is not None:

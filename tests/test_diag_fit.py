@@ -90,6 +90,7 @@ def photo_tables(N, ks=(2, 4, 8), s=0.3, C=8.0, noise=0.01, n_samples=20, n_head
 def write_flip_run(d, N, **kw):
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
+    (d / "report.txt").write_text("synthetic")
     pairs, controls, logits = flip_tables(N, **kw)
     _write_csv(d / "pairs.csv", pairs, PAIR_COLS)
     _write_csv(d / "controls.csv", controls, CTRL_COLS)
@@ -102,6 +103,7 @@ def write_flip_run(d, N, **kw):
 def write_photo_run(d, N, arm="qfirst", tau=0, **kw):
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
+    (d / "report.txt").write_text("synthetic")
     mass, blocks, auc = photo_tables(N, **kw)
     _write_csv(d / "mass.csv", mass, MASS_COLS)
     _write_csv(d / "block_mass.csv", blocks, BLOCK_COLS)
