@@ -22,6 +22,7 @@ MODEL_ID = "Qwen/Qwen2.5-VL-7B-Instruct"   # frozen, 4-bit nf4, bf16 compute, sd
 VISION_START = "<|vision_start|>"           # one per image, before its image tokens
 VISION_END = "<|vision_end|>"               # one per image, after its image tokens = the slot
 IMAGE_PAD = "<|image_pad|>"                 # 324 per frame at the native 512 px renders
+TURN_END = "<|im_end|>"                     # closes the user turn (the replica layout's last block)
 
 # --- masks -----------------------------------------------------------------------------
 # Additive float mask: 0 = attend, MASK_MIN = forbidden. -65504 is the most negative bf16

@@ -26,6 +26,8 @@ from core.fence import (
     layout_blocks,
     reset_positions,
     slot_positions,
+    sliding_window_mask,
+    FenceHooks,
 )
 
 # ---- synthetic layout: [prefix: system+question][ (vs, img*4, ve) x 3 ][tail]
@@ -186,6 +188,91 @@ def test_layout_blocks():
     assert fin == PREFIX + stride * NF and rep[fin] == IM_END
     for a, b in blocks:                                    # every replica token is inside its block
         assert rep[b - 1] == 7 and rep[b - 2] == 7
+
+
+def test_reset_positions_leading_shapes():
+    """The reset is the same arithmetic on (3,1,L) M-RoPE, (1,L) 1-D and (L,) inputs."""
+    base3 = torch.arange(SEQ, dtype=torch.long).view(1, 1, SEQ).repeat(3, 1, 1)
+    base1 = torch.arange(SEQ, dtype=torch.long).view(1, SEQ)
+    base0 = torch.arange(SEQ, dtype=torch.long)
+    r3, r1, r0 = (reset_positions(b, BLOCKS, FIN) for b in (base3, base1, base0))
+    assert r3.shape == base3.shape and r1.shape == base1.shape and r0.shape == base0.shape
+    assert torch.equal(r3[0, 0], r1[0]) and torch.equal(r1[0], r0)
+    assert torch.equal(base1, torch.arange(SEQ).view(1, SEQ)), "input must not be mutated"
+
+
+def test_bidir_spans_open_only_their_square():
+    """Bidirectional image attention stays inside the frame: the image run becomes a full square,
+    every other entry equals the causal fence, and a span outside every block is refused."""
+    spans = [(a + 1, b - 1) for a, b in BLOCKS]
+    base = build_block_mask(SEQ, BLOCKS, hide_cols=[])
+    m = build_block_mask(SEQ, BLOCKS, hide_cols=[], bidir_spans=spans)
+    diff = (m != base)
+    for a, b in spans:
+        assert torch.all(m[a:b, a:b] == 0), "full square inside the image run"
+        diff[a:b, a:b] = False
+    assert not bool(diff.any()), "nothing outside the image squares changed"
+    a0, b0 = BLOCKS[0]
+    assert not allowed(m, a0, a0 + 1), "the start token is still causal"
+    assert all(not allowed(m, r, c) for r in range(*BLOCKS[0]) for c in range(*BLOCKS[1])), "still fenced"
+    hide = hide_cols_for(BLOCKS, [True, False, True])
+    mh = build_block_mask(SEQ, BLOCKS, hide, bidir_spans=spans)
+    assert all(not allowed(mh, r, c) for r in range(FIN, SEQ) for c in hide), "the gate still hides the block from the tail"
+    try:
+        build_block_mask(SEQ, BLOCKS, [], bidir_spans=[(0, 3)])
+        assert False
+    except AssertionError:
+        pass
+
+
+def test_sliding_window_mask():
+    m = build_block_mask(SEQ, BLOCKS, hide_cols=[])
+    pos = reset_positions(torch.arange(SEQ).view(1, SEQ), BLOCKS, FIN)[0]
+    assert sliding_window_mask(m, pos, window=1024) is m, "nothing is 1024 positions away: same tensor"
+    w = 6
+    ms = sliding_window_mask(m, pos, window=w)
+    assert ms is not m and torch.equal(m, build_block_mask(SEQ, BLOCKS, [])), "input not mutated"
+    for r in range(SEQ):
+        for c in range(SEQ):
+            want = allowed(m, r, c) and int(pos[r] - pos[c]) < w
+            assert allowed(ms, r, c) == want, (r, c)
+    # reset-position space: the LAST block still sees the prefix token one position before block 0
+    a2, _ = BLOCKS[2]
+    assert allowed(ms, a2, PREFIX - 1) and int(a2 - (PREFIX - 1)) >= w, "far by index, near by position"
+
+
+def test_hooks_pick_mask_by_layer_type():
+    class Layer(torch.nn.Module):
+        def __init__(self, kind=None):
+            super().__init__()
+            if kind is not None:
+                self.attention_type = kind
+            self.seen = None
+
+        def forward(self, hidden_states, attention_mask=None):
+            self.seen = attention_mask
+            return (hidden_states,)
+
+    layers = [Layer("sliding_attention"), Layer("full_attention"), Layer()]
+    full, slid = torch.zeros(4, 4), torch.full((4, 4), MASK_MIN)
+    hs = torch.zeros(1, 4, 8, dtype=torch.bfloat16)
+    with FenceHooks(layers, capture_layers=[1]) as hooks:
+        hooks.set_mask({"full_attention": full, "sliding_attention": slid}, "cpu")
+        for ly in layers:
+            ly(hs, attention_mask=None)
+        assert layers[0].seen.shape == (1, 1, 4, 4) and torch.all(layers[0].seen == MASK_MIN)
+        assert torch.all(layers[1].seen == 0) and torch.all(layers[2].seen == 0), "no attribute = full attention"
+        assert all(ly.seen.dtype == torch.bfloat16 for ly in layers) and 1 in hooks.hidden
+        hooks.set_mask({"full_attention": full, "sliding_attention": full}, "cpu")
+        for ly in layers:
+            ly(hs, attention_mask=None)
+        assert layers[0].seen is layers[1].seen, "a shared mask stays one tensor after the dtype cast"
+        hooks.set_mask(full, "cpu")
+        layers[0](hs, attention_mask=None)
+        assert torch.all(layers[0].seen == 0), "a single mask still goes to every layer"
+        hooks.clear_mask()
+        layers[0](hs, attention_mask="untouched")
+        assert layers[0].seen == "untouched"
 
 
 if __name__ == "__main__":

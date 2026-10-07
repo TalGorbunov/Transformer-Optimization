@@ -54,3 +54,27 @@ stage_split() {
     export DATA_ROOT="$dst"
     echo "[stage_split] DATA_ROOT=$DATA_ROOT ($(find "$dst/images/$split" -type f | wc -l) files)"
 }
+
+# stage_video <dataset_root>: the video-benchmark twin of stage_split. Copies json/ and untars
+# pool.tar + evidence.tar (written by experiments/prepare_video.py --stage tar) onto the node's
+# NVMe, exports DATA_ROOT. STAGE=0 or no TMPDIR -> DATA_ROOT=<dataset_root> (read from /rg).
+stage_video() {
+  local src="$1" dst
+  dst="${TMPDIR:-}/$(basename "$(readlink -f "$src")")"
+  if [ "${STAGE:-1}" != "1" ] || [ -z "${TMPDIR:-}" ]; then
+    export DATA_ROOT="$src"; echo "[stage_video] not staging; DATA_ROOT=$DATA_ROOT"; return 0
+  fi
+  mkdir -p "$dst/json"; cp "$src"/json/*.json "$dst/json/"
+  local t
+  for t in pool evidence; do
+    if [ ! -f "$dst/$t/.staged" ]; then
+      if [ -f "$src/$t.tar" ]; then
+        echo "[stage_video] $src/$t.tar -> $dst/"; tar -xf "$src/$t.tar" -C "$dst" && touch "$dst/$t/.staged"
+      else
+        echo "[stage_video] no $src/$t.tar; DATA_ROOT=$src"; export DATA_ROOT="$src"; return 0
+      fi
+    fi
+  done
+  export DATA_ROOT="$dst"
+  echo "[stage_video] DATA_ROOT=$DATA_ROOT ($(find "$dst" -name '*.jpg' | wc -l) frames)"
+}

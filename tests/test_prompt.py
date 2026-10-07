@@ -55,6 +55,15 @@ def test_layouts():
     assert [c["type"] for c in rep] == ["text"] + ["image", "text"] * len(FRAMES), "question, then (frame, question)×N"
 
 
+def test_zero_frames():
+    """Regime T of the UNIT baseline: no image items, the question alone, under every layout."""
+    for layout in LAYOUTS:
+        msgs = build_messages([], Q, layout=layout, system_prompt=None)
+        assert [m["role"] for m in msgs] == ["user"] and _user_content(msgs) == [{"type": "text", "text": Q}], layout
+    msgs = build_messages([], Q, layout="paper")
+    assert msgs[0]["role"] == "system" and _user_content(msgs) == [{"type": "text", "text": Q}]
+
+
 def test_training_target():
     msgs = build_messages(FRAMES, Q, layout="question-first", answer="3")
     assert msgs[-1]["role"] == "assistant" and _texts(msgs[-1:]) == [answer_target("3")]

@@ -20,7 +20,7 @@ from typing import Any, Dict, List
 
 import torch
 
-from .constants import IMAGE_PAD, MODEL_ID, VISION_END, VISION_START
+from .constants import MODEL_ID
 
 
 @dataclass(frozen=True)
@@ -28,6 +28,7 @@ class ModelRuntime:
     model_name: str
     processor: Any
     model: Any
+    spec: Any = None            # the core.backbones.BackboneSpec this runtime was loaded from
 
     @property
     def tokenizer(self) -> Any:
@@ -40,28 +41,16 @@ class ModelRuntime:
 
 def load_runtime(model_name: str = MODEL_ID, *, attn_implementation: str = "sdpa",
                  use_4bit: bool = True, device_map: Any = "cuda") -> ModelRuntime:
-    """Frozen Qwen2.5-VL runtime. Twin: runtime.py:47 (+ its build_4bit_quantization_config,
-    inlined). sdpa is required for 4-D masks; "eager" is refused."""
-    from transformers import AutoModelForImageTextToText, AutoProcessor, BitsAndBytesConfig
+    """Frozen Qwen2.5-VL runtime — kept for the scripts that still address the model by name.
+    Since the backbone seam this is core.backbones.base.load_runtime on the Qwen spec (a
+    different `model_name` = the same spec with that HF id / path). Twin: runtime.py:47."""
+    from dataclasses import replace
 
-    if attn_implementation == "eager":
-        raise ValueError("eager attention is forbidden in this codebase (masks + speed).")
-    processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True, use_fast=False)
-    kwargs: Dict[str, Any] = {
-        "attn_implementation": attn_implementation,
-        "trust_remote_code": True,
-        "device_map": device_map,
-    }
-    if use_4bit:
-        kwargs["quantization_config"] = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_quant_type="nf4",
-        )
-    model = AutoModelForImageTextToText.from_pretrained(model_name, **kwargs)
-    model.eval()
-    return ModelRuntime(model_name=str(model_name), processor=processor, model=model)
+    from .backbones.base import load_runtime as _load_runtime
+    from .backbones.qwen2_5_vl import QWEN2_5_VL_7B
+
+    spec = QWEN2_5_VL_7B if str(model_name) == MODEL_ID else replace(QWEN2_5_VL_7B, model_id=str(model_name))
+    return _load_runtime(spec, attn_implementation=attn_implementation, use_4bit=use_4bit, device_map=device_map)
 
 
 def get_layers(model: Any) -> Any:
@@ -84,16 +73,13 @@ def text_config(model: Any) -> Any:
 
 
 def special_ids(processor: Any) -> Dict[str, int]:
-    """{'vision_start': id, 'vision_end': id, 'image_pad': id} via the tokenizer.
-    Pinned by tests/test_model.py::test_special_ids (CPU: tokenizer only)."""
-    tok = processor.tokenizer if hasattr(processor, "tokenizer") else processor
-    ids = {name: int(tok.convert_tokens_to_ids(t))
-           for name, t in (("vision_start", VISION_START), ("vision_end", VISION_END), ("image_pad", IMAGE_PAD))}
-    unk = getattr(tok, "unk_token_id", None)
-    bad = [n for n, i in ids.items() if i is None or i < 0 or (unk is not None and i == unk)]
-    if bad:
-        raise ValueError(f"special tokens not in this tokenizer: {bad}")
-    return ids
+    """{'vision_start': id, 'vision_end': id, 'image_pad': id} via the tokenizer — the Qwen
+    spec's ids in the legacy three-key shape (core.backbones.base.special_ids also carries
+    turn_end). Pinned by tests/test_model.py::test_special_ids (CPU: tokenizer only)."""
+    from .backbones.base import special_ids as _special_ids
+    from .backbones.qwen2_5_vl import QWEN2_5_VL_7B
+
+    return _special_ids(QWEN2_5_VL_7B, processor).legacy()
 
 
 def image_token_groups(input_ids_1d: torch.Tensor, image_pad_id: int) -> List[List[int]]:
@@ -116,15 +102,23 @@ def image_token_groups(input_ids_1d: torch.Tensor, image_pad_id: int) -> List[Li
 
 
 def get_rope_index_fn(model: Any) -> Any:
-    """The model's multimodal RoPE position builder (its location differs across HF versions).
-    Twin: runtime.py:110."""
-    fn = getattr(model, "get_rope_index", None)
-    if fn is None:
-        inner = getattr(model, "model", None)
-        fn = getattr(inner, "get_rope_index", None)
-    if fn is None:
-        raise RuntimeError("get_rope_index not found on this model")
-    return fn
+    """The model's multimodal RoPE position builder (its location differs across HF versions
+    and wrappers): walks PEFT's get_base_model() and the `.model` nesting (ForConditionalGeneration
+    -> inner model) until an object owns get_rope_index. Twin: runtime.py:110 (two levels only —
+    the 2026-09-23 C2 failure: a PeftModel resolves `.model` to the OUTER model, one level short)."""
+    obj = model
+    for _ in range(6):
+        fn = getattr(obj, "get_rope_index", None)
+        if callable(fn):
+            return fn
+        base = getattr(obj, "get_base_model", None)       # PeftModel -> the wrapped model
+        nxt = base() if callable(base) else None
+        if nxt is None or nxt is obj:
+            nxt = getattr(obj, "model", None)              # ForConditionalGeneration -> inner model
+        if nxt is None or nxt is obj:
+            break
+        obj = nxt
+    raise RuntimeError("get_rope_index not found on this model")
 
 
 def move_to_device(inputs: Dict[str, Any], device: Any) -> Dict[str, Any]:

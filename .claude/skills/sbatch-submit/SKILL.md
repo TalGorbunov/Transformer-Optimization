@@ -93,6 +93,30 @@ Decision guide:
 - **Memory:** 48G covers the 4-bit 7B trainer and evals. Ask for more only with a reason, since
   `2h_2g` also has a per-user memory cap and a fat smoke blocks the second slot.
 
+## Datasets and backbones (SCALEUP, 2026-09-23)
+
+`sbatch/evaluate.sbatch` and `sbatch/gate_capture.sbatch` take `DATASET` (`mmred` default | `herbench` |
+`minerva`) and `BACKBONE` (`qwen2.5-vl-7b` default; `internvl3.5-8b`, `gemma-3-12b` when their specs land).
+MMReD cells keep `SPLIT=seq_len_<N>_<split>` and `stage_split`; video cells take `PROTOCOL=planted|uniform`
+and `N=8|16|32|64|128` and go through `stage_video` (copies `json/` and untars `pool.tar` + `evidence.tar`
+from `data/herbench_v2` or `data/minerva` onto the NVMe; `STAGE=0` reads /rg directly). `ARM=plain|qfirst|
+fenced_qlast|fenced_qfirst|gated` replaces `LAYOUT`/`FENCE`/`GATE`. Run dirs default to
+`outputs/scaleup/<dataset>/<backbone>/<stage>/<protocol>_N<k>/…`; ledger `outputs/scaleup/jobs.tsv`.
+Data prep: `sbatch/prepare_video.sbatch` (`4h_0g`, `STAGES="videos frames tar verify"`); the `rows` stage
+and the MINERVA blob fetch need the network, so they run nice'd on the login node (I/O, not compute).
+Token budgets per 512 px frame differ by backbone (Qwen 324 on square frames, ~180 on 16:9; InternVL
+256; Gemma 256); the N=128 masked-forward rule (h200) applies per token count, not per N.
+
+UNIT baseline (2026-10-06, `docs/UNIT_BASELINE_2026-10-06.md`): `sbatch/unit_baseline.sbatch` runs the three
+unfenced regimes — `REGIME=T` (no frames), `REGIME=E` (`evaluate.py --unit <frame|clip3_d1|clip5_d1|clip5_d2|clip9_d2>`,
+evidence units only) and `REGIME=D` (`experiments/unit_judge.py`, per-unit yes/no vs hard + easy negatives) — with
+`UNITS="…"` chained in one job, `RES=lo|hi` (the backbone's own resolution modes), `QIDS_FILE` (HERBench:
+`sbatch/lib/splits/qids_herbench_native582.txt`) or `PER_QTYPE`; MMReD takes `SPLIT`. Wave script `sbatch/unit_submit.sh
+<herbench|mmred> <backbone> <T|E|D|all>`. Units are read from /rg (`units_native/`, not tarred; `STAGE_DATA=0`).
+Data prep for the units: `sbatch/prepare_video.sbatch` with `STAGES="units verify_units"` and
+`EXTRA="--qids-file <file>"` (4h_0g; one decode pass per video; resumable). Every E / D cell is mask-free and
+single-GPU: a 45-frame clip9_d2 prompt at 1 MP is ~55 K tokens, still one forward on a 40 GB A100 in 4-bit.
+
 ## Rules and the incident behind each
 
 - **`--time` on every GPU submit.** Every partition's DefaultTime is 2 h and a QOS only caps walltime,

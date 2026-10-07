@@ -39,9 +39,13 @@ FENCED_SDPA = [SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH]
 
 # --------------------------------------------------------------------------- masks
 
-def build_block_mask(seq: int, blocks: Sequence[Span], hide_cols: Sequence[int]) -> torch.Tensor:
-    """Causal + block-diagonal fence + globally hidden columns. Twin: fencing.py:29 (verbatim).
-    hide_cols are re-opened inside their own block (a block always sees itself)."""
+def build_block_mask(seq: int, blocks: Sequence[Span], hide_cols: Sequence[int], *,
+                     bidir_spans: Sequence[Span] = ()) -> torch.Tensor:
+    """Causal + block-diagonal fence + globally hidden columns. Twin: fencing.py:29 (verbatim
+    when bidir_spans is empty). hide_cols are re-opened inside their own block (a block always
+    sees itself). `bidir_spans` (each inside one block) are opened as FULL squares afterwards:
+    backbones whose image tokens attend each other in both directions (Gemma 3) keep that inside
+    their own frame, and nothing else changes."""
     m = torch.zeros(seq, seq, dtype=torch.float32)
     m.masked_fill_(torch.triu(torch.ones(seq, seq, dtype=torch.bool), 1), MASK_MIN)
     if hide_cols:
@@ -56,7 +60,30 @@ def build_block_mask(seq: int, blocks: Sequence[Span], hide_cols: Sequence[int])
         for j, (a2, b2) in enumerate(blocks):
             if j != i:
                 m[rows.unsqueeze(1), torch.arange(a2, b2).unsqueeze(0)] = MASK_MIN
+    for (a, b) in bidir_spans:
+        assert any(ba <= a and b <= bb for ba, bb in blocks), f"bidir span {(a, b)} is not inside a block"
+        m[a:b, a:b] = 0.0
     return m
+
+
+def sliding_window_mask(mask: torch.Tensor, positions_1d: torch.Tensor, window: int) -> torch.Tensor:
+    """The mask for a backbone's local-attention layers: `mask` with every (query, key) pair whose
+    distance pos_q - pos_k >= window also forbidden. Distances are taken in the positions the
+    model is GIVEN (after the per-block reset), so a fenced block keeps its prefix in every layer
+    however late the frame sits in the prompt. Returns `mask` itself when the window cuts nothing."""
+    pos = positions_1d.to(torch.int32).flatten()
+    assert pos.numel() == mask.shape[-1], (pos.numel(), mask.shape)
+    if int(pos.max()) - int(pos.min()) < int(window):      # the usual fenced case: nothing is that far
+        return mask
+    out = None
+    for a in range(0, pos.numel(), 2048):                  # row chunks: no [seq, seq] integer matrix
+        far = (pos[a:a + 2048].unsqueeze(1) - pos.unsqueeze(0)) >= int(window)
+        far &= mask[a:a + 2048] == 0
+        if bool(far.any()):
+            if out is None:
+                out = mask.clone()
+            out[a:a + 2048][far] = MASK_MIN
+    return mask if out is None else out
 
 
 def hide_cols_for(blocks: Sequence[Span], keep: Sequence[bool]) -> List[int]:
@@ -69,18 +96,22 @@ def hide_cols_for(blocks: Sequence[Span], keep: Sequence[bool]) -> List[int]:
 # ----------------------------------------------------------------------- positions
 
 def reset_positions(base_pos: torch.Tensor, blocks: Sequence[Span], fin_start: int) -> torch.Tensor:
-    """Per-block M-RoPE reset. Twin: fencing.py:111 (verbatim).
-    base_pos: (3, 1, seq) from the model's get_rope_index. Every block gets block 0's position
-    ids (blocks cannot attend each other, so reuse is safe); the tail continues right after
-    block 0's max position. Returns a new tensor."""
+    """Per-block position reset. Twin: fencing.py:111 (same arithmetic; the twin indexed
+    [0, 0, ·] on a (3, 1, seq) M-RoPE tensor, this reads the first row of any leading shape —
+    (3, 1, seq) M-RoPE, (1, seq) 1-D, or (seq,) — and shifts every row by the same amount, so
+    the M-RoPE result is bit-identical: tests/test_fence.py::test_legacy_parity).
+    Every block gets block 0's position ids (blocks cannot attend each other, so reuse is
+    safe); the tail continues right after block 0's max position. Returns a new tensor."""
     pos = base_pos.clone()
     if not blocks:
         return pos
+    seq = int(base_pos.shape[-1])
+    first = base_pos.reshape(-1, seq)[0]          # the temporal / only axis, for the shifts
     s0, e0 = blocks[0]
     for (si, ei) in blocks[1:]:
-        pos[:, :, si:ei] -= int(base_pos[0, 0, si]) - int(base_pos[0, 0, s0])
-    blk0_max = int(pos[:, :, s0:e0].max())
-    pos[:, :, fin_start:] -= int(base_pos[0, 0, fin_start]) - (blk0_max + 1)
+        pos[..., si:ei] -= int(first[si]) - int(first[s0])
+    blk0_max = int(pos[..., s0:e0].max())
+    pos[..., fin_start:] -= int(first[fin_start]) - (blk0_max + 1)
     return pos
 
 
@@ -139,11 +170,23 @@ class FenceHooks:
     def __init__(self, layers: Any, capture_layers: Sequence[int] = ()):
         self._layers = layers
         self._capture = list(capture_layers)
-        self._holder: Dict[str, Optional[torch.Tensor]] = {"mask": None}
+        self._holder: Dict[str, Any] = {"mask": None}
         self._handles: List[Any] = []
         self.hidden: Dict[int, torch.Tensor] = {}
 
-    def set_mask(self, mask_2d: torch.Tensor, device: Any) -> None:
+    def set_mask(self, mask_2d: Any, device: Any) -> None:
+        """One mask for every layer, or {attention_type: mask} for backbones whose layers differ
+        (Gemma 3: "full_attention" / "sliding_attention"); a layer without the attribute is
+        "full_attention". Entries that are the same tensor are moved to the device once."""
+        if isinstance(mask_2d, dict):
+            moved: Dict[int, torch.Tensor] = {}
+            held = {}
+            for k, m in mask_2d.items():
+                if id(m) not in moved:
+                    moved[id(m)] = m.view(1, 1, m.shape[-1], m.shape[-1]).to(device)
+                held[k] = moved[id(m)]
+            self._holder["mask"] = held
+            return
         seq = mask_2d.shape[-1]
         self._holder["mask"] = mask_2d.view(1, 1, seq, seq).to(device)
 
@@ -157,13 +200,24 @@ class FenceHooks:
         holder = self._holder
 
         def mask_pre(_m, hargs, hkwargs):
-            mk = holder["mask"]
-            if mk is None:
+            held = holder["mask"]
+            if held is None:
                 return hargs, hkwargs
             hs = hargs[0] if hargs else hkwargs.get("hidden_states")
-            if hs is not None and mk.dtype != hs.dtype:
-                mk = mk.to(hs.dtype)
-                holder["mask"] = mk
+            if isinstance(held, dict):
+                key = getattr(_m, "attention_type", "full_attention")
+                mk = held[key]
+                if hs is not None and mk.dtype != hs.dtype:
+                    cast = mk.to(hs.dtype)
+                    for k in held:                      # keep shared tensors shared after the cast
+                        if held[k] is mk:
+                            held[k] = cast
+                    mk = cast
+            else:
+                mk = held
+                if hs is not None and mk.dtype != hs.dtype:
+                    mk = mk.to(hs.dtype)
+                    holder["mask"] = mk
             if len(hargs) >= 2:
                 return (hargs[0], mk) + tuple(hargs[2:]), hkwargs
             hkwargs = dict(hkwargs)
@@ -229,7 +283,9 @@ def fenced_setup(inputs: Dict[str, Any], blocks: Sequence[Span], fin_start: int,
                  keep: Optional[Sequence[bool]], rope_fn: Any) -> Tuple[torch.Tensor, torch.Tensor]:
     """(mask_2d, position_ids) for one forward: the fence mask with the gate's hidden columns
     (keep=None or all-True = no gate) and the per-block position reset over the model's own
-    M-RoPE positions. Shared by train.py and evaluate.py so the val metric IS the test metric."""
+    M-RoPE positions. Shared by train.py and evaluate.py so the val metric IS the test metric.
+    Qwen-signature form (rope_fn = get_rope_index); the spec-aware form every new caller uses is
+    core.backbones.base.fenced_setup(spec, model, inputs, blocks, fin_start, keep)."""
     ids = inputs["input_ids"]
     seq = int(ids.shape[1])
     hide = hide_cols_for(blocks, keep) if keep is not None else []
@@ -241,20 +297,29 @@ def fenced_setup(inputs: Dict[str, Any], blocks: Sequence[Span], fin_start: int,
 
 
 def greedy_decode(model: Any, hooks: "FenceHooks", inputs: Dict[str, Any], setup_fn: Any, *,
-                  tokenizer: Any, max_new: int, eos_id: int, stop_fn: Any = None) -> str:
+                  tokenizer: Any, max_new: int, eos_id: int, stop_fn: Any = None,
+                  passthrough_keys: Sequence[str] = ("pixel_values", "image_grid_thw"),
+                  sequence_keys: Sequence[str] = ("token_type_ids",)) -> str:
     """Cache-free greedy decoding under the fence: every step re-forwards the whole sequence
     with mask + positions rebuilt by setup_fn(cur_inputs) -> (mask_2d, position_ids). Exact
     (no KV cache to keep consistent with a changing 4-D mask); cost grows with max_new.
-    Stops at eos or when stop_fn(decoded_text) is true. Returns the decoded text."""
+    Stops at eos or when stop_fn(decoded_text) is true. `passthrough_keys` = the non-text inputs
+    the model needs on every re-forward (BackboneSpec.passthrough_keys; Qwen's by default);
+    those in `sequence_keys` are per-token and are zero-padded (0 = text) as the sequence grows.
+    Returns the decoded text."""
     from torch.nn.attention import sdpa_kernel
 
     ids = inputs["input_ids"]
     out: List[int] = []
     for _ in range(max_new):
         cur: Dict[str, Any] = {"input_ids": ids, "attention_mask": torch.ones_like(ids)}
-        for k in ("pixel_values", "image_grid_thw"):
+        for k in passthrough_keys:
             if k in inputs:
-                cur[k] = inputs[k]
+                v = inputs[k]
+                if k in sequence_keys and v.shape[-1] < ids.shape[1]:     # per-token inputs grow with the sequence
+                    pad = torch.zeros(*v.shape[:-1], ids.shape[1] - v.shape[-1], dtype=v.dtype, device=v.device)
+                    v = torch.cat([v, pad], dim=-1)
+                cur[k] = v
         mask, pos = setup_fn(cur)
         cur.pop("attention_mask", None)
         hooks.set_mask(mask, ids.device)

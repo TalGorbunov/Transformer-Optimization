@@ -25,6 +25,17 @@ original `data/mmred_hf.moved-20260921` on /home; regenerate on /rg with
 
 Built by `legacy/experiments/{mlvu,herbench,vnbench}/prep_*.py` (PyAV; `~/.local/pyav-py39`).
 
+## The two external video benchmarks (SCALEUP, 2026-09-23; `docs/SCALEUP_2026-09-23.md`)
+
+| entry | target | contents |
+|---|---|---|
+| `data/herbench_v2` | `/rg/shocher_prj/lab_data/herbench/lite_v2` | HF `DanBenAmi/HERBench` config `lite_v2`: `hf/` (annotations, README; tar parts deleted after extraction) · `videos/<source>/…mp4` (34.3 GB, KEPT) · `json/test.json` (1,971 rows, evidence intervals parsed per task) · `pool/<video_id>/` 256 frames on the official grid + `times.json` · `evidence/<qid>/` one frame per evidence unit · `pool.tar`, `evidence.tar` (`stage_video`) · `verify_report.txt` |
+| `data/minerva` | `/rg/shocher_prj/lab_data/minerva/lmms_v1` | MINERVA (ICCV 2025) via the lmms `minerva.json` + `lmms-lab-eval/minerva` Lance video blobs: `hf/minerva.json` · `videos/<youtube_id>.mp4` (8.85 GB, 197 videos, KEPT) · `json/test.json` (1,207 rows; Listening dropped; evidence = timestamps regex-parsed from the reasoning) · `pool/`, `evidence/`, tarballs as above |
+
+Built by `experiments/prepare_video.py` (layout spec in `core/data/videoqa.py`); `rows` and the MINERVA
+`videos` stage need the network (login node), the rest runs under `4h_0g` (`sbatch/prepare_video.sbatch`).
+Frames: long side 512 px, never upscaled, JPEG q95 — a prep-time choice, not model-path resize code.
+
 ## Custom-generator roots (legacy only — the rewrite does not read them)
 
 Every other `data/mmred_*` root, `coco_val2017`, `oxford_pets`, `_smoke`, `_scratch_herb_smoke`

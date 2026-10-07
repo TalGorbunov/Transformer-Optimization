@@ -17,6 +17,7 @@ The fence never changes the words: with layout != paper the only change is where
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence
 
 from .constants import CHARS, NOBODY, ROOMS
@@ -36,11 +37,33 @@ SYSTEM_PROMPT = (
 LAYOUTS = ("paper", "question-first", "replica")
 
 
+@dataclass(frozen=True)
+class Arm:
+    """One named (layout, fence, gate) configuration — the vocabulary every script and table
+    shares (D4's 2×2 plus the gated arm). `gate` is "none" or "oracle" (the evidence labels)."""
+    name: str
+    layout: str
+    fence: bool
+    gate: str = "none"
+
+
+ARMS: Dict[str, Arm] = {a.name: a for a in (
+    Arm("plain", "paper", False),                   # the benchmark's own layout, no fence
+    Arm("qfirst", "question-first", False),         # their --prefix_question order, no fence
+    Arm("fenced_qlast", "paper", True),             # fenced, question-blind blocks (control)
+    Arm("fenced_qfirst", "question-first", True),   # THE method's layout: fenced, question in the prefix
+    Arm("gated", "question-first", True, "oracle"),  # + non-evidence blocks hidden (upper bound)
+)}
+
+
 def build_messages(frames: Sequence[Any], question: str, layout: str = "question-first",
-                   answer: Optional[str] = None) -> List[Dict[str, Any]]:
+                   answer: Optional[str] = None, *, system_prompt: Optional[str] = SYSTEM_PROMPT,
+                   answer_text: Optional[str] = None) -> List[Dict[str, Any]]:
     """Chat messages for the processor's apply_chat_template. With `answer` given (training),
     an assistant turn `{ "answer": <answer> }` is appended — the paper's output format is the
-    training target too. Pinned by tests/test_prompt.py::test_layouts."""
+    training target too; `answer_text` instead appends an assistant turn with that exact text
+    (other datasets' targets). `system_prompt` defaults to MMReD's; None = no system turn (the
+    video benchmarks' official wrappers send none). Pinned by tests/test_prompt.py::test_layouts."""
     if layout not in LAYOUTS:
         raise ValueError(f"layout must be one of {LAYOUTS}, got {layout!r}")
     q = {"type": "text", "text": question}
@@ -55,10 +78,16 @@ def build_messages(frames: Sequence[Any], question: str, layout: str = "question
             content += [im, dict(q)]
     # Every turn's content is a typed list: the HF processor (4.57) iterates message content
     # as items and breaks on a bare string. The chat template renders text items verbatim.
-    msgs: List[Dict[str, Any]] = [{"role": "system", "content": [{"type": "text", "text": SYSTEM_PROMPT}]},
-                                  {"role": "user", "content": content}]
+    msgs: List[Dict[str, Any]] = []
+    if system_prompt is not None:
+        msgs.append({"role": "system", "content": [{"type": "text", "text": system_prompt}]})
+    msgs.append({"role": "user", "content": content})
+    if answer is not None and answer_text is not None:
+        raise ValueError("give answer (MMReD target) or answer_text, not both")
     if answer is not None:
         msgs.append({"role": "assistant", "content": [{"type": "text", "text": answer_target(answer)}]})
+    elif answer_text is not None:
+        msgs.append({"role": "assistant", "content": [{"type": "text", "text": answer_text}]})
     return msgs
 
 
