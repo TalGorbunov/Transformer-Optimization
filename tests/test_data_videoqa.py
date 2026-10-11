@@ -19,14 +19,15 @@ if str(_REPO) not in sys.path:
 
 from core.data import DATASETS, get_dataset
 from core.data.mcq import (
-    HERBENCH_SUFFIX, MINERVA_SUFFIX, has_letter, herbench_extract, herbench_prompt, lettered, minerva_extract,
-    minerva_prompt,
+    HERBENCH_SUFFIX, MINERVA_SUFFIX, VNBENCH_SUFFIX, has_letter, herbench_extract, herbench_prompt, lettered, minerva_extract,
+    minerva_prompt, vnbench_extract, vnbench_prompt,
 )
 from core.data.videoqa import (
-    EASY_MIN_DIST, HARD_GAP, HERBENCH_TASKS, MAX_UNIT_FRAMES, MINERVA_SKILLS, N_FRAMES, NEG_MARGIN, POOL, UNIT_FALLBACK,
-    UNIT_HALF, UNIT_OFFSETS, UNIT_STEP, UNITS_DIR, HERBench, Minerva, evidence_times, frame_dirs, negative_centres,
-    parse_herbench_evidence, parse_hms, parse_minerva_evidence, parse_range, plan_units, plant, planted_margin, pool_times,
-    select_offsets, uniform_indices, uniform_labels, unit_grid,
+    EASY_MIN_DIST, HARD_GAP, HERBENCH_TASKS, MAX_UNIT_FRAMES, MINERVA_SKILLS, N_FRAMES, NEEDLE_DUR, NEG_MARGIN, POOL,
+    UNIT_FALLBACK, UNIT_HALF, UNIT_OFFSETS, UNIT_STEP, UNITS_DIR, VNBENCH_TASKS, HERBench, Minerva, VNBench, evidence_times,
+    frame_dirs, negative_centres, parse_herbench_evidence, parse_hms, parse_minerva_evidence, parse_range,
+    parse_vnbench_evidence, plan_units, plant, planted_margin, pool_times, select_offsets, uniform_indices, uniform_labels,
+    unit_grid,
 )
 
 # metadata examples copied from the real lite_v2 rows (2026-09-23)
@@ -47,7 +48,7 @@ META = {
 
 
 def test_registry():
-    assert {"herbench", "minerva"} <= set(DATASETS)
+    assert {"herbench", "minerva", "vnbench"} <= set(DATASETS)
     h, m = get_dataset("herbench"), get_dataset("minerva")
     assert isinstance(h, HERBench) and isinstance(m, Minerva)
     assert h.protocols == ("uniform", "isolated", "planted", "evidence") and h.split_name("isolated", 32, "test") == "isolated_N32_test"
@@ -242,6 +243,14 @@ def _ref_minerva_prompt(question, choices):
     return f"{''}{question}\n{choice_text}{chr(10) + 'Answer with the option' + chr(39) + 's letter from the given choices directly.'}"
 
 
+def _ref_vnbench_prompt(q_dict):
+    """llava_examples/model_video_niah.py::run_inference (CASIA-IVA-Lab/VideoNIAH), copied verbatim (2026-10-09)."""
+    question0 = q_dict['question']
+    options = q_dict['options']
+    question = f"{question0}\nA. {options[0]}\nB. {options[1]}\nC. {options[2]}\nD. {options[3]}\nAnswer with the option's letter from the given choices directly."
+    return question
+
+
 def test_prompts_byte_equal_official():
     ch = ["A. 3", "B. 5", "C. 6", "D. 2", "E. 4"]
     q = "How many times does the action-object pair 'pick up ginger' occur in this video?"
@@ -251,6 +260,11 @@ def test_prompts_byte_equal_official():
     bare = ["red", "blue", "green", "black", "white"]
     assert minerva_prompt("What colour?", bare) == _ref_minerva_prompt("What colour?", bare)
     assert minerva_prompt("q", bare).endswith(MINERVA_SUFFIX) and herbench_prompt(q, ch).endswith(HERBENCH_SUFFIX)
+    q_dict = {"question": "How many secret words appeared in the video?", "options": [2, 3, 6, 5]}   # int options (cnt_*)
+    bare4 = [str(o) for o in q_dict["options"]]
+    assert vnbench_prompt(q_dict["question"], bare4) == _ref_vnbench_prompt(q_dict)
+    assert vnbench_prompt(q_dict["question"], bare4) == minerva_prompt(q_dict["question"], bare4), "the two upstream templates coincide"
+    assert vnbench_prompt("q", bare4).endswith(VNBENCH_SUFFIX)
 
 
 def test_extractors():
@@ -260,6 +274,10 @@ def test_extractors():
     for raw, want in (("C", "C"), ("The answer is B", "B"), ("Option: D", "D"), ("answer is E", "E"),
                       ("B. A red hoodie", "A"), ("", None), ("nothing", None)):
         assert minerva_extract(raw) == want, (raw, minerva_extract(raw))
+    # eval.py: cut at the first '.', then 'A' in pred / elif 'B' … (so "Answer: D" reads as A — the upstream's own rule)
+    for raw, want in (("C", "C"), ("B.", "B"), ("B. A red hoodie", "B"), ("The answer is B", "B"), ("C. Hôpital Notre-Dame", "C"),
+                      ("d", None), ("E", None), ("", None), ("Answer: D", "A")):
+        assert vnbench_extract(raw) == want, (raw, vnbench_extract(raw))
     assert has_letter("C") and has_letter("Answer: B.") and not has_letter("The") and not has_letter("")
 
 
@@ -371,6 +389,85 @@ def test_evidence_protocol_and_units():
         pl = spec.load(root, "planted_N8_test")[0]
         eo = spec.evidence_only(pl)
         assert eo.n_frames == 3 and eo.meta["k"] == 3 and eo.evidence == frozenset({0, 1, 2}) and eo.meta["unit"] == "frame"
+
+
+def test_parse_vnbench_evidence():
+    """A needle is on screen for NEEDLE_DUR = 1 s from its integer start; the stored unit grid of a 1 s range keeps
+    offsets -1 / 0 / +1 only, so the `frame` unit is the midpoint and every clip variant is the same 3 frames."""
+    assert NEEDLE_DUR == 1.0
+    assert parse_vnbench_evidence([24, 1, 27]) == ("ranges", [(1.0, 2.0), (24.0, 25.0), (27.0, 28.0)])
+    assert parse_vnbench_evidence([0]) == ("ranges", [(0.0, 1.0)]) and parse_vnbench_evidence([]) == ("none", [])
+    centre, step, grid = unit_grid((7.0, 8.0), 60.0)
+    assert centre == 7.5 and step == UNIT_STEP and grid == [(-1, 7.0), (0, 7.5), (1, 8.0)]
+    assert evidence_times([(7.0, 8.0)], 60.0) == [7.5] and unit_grid((0.0, 1.0), 60.0)[2] == [(-1, 0.0), (0, 0.5), (1, 1.0)]
+    # consecutive needles 1 s apart (edit types): negatives clear every padded interval or are dropped; no crash
+    ivs = parse_vnbench_evidence([5, 6, 7])[1]
+    info = plan_units("q", ivs, 30.0)
+    assert info["k"] == 3 and [u["uid"] for u in info["units"] if u["kind"] == "pos"] == ["u00_pos", "u01_pos", "u02_pos"]
+    half = UNIT_HALF * UNIT_STEP
+    for u in info["units"]:
+        if u["kind"] == "hard":
+            assert all(u["centre"] + half <= a - NEG_MARGIN or u["centre"] - half >= b + NEG_MARGIN for a, b in ivs)
+    assert info["dropped"]["hard"] + sum(1 for u in info["units"] if u["kind"] == "hard") == 3
+
+
+def test_vnbench_rows_and_tree():
+    """rows_vnbench on 2 synthetic videos x 4 tries (the ret_insert file/type swap, int options), then the loader on the
+    resulting tree: uniform_N8, evidence_frame (one frame per needle at t + 0.5), group = haystack, the official prompt."""
+    from experiments.prepare_video import rows_vnbench
+    spec = get_dataset("vnbench")
+    assert isinstance(spec, VNBench) and spec.qtypes == tuple(VNBENCH_TASKS) and len(VNBENCH_TASKS) == 9
+    fruit = [["apple", "banana", "orange", "kiwi"], ["banana", "apple", "kiwi", "orange"], ["kiwi", "orange", "apple", "banana"],
+             ["orange", "kiwi", "banana", "apple"]]
+    nums = [[2, 3, 6, 5], [3, 2, 5, 6], [6, 5, 2, 3], [5, 6, 3, 2]]
+    items = []
+    for t in range(4):
+        items.append({"video": "./VNBench/video7014_ret_insert1.mp4", "question": "What kind of fruit appears in this video?",
+                      "options": fruit[t], "needle_time": [1], "gt": "apple", "gt_option": "ABCD"[fruit[t].index("apple")],
+                      "length": 12.0, "type": "ret_insert2", "try": t})
+        items.append({"video": "./VNBench/video7014_cnt_edit1.mp4", "question": "How many secret words appeared in the video?",
+                      "options": nums[t], "needle_time": [4, 1], "gt": 2, "gt_option": "ABCD"[nums[t].index(2)],
+                      "length": 12.0, "type": "cnt_edit1", "try": t})
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "hf").mkdir()
+        (root / "hf" / "VNBench-main-4try.json").write_text(json.dumps(items))
+        rows = rows_vnbench(root)
+        assert [r["qid"] for r in rows] == ["video7014_cnt_edit1", "video7014_ret_insert1"]
+        cnt, ret = rows
+        assert ret["qtype"] == "ret_insert1" and ret["meta"]["raw_type"] == "ret_insert2" and "fruit" in ret["task_name"]
+        assert ret["answer"] == "A" and ret["meta"]["gt_rule"] == "option" and ret["evidence"] == [[1.0, 2.0]]
+        assert cnt["choices"] == ["A. 2", "B. 3", "C. 6", "D. 5"] and cnt["answer"] == "A" and cnt["answer_index"] == 0
+        assert cnt["evidence_kind"] == "ranges" and cnt["evidence"] == [[1.0, 2.0], [4.0, 5.0]] and cnt["meta"]["gt_rule"] == "needle_count"
+        assert cnt["video_id"] == "video7014_cnt_edit1" and cnt["source"] == cnt["meta"]["haystack"] == "video7014" and cnt["duration"] is None
+        assert [x["try"] for x in cnt["meta"]["tries"]] == [1, 2, 3] and cnt["meta"]["tries"][0] == {"try": 1, "options": ["3", "2", "5", "6"], "gt_option": "B"}
+        assert len(rows_vnbench(root, (0, 1, 2, 3))) == 8 and rows_vnbench(root, (0, 1))[1]["qid"] == "video7014_cnt_edit1_t1"
+        # the tree the loader reads: json + pool times + units.json (plan_units; the loader needs no jpgs)
+        dur = 13.0                                   # an insert video is longer than the annotation's `length`
+        (root / "json").mkdir()
+        (root / "json" / "test.json").write_text(json.dumps(rows))
+        for r in rows:
+            (root / "pool_native" / r["video_id"]).mkdir(parents=True)
+            (root / "pool_native" / r["video_id"] / "times.json").write_text(
+                json.dumps({"video_id": r["video_id"], "duration": dur, "times": pool_times(dur, POOL)}))
+            qdir = root / UNITS_DIR / r["qid"]
+            qdir.mkdir(parents=True)
+            (qdir / "units.json").write_text(json.dumps(plan_units(r["qid"], [tuple(iv) for iv in r["evidence"]], dur)))
+        u = spec.load(root, "uniform_N8_test")
+        assert [s.qid for s in u] == ["video7014_cnt_edit1", "video7014_ret_insert1"] and all(s.group == "video7014" for s in u)
+        c, r = spec.load(root, "evidence_frame_test")
+        assert c.n_frames == 2 and c.meta["times"] == [1.5, 4.5] and c.evidence == frozenset({0, 1}) and c.meta["k"] == 2
+        assert r.n_frames == 1 and r.meta["times"] == [1.5] and r.qtype == "ret_insert1"
+        assert spec.question_text(c) == _ref_vnbench_prompt({"question": c.question, "options": [2, 3, 6, 5]})
+        assert spec.bare_question(c) == c.question + "\nA. 2\nB. 3\nC. 6\nD. 5"
+        assert spec.answer_target(c) == "A" and spec.match(spec.parse("A."), c) and not spec.match(spec.parse("B"), c)
+        c5 = spec.load(root, "evidence_clip5_d1_test")[0]
+        assert c5.n_frames == 6 and c5.meta["m_eff"] == 3.0 and c5.meta["times"] == [1.0, 1.5, 2.0, 4.0, 4.5, 5.0]
+        assert spec.load(root, "evidence_clip3_d1_test")[0].n_frames == 2, "clip3_d1 (offsets -2, 0, 2) on a 1 s range = the frame unit"
+        units = spec.units(root, c, "frame")
+        assert units[0]["kind"] == "pos" and units[0]["interval"] == [1.0, 2.0] and units[0]["centre"] == 1.5 and units[0]["k"] == 2
+        ex = spec.report_extras([c, r], ["A", "A"])
+        assert ex["k=1"] == (1.0, 1) and ex["k=2-4"] == (1.0, 1) and ex["letter_prior_baseline"] == (1.0, 2)
 
 
 if __name__ == "__main__":

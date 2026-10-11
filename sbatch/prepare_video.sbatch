@@ -8,7 +8,7 @@
 #SBATCH --output=logs/%x-%j.out
 # experiments/prepare_video.py on a CPU queue: the stages that need no network (videos for herbench = tar
 # extraction; frames; tar; verify). `rows` and MINERVA `videos` need the network -> run them on the login node.
-# Knobs (env; no commas): DATASET (herbench|minerva) ROOT STAGES (space-separated, default "frames tar verify")
+# Knobs (env; no commas): DATASET (herbench|minerva|vnbench) ROOT STAGES (space-separated, default "frames tar verify")
 #   FRAME_SET (native|512)  POOL LIMIT (frames smoke) KEEP_PARTS (1) MAX_FAILED (undecodable videos tolerated) EXTRA OUTPUT
 # Submit:
 #   SLURM_SUBMIT_DIR=$PWD DRY_RUN=1 bash sbatch/prepare_video.sbatch

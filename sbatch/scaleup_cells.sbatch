@@ -11,7 +11,7 @@
 #   STAGE=s1  evaluate.py  --frozen --arm $ARM            (plain | qfirst; official comparability = uniform N=16 plain)
 #   STAGE=s2  gate_capture.py --arm $ARM                  (fenced_qfirst | qfirst | fenced_qlast)
 #   STAGE=s3  evaluate.py  --frozen --arm gated           (fenced + oracle gate = the upper bound)
-# Knobs (env; lists space-separated; no commas): DATASET (herbench|minerva) BACKBONE (qwen2.5-vl-7b) STAGE (s1|s2|s3)
+# Knobs (env; lists space-separated; no commas): DATASET (herbench|minerva|vnbench) BACKBONE (qwen2.5-vl-7b) STAGE (s1|s2|s3)
 #   FRAME_SET (native|512)  MAX_PIXELS (processor cap; empty = default)  FAST (1 = batched fenced path)  CHUNK_TOKENS
 #   POOL (1 = also the mean image-token state)  JUDGE (per-block yes/no instruction; s2 + FAST=1)
 #   STAGE_DATA (1 = copy tarballs to the node NVMe)  ARM  PROTOCOL (planted|isolated|uniform)  QTYPES ("" = all tasks)  NLIST ("8 16 32 64")  PER_QTYPE (50; 0 = all rows)  MAX_NEW (8)  MAX_SEQ (60000)  ADAPTER  EXTRA
@@ -22,7 +22,7 @@ source "${SLURM_SUBMIT_DIR:-.}/sbatch/lib/common.sh"
 DATASET="${DATASET:-herbench}"; BACKBONE="${BACKBONE:-qwen2.5-vl-7b}"; STAGE="${STAGE:-s1}"; ARM="${ARM:-plain}"
 PROTOCOL="${PROTOCOL:-planted}"; PER_QTYPE="${PER_QTYPE:-50}"
 read -r -a NARR <<< "${NLIST:-8 16 32 64}"
-case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
+case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; vnbench) ROOT=data/vnbench;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
 _CELL_STAGE="$STAGE"; STAGE="${STAGE_DATA:-1}"; stage_video "$ROOT"; STAGE="$_CELL_STAGE"   # STAGE names the cell here; common.sh reads STAGE=1 as "copy to NVMe"
 QT_ARGS=(); if [ -n "${QTYPES:-}" ]; then read -r -a QT <<< "$QTYPES"; QT_ARGS=(--qtypes "${QT[@]}"); fi
 PQ_ARGS=(); [ "$PER_QTYPE" != "0" ] && PQ_ARGS=(--per-qtype "$PER_QTYPE")

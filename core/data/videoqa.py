@@ -53,6 +53,7 @@ from typing import Any, Dict, FrozenSet, List, Optional, Sequence, Tuple, Union
 from .base import DatasetSpec, Sample, evidence_strata
 from .mcq import (
     has_letter, herbench_extract, herbench_prompt, letter_match, lettered, minerva_extract, minerva_prompt,
+    vnbench_extract, vnbench_prompt,
 )
 
 Interval = Tuple[float, float]
@@ -186,6 +187,32 @@ def parse_minerva_evidence(reasoning: str, duration: Optional[float] = None) -> 
         return "none", []
     kinds = {"points" if a == b else "ranges" for a, b in ivs}
     return ("mixed" if len(kinds) == 2 else kinds.pop()), ivs
+
+
+# VNBench (VideoNIAH, ICLR 2025; github CASIA-IVA-Lab/VideoNIAH; HF videoniah/VNBench). Task codes = the mp4
+# filename's suffix = the paper's naming. The annotation's `type` field has ret_insert1 / ret_insert2 swapped
+# relative to the files (its own scorer swaps them back at report time); the raw field is kept in meta["raw_type"].
+VNBENCH_TASKS: Dict[str, str] = {
+    "ret_insert1": "Retrieval: inserted fruit image",
+    "ret_insert2": "Retrieval: inserted landmark image",
+    "ret_edit1": "Retrieval: subtitle (secret word)",
+    "ord_insert1": "Ordering: 4 inserted fruit images",
+    "ord_insert2": "Ordering: 4 inserted object images",
+    "ord_edit1": "Ordering: 4 subtitles (secret words)",
+    "cnt_insert1": "Counting: 1-6 inserted object images",
+    "cnt_edit1": "Counting: 1-6 subtitles (secret words)",
+    "cnt_edit2": "Counting: objects inside 4 inserted images (count within unit, then sum)",
+}
+NEEDLE_DUR = 1.0    # s on screen per needle from its integer start (paper; measured 2026-10-09 on the July frames:
+                    # subtitle visible at t+0.23..t+0.77, absent at t-0.03 and t+1.04)
+
+
+def parse_vnbench_evidence(needle_time: Sequence[float]) -> Tuple[str, List[Interval]]:
+    """One range [t, t + NEEDLE_DUR] per needle start, sorted. `needle_time` is in the mp4's own timeline (an
+    insert needle lengthens the video by 1 s; the annotation's `length` is the haystack's and is NOT the
+    mp4 duration), so nothing is clamped here: process_video / unit_grid clamp with the decoded duration."""
+    ivs = sorted((float(t), float(t) + NEEDLE_DUR) for t in needle_time)
+    return ("ranges", ivs) if ivs else ("none", [])
 
 
 # ------------------------------------------------------------------ frame protocols
@@ -507,10 +534,14 @@ class VideoMCQ(DatasetSpec):
         return self._sample(row, paths, ev, {"protocol": protocol, "n_frames": n_frames,
                                              "times": [t for t, _, _ in merged]}), ""
 
+    def group_of(self, row: Dict[str, Any]) -> str:
+        """Leakage key for held-out folds (gate_fit --folds): the video by default."""
+        return str(row["video_id"])
+
     def _sample(self, row: Dict[str, Any], paths: Tuple[Path, ...], ev: Optional[FrozenSet[int]],
                 extra: Dict[str, Any]) -> Sample:
         return Sample(qid=str(row["qid"]), question=row["question"], answer=str(row["answer"]), qtype=row["qtype"],
-                      frame_paths=paths, evidence=ev, group=str(row["video_id"]), meta={**row, **extra})
+                      frame_paths=paths, evidence=ev, group=self.group_of(row), meta={**row, **extra})
 
     # ---- protocol
     def answer_target(self, sample: Sample) -> str:
@@ -583,3 +614,24 @@ class Minerva(VideoMCQ):
 
     def parse(self, raw: str) -> Optional[str]:
         return minerva_extract(raw)
+
+
+class VNBench(VideoMCQ):
+    name = "vnbench"
+    default_root = "data/vnbench"
+    qtypes = tuple(VNBENCH_TASKS)
+    numeric_qtypes = ()
+    task_names = VNBENCH_TASKS
+
+    def question_text(self, sample: Sample) -> str:
+        bare = [re.sub(r"^[A-E]\.\s*", "", c, count=1) for c in sample.meta["choices"]]
+        return vnbench_prompt(sample.question, bare)
+
+    def bare_question(self, sample: Sample) -> str:
+        return sample.question + "\n" + "\n".join(lettered(sample.meta["choices"]))
+
+    def parse(self, raw: str) -> Optional[str]:
+        return vnbench_extract(raw)
+
+    def group_of(self, row: Dict[str, Any]) -> str:
+        return str(row["meta"]["haystack"])      # the 9 items of one haystack share the footage

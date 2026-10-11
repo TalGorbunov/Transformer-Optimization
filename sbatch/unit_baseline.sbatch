@@ -12,7 +12,7 @@
 #   REGIME=T  evaluate.py --no-frames                      the question alone (floor; text-answerable tasks)
 #   REGIME=E  evaluate.py --unit $u --res $RES             ONLY the evidence units, official layout (perception ceiling)
 #   REGIME=D  unit_judge.py --unit $u --res $RES           per-unit yes/no vs hard + easy negatives (detection)
-# Knobs (env; lists space-separated; NO commas): DATASET (herbench|minerva|mmred) BACKBONE (qwen2.5-vl-7b) REGIME ("T", "E", "D" or "T E D" in order)
+# Knobs (env; lists space-separated; NO commas): DATASET (herbench|minerva|vnbench|mmred) BACKBONE (qwen2.5-vl-7b) REGIME ("T", "E", "D" or "T E D" in order)
 #   UNITS ("frame clip3_d1 clip5_d1 clip5_d2 clip9_d2")  RES (lo|hi; empty = the processor's defaults)
 #   QIDS_FILE (sbatch/lib/splits/qids_herbench_native582.txt; empty = PER_QTYPE rows)  PER_QTYPE (50)  QTYPES ("" = all)
 #   MMReD: SPLIT (seq_len_8_test)   video T: PROTOCOL (uniform) N (8)   NEG (both|hard|easy)  MAX_NEW (8)  EXTRA  STAGE_DATA (0)
@@ -21,6 +21,7 @@
 # Submit (see sbatch/unit_submit.sh for the wave):
 #   sbatch -p l40s-shared --qos=12h_4g --time=04:00:00 --export=ALL,DATASET=herbench,REGIME=E,UNITS="frame clip5_d1",RES=hi,QIDS_FILE=sbatch/lib/splits/qids_herbench_native582.txt sbatch/unit_baseline.sbatch
 source "${SLURM_SUBMIT_DIR:-.}/sbatch/lib/common.sh"
+export TORCHINDUCTOR_COMPILE_THREADS=1   # no inductor worker pool: its atexit shutdown hung 300 s after every chained stage (smoke 175166, 2026-10-10)
 DATASET="${DATASET:-herbench}"; BACKBONE="${BACKBONE:-qwen2.5-vl-7b}"; RES="${RES:-}"
 # generation budget: MMReD answers are JSON ('{ "answer": "Kitchen" }' ~ 10 tokens; evaluate.py's default 24); the MCQ letter needs 8.
 # (2026-10-06 smoke 170567: 8 tokens truncated every MMReD text-only answer -> parse_fail 24/24.)
@@ -32,7 +33,7 @@ if [ "$DATASET" = "mmred" ]; then
   stage_split "$SPLIT"
   DATA_ARGS=(--config "$CONFIG" --split "$SPLITNAME"); TAG="$CONFIG"
 else
-  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
+  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; vnbench) ROOT=data/vnbench;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
   STAGE="${STAGE_DATA:-0}" stage_video "$ROOT"
   DATA_ARGS=(--protocol "${PROTOCOL:-uniform}" --n-frames "${N:-8}" --split test); TAG="${PROTOCOL:-uniform}_N${N:-8}"
 fi

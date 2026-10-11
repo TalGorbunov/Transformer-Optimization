@@ -364,3 +364,99 @@ Clips: task-dependent on Qwen (hurt AC / TSO), neutral-to-negative on InternVL's
 InternVL's detection, positive on MINERVA. The per-task unit U* therefore has to be chosen per (task, backbone) — the plan's rule 2 as written.
 Resolution: 0.00 / +0.017 / +0.009 pooled on the three backbones — settled: it is not the wall anywhere.
 - Results page (tables, minimal text; W1-W3 incl. fence cost and the per-task verdict matrix): https://claude.ai/artifact/XuHyW2HzEW4niNKXLsVCQk (Tal asked 2026-10-07; private until shared).
+
+## [2026-10-10 21:30] VNBench adopted as a main benchmark: data landed, adapter + prep written, UNIT baseline wave to run overnight (Tal: "research autonomously, clean minimal code, report back")
+Plan `docs/VNBENCH_2026-10-09.md` (= `~/.claude/plans/i-think-i-want-abstract-sparrow.md`, approved 2026-10-09). Decisions: all 9 subtasks; try-0 rows
+only for the baseline (the official all-four-tries circular score = a later comparability cell); Claude writes every piece.
+**Dataset facts verified first-hand** (json in the HF cache + the July 448 px frames of `data/vnbench_cnt`): 5,400 rows = 1,350 videos x 4 option
+orders; 9 subtasks x 150 videos; `needle_time` = integer start seconds in the mp4's FINAL timeline; a needle is on screen EXACTLY 1 s from its start
+(subtitle visible at t+0.23..t+0.77, absent at t-0.03 and t+1.04 — the July prep's 1.5 s window over-labelled); insert needles lengthen the mp4 by 1 s
+each, so the json `length` (the haystack's) is shorter than an insert video; the json `type` has ret_insert1/2 swapped relative to the filenames (the
+upstream scorer swaps them back at report time) -> qtype = filename suffix (ret_insert1 = fruit, ret_insert2 = landmark), raw type in meta; official
+prompt = the MINERVA template with 4 options (byte-equal, pinned); official letter rule = cut at the first '.', then 'A' in pred / elif 'B' ... (fixed order).
+For a 1 s range the stored unit grid keeps offsets -1/0/+1 only: the five unit names collapse to `frame` (midpoint t+0.5) and the 3-frame `clip5_d1`.
+**Built (uncommitted on theory-2; 15/15 CPU test files green):** `core/data/videoqa.py` (VNBENCH_TASKS, NEEDLE_DUR, parse_vnbench_evidence ->
+ranges [t, t+1], `VideoMCQ.group_of` hook, `VNBench` with group = haystack), `core/data/mcq.py` (vnbench_prompt / vnbench_extract), the registry,
+`experiments/prepare_video.py` (rows_vnbench with meta.tries / gt_rule / raw_type; stage_videos_vnbench = unzip + decoded-duration probe asserting every
+needle fits; `--tries`), `sbatch/{unit_baseline,prepare_video}.sbatch`, `sbatch/unit_submit.sh`, `sbatch/lib/splits/qids_vnbench_try0.txt`, `data/README.md`.
+**Data:** `data/vnbench -> /rg/shocher_prj/lab_data/vnbench/official`: json + the 10.9 GB Drive zip (gdown, 1,350 mp4, 11.0 GB) in `hf/`; rows 1,350 /
+150 per qtype, answers A 340 / B 328 / C 349 / D 333; k mean 3.6 (cnt_edit1 / cnt_insert1), 4 (ord*, cnt_edit2), 1 (ret*). Prep job **175136**
+(4h_0g: videos -> probe -> pool_native -> verify -> units -> verify_units).
+**Pre-registered bands (plan §7):** T ≈ 0.25 everywhere (no text prior; counting options maybe slightly above) -> nothing text-answerable. E(frame@hi):
+ret_edit1 ≥ 0.9, ret_insert1 (fruit) ≥ 0.8, ret_insert2 (landmark) 0.6–0.8, ord* ≥ 0.8 (needles shown in order), cnt k = 1 ≈ 1.0 falling past k = 2–3,
+cnt_edit2 0.3–0.5. Resolution ≈ 0 except possibly ret_edit1 at lo. Clips ≈ 0 (static needles). D(frame) AUROC ≈ 1.0 vs hard and easy. If the bands
+hold, VNBench = "perception perfect, aggregation wall" on real footage; the wall is in k, not N. Try-0 accuracy is an upper bound of the official score.
+
+## [2026-10-11 01:40] VNBench night run COMPLETE (Qwen2.5-VL-7B 4-bit, 1,350 try-0 rows): perception is perfect, the frozen read aggregates only with frames-first + full attention, and aggregation collapses with N even when every needle is in view
+Autonomous overnight run (Tal: "research autonomously, clean minimal code, report in the morning"). Plan `docs/VNBENCH_2026-10-09.md`.
+Tables: `outputs/scaleup/vnbench/qwen2.5-vl-7b/s1u_unit/TABLE.md` (UNIT seven columns + gaps + by-k), `…/CURVES.md` (accuracy vs N per
+subtask / per true k / exact needle-in-view split, every arm; `experiments/curve_table.py`), figure `…/fig/F_vnbench_collapse.{png,pdf,csv}`
+(`experiments/figs/vnbench_fig.py`). Ledger `outputs/scaleup/jobs.tsv` (175136-175250); ~14 GPU-h; 0 failures except prep 175136
+(the `verify` stage looped over the `evidence` protocol — pre-existing bug since 10-06, fixed, frames were already complete).
+**Data (verified):** 1,350 mp4 (320x240: 513, 640x480: 315, 640x360: 180, 1280x720: 72; 10.0–175.6 s), decoded durations confirm `needle_time`
+in the mp4's own timeline (121 rows end past the json `length`, 0 past the decoded duration); pool_native 27 GB; units_native 5.5 GB,
+3 frames per positive unit (t, t+0.5, t+1: the subtitle is visible at t and t+0.5 and GONE at t+1.0, eyeballed). Negatives dropped on the
+dense short videos (cnt/ord hard present 336–371 of 541–600; ret 145–147 of 150). `uniform` all N; `planted` N=8 1,246 (k>N/2) … N=128 1,198
+(too few fillers); N=256 impossible (pool = 256).
+**UNIT baseline (regimes T / E / D; TABLE.md):** T **0.250** [0.229, 0.273] = chance on every subtask (0.18–0.33) → nothing text-answerable.
+E frame lo / hi **0.880 / 0.878** (tokens 515 / 1,082): ret_edit1 1.00, ret_insert1 0.99–1.00, ret_insert2 0.95; ord 0.99 / 0.99 / 0.99;
+cnt_edit1 **1.00 (k up to 6)**, cnt_insert1 0.81, cnt_edit2 0.18–0.21 = the only perception wall (count objects inside 4 images, sum 4–16);
+by k 0.97 / 0.83 / 0.81. Resolution gain −0.002 (settled, as on the other datasets). E clip5_d1@hi 0.807: the 3-frame unit HURTS counting
+(cnt_edit1 0.99→0.79, cnt_insert1 0.81→0.48, k≥5 0.78→0.38) — duplicate views inflate the count (HERBench AC/TSO again). D frame (9,034 units)
+per-task AUROC vs hard: ret 1.00 / 1.00 / 0.95, cnt 0.99 / 0.99 / 0.99, ord 0.99 / 0.98 / 0.92; hard = easy (synthetic needles); pooled 0.94,
+rec@spec99 0.49 — the model's raw "yes" is rare on order/count questions (yes-rate 0.00–0.24 vs 0.99 on ret), so one global threshold is weak
+while the within-task ranking is near-perfect. Derived: wall P*−T 0.57–0.81 everywhere but cnt_edit2 (−0.12); fence cost (E frame hi − planted
+oracle gate N=8) ret 0.00–0.03, ord 0.71–0.79, cnt 0.44–0.77; retrieval room vs uniform N=8 0.48 pooled.
+**Collapse ladders (lo res, all rows; CURVES.md, figure):**
+- `planted` plain (every needle in view): ALL **0.84 / 0.79 / 0.76 / 0.72 / 0.69** at N=8/16/32/64/128. ret flat (1.00 / 1.00 / 0.94→0.85);
+  ord 0.97→0.83, 0.93→0.68, 0.86→0.48; cnt_edit1 0.80→0.58, cnt_insert1 0.78→0.39; cnt_edit2 0.23 flat. By k: k=1 0.98→0.93, k=2 0.96→0.73,
+  k=3–4 0.73→0.53, k=5–6 0.46 (N=16)→0.27. = the share-law collapse on real footage: error grows with N at fixed k, faster for larger k.
+- `uniform` plain (official sampling): ALL **0.40 / 0.49 / 0.58 / 0.67 / 0.68 / 0.65** (N=8…256; 175153 / 175154 / 175240): rises because needles come into view
+  (exact in-view split: none 0.25 = chance; every needle 0.93 (236 rows @N=8) → 0.69 (1,301 @N=128) → 0.65 (all 1,350 @N=256)); ordering peaks at N=64 and falls at
+  128 (ord_insert2 0.59→0.43); k=5–6 ≤ 0.28 at every N. The report's "coverage" column uses the ±δ label rule and over-counts; use the exact split.
+- fenced + oracle gate (`planted`, batched path): **0.53 / 0.49 / 0.49 / 0.49 / 0.53** — flat by construction (the same k blocks at every N) and
+  low: ret 1.00 / 0.99 / 0.93, ord = chance (0.20–0.30), cnt 0.18–0.37; by k 0.94 / 0.43 / 0.25 / 0.00.
+**Fence-cost decomposition (`planted`, pooled; N=8 / 16 / 32 / 64):** plain (frames first, no fence) 0.837 / 0.795 / 0.755 / 0.717 ·
+question-first unfenced 0.589 / 0.482 / 0.374 / 0.359 · fence only (question LAST, all blocks kept, dense masked) 0.499 / 0.459 / 0.436 / 0.372 ·
+fenced question-first all kept 0.465 / 0.323 / 0.250 / 0.205 · + oracle gate 0.529 / 0.489 / 0.489 / 0.491. Per task at N=8 (ret | ord | cnt):
+plain 1.00/1.00/0.94 | 0.97/0.93/0.86 | 0.80/0.23/0.78; qfirst 0.99/0.99/0.71 | 0.59/0.38/0.39 | 0.33/0.30/0.51; fence-only 1.00/0.99/0.75 |
+0.25/0.23/0.23 | 0.35/0.21/0.40; gated 1.00/0.99/0.93 | 0.29/0.20/0.28 | 0.23/0.32/0.37. → the per-block position reset ERASES block order and
+count on its own (ordering at chance with the question last); the question-first layout is a second, independent loss that grows with N; the
+gate restores retrieval and holds the fenced read flat where the ungated fence collapses (0.47→0.32→0.25). A FROZEN reader cannot aggregate kept
+blocks under either; the method's READ step must be trained (on MMReD the LoRA readers do this; VNBench has no train split).
+**Pre-registered bands (STATE 2026-10-10):** T ≈ 0.25 ✓; E ret_edit1 ≥ 0.9 ✓ (1.00), fruit ≥ 0.8 ✓ (1.00), landmark 0.6–0.8 ✗ higher (0.95);
+ord ≥ 0.8 ✓ (0.99); cnt k=1 ≈ 1.0 ✓ but "falling past k=2–3" ✗ — handed the needle frames, counting subtitles is perfect to k=6 (the MMReD
+"never above 2" wall is a haystack effect, not a count-of-frames limit); cnt_edit2 0.3–0.5 ✗ lower (0.2 = wall); resolution ≈ 0 ✓; clips ≈ 0 ✗
+(negative on counting); D ≈ 1.0 ✓ per task. Verdict as pre-registered: VNBench = "perception perfect, aggregation wall" on real footage, and the
+wall is in k AND in N once the needles are in view.
+**All cells landed** (last two: uniform N=256 175240, 5.4 h; fenced question-first N=64 175482, 4.1 h — addenda below).
+**Not run / proposed:** the official all-four-tries circular score (rows carry `meta.tries`; `--tries 0 1 2 3` re-prep + uniform N=16/64; 4x
+cost; published Qwen2-VL-7B 1 fps 224 px: ret 69.1 / ord 12.4 / cnt 20.0 vs our try-0 N=64: ret 0.89 / ord 0.73 / cnt 0.39 on Qwen2.5-VL);
+D on the clip unit; gate_capture per-block probe (needs the fence; the D regime already gives per-task AUC ≥ 0.92 from the model's own vote).
+**Slope of error vs log2 N (least squares over N=8…128; CPU, from the eval.csv files):** `planted` plain: k=1 +0.012 / doubling, k=2 +0.061,
+k=3–4 +0.050, k=5–6 +0.063; retrieval +0.008, ordering +0.064, counting (edit1, insert1) +0.078. `uniform` plain restricted to the rows with
+EVERY needle in view (exact grid check): k=1 +0.010, k=2 +0.084, k=3–4 +0.042, k=5–6 +0.051; retrieval +0.008, ordering +0.055, counting +0.094.
+The two protocols agree: once the needles are visible, aggregation error grows ≈ linearly in log N (0.05–0.09 per doubling) while retrieval is
+flat (0.01) — the haystack hurts the joint read, not the find.
+
+**Addendum 04:30 — decomposition arms at N=32/64 landed** (175236 ✓, 175250 ✓; 175237 TIMEOUT at N=64 after 600/1,344 rows — rows are
+interleaved across subtasks, running acc 0.18; rerun as 175482). Pooled N=8/16/32/64: question-first unfenced 0.589 / 0.482 / 0.374 / 0.359;
+fence only (question last, all kept) 0.499 / 0.459 / 0.436 / 0.372; fenced question-first all kept 0.465 / 0.323 / 0.250 / 0.205 (175482). The new fact:
+WITHOUT a gate the fence makes even retrieval N-sensitive. k=1 rows: plain 0.98→0.93 (N=8→128); fence-only 0.91 / 0.88 / 0.81 / 0.67; fenced
+q-first 0.81 / 0.53 / 0.39 / 0.31; q-first unfenced 0.87 / 0.75 / 0.56 / 0.52. Per task under fence-only: ret_edit1 1.00 at every N,
+ret_insert1 0.99→0.76, ret_insert2 0.75→0.25 (the landmark needle, the hardest to read, goes first). Ordering stays at chance (0.18–0.30) and
+counting ≤ 0.35 under every fenced arm at every N; k=5–6 0.00–0.02. The oracle gate (same fence, same layout, only the k needle blocks kept)
+holds retrieval at 1.00 / 0.99 / 0.93 at every N (ret_insert2 0.93 vs 0.25–0.34 ungated at N=32–64): the ungated fenced collapse is a share
+effect of the N−k distractor blocks, which is exactly what the gate removes. So on VNBench the gate's entire contribution is retrieval under
+dilution; it adds nothing to ordering or counting because the per-block reset has already erased them. Error per doubling of N on k=1 rows:
+plain +0.01, fence-only +0.11 (N=16→64), q-first +0.12 (16→64), fenced q-first +0.17 (8→64).
+
+**Addendum 09:30 — the last two cells.** `uniform` plain N=256 (175240, 5.4 h): **0.646** [0.621, 0.671]; per task ret 1.00 / 0.99 / 0.87,
+ord 0.80 / 0.51 / 0.43, cnt 0.60 / 0.30 / 0.32; by k 0.94 / 0.71 / 0.50 / 0.24. At N=256 the official grid samples every needle of every row
+(exact check: 1,350 / 1,350), so the official-sampling curve becomes a pure read curve — and it TURNS DOWN: 0.68 (N=128) → 0.65; ordering
+0.89→0.80 and 0.69→0.51, cnt_edit1 0.63→0.60, retrieval flat. The every-needle-in-view rows now run 0.93 / 0.83 / 0.79 / 0.75 / 0.69 / 0.65
+(N=8→256), the same slope as the planted ladder (0.84→0.69 at N=128): the frozen read's collapse in N is reproduced under the benchmark's own
+sampling, with no planting. Family means at N=256 (try-0, single try): ret 0.95 / ord 0.58 / cnt 0.41 — an upper bound of the circular 4-try
+score (R2); the published Qwen2-VL-7B row (1 fps, 224 px) is 69.1 / 12.4 / 20.0. Fenced question-first all kept N=64 (175482): **0.205**
+[0.184, 0.227]; ordering 0.11–0.16 (below chance = the letter prior), retrieval 0.39 / 0.17 / 0.27, k=1 0.31. Ladder complete:
+0.465 / 0.323 / 0.250 / 0.205 vs the oracle-gated 0.529 / 0.489 / 0.489 / 0.491 on the same fence and layout.

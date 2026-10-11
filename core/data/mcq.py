@@ -4,6 +4,8 @@ the comparability rows are byte-faithful:
              (_format_prompt, extract_answer_choice)                — fetched 2026-09-23
   MINERVA    lmms-eval lmms_eval/tasks/minerva/{utils.py,_default_template_yaml}
              (minerva_doc_to_text with the default post_prompt, _extract_choice_letter)
+  VNBench    github.com/CASIA-IVA-Lab/VideoNIAH llava_examples/model_video_niah.py (the prompt)
+             and evaluation/eval.py (the letter rule)               — fetched 2026-10-09
 One deliberate difference: lmms-eval replaces an unparseable MINERVA answer by a RANDOM letter;
 here it is a parse failure (None, scored wrong) so the number is reproducible.
 Pinned by tests/test_data_videoqa.py.
@@ -88,6 +90,26 @@ def minerva_extract(text: str) -> Optional[str]:
         cleaned = cleaned.replace(prefix, "")
     ms = list(re.finditer(r"[ABCDE]", cleaned))
     return ms[-1].group(0) if ms else None
+
+
+VNBENCH_SUFFIX = "\nAnswer with the option's letter from the given choices directly."
+
+
+def vnbench_prompt(question: str, choices: Sequence[str]) -> str:
+    """model_video_niah.py::run_inference: the question, the four options as 'A. …' lines, the instruction.
+    `choices` are the four bare option strings. (Byte-identical to minerva_prompt for four choices.)"""
+    options = list(choices)
+    return f"{question}\nA. {options[0]}\nB. {options[1]}\nC. {options[2]}\nD. {options[3]}{VNBENCH_SUFFIX}"
+
+
+def vnbench_extract(text: str) -> Optional[str]:
+    """eval.py: the prediction is cut at its first '.', then 'A' in pred -> A, elif 'B' … (fixed order,
+    case-sensitive). No letter: eval.py keeps the raw text and scores it wrong; here that is None."""
+    pred = str(text).split(".")[0]
+    for letter in "ABCD":
+        if letter in pred:
+            return letter
+    return None
 
 
 def letter_match(pred: Optional[str], gold: str) -> bool:

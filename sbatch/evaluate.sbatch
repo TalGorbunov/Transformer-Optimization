@@ -11,7 +11,7 @@
 # Anchors (port checks only): PORT_CHECK=arm-a on seq_len_8_test -> 0.533 (all 24) / 0.765-0.559-0.353
 #   (QTYPES_FILE=qtypes_anchor3 LIMIT_PER_QTYPE=34); PORT_CHECK=p2 ADAPTER=checkpoints/sft_fenced_hf_adapter
 #   QIDS_FILE=sbatch/lib/splits/qids_p2_seq8_test.txt -> 45/50 (seq16 33/50, seq32 15/50).
-# Knobs (env; no commas; lists via files): DATASET (mmred|herbench|minerva) BACKBONE (qwen2.5-vl-7b)
+# Knobs (env; no commas; lists via files): DATASET (mmred|herbench|minerva|vnbench) BACKBONE (qwen2.5-vl-7b)
 #   MMReD: SPLIT (seq_len_8_test)   video: PROTOCOL (planted|uniform) N (16) SPLIT (test)
 #   QTYPES_FILE QIDS_FILE ADAPTER (empty = frozen) ARM (replaces LAYOUT/FENCE/GATE) LAYOUT FENCE (1) GATE (none|oracle)
 #   LIMIT LIMIT_PER_QTYPE PER_QTYPE (stratified rows per task) PORT_CHECK MAX_NEW EXTRA OUTPUT
@@ -28,7 +28,7 @@ if [ "$DATASET" = "mmred" ]; then
   OUTPUT="${OUTPUT:-outputs/port/evaluate/${SPLIT}/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}}"
 else
   PROTOCOL="${PROTOCOL:-planted}"; N="${N:-16}"; SPLITNAME="${SPLIT:-test}"
-  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
+  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; vnbench) ROOT=data/vnbench;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
   stage_video "$ROOT"
   DATA_ARGS=(--protocol "$PROTOCOL" --n-frames "$N" --split "$SPLITNAME")
   OUTPUT="${OUTPUT:-outputs/scaleup/${DATASET}/${BACKBONE}/s1_eval/${PROTOCOL}_N${N}/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}}"

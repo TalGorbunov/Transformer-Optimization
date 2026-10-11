@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
-"""Prepare a real-video MCQ benchmark (HERBench lite_v2, MINERVA) into the shared on-disk layout
+"""Prepare a real-video MCQ benchmark (HERBench lite_v2, MINERVA, VNBench) into the shared on-disk layout
 that core/data/videoqa.py reads (its docstring is the layout spec). docs/SCALEUP_2026-09-23.md §2–3.
 
 Stages (--stage, one or more, in this order):
   rows     hf/ annotations -> json/test.json. HERBench: lite_v2 rows, task codes, evidence intervals
            parsed per task (core.data.videoqa.parse_herbench_evidence). MINERVA: lmms minerva.json,
            `Listening` dropped (needs ASR), evidence = timestamps regex-parsed from the reasoning.
+           VNBench: VNBench-main-4try.json, one row per video for the tries in --tries (default try 0),
+           evidence = [t, t + 1 s] per needle (core.data.videoqa.parse_vnbench_evidence).
   videos   HERBench: sha256-check the four lite tar parts under hf/videos/, stream-extract the mp4s
            into videos/ (no joined copy), delete the parts, check every row's video exists.
            MINERVA: every video blob of the lmms Lance table -> videos/<video_id>.mp4 (NETWORK:
            run on the login node with HF_HUB_OFFLINE=0, nice'd; it is I/O, not compute).
+           VNBench: hf/*.zip (the Google Drive archive, fetched with gdown) -> videos/<stem>.mp4, then a
+           probe of every mp4 (decoded duration, fps, size -> json/video_probe.json) asserting that every
+           needle ends inside its video (insert needles lengthen the mp4 past the annotation's `length`).
   frames   per video (worker pool, SLURM_CPUS_PER_TASK): POOL frames on the official grid
            t_i = i*dur/POOL -> pool/<video_id>/frame_%04d.jpg + times.json; per question: one frame per
            evidence unit (points at t+0.3 s, ranges at the midpoint) -> evidence/<qid>/ + times.json.
@@ -57,7 +62,8 @@ from core.data import get_dataset  # noqa: E402
 from core.data.mcq import OPTIONS, lettered  # noqa: E402
 from core.data.videoqa import (  # noqa: E402
     EASY_MIN_DIST, HARD_GAP, NEG_MARGIN, UNIT_HALF, UNIT_STEP, UNITS_DIR, HERBENCH_CODE, MINERVA_CODE, N_FRAMES, POOL,
-    evidence_times, frame_dirs, parse_herbench_evidence, parse_minerva_evidence, plan_units, pool_times,
+    VNBENCH_TASKS, evidence_times, frame_dirs, parse_herbench_evidence, parse_minerva_evidence, parse_vnbench_evidence,
+    plan_units, pool_times,
 )
 
 JPEG_QUALITY = 95
@@ -118,8 +124,52 @@ def rows_minerva(root: Path) -> List[Dict[str, Any]]:
     return out
 
 
-def stage_rows(name: str, root: Path) -> None:
-    rows = rows_herbench(root) if name == "herbench" else rows_minerva(root)
+def rows_vnbench(root: Path, tries: Sequence[int] = (0,)) -> List[Dict[str, Any]]:
+    """hf/VNBench-main-4try.json: 1,350 videos x 4 tries (the same question with the options permuted). One row
+    per (video, try in `tries`); qid = the mp4 stem for try 0, `<stem>_t<try>` otherwise. The task code is the
+    stem's suffix (the paper's naming; the json `type` has ret_insert1/2 swapped -> meta["raw_type"]). The other
+    tries' option orders ride along in meta["tries"] for the official all-four-tries score later."""
+    raw = json.loads((root / "hf" / "VNBench-main-4try.json").read_text(encoding="utf-8"))
+    by_video: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for r in raw:
+        by_video[Path(r["video"]).stem].append(r)
+    out = []
+    for stem, items in sorted(by_video.items()):
+        haystack, kind_, variant = stem.rsplit("_", 2)
+        code = f"{kind_}_{variant}"
+        if code not in VNBENCH_TASKS:
+            raise SystemExit(f"{stem}: unknown task code {code!r}")
+        for r in sorted(items, key=lambda x: int(x["try"])):
+            if int(r["try"]) not in tries:
+                continue
+            choices = [str(o) for o in r["options"]]
+            answer = str(r["gt_option"]).strip().upper()
+            assert len(choices) == 4 and answer in OPTIONS[:4], r
+            kind, ivs = parse_vnbench_evidence(r["needle_time"])
+            out.append({
+                "qid": stem if int(r["try"]) == 0 else f"{stem}_t{int(r['try'])}", "video_id": stem,
+                "video_path": f"videos/{stem}.mp4", "question": str(r["question"]).strip(), "choices": lettered(choices),
+                "answer": answer, "answer_index": OPTIONS.index(answer), "qtype": code, "task_name": VNBENCH_TASKS[code],
+                "source": haystack, "duration": None, "evidence_kind": kind, "evidence": [[a, b] for a, b in ivs],
+                "meta": {"raw_type": r["type"], "gt": r["gt"], "length": r["length"], "try": int(r["try"]),
+                         "needle_time": r["needle_time"], "haystack": haystack,
+                         "gt_rule": "objects_total" if code == "cnt_edit2" else "needle_count" if code.startswith("cnt") else "option",
+                         "tries": [{"try": int(x["try"]), "options": [str(o) for o in x["options"]], "gt_option": x["gt_option"]}
+                                   for x in items if x is not r]},
+            })
+    swapped = sum(1 for r in out if r["meta"]["raw_type"] != r["qtype"])
+    log(f"vnbench rows: {len(out)} (tries {list(tries)}), {len(by_video)} videos, "
+        f"{len({r['source'] for r in out})} haystacks; type != filename suffix on {swapped} rows (ret_insert1/2)")
+    return out
+
+
+def stage_rows(name: str, root: Path, tries: Sequence[int] = (0,)) -> None:
+    if name == "herbench":
+        rows = rows_herbench(root)
+    elif name == "minerva":
+        rows = rows_minerva(root)
+    else:
+        rows = rows_vnbench(root, tries)
     (root / "json").mkdir(parents=True, exist_ok=True)
     out = root / "json" / "test.json"
     out.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
@@ -246,6 +296,44 @@ def stage_videos_minerva(root: Path, lance_uri: Optional[str] = None) -> None:
         log(f"  {m['video_id']} {len(data) / 1e6:.1f} MB in {time.time() - t:.1f}s")
     absent = sorted(v for v in want if not (vdir / f"{v}.mp4").exists())
     log(f"videos present {len(want) - len(absent)}/{len(want)}; missing {absent[:10]}")
+
+
+def stage_videos_vnbench(root: Path) -> None:
+    """hf/*.zip -> videos/<stem>.mp4 (flat; resumable by size), every row's video present, then the probe: decoded
+    duration / fps / size per video -> json/video_probe.json, and every needle must end inside its video."""
+    import shutil
+    import zipfile
+
+    vdir = root / "videos"
+    vdir.mkdir(exist_ok=True)
+    for z in sorted((root / "hf").glob("*.zip")):
+        with zipfile.ZipFile(z) as zf:
+            members = [m for m in zf.infolist() if not m.is_dir() and m.filename.lower().endswith(".mp4")]
+            log(f"{z.name}: {len(members)} mp4 members")
+            for m in members:
+                dst = vdir / Path(m.filename).name
+                if dst.exists() and dst.stat().st_size == m.file_size:
+                    continue
+                with zf.open(m) as src, open(dst, "wb") as f:
+                    shutil.copyfileobj(src, f, 1 << 24)
+    rows = json.loads((root / "json" / "test.json").read_text())
+    absent = sorted({r["video_path"] for r in rows if not (root / r["video_path"]).exists()})
+    if absent:
+        raise SystemExit(f"{len(absent)} row videos missing after extraction: {absent[:5]}")
+    probe: Dict[str, Dict[str, Any]] = {}
+    for vid in sorted({r["video_id"] for r in rows}):
+        container, stream, duration, fps = _open_video(vdir / f"{vid}.mp4")
+        probe[vid] = {"duration": duration, "fps": fps, "size": [stream.width, stream.height]}
+        container.close()
+    (root / "json" / "video_probe.json").write_text(json.dumps(probe, indent=1))
+    bad = [(r["qid"], max(b for _, b in r["evidence"]), probe[r["video_id"]]["duration"])
+           for r in rows if r["evidence"] and max(b for _, b in r["evidence"]) > probe[r["video_id"]]["duration"] + 0.05]
+    beyond_length = sum(1 for r in rows if r["evidence"] and max(b for _, b in r["evidence"]) > float(r["meta"]["length"]))
+    log(f"probed {len(probe)} videos: sizes {dict(Counter(tuple(p['size']) for p in probe.values()).most_common(4))}, "
+        f"duration {min(p['duration'] for p in probe.values()):.1f}-{max(p['duration'] for p in probe.values()):.1f} s; "
+        f"rows with a needle past the annotation's `length`: {beyond_length}; past the decoded duration: {len(bad)}")
+    if bad:
+        raise SystemExit(f"{len(bad)} rows have a needle ending after the decoded duration: {bad[:5]}")
 
 
 # ------------------------------------------------------------------ frames
@@ -525,14 +613,15 @@ def stage_verify_units(name: str, root: Path) -> None:
                     bad_easy.append(u["uid"] + "@" + qid)
         for kind, n in info.get("dropped", {}).items():
             c[f"dropped_{kind}"] += n
+        c["beyond_duration"] += info.get("dropped_beyond_duration", 0)
     lines = [f"{name} @ {root / UNITS_DIR}: {len(infos)} questions, {n_bytes / 1e9:.2f} GB, frame sizes {dict(sizes)}",
              f"missing frame files: {len(bad_files)} {bad_files[:3]}; hard negatives inside an interval+margin: {len(bad_hard)} "
              f"{bad_hard[:3]}; easy negatives closer than {EASY_MIN_DIST} s: {len(bad_easy)} {bad_easy[:3]}"]
     for task in sorted(per_task):
         c = per_task[task]
-        lines.append(f"  {task:6s} rows {c['rows']:4d} k/row {c['k'] / max(1, c['rows']):.2f} pos {c['pos']:4d} hard {c['hard']:4d} "
-                     f"easy {c['easy']:4d} (dropped hard {c['dropped_hard']} easy {c['dropped_easy']}) "
-                     f"grid frames {dict(sorted(grid_sizes[task].items()))}")
+        lines.append(f"  {task:12s} rows {c['rows']:4d} k/row {c['k'] / max(1, c['rows']):.2f} pos {c['pos']:4d} hard {c['hard']:4d} "
+                     f"easy {c['easy']:4d} (dropped hard {c['dropped_hard']} easy {c['dropped_easy']}; intervals beyond the "
+                     f"duration {c['beyond_duration']}) grid frames {dict(sorted(grid_sizes[task].items()))}")
     report = "\n".join(lines)
     (root / "verify_report_units.txt").write_text(report + "\n")
     print(report)
@@ -565,6 +654,8 @@ def stage_verify(name: str, root: Path, frame_set: str = "native") -> None:
     lines.append(f"frame set {frame_set!r}: pool dirs {len(pools)} (incomplete: {bad_pool[:5]}), evidence dirs {len(ev_dirs)}; "
                  f"frame sizes {dict(sizes.most_common(6))}")
     for protocol in spec.protocols:
+        if protocol == "evidence":                 # the UNIT protocol has no N; checked by verify_units
+            continue
         for n in N_FRAMES:
             samples = spec.load(root, spec.split_name(protocol, n, "test"))
             rep = spec.last_load
@@ -592,7 +683,8 @@ def stage_verify(name: str, root: Path, frame_set: str = "native") -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", required=True, choices=["herbench", "minerva"])
+    ap.add_argument("--dataset", required=True, choices=["herbench", "minerva", "vnbench"])
+    ap.add_argument("--tries", type=int, nargs="+", default=[0], help="rows (vnbench): which of the 4 option orders to keep")
     ap.add_argument("--root", type=Path, default=None, help="default: the dataset's data/ symlink")
     ap.add_argument("--stage", nargs="+", required=True, choices=["rows", "videos", "frames", "tar", "verify", "units", "verify_units"])
     ap.add_argument("--pool", type=int, default=POOL)
@@ -611,9 +703,14 @@ def main() -> int:
     log(f"{args.dataset} root={root} stages={args.stage}")
     for st in args.stage:
         if st == "rows":
-            stage_rows(args.dataset, root)
+            stage_rows(args.dataset, root, args.tries)
         elif st == "videos":
-            stage_videos_herbench(root, args.keep_parts) if args.dataset == "herbench" else stage_videos_minerva(root, args.lance_dir)
+            if args.dataset == "herbench":
+                stage_videos_herbench(root, args.keep_parts)
+            elif args.dataset == "minerva":
+                stage_videos_minerva(root, args.lance_dir)
+            else:
+                stage_videos_vnbench(root)
         elif st == "frames":
             stage_frames(root, args.pool, args.workers, args.limit, args.max_failed, args.frame_set)
         elif st == "tar":

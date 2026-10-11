@@ -19,6 +19,7 @@ LEDGER=outputs/scaleup/jobs.tsv; mkdir -p outputs/scaleup logs
 DRY="${DRY_RUN:-0}"
 MF="a100-public,l40s-shared,l40s-public"; BIG="l40s-shared,l40s-public,h200-shared"
 QIDS=sbatch/lib/splits/qids_herbench_native582.txt; QIDS_MINERVA=sbatch/lib/splits/qids_minerva_50.txt
+QIDS_VNBENCH=sbatch/lib/splits/qids_vnbench_try0.txt   # all 1,350 try-0 rows (VNBench has 150 videos per task)
 UNIT_SET="${UNIT_SET:-w1}"; RES_HI="${RES_HI-hi}"
 if [ "$UNIT_SET" = "w23" ]; then E_HI_UNITS="${E_HI_UNITS:-frame clip3_d1 clip9_d2}"; D_HI_UNITS="${D_HI_UNITS:-frame clip3_d1}"; fi
 read -r -a POOL <<< "${QOS_POOL:-12h_4g:3 24h_1g:4 24h_4g:3 4d_1g:8}"
@@ -43,13 +44,13 @@ submit() {  # submit <regimes> <units> <res> <extra export> <partition> <qos|aut
     "$(date '+%Y-%m-%d %H:%M')" "$part" "$qos" "$note" >> "$LEDGER"
   echo "submitted $jid: regimes=[$regimes] units=[$units] res=${res:-default} on $part/$qos ($time)"
 }
-if [ "$DS" = "herbench" ] || [ "$DS" = "minerva" ]; then
-  ROWS="QIDS_FILE=$QIDS"; [ "$DS" = "minerva" ] && ROWS="QIDS_FILE=$QIDS_MINERVA"
+if [ "$DS" = "herbench" ] || [ "$DS" = "minerva" ] || [ "$DS" = "vnbench" ]; then
+  ROWS="QIDS_FILE=$QIDS"; [ "$DS" = "minerva" ] && ROWS="QIDS_FILE=$QIDS_MINERVA"; [ "$DS" = "vnbench" ] && ROWS="QIDS_FILE=$QIDS_VNBENCH"
   if [ "$ST" = "smoke" ]; then
-    submit "T E D" "frame clip9_d2" hi "PER_QTYPE=1,OUT_BASE=outputs/_scratch/unit_smoke/herbench" "$BIG" 2h_2g 01:30:00 48G "UNIT smoke: T, E, D on 1 row per task (frame + clip9_d2 @hi)"
+    submit "T E D" "frame clip9_d2" hi "PER_QTYPE=1,OUT_BASE=outputs/_scratch/unit_smoke/$DS" "$BIG" 2h_2g 01:30:00 48G "UNIT smoke: T, E, D on 1 row per task (frame + clip9_d2 @hi)"
   fi
   if [ "$ST" = "T" ] || [ "$ST" = "all" ]; then
-    submit T frame "" "$ROWS" "$MF" auto 01:00:00 32G "regime T: question alone, 582 rows"
+    submit T frame "" "$ROWS" "$MF" auto 01:00:00 32G "regime T: question alone, all pinned rows"
   fi
   if [ "$ST" = "E" ] || [ "$ST" = "all" ]; then
     submit E "frame" lo "$ROWS" "$MF" auto 02:00:00 48G "regime E: evidence-only, one frame per unit, lo resolution"
