@@ -162,12 +162,32 @@ def main() -> int:
     ap.add_argument("--per-qtype", action="store_true", help="also fit one classifier per qtype")
     ap.add_argument("--features", choices=["slot", "pool", "both"], default="slot", help="readout: block end token / mean of image tokens / both")
     ap.add_argument("--per-task-fold", action="store_true", help="with --folds: fit one classifier per qtype (its own frames only) instead of one pooled classifier")
+    ap.add_argument("--leave-one-task-out", action="store_true", help="with --runs: fit on every other qtype, test on the held-out one (task-agnosticism)")
+    ap.add_argument("--save-gate", type=Path, default=None, help="fit ONE gate on every frame of the (single) arm at --save-layer and save it as npz (layer, mu, sd, w, b) for evaluate.py --gate-npz")
+    ap.add_argument("--save-layer", type=int, default=None, help="legacy layer number of the saved gate")
+    ap.add_argument("--train-groups-file", type=Path, default=None, help="--save-gate: fit only on frames whose group (video / haystack) is listed")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
     rng = np.random.RandomState(args.seed)
     results: Dict[str, Any] = {"mode": "heldout" if args.runs else "transfer", "cells": []}
-    if args.runs and args.folds > 1:
+    if args.runs and args.leave_one_task_out:
+        caps = _load(args.runs)
+        results["mode"] = "leave-one-task-out"
+        for arm in sorted({m["arm"] for m, _ in caps}):
+            X, meta, layers = _stack(caps, arm, args.features)
+            y = meta["is_evid"].astype(int)
+            for li, L in enumerate(layers):
+                s = np.full(len(y), np.nan)
+                for qt in sorted(set(meta["qtype"].tolist())):
+                    te, tr = np.where(meta["qtype"] == qt)[0], np.where(meta["qtype"] != qt)[0]
+                    s[te], _ = _fit_eval(X[tr, li], y[tr], X[te, li], args.C)
+                cell = {"arm": arm, "layer": int(L), "fit": "leave-one-task-out", "features": args.features, "test": _table(y, s, meta, np.arange(len(y)))}
+                results["cells"].append(cell)
+                a = cell["test"]["all"]
+                print(f"{arm:14s} L{L:<3d} leave-one-task-out: acc {a['acc']:.4f} auc {a['auc']:.4f} recall@spec99 {a['recall@spec99']:.3f} n={a['n']} | "
+                      + " ".join(f"{q} {v['auc']:.3f}" for q, v in cell["test"].items() if q != "all" and "@N" not in q), flush=True)
+    elif args.runs and args.folds > 1:
         # Group K-fold: every group (video) is held out once; the classifier is trained on the other
         # groups' frames at N in --train-n only and tested on the held-out groups at EVERY N. On real
         # video this is the only leak-free form of "train short, test long": planted evidence frames
@@ -273,6 +293,26 @@ def main() -> int:
                 results["cells"].append(cell)
                 print(f"{arm:14s} L{L:<3d} transfer acc {cell['test']['all']['acc']:.4f} auc {cell['test']['all']['auc']:.4f} n={cell['test']['all']['n']}")
     args.out.parent.mkdir(parents=True, exist_ok=True)
+    if args.save_gate is not None:
+        caps = _load(args.runs or args.train_runs)
+        arms = sorted({m["arm"] for m, _ in caps})
+        if len(arms) != 1 or args.save_layer is None:
+            raise SystemExit("--save-gate needs captures of ONE arm and --save-layer L")
+        X, meta, layers = _stack(caps, arms[0], "slot")
+        y = meta["is_evid"].astype(int)
+        keep = np.ones(len(y), dtype=bool)
+        if args.train_groups_file is not None:
+            allowed = {ln.strip() for ln in args.train_groups_file.read_text().splitlines() if ln.strip() and not ln.startswith("#")}
+            keep = np.array([str(g) in allowed for g in meta["group"].tolist()])
+        Xtr = np.nan_to_num(X[keep, layers.index(args.save_layer)].astype(np.float32), nan=0.0, posinf=65504.0, neginf=-65504.0)
+        mu, sd = Xtr.mean(0), Xtr.std(0) + 1e-6
+        from sklearn.linear_model import LogisticRegression
+        clf = LogisticRegression(max_iter=3000, C=args.C).fit((Xtr - mu) / sd, y[keep])
+        w, b = clf.coef_[0].astype(np.float32), np.float32(clf.intercept_[0])
+        np.savez(args.save_gate, layer=args.save_layer, mu=mu, sd=sd, w=w, b=b, arm=arms[0], features="slot", train_frames=int(keep.sum()),
+                 train_groups=len(set(meta["group"][keep].tolist())), train_n=sorted(set(meta["N"][keep].tolist())))
+        acc = float(((((Xtr - mu) / sd) @ w + b > 0) == y[keep]).mean())
+        print(f"saved {args.save_gate}: L{args.save_layer} {arms[0]}, {int(keep.sum())} frames from {len(set(meta['group'][keep].tolist()))} groups, train acc {acc:.4f}")
     args.out.write_text(json.dumps(results, indent=1))
     with open(args.out.with_suffix(".csv"), "w", newline="") as fh:
         w = csv.writer(fh)

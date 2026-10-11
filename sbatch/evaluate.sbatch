@@ -28,7 +28,7 @@ if [ "$DATASET" = "mmred" ]; then
   OUTPUT="${OUTPUT:-outputs/port/evaluate/${SPLIT}/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}}"
 else
   PROTOCOL="${PROTOCOL:-planted}"; N="${N:-16}"; SPLITNAME="${SPLIT:-test}"
-  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; vnbench) ROOT=data/vnbench;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
+  case "$DATASET" in herbench) ROOT=data/herbench_v2;; minerva) ROOT=data/minerva;; vnbench) ROOT=data/vnbench;; vnbench4) ROOT=data/vnbench_4try;; *) echo "unknown DATASET $DATASET"; exit 2;; esac
   stage_video "$ROOT"
   DATA_ARGS=(--protocol "$PROTOCOL" --n-frames "$N" --split "$SPLITNAME")
   OUTPUT="${OUTPUT:-outputs/scaleup/${DATASET}/${BACKBONE}/s1_eval/${PROTOCOL}_N${N}/$(date +%Y%m%d_%H%M%S)_${SLURM_JOB_ID:-local}}"

@@ -44,8 +44,9 @@ import sys
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -71,6 +72,22 @@ def _stop_newline(text: str) -> bool:
     return "\n" in text
 
 
+def load_gate(path: Path) -> Tuple[Callable[[Dict[int, torch.Tensor], int], List[bool]], List[int]]:
+    """A fitted linear gate (experiments/gate_fit.py --save-gate) as the batched path's keep callable: block t is kept
+    iff ((x_t - mu) / sd) . w + b > 0 on its slot state at the gate layer (legacy numbering L = decoder module L - 1).
+    The rule of the SPARSE S8/S9 rows (legacy/v1/scripts/sparse/train_sft_gated.py::infer_gate), pinned by
+    tests/test_gate_model.py. Returns (keep, capture layers)."""
+    g = np.load(path)
+    mod = int(g["layer"]) - 1
+    mu, sd, w, b = (torch.as_tensor(np.asarray(g[k]), dtype=torch.float32) for k in ("mu", "sd", "w", "b"))
+
+    def keep(states: Dict[int, torch.Tensor], first: int) -> List[bool]:
+        x = states[mod].float().cpu()
+        return ((((x - mu) / sd) @ w + b) > 0).tolist()
+
+    return keep, [mod]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dataset", default=DEFAULT_DATASET, choices=sorted(DATASETS))
@@ -92,6 +109,7 @@ def main() -> int:
     ap.add_argument("--layout", choices=LAYOUTS, default=None, help="default: adapter's train_config.json, else paper")
     ap.add_argument("--fence", action="store_true", help="default: adapter's train_config.json")
     ap.add_argument("--gate", choices=["none", "oracle"], default=None)
+    ap.add_argument("--gate-npz", type=Path, default=None, help="a fitted gate (gate_fit.py --save-gate: layer in legacy numbering, mu, sd, w, b) replaces the arm's oracle on the batched path (--fast): run dir column n_evid = blocks kept, gate_fp / gate_fn vs the labels")
     ap.add_argument("--max-new-tokens", type=int, default=24)
     ap.add_argument("--max-seq-tokens", type=int, default=24000, help="refuse the dense fenced path above this")
     ap.add_argument("--fast", action="store_true", help="fenced arms through the batched path (core.fastpath): no mask, "
@@ -177,6 +195,11 @@ def main() -> int:
         layout, fence = pc.layout, pc.fence
     if gate == "oracle" and not fence:
         raise SystemExit("--gate oracle requires --fence (the gate hides blocks)")
+    gate_fn, gate_layers = None, ()
+    if args.gate_npz is not None:
+        if not (fence and args.fast):
+            raise SystemExit("--gate-npz needs a fenced arm on the batched path (--fast)")
+        gate, (gate_fn, gate_layers) = "model", load_gate(args.gate_npz)
     if adapter_cfg and args.layout is None and args.arm is None and pc is None and adapter_cfg.get("layout") != layout:
         print(f"[warn] adapter trained with layout={adapter_cfg.get('layout')} fence={adapter_cfg.get('fence')}", flush=True)
 
@@ -199,11 +222,12 @@ def main() -> int:
         want = [ln.strip() for ln in args.qids_file.read_text().splitlines() if ln.strip() and not ln.startswith("#")]
         by = {s.qid: s for s in samples}
         missing = [q for q in want if q not in by]
-        if missing and (pc is not None or args.unit is None):
+        strict = pc is not None or (args.unit is None and not split_name.startswith(("planted_", "isolated_")))
+        if missing and strict:
             raise SystemExit(f"{len(missing)} qids not in {split_name}: {missing[:5]}")
-        if missing:                                       # evidence protocol: rows without units (RLPC "all", none) drop out
-            print(f"[rows] {len(missing)} qids of {args.qids_file} have no evidence units in {split_name} (skipped)", flush=True)
-            cfg["qids_without_units"] = len(missing)
+        if missing:   # evidence protocol: rows without units; planted / isolated: rows the protocol cannot build at this N
+            print(f"[rows] {len(missing)} qids of {args.qids_file} are not in {split_name} (skipped)", flush=True)
+            cfg["qids_missing"] = len(missing)
         samples = [by[q] for q in want if q in by]
     elif args.limit_per_qtype:
         seen: Dict[str, int] = {}
@@ -279,9 +303,11 @@ def main() -> int:
                     n_gate_skip += 1
                     continue
                 keep = [t in s.evidence for t in range(n)]
+            elif gate == "model":
+                keep = gate_fn
             try:
                 r = fenced_forward(bspec, model, base_model, processor, list(s.frame_paths), spec.question_text(s),
-                                   layout=layout, system_prompt=spec.system_prompt, keep=keep, max_new=max_new,
+                                   layout=layout, system_prompt=spec.system_prompt, keep=keep, capture_layers=gate_layers, max_new=max_new,
                                    stop_fn=stop_fn, chunk_tokens=args.chunk_tokens, max_read_tokens=args.max_seq_tokens)
             except ValueError as exc:
                 if "read too long" in str(exc):
@@ -299,7 +325,9 @@ def main() -> int:
             preds.append(pred)
             records.append({"qid": s.qid, "qtype": s.qtype, "seq_len": s.n_frames, "atype": s.meta.get("atype", ""),
                             "gold": s.answer, "raw": raw[:160].replace("\n", "\\n"), "pred": "" if pred is None else pred,
-                            "correct": int(correct), "parse_ok": int(ok), "n_evid": "" if keep is None else sum(keep),
+                            "correct": int(correct), "parse_ok": int(ok), "n_evid": "" if keep is None else sum(r.keep),
+                            "gate_fp": "" if not (gate == "model" and s.evidence is not None) else sum(k and t not in s.evidence for t, k in enumerate(r.keep)),
+                            "gate_fn": "" if not (gate == "model" and s.evidence is not None) else sum((not k) and t in s.evidence for t, k in enumerate(r.keep)),
                             "tokens": n_tokens, "tokens_per_frame": r.tokens_block,
                             "k": s.meta.get("k", ""), "unit_eff": s.meta.get("unit_eff", "")})
             if (i + 1) % 25 == 0:
@@ -406,6 +434,11 @@ def main() -> int:
             lo, hi = bootstrap_ci(fl)
             lines.append(f"  {q}: {sum(fl)}/{len(fl)} = {sum(fl) / len(fl):.3f}")
             summary.append((q, len(fl), sum(fl), f"{sum(fl) / len(fl):.4f}", f"{lo:.4f}", f"{hi:.4f}"))
+        gated = [r for r in records if r.get("gate_fp", "") != ""]
+        if gated:
+            exact = sum(r["gate_fp"] == 0 and r["gate_fn"] == 0 for r in gated)
+            lines.append(f"  gate: exact set {exact}/{len(gated)} = {exact / len(gated):.3f}, mean fp {sum(r['gate_fp'] for r in gated) / len(gated):.2f}, "
+                         f"mean fn {sum(r['gate_fn'] for r in gated) / len(gated):.2f}, kept {sum(r['n_evid'] for r in gated) / len(gated):.2f} blocks")
         for at in sorted({r["atype"] for r in records if r["atype"] != ""}):
             fl = [bool(r["correct"]) for r in records if r["atype"] == at]
             lines.append(f"  atype {at}: {sum(fl)}/{len(fl)} = {sum(fl) / len(fl):.3f}")

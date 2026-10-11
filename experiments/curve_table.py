@@ -5,6 +5,8 @@ A "cell" is a run-dir pattern with {N} in it, relative to outputs/scaleup/<datas
   s1_eval/native_mp151200/uniform_N{N}/plain      the frozen official-sampling curve
   s1_eval/native_mp151200/planted_N{N}/plain      needles guaranteed in view
   s3_oracle/native_mp151200/planted_N{N}/gated    fenced + oracle gate
+  s3_model/native_mp151200/planted_N{N}/gated_fold*   fitted gate: a `*` in the last component pools every matching
+                                                      cell (the two haystack folds, each read with the other's gate)
 The newest run dir with an eval.csv is taken per (cell, N). k per row = the number of evidence intervals in
 json/test.json (the true needle count), so the by-k table is the same across protocols.
 
@@ -18,15 +20,20 @@ import csv
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 _REPO = Path(__file__).resolve().parents[1]
 K_BUCKETS = ((1, 1), (2, 2), (3, 4), (5, 6))
 
 
-def newest_eval(cell_dir: Path) -> Optional[Path]:
-    runs = sorted(cell_dir.glob("*/eval.csv"))
-    return runs[-1] if runs else None
+def newest_evals(cell_dir: Path) -> List[Path]:
+    """The newest eval.csv of every dir matching cell_dir (its last component may be a glob)."""
+    out = []
+    for d in sorted(cell_dir.parent.glob(cell_dir.name)):
+        runs = sorted(d.glob("*/eval.csv"))
+        if runs:
+            out.append(runs[-1])
+    return out
 
 
 def load_rows(path: Path) -> List[Dict[str, str]]:
@@ -71,9 +78,9 @@ def main() -> int:
     tables: Dict[str, Dict[int, List[Dict[str, str]]]] = defaultdict(dict)
     for cell in args.cells:
         for n in args.n_list:
-            p = newest_eval(base / cell.format(N=n))
-            if p is not None:
-                tables[cell][n] = load_rows(p)
+            paths = newest_evals(base / cell.format(N=n))
+            if paths:
+                tables[cell][n] = [r for p in paths for r in load_rows(p)]
     lines = [f"# {args.dataset} / {args.backbone}: accuracy vs N (newest run per cell; rows in parentheses)", ""]
     for cell, by_n in tables.items():
         ns = sorted(by_n)

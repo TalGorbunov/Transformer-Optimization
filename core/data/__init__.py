@@ -5,10 +5,10 @@ from typing import Dict
 
 from .base import DatasetSpec, Sample, stratified_order
 from .mmred import MMReD
-from .videoqa import HERBench, Minerva, VNBench
+from .videoqa import HERBench, Minerva, VNBench, VNBench4
 
 DATASETS: Dict[str, DatasetSpec] = {MMReD.name: MMReD(), HERBench.name: HERBench(), Minerva.name: Minerva(),
-                                    VNBench.name: VNBench()}
+                                    VNBench.name: VNBench(), VNBench4.name: VNBench4()}
 DEFAULT_DATASET = MMReD.name
 
 

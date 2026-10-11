@@ -48,7 +48,9 @@ META = {
 
 
 def test_registry():
-    assert {"herbench", "minerva", "vnbench"} <= set(DATASETS)
+    assert {"herbench", "minerva", "vnbench", "vnbench4"} <= set(DATASETS)
+    v4 = get_dataset("vnbench4")
+    assert isinstance(v4, VNBench) and v4.default_root == "data/vnbench_4try" and v4.qtypes == get_dataset("vnbench").qtypes
     h, m = get_dataset("herbench"), get_dataset("minerva")
     assert isinstance(h, HERBench) and isinstance(m, Minerva)
     assert h.protocols == ("uniform", "isolated", "planted", "evidence") and h.split_name("isolated", 32, "test") == "isolated_N32_test"
@@ -134,7 +136,11 @@ def test_evidence_times_and_uniform_labels():
     assert evidence_times([(99.99, 99.99)], 100.0) == [99.95], "clamped inside the video"
     times = pool_times(64.0, 64)                                   # 1 s apart
     ev = uniform_labels(times, [(10.0, 10.0), (40.0, 42.0)], 64, 64.0)
-    assert ev == frozenset({10, 40, 41, 42}), ev                   # delta = min(2, 0.5) = 0.5 s
+    assert ev == frozenset({10, 40, 41}), ev                       # point: delta = min(2, 0.5) = 0.5 s; range: inside [40, 42)
+    grid16 = [2.5 * j for j in range(16)]                          # a 40 s video at N=16
+    assert uniform_labels(grid16, [(1.0, 2.0)], 16, 40.0) == frozenset(), "a 1 s needle between grid times is NOT in view"
+    assert uniform_labels(grid16, [(24.0, 25.0)], 16, 40.0) == frozenset(), "the grid time 25.0 is past the needle's end"
+    assert uniform_labels(grid16, [(5.0, 6.0)], 16, 40.0) == frozenset({2}), "the grid time 5.0 is the needle's first frame"
     ev8 = uniform_labels(pool_times(64.0, 8), [(10.0, 10.0)], 8, 64.0)
     assert ev8 == frozenset({1}), "8 frames 8 s apart: t=8 is within delta=2 s of the point at 10"
 

@@ -240,11 +240,14 @@ def evidence_times(intervals: Sequence[Interval], duration: float) -> List[float
 
 def uniform_labels(times: Sequence[float], intervals: Sequence[Interval], n_frames: int, duration: float
                    ) -> FrozenSet[int]:
+    """A sampled frame is evidence when its grid time lies INSIDE an evidence range [a, b) (a VNBench
+    needle is on screen exactly [t, t + 1); the +-delta rule of 10-06 over-labelled 1 s needles at small N).
+    A point annotation (a == b) keeps the +-delta window: half the grid step, at most LABEL_DELTA_MAX."""
     delta = min(LABEL_DELTA_MAX, 0.5 * float(duration) / n_frames)
     ev = set()
     for i, t in enumerate(times):
         for a, b in intervals:
-            if a - delta <= t <= b + delta:
+            if (a <= t < b) if a < b else (a - delta <= t <= b + delta):
                 ev.add(i)
                 break
     return frozenset(ev)
@@ -635,3 +638,11 @@ class VNBench(VideoMCQ):
 
     def group_of(self, row: Dict[str, Any]) -> str:
         return str(row["meta"]["haystack"])      # the 9 items of one haystack share the footage
+
+
+class VNBench4(VNBench):
+    """VNBench with all four option orders per video (5,400 rows) for the official circular score (a video is
+    correct iff all four tries are; experiments/vnbench_circular.py). data/vnbench_4try symlinks the footage,
+    frames and units of data/vnbench; rows: prepare_video.py --dataset vnbench4 --stage rows."""
+    name = "vnbench4"
+    default_root = "data/vnbench_4try"

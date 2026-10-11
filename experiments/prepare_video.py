@@ -169,7 +169,7 @@ def stage_rows(name: str, root: Path, tries: Sequence[int] = (0,)) -> None:
     elif name == "minerva":
         rows = rows_minerva(root)
     else:
-        rows = rows_vnbench(root, tries)
+        rows = rows_vnbench(root, (0, 1, 2, 3) if name == "vnbench4" else tries)   # vnbench4 = every option order
     (root / "json").mkdir(parents=True, exist_ok=True)
     out = root / "json" / "test.json"
     out.write_text(json.dumps(rows, ensure_ascii=False), encoding="utf-8")
@@ -683,7 +683,7 @@ def stage_verify(name: str, root: Path, frame_set: str = "native") -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", required=True, choices=["herbench", "minerva", "vnbench"])
+    ap.add_argument("--dataset", required=True, choices=["herbench", "minerva", "vnbench", "vnbench4"])
     ap.add_argument("--tries", type=int, nargs="+", default=[0], help="rows (vnbench): which of the 4 option orders to keep")
     ap.add_argument("--root", type=Path, default=None, help="default: the dataset's data/ symlink")
     ap.add_argument("--stage", nargs="+", required=True, choices=["rows", "videos", "frames", "tar", "verify", "units", "verify_units"])

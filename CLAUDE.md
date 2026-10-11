@@ -106,6 +106,35 @@ RESULTS.md          append-only research log     CLAUDE.md   this file
 - **Updating RESULTS.md is an explicit step** — append-only, newest last, only when I say "log this".
 - **legacy/ is read-only.** Port with a parity test; never edit.
 
+### Code style (new code, and any line you are already changing)
+
+- **Names say what the thing is.** Full words for anything that outlives ~5 lines or crosses a
+  function boundary: `units_by_qid`, not `by_q`; `true_positives`, not `tp`. Single letters only
+  for loop indices and for symbols that mirror the docstring's formula (`N`, `k`, `tau`).
+- **One statement per line.** No `a = x; b = y`, no `(lambda d: lambda u: ...)(d)`. If it needs
+  a trick, it needs a named function.
+- **A function does one thing and fits on a screen (~50 lines).** `main()` is orchestration only:
+  parse → load → run → write. When you touch a long `main()`, the block you touch moves into a
+  named helper; the rest stays.
+- **CLI:** `build_parser()` returns the parser; `main()` calls it. Above ~10 flags use
+  `add_argument_group`. One flag per line, help string on the same line. The module docstring
+  stays the description (`RawDescriptionHelpFormatter`) and is the anchor record: what the
+  script does, the numbers it must reproduce, one runnable example.
+- **Type hints on every def**, including the return. A tuple with more than two fields that is
+  passed around becomes a `@dataclass(frozen=True)` with named fields (`core/` already does this).
+- **Constants have names.** A layer index, a threshold, a default delta goes in `core/constants`
+  or a module-level `UPPER_CASE` with a one-line comment saying where it comes from.
+- **Comments say why, not what.** A gotcha, a citation, a tensor shape. If the code needs a
+  comment to say what it does, rename or split it instead.
+- **Fail early with a message that names the path.** Check inputs at the top (file exists,
+  columns present) instead of letting a KeyError surface 200 lines later.
+- **Shared code lives in one place.** Needed by two scripts → `experiments/_<group>_common.py`
+  (as `_diag_common.py`) or `core/`; never copy-paste between scripts.
+- **Lines ≤ 120 chars.** Wrap, don't scroll.
+- **Refactor hygiene.** Never refactor code you were not asked to touch. A requested refactor is
+  its own commit, separate from behaviour changes, and `tests/` run afterwards so "zero semantic
+  change" is proven, not claimed.
+
 ## 6. Long unattended sessions
 
 - For submit → poll → collect loops, run inside `tmux` (`tmux new -s thesis`).
