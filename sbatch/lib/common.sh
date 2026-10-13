@@ -18,6 +18,8 @@ fi
 export PYTHONUNBUFFERED=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export HF_HUB_OFFLINE="${HF_HUB_OFFLINE:-1}"      # the model is in the cache; never block on the hub
+export TORCHINDUCTOR_COMPILE_THREADS=1            # nothing here torch.compiles; torch otherwise forks a compile-worker
+                                                  # pool that imports torch again over NFS and holds exit for 300 s
 
 run_logged() {
     local out="$1"

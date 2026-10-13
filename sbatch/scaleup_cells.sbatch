@@ -12,7 +12,11 @@
 #   STAGE=s2  gate_capture.py --arm $ARM                  (fenced_qfirst | qfirst | fenced_qlast)
 #   STAGE=s3  evaluate.py  --frozen --arm gated           (fenced + oracle gate = the upper bound; GATE_NPZ=<gate_fit --save-gate npz> = the
 #             fitted gate instead -> s3_model/, GATE_TAG appended to the cell name, EXTRA="--qids-file ..." for the held-out fold)
-# Knobs (env; lists space-separated; no commas): DATASET (herbench|minerva|vnbench) BACKBONE (qwen2.5-vl-7b) STAGE (s1|s2|s3)
+#   STAGE=s4  evaluate.py  --frozen --arm gated --fast --two-pass   (THE METHOD's read: the gate's kept frames read unfenced;
+#             oracle gate -> s4_method/.../twopass_oracle, GATE_NPZ -> s4_method/.../twopass${GATE_TAG};
+#             POSITIONS=original = variant 2 (--two-pass-positions original: kept frames at their full-prompt positions) -> twopass_original...)
+#   READOUT=letters appends --readout letters to s1/s3/s4 and _letters to the cell name (the forced-choice letter readout)
+# Knobs (env; lists space-separated; no commas): DATASET (herbench|minerva|vnbench) BACKBONE (qwen2.5-vl-7b) STAGE (s1|s2|s3|s4)
 #   FRAME_SET (native|512)  MAX_PIXELS (processor cap; empty = default)  FAST (1 = batched fenced path)  CHUNK_TOKENS
 #   POOL (1 = also the mean image-token state)  JUDGE (per-block yes/no instruction; s2 + FAST=1)
 #   OUT_BASE (smokes: outputs/_scratch/...)  STAGE_DATA (1 = copy tarballs to the node NVMe)  ARM  PROTOCOL (planted|isolated|uniform)  QTYPES ("" = all tasks)  NLIST ("8 16 32 64")  PER_QTYPE (50; 0 = all rows)  MAX_NEW (8)  MAX_SEQ (60000)  ADAPTER  EXTRA
@@ -31,20 +35,27 @@ RES_ARGS=(${FRAME_SET:+--frame-set "$FRAME_SET"} ${MAX_PIXELS:+--max-pixels "$MA
 FAST_ARGS=(); [ "${FAST:-0}" = "1" ] && FAST_ARGS=(--fast ${CHUNK_TOKENS:+--chunk-tokens "$CHUNK_TOKENS"})
 RTAG="${FRAME_SET:-native}${MAX_PIXELS:+_mp$MAX_PIXELS}"
 LIM_ARGS=(--limit "${PER_QTYPE:-50}"); [ "$PER_QTYPE" = "0" ] && LIM_ARGS=(--limit 100000)
+READ_ARGS=(${READOUT:+--readout "$READOUT"}); RTAIL="${READOUT:+_$READOUT}"
+POS_ARGS=(${POSITIONS:+--two-pass-positions "$POSITIONS"}); PTAIL="${POSITIONS:+_$POSITIONS}"
 for N in "${NARR[@]}"; do
   case "$STAGE" in
-    s1) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s1_eval/${RTAG}/${PROTOCOL}_N${N}/${ARM}"
+    s1) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s1_eval/${RTAG}/${PROTOCOL}_N${N}/${ARM}${RTAIL}"
         run_logged "$OUT" python -u experiments/evaluate.py --dataset "$DATASET" --backbone "$BACKBONE" --data-root "$DATA_ROOT" \
-            --protocol "$PROTOCOL" --n-frames "$N" --split test --frozen --arm "$ARM" "${QT_ARGS[@]}" "${PQ_ARGS[@]}" "${RES_ARGS[@]}" \
+            --protocol "$PROTOCOL" --n-frames "$N" --split test --frozen --arm "$ARM" "${QT_ARGS[@]}" "${PQ_ARGS[@]}" "${RES_ARGS[@]}" "${READ_ARGS[@]}" \
             --max-new-tokens "${MAX_NEW:-8}" --max-seq-tokens "${MAX_SEQ:-60000}" ${EXTRA:-} --output "$OUT" ;;
     s2) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s2_gate/${RTAG}/${PROTOCOL}_N${N}/${ARM}${POOL:+_pool}${JUDGE:+_judge}"
         run_logged "$OUT" python -u experiments/gate_capture.py --dataset "$DATASET" --backbone "$BACKBONE" --data-root "$DATA_ROOT" \
             --protocol "$PROTOCOL" --n-frames "$N" --split test --arm "$ARM" "${QT_ARGS[@]}" "${LIM_ARGS[@]}" "${RES_ARGS[@]}" "${FAST_ARGS[@]}" \
             --max-seq-tokens "${MAX_SEQ:-60000}" ${ADAPTER:+--adapter "$ADAPTER"} ${POOL:+--pool} ${JUDGE:+--judge "$JUDGE"} ${EXTRA:-} --output "$OUT" ;;
-    s3) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s3_oracle/${RTAG}/${PROTOCOL}_N${N}/gated"
-        [ -n "${GATE_NPZ:-}" ] && OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s3_model/${RTAG}/${PROTOCOL}_N${N}/gated${GATE_TAG:-}"
+    s3) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s3_oracle/${RTAG}/${PROTOCOL}_N${N}/gated${RTAIL}"
+        [ -n "${GATE_NPZ:-}" ] && OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s3_model/${RTAG}/${PROTOCOL}_N${N}/gated${GATE_TAG:-}${RTAIL}"
         run_logged "$OUT" python -u experiments/evaluate.py --dataset "$DATASET" --backbone "$BACKBONE" --data-root "$DATA_ROOT" \
-            --protocol "$PROTOCOL" --n-frames "$N" --split test ${ADAPTER:+--adapter "$ADAPTER"} ${ADAPTER:---frozen} --arm gated "${QT_ARGS[@]}" "${PQ_ARGS[@]}" "${RES_ARGS[@]}" "${FAST_ARGS[@]}" \
+            --protocol "$PROTOCOL" --n-frames "$N" --split test ${ADAPTER:+--adapter "$ADAPTER"} ${ADAPTER:---frozen} --arm gated "${QT_ARGS[@]}" "${PQ_ARGS[@]}" "${RES_ARGS[@]}" "${FAST_ARGS[@]}" "${READ_ARGS[@]}" \
+            --max-new-tokens "${MAX_NEW:-8}" --max-seq-tokens "${MAX_SEQ:-60000}" ${GATE_NPZ:+--gate-npz "$GATE_NPZ"} ${EXTRA:-} --output "$OUT" ;;
+    s4) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s4_method/${RTAG}/${PROTOCOL}_N${N}/twopass${PTAIL}_oracle${RTAIL}"
+        [ -n "${GATE_NPZ:-}" ] && OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s4_method/${RTAG}/${PROTOCOL}_N${N}/twopass${PTAIL}${GATE_TAG:-}${RTAIL}"
+        run_logged "$OUT" python -u experiments/evaluate.py --dataset "$DATASET" --backbone "$BACKBONE" --data-root "$DATA_ROOT" \
+            --protocol "$PROTOCOL" --n-frames "$N" --split test --frozen --arm gated --fast ${CHUNK_TOKENS:+--chunk-tokens "$CHUNK_TOKENS"} --two-pass "${POS_ARGS[@]}" "${QT_ARGS[@]}" "${PQ_ARGS[@]}" "${RES_ARGS[@]}" "${READ_ARGS[@]}" \
             --max-new-tokens "${MAX_NEW:-8}" --max-seq-tokens "${MAX_SEQ:-60000}" ${GATE_NPZ:+--gate-npz "$GATE_NPZ"} ${EXTRA:-} --output "$OUT" ;;
     *) echo "unknown STAGE $STAGE"; exit 2;;
   esac

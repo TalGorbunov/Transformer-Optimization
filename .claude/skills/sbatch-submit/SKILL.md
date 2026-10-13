@@ -150,9 +150,11 @@ single-GPU: a 45-frame clip9_d2 prompt at 1 MP is ~55 K tokens, still one forwar
 | executed cmd shorter than intended, flags missing | comma in `--export` | scancel; move the list to a `*_FILE` |
 | `[DRY_RUN] not executing` in a real job's log | `DRY_RUN=1` exported in the shell | `unset DRY_RUN`; resubmit |
 | `NODE_FAIL` mid-run | node blip | resubmit; nothing to debug |
+| process in state `D`, wchan `rpc_wait_bit_killable`, GPU memory ~4 MiB for > 10 min after start; `import torch, transformers` takes minutes (49 s on the login node on a normal day); cluster packed (60+ pending on a100) | `/home` NFS (hpc-nfs1: `.venv`, HF cache) saturated by everyone's model loads (2026-10-11 evening, n306 and athena-post) | nothing to fix in code: a python start (imports + model load) takes ~30 min instead of ~5, row loops (frames on `/rg`) run at normal speed; budget smokes at ~40 min per chained step and give long jobs the walltime headroom; `TORCHINDUCTOR_COMPILE_THREADS=1` (common.sh) stops the 300 s exit wait on torch's compile-worker pool that short runs hit |
 | pending, reason `ReqNodeNotAvail, May be reserved or down` / `Nodes required for job are DOWN` | the partition's nodes are draining (`sinfo -N -O NodeHost,StateLong,Reason` shows e.g. `admin_maint`; l40s 2026-09-23) | `scontrol update JobId=<id> Partition=<other>`; submit with a partition list (`-p a100-public,l40s-shared`) so the scheduler picks whatever is up |
 | `MISMATCH` in copy_tree / tar_split logs | partial copy | resubmit the same SRC/DST (idempotent) |
 | completed job, degenerate decodes | eval-mode / checkpoint mismatch, not hardware | spot-check decode samples early |
+| GPU memory grows row after row (`srun --jobid=<id> --overlap nvidia-smi` shows tens of MB more per row), OOM hundreds of rows in | a forward outside `torch.inference_mode()` / `no_grad` (autograd state kept per step; 2026-10-12, the first variant-2 read) | wrap every new forward in `torch.inference_mode()`; a smoke of 9 rows cannot show this, so probe memory at ~100 and ~400 rows of a long run |
 
 ## Writing a new wrapper
 
