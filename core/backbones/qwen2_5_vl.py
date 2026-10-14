@@ -3,6 +3,8 @@ code had inline (core/constants.py, core/model.py, experiments/train.py LORA_TAR
 experiments/gate_capture.py --hs-layers default, tests/test_model.py NATIVE_TOKENS)."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..constants import IMAGE_PAD, MODEL_ID, TURN_END, VISION_END, VISION_START
 from .base import BackboneSpec, Delimiters
 
@@ -25,3 +27,8 @@ QWEN2_5_VL_7B = BackboneSpec(
     res_modes={"lo": {"max_pixels": 151_200},       # what a 512 px MMReD frame gets (~180 tokens for a 1080p frame)
                "hi": {"max_pixels": 1_003_520}},    # the HERBench operating point (2026-09-30: full res buys nothing)
 )
+
+# The 32B sibling (2026-10-13, Tal: a reader with a higher counting ceiling): same architecture and processor, so the
+# spec is the 7B's with the model id swapped. probe_layers are the 7B's (28 layers; the 32B has 64) and are NOT a gate
+# layer for it: the D4 layer scan has not run on the 32B.
+QWEN2_5_VL_32B = replace(QWEN2_5_VL_7B, name="qwen2.5-vl-32b", model_id="Qwen/Qwen2.5-VL-32B-Instruct")

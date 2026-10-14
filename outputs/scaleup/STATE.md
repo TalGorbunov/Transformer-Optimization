@@ -493,3 +493,52 @@ Ledger 178004-178014 (177993 / 177994 cancelled: the first variant-2 build leake
 **Cell 3, variant 2 of the read (`--two-pass-positions original`: the same kept frames under the same causal attention, every token at the position it had in the full N-frame prompt; `s4_method/TWOPASS_POSITIONS.md`; 178013 / 178014; planted N=8..128, folds pooled):** **0.880 / 0.862 / 0.842 / 0.820 / 0.819** vs packed (variant 1) 0.881 / 0.873 / 0.871 / 0.866 / 0.880 vs plain 0.837 / 0.795 / 0.755 / 0.717 / 0.688. k=1 unchanged (0.97 at every N), k=3-4 0.81 -> 0.76 (packed 0.82), **k=5-6 0.74 / 0.48 / 0.27 / 0.17** at N=16 / 32 / 64 / 128 (packed 0.78 / 0.78 / 0.76 / 0.79; plain 0.46 / 0.35 / 0.29 / 0.27). Per task at N=128: cnt_edit1 0.79 (packed 0.98), cnt_insert1 0.56 (0.83), ord 0.97 / 0.95 / 0.90 (0.99 / 0.99 / 0.96), retrieval unchanged. With ZERO filler tokens in the context, spreading the kept frames to their original positions (and the question to its original distance) reproduces the high-k counting collapse of the plain read; at k=5-6 it is as bad as the dense read of all N frames. Packing is what the two-pass read gains: the collapse of counting in N rides on the positional spread of the needle frames (M-RoPE distance between the frames and to the question), not only on the fillers' attention mass. Caveat: positions with empty gaps are out of distribution in their own way (no training prompt has them), so variant 2 bounds the positional effect from above; the clean split (packed frames with the question at its far position; spread frames with the question adjacent) is a cheap follow-up (~3 GPU-h per arm).
 **Operational:** the first variant-2 build ran core.fence.greedy_decode outside torch.inference_mode(): GPU memory grew ~30 MB per row (OOM after ~200 rows at N=16 in the smoke; 23-25 GB after 575 rows at N=8 in the real jobs, cancelled), fixed and probed (8,068 -> 8,072 MiB between rows 100 and 400); decoder row in the sbatch skill. `--qids-file` pins the rows whatever --per-qtype says, so smokes with a fold file read 9-row files under outputs/_scratch/week3_smoke/.
 Next (Tal): N=256 circular (as is, or behind a run-merge rule); the positions follow-up; cells 9-12.
+
+## [2026-10-14 17:30] Gate design after the peer meeting: three CPU transfer fits (181599-181601, 4h_0g, minutes each) + the design brief `docs/GATE_DESIGN_2026-10-14.md`
+Tal (peer meeting 2026-10-14): the gate is supervised and per frame; how do Sparse RAG and others train theirs; does the gate need the 7B;
+how to handle relevance that depends on another frame; fine-tune the reader or not; the professor's one-pass soft significance vector.
+Eight web-verified literature lenses + a six-proposal design panel with a hostile critique each (`docs/gate_design_2026-10-14/`); verdict and
+ladder in the brief. RESULTS.md untouched. The one new measurement, the cross-dataset transfer of the existing L20 probe (no refit, `gate_fit.py
+--train-runs/--test-runs`, group = video):
+- **VNBench (planted N=16, 21,600 frames, construction labels) -> HERBench isolated N=8..128 (human intervals, real footage, 81,512 frames)**
+  `outputs/scaleup/herbench/qwen2.5-vl-7b/s2_fit/vnbench_to_herbench.json`: L20 pooled AUC 0.712; **TSO 0.873 / SVA 0.879, flat at every N
+  (0.871-0.888)**, specificity 0.77-0.79 / recall 0.80-0.82 at the trained threshold; AGAR/AGBI/AGLT 0.55-0.57, MEGL/MPDR 0.50 (as in-domain).
+  In-domain 5-fold reference 0.91 (TSO/SVA); question-blind 0.53-0.57; chance 0.50. A splice/overlay detector would sit at chance here.
+- **HERBench planted N=8+16 (12,624 frames; includes an 80-frame 09-25 smoke capture) -> VNBench planted N=16/64 (107,616 frames)**
+  `outputs/scaleup/vnbench/qwen2.5-vl-7b/s2_gate/fits/herbench_to_vnbench.json`: L20 pooled AUC 0.821; subtitle needles cnt_edit1 0.989,
+  ord_edit1 1.000, ret_edit1 1.000; inserted pictures ret_insert1 0.664, ret_insert2 0.684, ord_insert1 0.834, ord_insert2 0.778,
+  cnt_insert1 0.774; cnt_edit2 0.593; specificity 0.63-0.98 / recall 0.20-1.00 by task (the threshold does not transfer across needle kinds).
+  L24: ret_insert1 0.998, ret_insert2 0.901, cnt_insert1 0.938 (pictures read better one layer deeper).
+- **MMReD diag N=8+16 train (28,800 frames, renders) -> VNBench N=16/64**: `.../fits/mmred_to_vnbench.json`: L20 pooled 0.587 (edit needles
+  0.91 / 0.98 / 0.62; inserted pictures 0.23-0.51); L12 everything "yes" (spec 0.00).
+Reading: the probe's direction is question-conditioned relevance (it transfers to human evidence on footage with no splices and from real
+evidence to synthetic edits at AUC 1.0), ranking transfers across footage and needle kinds, the threshold does not (LOTO within VNBench already
+showed spec 0.66-0.90 at AUC ~1). Same pattern as the label-free rankers: ranking is cheap, calibration is what the labels buy. Caveat:
+VNBench captures at max_pixels 151,200, HERBench at native resolution.
+Also re-run today (CPU, `outputs/_scratch/gate_design_1014/nav_sim.py` on the stored D-regime verdict scores, 9,034 units): the panel's
+null-anchored midpoint rule on the model's own yes/no gives pooled recall 0.89 / rejection 0.95 / exact set 0.77 / false k=0 on 8% of questions
+(ord_insert1/2 recall 0.69, 26-28% false k=0; 2.5-6 leaked haystack frames per question at N=128): the same ROC as the max-2 rule of cell 1.
+**Design verdict (brief section 3):** keep the pointwise L20 probe + hard threshold + merge rule + frozen packed re-read; add the label-source
+table, kept-frame accounting (false frames per question, exact-set rate, leak curve), the per-task relational table, and four cheap cells
+(VNBench fenced_qlast control 0.5 GPU-h; judge recapture + reader-derived labels on the same probe 0.5 GPU-h; 3B fenced-slot probe 2 GPU-h;
+time-boxed anchored relational cell 3 GPU-h); reader stays frozen, LoRA reader = labelled row, enumeration-format counting cell for the
+ceiling. The professor's one-pass soft vector is refuted ingredient by ingredient by D4 (0.51 / 0.84 / 0.975), SOFTGATE and the week-3
+positions ablation. Nothing submitted beyond the three CPU fits; GPU cells await Tal's OK.
+
+## [2026-10-14 19:00] Week-3 cell 4 (read-geometry ablations, 181245-181254) and the Qwen2.5-VL-32B counting ceiling (181256) landed
+**Read geometry (same fitted gate, same kept frames, folds pooled, planted; `s4_method/native_mp151200/planted_N{16,64,128}/twopass_*`):**
+packed two-pass (reference) 0.873 / 0.866 / 0.880 at N=16/64/128; **fenced read of the packed kept frames (no cross-frame attention) 0.473 / 0.470 / 0.507**;
+block-0 positions + fenced 0.488 / 0.486 / 0.523; + timestamp captions 0.491 / 0.491 / 0.525; packed frames with the question at its far
+original distance 0.882 / 0.859 / 0.858; frames spread to their original positions with the question adjacent 0.858 / 0.827 / 0.819
+(= variant 2's 0.862 / 0.820 / 0.819). Per task at N=128 (ord x3 | cnt_edit1, cnt_insert1): fenced 0.26 / 0.17 / 0.25 | 0.28 / 0.28;
+packed-far-question 0.98 / 0.95 / 0.92 | 0.91 / 0.73; spread-adjacent 0.99 / 0.97 / 0.89 | 0.79 / 0.53; packed 0.99 / 0.99 / 0.96 | 0.98 / 0.83;
+retrieval 0.89-1.00 under every geometry. Reading: ordering and counting need the kept frames to ATTEND TO EACH OTHER (the fence alone,
+with packed distinct positions, puts ordering at chance and counting at 0.28; timestamps do not rescue it) AND to sit at packed
+frame-to-frame distances (spreading costs counting 0.83 -> 0.53 on inserted images); the question's distance costs little. The week-1
+attribution of the fenced read's blindness to the position reset alone is corrected: the fence (no cross-frame attention) is the first
+cause, the positional spread the second. Any one-forward variant of the method must give the kept frames both; the two-pass read is the
+minimal form (N question-conditioned block forwards + one joint O(k) read).
+**32B counting ceiling (E regime, needle frames only, lo res, 450 rows; `vnbench/qwen2.5-vl-32b/s1u_unit/E_frame_lo/`, 14 min):**
+overall 0.762: cnt_edit1 0.993, **cnt_insert1 0.953 (7B 0.81)**, cnt_edit2 0.340 (7B 0.18-0.21); by k: k=1 0.955, **k>=5 0.971 (7B k=5-6
+0.58-0.69)**. The inserted-image counting wall moves with reader size; counting objects inside images barely does. A 32B two-pass would
+lift the counting family to roughly 0.76 try-0 on these three tasks, not to the 0.9s, unless cnt_edit2 is addressed. RESULTS.md untouched.

@@ -26,7 +26,8 @@ from core.data.videoqa import (
     EASY_MIN_DIST, HARD_GAP, HERBENCH_TASKS, MAX_UNIT_FRAMES, MINERVA_SKILLS, N_FRAMES, NEEDLE_DUR, NEG_MARGIN, POOL,
     UNIT_FALLBACK, UNIT_HALF, UNIT_OFFSETS, UNIT_STEP, UNITS_DIR, VNBENCH_TASKS, HERBench, Minerva, VNBench, evidence_times,
     frame_dirs, negative_centres, parse_herbench_evidence, parse_hms, parse_minerva_evidence, parse_range,
-    parse_vnbench_evidence, plan_units, plant, planted_margin, pool_times, select_offsets, uniform_indices, uniform_labels,
+    fps_indices, parse_vnbench_evidence, plan_units, plant, planted_margin, pool_times, select_offsets, uniform_indices,
+    uniform_labels,
     unit_grid,
 )
 
@@ -53,7 +54,8 @@ def test_registry():
     assert isinstance(v4, VNBench) and v4.default_root == "data/vnbench_4try" and v4.qtypes == get_dataset("vnbench").qtypes
     h, m = get_dataset("herbench"), get_dataset("minerva")
     assert isinstance(h, HERBench) and isinstance(m, Minerva)
-    assert h.protocols == ("uniform", "isolated", "planted", "evidence") and h.split_name("isolated", 32, "test") == "isolated_N32_test"
+    assert h.protocols == ("uniform", "isolated", "planted", "evidence", "fps") and h.split_name("isolated", 32, "test") == "isolated_N32_test"
+    assert h.split_name("fps", 1, "test") == "fps_N1_test" and h.parse_split_name("fps_N1_test") == ("fps", 1, "test")
     assert h.split_name("evidence", "clip5_d1", "test") == "evidence_clip5_d1_test" and h.parse_split_name("evidence_frame_test") == ("evidence", "frame", "test")
     for bad in (("evidence", 8, "test"), ("evidence", "clip7", "test")):
         try:
@@ -126,6 +128,19 @@ def test_pool_grid_nested():
         assert all(math.isclose(pt[i], j * dur / n, rel_tol=1e-9) for j, i in enumerate(idx)), "the official grid, nested"
     try:
         uniform_indices(7, POOL)
+        assert False
+    except ValueError:
+        pass
+
+
+def test_fps_indices():
+    pool = pool_times(40.0, POOL)                                   # spacing 0.156 s
+    idx = fps_indices(pool, 40.0, 1)
+    assert len(idx) == 40 and idx == sorted(set(idx)), "one frame per second, all distinct"
+    assert all(abs(pool[j] - (i + 0.5)) <= 40.0 / POOL / 2 + 1e-9 for i, j in enumerate(idx)), "each at the centre of its second"
+    assert len(fps_indices(pool_times(169.5, POOL), 169.5, 1)) == 169 and len(fps_indices(pool, 40.0, 2)) == 80
+    try:
+        fps_indices(pool, 40.0, 0)
         assert False
     except ValueError:
         pass
@@ -329,6 +344,11 @@ def test_load_synthetic_tree():
         assert all(p.parent.name == vid for p in ua.frame_paths) and [p.name for p in ua.frame_paths] == [f"frame_{1 + 32 * j:04d}.jpg" for j in range(8)]
         assert ua.evidence == uniform_labels([j * dur / 8 for j in range(8)], [(10.0, 10.0), (25.0, 25.0), (40.0, 40.0)], 8, dur)
         assert ur.evidence == frozenset(range(8))
+        fa, fr = spec.load(root, "fps_N1_test")
+        assert fa.n_frames == 60 and fa.meta["protocol"] == "fps" and fa.meta["n_frames"] == 60
+        assert all(abs(t - (j + 0.5)) <= dur / POOL / 2 + 1e-9 for j, t in enumerate(fa.meta["times"]))
+        assert fa.evidence == uniform_labels(fa.meta["times"], [(10.0, 10.0), (25.0, 25.0), (40.0, 40.0)], 60, dur)
+        assert fr.evidence == frozenset(range(60))
         assert spec.load(root, "planted_N8_test", qtypes=["RLPC"]) == [] and spec.last_load["skipped"] == {"kind=all": 1}
         ex = spec.report_extras(u, ["D", "A"])
         assert ex["coverage(>=1 evidence frame)"][1] == 2 and ex["letter_prior_baseline"] == (0.5, 2)

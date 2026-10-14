@@ -251,7 +251,7 @@ def test_rope_index_lookup_through_wrappers():
 
 def test_registry_new_backbones():
     iv, gm = get_backbone("internvl3.5-8b"), get_backbone("gemma-3-12b")
-    assert set(BACKBONES) == {"qwen2.5-vl-7b", "internvl3.5-8b", "gemma-3-12b"}
+    assert set(BACKBONES) == {"qwen2.5-vl-7b", "qwen2.5-vl-32b", "internvl3.5-8b", "gemma-3-12b"}
     assert iv.rope == "1d" and iv.image_attention == "causal" and iv.layer_types is None and iv.sep_tokens == 1
     assert "Qwen3" in iv.family, "the LM lineage is stated in the family string"
     assert gm.rope == "1d" and gm.image_attention == "bidirectional" and gm.layer_types == "config" and gm.sep_tokens == 1

@@ -14,7 +14,9 @@
 #             fitted gate instead -> s3_model/, GATE_TAG appended to the cell name, EXTRA="--qids-file ..." for the held-out fold)
 #   STAGE=s4  evaluate.py  --frozen --arm gated --fast --two-pass   (THE METHOD's read: the gate's kept frames read unfenced;
 #             oracle gate -> s4_method/.../twopass_oracle, GATE_NPZ -> s4_method/.../twopass${GATE_TAG};
-#             POSITIONS=original = variant 2 (--two-pass-positions original: kept frames at their full-prompt positions) -> twopass_original...)
+#             POSITIONS=original = variant 2 (--two-pass-positions original: kept frames at their full-prompt positions) -> twopass_original...;
+#             MERGE=1 = --merge-kept-runs (one kept frame per needle-second of video time; the uniform grid at high fps) -> twopass..._merged;
+#             MASK=fenced (--two-pass-mask: kept frames cannot see each other) -> ..._fenced; CAPTIONS=timestamps (--two-pass-captions) -> ..._ts)
 #   READOUT=letters appends --readout letters to s1/s3/s4 and _letters to the cell name (the forced-choice letter readout)
 # Knobs (env; lists space-separated; no commas): DATASET (herbench|minerva|vnbench) BACKBONE (qwen2.5-vl-7b) STAGE (s1|s2|s3|s4)
 #   FRAME_SET (native|512)  MAX_PIXELS (processor cap; empty = default)  FAST (1 = batched fenced path)  CHUNK_TOKENS
@@ -36,7 +38,9 @@ FAST_ARGS=(); [ "${FAST:-0}" = "1" ] && FAST_ARGS=(--fast ${CHUNK_TOKENS:+--chun
 RTAG="${FRAME_SET:-native}${MAX_PIXELS:+_mp$MAX_PIXELS}"
 LIM_ARGS=(--limit "${PER_QTYPE:-50}"); [ "$PER_QTYPE" = "0" ] && LIM_ARGS=(--limit 100000)
 READ_ARGS=(${READOUT:+--readout "$READOUT"}); RTAIL="${READOUT:+_$READOUT}"
-POS_ARGS=(${POSITIONS:+--two-pass-positions "$POSITIONS"}); PTAIL="${POSITIONS:+_$POSITIONS}"
+POS_ARGS=(${POSITIONS:+--two-pass-positions "$POSITIONS"} ${MASK:+--two-pass-mask "$MASK"} ${CAPTIONS:+--two-pass-captions "$CAPTIONS"})
+PTAIL="${POSITIONS:+_$POSITIONS}${MASK:+_$MASK}${CAPTIONS:+_ts}"
+[ "${MERGE:-0}" = "1" ] && { POS_ARGS+=(--merge-kept-runs); PTAIL="${PTAIL}_merged"; }
 for N in "${NARR[@]}"; do
   case "$STAGE" in
     s1) OUT="${OUT_BASE:-outputs/scaleup/${DATASET}/${BACKBONE}}/s1_eval/${RTAG}/${PROTOCOL}_N${N}/${ARM}${RTAIL}"

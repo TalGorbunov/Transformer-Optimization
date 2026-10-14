@@ -31,6 +31,9 @@ Protocols (split_name = "<protocol>_N<k>_test"):
                    int(i * step) grid, nested across N). Labels: a frame is evidence iff it lies
                    inside a range (± delta) or within ± delta of a point, delta = min(2 s, 0.5 * dur / N).
                    Coverage (>= 1 evidence frame) is reported; "all" rows label every frame.
+    fps_N<f>       f frames per second, each at the CENTRE of its 1/f s slot ((i + 0.5) / f, the nearest
+                   pool frame): the frame count follows the video length (VNBench 10-170 s at f = 1),
+                   the published VNBench rows' sampling. Labels as under uniform. Added 2026-10-13.
     evidence_<unit> the UNIT baseline (plan 2026-10-06): ONLY the question's evidence units, no
                    fillers, in temporal order; split_name("evidence", <unit>, "test"). A unit is
                    the stored 9-frame grid of one evidence interval (units_native/<qid>/, written by
@@ -229,6 +232,15 @@ def uniform_indices(n_frames: int, pool: int = POOL) -> List[int]:
     return [j * step for j in range(n_frames)]
 
 
+def fps_indices(pool_t: Sequence[float], duration: float, fps: float) -> List[int]:
+    """Pool indices of f frames per second: the pool frame nearest the centre of each 1/f s slot. The pool's
+    spacing (duration / POOL) is below 1 s on every video, so consecutive slots never share a frame at f <= 1."""
+    if fps <= 0:
+        raise ValueError(f"fps must be positive, got {fps}")
+    targets = [(i + 0.5) / fps for i in range(int(duration * fps))]
+    return [min(range(len(pool_t)), key=lambda j, t=t: abs(pool_t[j] - t)) for t in targets]
+
+
 def evidence_times(intervals: Sequence[Interval], duration: float) -> List[float]:
     """One frame time per evidence unit: points at t + 0.3 s, ranges at their midpoint; clamped."""
     out = []
@@ -368,7 +380,7 @@ def select_offsets(entry: Dict[str, Any], unit: str) -> List[Tuple[int, float, P
 
 class VideoMCQ(DatasetSpec):
     """Shared implementation; subclasses fix name/root/qtypes/prompt/parser."""
-    protocols = ("uniform", "isolated", "planted", "evidence")   # uniform = the benchmarks' own sampling = the PRIMARY protocol
+    protocols = ("uniform", "isolated", "planted", "evidence", "fps")   # uniform = the benchmarks' own fixed-N grid = the PRIMARY protocol
     max_unit_frames = MAX_UNIT_FRAMES
     has_train = False
     supports_counterfactual = False
@@ -396,13 +408,17 @@ class VideoMCQ(DatasetSpec):
             if str(n_frames) not in UNIT_OFFSETS:
                 raise ValueError(f"{self.name}: evidence unit must be one of {sorted(UNIT_OFFSETS)}, got {n_frames!r}")
             return f"evidence_{n_frames}_{split}"
+        if protocol == "fps":                      # the second argument is the frame rate, not a frame count
+            if int(n_frames) < 1:
+                raise ValueError(f"{self.name}: fps must be a positive integer, got {n_frames}")
+            return f"fps_N{int(n_frames)}_{split}"
         if int(n_frames) not in N_FRAMES:
             raise ValueError(f"{self.name}: N must be one of {N_FRAMES}, got {n_frames}")
         return f"{protocol}_N{int(n_frames)}_{split}"
 
     @staticmethod
     def parse_split_name(split_name: str) -> Tuple[str, Union[int, str], str]:
-        m = re.fullmatch(r"(planted|isolated|uniform)_N(\d+)_(\w+)", split_name)
+        m = re.fullmatch(r"(planted|isolated|uniform|fps)_N(\d+)_(\w+)", split_name)
         if m:
             return m.group(1), int(m.group(2)), m.group(3)
         m = re.fullmatch(r"evidence_(frame|clip\d+_d\d+)_([a-z]+)", split_name)
@@ -509,17 +525,17 @@ class VideoMCQ(DatasetSpec):
         kind = row["evidence_kind"]
         pool_name, evid_name = self.frame_dirs()
         pdir = root / pool_name / row["video_id"]
-        if protocol == "uniform":
-            idx = uniform_indices(n_frames, len(pool_t))
+        if protocol in ("uniform", "fps"):
+            idx = uniform_indices(n_frames, len(pool_t)) if protocol == "uniform" else fps_indices(pool_t, duration, n_frames)
             times = [pool_t[i] for i in idx]
             paths = tuple(pdir / f"frame_{i + 1:04d}.jpg" for i in idx)
             if kind == "all":
-                ev: Optional[FrozenSet[int]] = frozenset(range(n_frames))
+                ev: Optional[FrozenSet[int]] = frozenset(range(len(idx)))
             elif kind == "none":
                 ev = None
             else:
-                ev = uniform_labels(times, intervals, n_frames, duration)
-            return self._sample(row, paths, ev, {"protocol": protocol, "n_frames": n_frames, "times": times}), ""
+                ev = uniform_labels(times, intervals, len(idx), duration)
+            return self._sample(row, paths, ev, {"protocol": protocol, "n_frames": len(idx), "times": times}), ""
         # planted
         if kind in ("all", "none"):
             return None, f"kind={kind}"

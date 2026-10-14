@@ -6,9 +6,9 @@ from typing import Dict
 from .base import BackboneSpec, Delimiters, SpecialIds
 from .gemma3 import GEMMA_3_12B
 from .internvl import INTERNVL3_5_8B
-from .qwen2_5_vl import QWEN2_5_VL_7B
+from .qwen2_5_vl import QWEN2_5_VL_7B, QWEN2_5_VL_32B
 
-BACKBONES: Dict[str, BackboneSpec] = {b.name: b for b in (QWEN2_5_VL_7B, INTERNVL3_5_8B, GEMMA_3_12B)}
+BACKBONES: Dict[str, BackboneSpec] = {b.name: b for b in (QWEN2_5_VL_7B, QWEN2_5_VL_32B, INTERNVL3_5_8B, GEMMA_3_12B)}
 DEFAULT_BACKBONE = QWEN2_5_VL_7B.name
 
 

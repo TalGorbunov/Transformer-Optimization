@@ -28,7 +28,15 @@ unfenced in the official layout (frames, then the question) — regime E on the 
 the kept indices (`kept`) so the read can be re-run without the scan. --two-pass-positions original (variant 2,
 2026-10-12) keeps every token of that read at the position it had in the full N-frame prompt (dropped frames leave
 gaps; the question keeps its distance from the frames) instead of packing the kept frames; run dirs carry
-_twopass_original. --readout letters is a forced choice
+_twopass_original. The read's geometry is three flags (2026-10-13 ablations): --two-pass-positions (packed | original |
+reset = block 0's positions for every kept block | packed-far-question | spread-adjacent-question), --two-pass-mask
+(causal | fenced = the kept frames cannot see each other) and --two-pass-captions (none | timestamps = a fixed-width
+"<0012.3 seconds>" text before each frame, which travels with its frame under the fence and the reset; an ablation
+layout, not the paper's prompt); run dirs carry _twopass[_<positions>][_fenced][_ts]. --merge-kept-runs (2026-10-13)
+collapses the kept frames to one per NEEDLE_DUR window of video time
+(the frame nearest the window's centre): on the official grid at 6 fps a 1 s needle covers 6-7 sampled frames and the
+read would count frames, not needles; run dirs carry _merged, eval.csv column n_read = frames read. --readout letters
+is a forced choice
 among the option letters at the first answer token (their logits; no generation, no parsing; MCQ datasets
 only): the readout for backbones that answer in prose (InternVL3.5 on VNBench, 2026-10-11). On the batched
 path the same forward gives both readouts (`raw` = the generated text, `pred` = the letter). Run dirs carry
@@ -70,9 +78,9 @@ from core.backbones import BACKBONES, DEFAULT_BACKBONE, get_backbone  # noqa: E4
 from core.backbones import base as bb  # noqa: E402
 from core.data import DATASETS, DEFAULT_DATASET, get_dataset, stratified_order  # noqa: E402
 from core.data.base import Sample  # noqa: E402
-from core.data.videoqa import UNIT_OFFSETS  # noqa: E402
+from core.data.videoqa import NEEDLE_DUR, UNIT_OFFSETS  # noqa: E402
 from core.fastpath import fenced_forward  # noqa: E402
-from core.fence import FENCED_SDPA, FenceHooks, Span, build_block_mask, greedy_decode  # noqa: E402
+from core.fence import FENCED_SDPA, FenceHooks, Span, build_block_mask, greedy_decode, reset_positions  # noqa: E402
 from core.metrics import bootstrap_ci  # noqa: E402
 from core.model import get_layers  # noqa: E402
 from core.prompt import ARMS, LAYOUTS, build_messages  # noqa: E402
@@ -85,6 +93,12 @@ from experiments._port_check import (  # noqa: E402
 OPTION_LETTERS = "ABCDE"                     # core.data.mcq.OPTIONS: at most five lettered choices on every MCQ dataset
 LETTER_SPELLINGS = ("{letter}", " {letter}")  # how a letter can start the answer; only single-token spellings count
 TWO_PASS_LAYOUT = "paper"                    # the official layout (frames, then the question): regime E's read
+POSITION_MODES = ("packed", "original", "reset", "packed-far-question", "spread-adjacent-question")
+MASK_MODES = ("causal", "fenced")
+CAPTION_MODES = ("none", "timestamps")
+TIMESTAMP_CAPTION = "<{t:06.1f} seconds>"    # the Qwen3-VL video template's form, fixed width so every caption has one length
+FRAMES_OF_MODE = {"original": "original", "packed-far-question": "packed", "spread-adjacent-question": "original"}
+QUESTION_OF_MODE = {"original": "far", "packed-far-question": "far", "spread-adjacent-question": "adjacent"}
 
 
 def _stop_newline(text: str) -> bool:
@@ -133,15 +147,35 @@ def kept_sample(sample: Sample, keep: Sequence[bool]) -> Sample:
     """The sample reduced to the frames the gate kept, in time order: what the two-pass read sees. meta keeps the
     kept indices and the scan's frame count (`scan_frames`), which the original-positions read needs."""
     kept = [t for t, flag in enumerate(keep) if flag]
-    return replace(sample, frame_paths=tuple(sample.frame_paths[t] for t in kept), evidence=None,
-                   meta={**sample.meta, "protocol": "two-pass", "kept": kept, "scan_frames": len(keep)})
+    meta = {**sample.meta, "protocol": "two-pass", "kept": kept, "scan_frames": len(keep)}
+    if "times" in sample.meta:
+        meta["times_read"] = [sample.meta["times"][t] for t in kept]
+    return replace(sample, frame_paths=tuple(sample.frame_paths[t] for t in kept), evidence=None, meta=meta)
+
+
+def merge_kept_runs(keep: Sequence[bool], times: Sequence[float], window: float = NEEDLE_DUR) -> List[bool]:
+    """One kept frame per `window` seconds of video time: kept frames are bucketed by floor(t / window) and the one
+    nearest its bucket's centre survives. A needle is on screen for NEEDLE_DUR from an integer second, so on a dense
+    grid its 6-7 sampled frames share one bucket while a needle in the next second gets its own; planted rows (one
+    frame per needle, fillers >= 1 s away) pass through unchanged."""
+    best_by_bucket: Dict[int, int] = {}
+    for t, (flag, time) in enumerate(zip(keep, times)):
+        if not flag:
+            continue
+        bucket = int(time // window)
+        centre = (bucket + 0.5) * window
+        if bucket not in best_by_bucket or abs(time - centre) < abs(times[best_by_bucket[bucket]] - centre):
+            best_by_bucket[bucket] = t
+    survivors = set(best_by_bucket.values())
+    return [t in survivors for t in range(len(keep))]
 
 
 def original_index(blocks: Sequence[Span], fin_start: int, kept: Sequence[int], n_frames: int,
-                   seq_len: int) -> List[int]:
-    """Token index map from the kept-frame prompt into the full n_frames prompt it was cut from: the prefix stays,
-    kept block j becomes block kept[j], the tail follows all n_frames blocks. The frames of one video share a grid,
-    so the blocks must be equal and adjacent; anything else is refused rather than mapped wrongly."""
+                   seq_len: int, frames: str = "original") -> List[int]:
+    """Token index map from the kept-frame prompt into an n_frames prompt: the prefix stays, kept block j becomes
+    block kept[j] (frames="original") or block j (frames="packed"), the tail follows all n_frames blocks. The frames
+    of one video share a grid, so the blocks must be equal and adjacent; anything else is refused rather than mapped
+    wrongly."""
     if len(blocks) != len(kept):
         raise ValueError(f"{len(blocks)} frame blocks in the prompt for {len(kept)} kept frames")
     first = blocks[0][0]
@@ -150,10 +184,38 @@ def original_index(blocks: Sequence[Span], fin_start: int, kept: Sequence[int], 
     if list(blocks) != expected or fin_start != expected[-1][1]:
         raise ValueError(f"frame blocks are not equal and adjacent: {list(blocks)}, tail at {fin_start}")
     prefix = list(range(first))
-    frames = [first + t * block_len + offset for t in kept for offset in range(block_len)]
+    block_of = list(kept) if frames == "original" else list(range(len(kept)))
+    frame_index = [first + t * block_len + offset for t in block_of for offset in range(block_len)]
     full_tail_start = first + n_frames * block_len
     tail = [full_tail_start + offset for offset in range(seq_len - fin_start)]
-    return prefix + frames + tail
+    return prefix + frame_index + tail
+
+
+def caption_blocks(blocks: Sequence[Span], caption_len: int) -> List[Span]:
+    """Each frame block extended backwards over its caption, so caption and frame move (reset) and mask (fence)
+    together."""
+    if caption_len <= 0 or blocks[0][0] < caption_len:
+        raise ValueError(f"caption length {caption_len} does not fit before the first block at {blocks[0][0]}")
+    return [(start - caption_len, end) for start, end in blocks]
+
+
+@dataclass(frozen=True)
+class ReadGeometry:
+    """How the kept frames are laid out for the read: where their tokens sit, whether frames see each other, and
+    whether each frame carries its time as text."""
+    positions: str = "packed"
+    mask: str = "causal"
+    captions: str = "none"
+
+    @property
+    def is_plain(self) -> bool:
+        return self == ReadGeometry()
+
+    @property
+    def tag(self) -> str:
+        parts = ([] if self.positions == "packed" else [self.positions]) + (["fenced"] if self.mask == "fenced" else [])
+        parts += ["ts"] if self.captions == "timestamps" else []
+        return "".join("_" + part for part in parts)
 
 
 def full_prompt_inputs(enc: Dict[str, Any], block: Span, fin_start: int, n_frames: int) -> Dict[str, Any]:
@@ -243,10 +305,25 @@ def answer_of(readout: Optional[LetterReadout], spec: Any, sample: Sample, raw: 
 ReadResult = Tuple[str, Optional[torch.Tensor], int]   # (generated text, first-token logits, prompt tokens)
 
 
-def encode_read(reader: Reader, sample: Sample) -> Dict[str, Any]:
-    """The sample's frames and question in the official layout, encoded for the model."""
+def with_timestamps(turn: Dict[str, Any], times: Sequence[float]) -> Dict[str, Any]:
+    """The user turn with a timestamp caption before each of its images."""
+    content: List[Dict[str, Any]] = []
+    frame = 0
+    for item in turn["content"]:
+        if item["type"] == "image":
+            content.append({"type": "text", "text": TIMESTAMP_CAPTION.format(t=times[frame])})
+            frame += 1
+        content.append(item)
+    return {**turn, "content": content}
+
+
+def encode_read(reader: Reader, sample: Sample, captions: str = "none") -> Dict[str, Any]:
+    """The sample's frames and question in the official layout, encoded for the model; with captions="timestamps"
+    each frame is preceded by its time (meta["times_read"], the kept frames' times)."""
     messages = build_messages(reader.spec.frames(sample), reader.spec.question_text(sample), layout=TWO_PASS_LAYOUT,
                               system_prompt=reader.spec.system_prompt)
+    if captions == "timestamps":
+        messages[-1] = with_timestamps(messages[-1], sample.meta["times_read"])
     return bb.encode(reader.bspec, reader.processor, messages, reader.device)
 
 
@@ -262,30 +339,50 @@ def read_unfenced(reader: Reader, sample: Sample) -> ReadResult:
     return reader.tokenizer.decode(gen[0, n_tokens:], skip_special_tokens=True), None, n_tokens
 
 
-def original_positions(reader: Reader, enc: Dict[str, Any], kept: Sequence[int], n_frames: int) -> torch.Tensor:
-    """Position ids of the kept-frame prompt as they were in the full n_frames prompt: the model's own rule on the
-    rebuilt full prompt, gathered at the kept tokens. Under M-RoPE a block spans 2 + max(H, W) positions, not its
-    token count, which is why the rule is called and not copied."""
-    ids = enc["input_ids"][0].cpu()
-    blocks, fin_start = bb.blocks(reader.bspec, ids, reader.sid, TWO_PASS_LAYOUT)
-    index = original_index(blocks, fin_start, kept, n_frames, int(ids.shape[0]))
-    full_pos = bb.base_positions(reader.bspec, reader.base_model, full_prompt_inputs(enc, blocks[0], fin_start, n_frames))
+def mapped_positions(reader: Reader, enc: Dict[str, Any], blocks: Sequence[Span], fin_start: int, kept: Sequence[int],
+                     n_frames: int, mode: str) -> torch.Tensor:
+    """Position ids of the kept-frame prompt gathered from a longer prompt rebuilt around it: the model's own rule on
+    prefix + n copies of the first block + tail, read at the kept tokens. Under M-RoPE a block spans 2 + max(H, W)
+    positions, not its token count, which is why the rule is called and not copied. mode "original": kept block j at
+    block kept[j] of the n_frames scan prompt, question after all of them; "packed-far-question": blocks 0..k-1,
+    question after all n_frames; "spread-adjacent-question": blocks kept[j], question right after the last of them."""
+    frames, question = FRAMES_OF_MODE[mode], QUESTION_OF_MODE[mode]
+    n_full = n_frames if question == "far" else kept[-1] + 1
+    index = original_index(blocks, fin_start, kept, n_full, int(enc["input_ids"].shape[1]), frames)
+    full_pos = bb.base_positions(reader.bspec, reader.base_model, full_prompt_inputs(enc, blocks[0], fin_start, n_full))
     return full_pos[..., torch.tensor(index, device=full_pos.device)]
 
 
-def read_at_original_positions(reader: Reader, sample: Sample) -> ReadResult:
-    """Variant 2 of the two-pass read: the kept frames under plain causal attention, every token at the position it had
-    in the full scan prompt. Cache-free decoding through core.fence.greedy_decode with a causal mask in place of the
-    fence (the hooks must be installed)."""
+def read_positions(reader: Reader, enc: Dict[str, Any], blocks: Sequence[Span], fin_start: int, sample: Sample,
+                   mode: str) -> torch.Tensor:
+    """The read's position ids under one of POSITION_MODES."""
+    base = bb.base_positions(reader.bspec, reader.base_model, enc)
+    if mode == "packed":
+        return base
+    if mode == "reset":
+        return reset_positions(base, blocks, fin_start)
+    return mapped_positions(reader, enc, blocks, fin_start, sample.meta["kept"], sample.meta["scan_frames"], mode)
+
+
+def read_with_geometry(reader: Reader, sample: Sample, geometry: ReadGeometry) -> ReadResult:
+    """The two-pass read under a chosen geometry: cache-free decoding through core.fence.greedy_decode with the mask
+    and positions rebuilt every step (the hooks must be installed). The caption length, when captions are on, is
+    measured against the same prompt without them."""
     if reader.hooks is None:
-        raise ValueError("the original-positions read needs the fence hooks installed")
-    enc = encode_read(reader, sample)
+        raise ValueError("a two-pass read with a non-default geometry needs the fence hooks installed")
+    enc = encode_read(reader, sample, geometry.captions)
     n_tokens = int(enc["input_ids"].shape[1])
-    pos = original_positions(reader, enc, sample.meta["kept"], sample.meta["scan_frames"])
+    blocks, fin_start = bb.blocks(reader.bspec, enc["input_ids"][0].cpu(), reader.sid, TWO_PASS_LAYOUT)
+    if geometry.captions == "timestamps":
+        bare = encode_read(reader, sample, "none")["input_ids"][0].cpu()
+        bare_first = bb.blocks(reader.bspec, bare, reader.sid, TWO_PASS_LAYOUT)[0][0][0]
+        blocks = caption_blocks(blocks, blocks[0][0] - bare_first)
+    pos = read_positions(reader, enc, blocks, fin_start, sample, geometry.positions)
+    fence = list(blocks) if geometry.mask == "fenced" else []
 
     def setup(cur: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         seq = int(cur["input_ids"].shape[1])
-        return build_block_mask(seq, [], []), positions_with_tail(pos, seq)
+        return build_block_mask(seq, fence, []), positions_with_tail(pos, seq)
 
     if reader.readout is not None:
         return "", first_logits_fenced(reader.model, reader.hooks, enc, setup, reader.bspec.passthrough_keys), n_tokens
@@ -296,12 +393,12 @@ def read_at_original_positions(reader: Reader, sample: Sample) -> ReadResult:
     return raw, None, n_tokens
 
 
-def two_pass_read(reader: Reader, sample: Sample, positions: str) -> ReadResult:
-    """The read of the gate's kept frames: packed (the official k-frame prompt) or at their original positions. An
-    empty gate leaves a text-only prompt with no frame positions to restore, so it is read packed either way."""
-    if positions == "original" and sample.frame_paths:
-        return read_at_original_positions(reader, sample)
-    return read_unfenced(reader, sample)
+def two_pass_read(reader: Reader, sample: Sample, geometry: ReadGeometry) -> ReadResult:
+    """The read of the gate's kept frames: the plain packed read (the official k-frame prompt, model.generate) or the
+    chosen geometry. An empty gate leaves a text-only prompt with nothing to lay out, so it is read plain either way."""
+    if geometry.is_plain or not sample.frame_paths:
+        return read_unfenced(reader, sample)
+    return read_with_geometry(reader, sample, geometry)
 
 
 def load_gate(path: Path) -> Tuple[Callable[[Dict[int, torch.Tensor], int], List[bool]], List[int]]:
@@ -345,9 +442,17 @@ def main() -> int:
     ap.add_argument("--two-pass", action="store_true",
                     help="THE METHOD's read: the fenced gated scan (--fast --arm gated [--gate-npz]) decides the kept "
                          "frames, then they are read unfenced in the official layout; eval.csv column kept = their indices")
-    ap.add_argument("--two-pass-positions", choices=("packed", "original"), default="packed",
+    ap.add_argument("--two-pass-positions", choices=POSITION_MODES, default="packed",
                     help="packed = the kept frames as a k-frame prompt; original = every token at the position it had in "
-                         "the full N-frame prompt (variant 2 of the read)")
+                         "the full N-frame prompt (variant 2); reset = block 0's positions for every kept block; "
+                         "packed-far-question / spread-adjacent-question = the two halves of 'original'")
+    ap.add_argument("--two-pass-mask", choices=MASK_MODES, default="causal",
+                    help="fenced = the kept frames cannot attend each other (block-diagonal), the question sees all")
+    ap.add_argument("--two-pass-captions", choices=CAPTION_MODES, default="none",
+                    help="timestamps = a fixed-width '<0012.3 seconds>' text before each kept frame (ablation layout)")
+    ap.add_argument("--merge-kept-runs", action="store_true",
+                    help="two-pass: read one kept frame per NEEDLE_DUR window of video time (a dense grid samples a "
+                         "1 s needle several times); eval.csv n_read = frames read, n_evid stays the gate's count")
     ap.add_argument("--readout", choices=("generate", "letters"), default="generate",
                     help="letters = forced choice among the option letters at the first answer token "
                          "(their logits; no parsing; MCQ datasets only)")
@@ -445,8 +550,11 @@ def main() -> int:
         print(f"[warn] adapter trained with layout={adapter_cfg.get('layout')} fence={adapter_cfg.get('fence')}", flush=True)
     if args.two_pass and not (args.fast and gate != "none"):
         raise SystemExit("--two-pass needs the batched fenced scan with a gate: --fast --arm gated [--gate-npz]")
-    if args.two_pass_positions == "original" and not args.two_pass:
-        raise SystemExit("--two-pass-positions original is a two-pass read: add --two-pass")
+    geometry = ReadGeometry(args.two_pass_positions, args.two_pass_mask, args.two_pass_captions)
+    if not geometry.is_plain and not args.two_pass:
+        raise SystemExit("--two-pass-positions / --two-pass-mask / --two-pass-captions shape the two-pass read: add --two-pass")
+    if args.merge_kept_runs and not args.two_pass:
+        raise SystemExit("--merge-kept-runs is a two-pass read: add --two-pass")
     if args.readout == "letters" and pc is not None:
         raise SystemExit("--readout letters is not a port check (the anchors are generated answers)")
 
@@ -454,8 +562,8 @@ def main() -> int:
     if args.fast and (not fence or pc is not None):
         raise SystemExit("--fast is the batched FENCED path; it needs a fenced arm and no port check")
     regime = "T" if args.no_frames else (f"E-{args.unit}" if args.unit else "")
-    read = f"two-pass/{args.two_pass_positions}" if args.two_pass else "one-pass"
-    twopass_tag = "" if not args.two_pass else ("_twopass_original" if args.two_pass_positions == "original" else "_twopass")
+    read = f"two-pass{geometry.tag or '/packed'}" if args.two_pass else "one-pass"
+    twopass_tag = ("_twopass" + geometry.tag + ("_merged" if args.merge_kept_runs else "")) if args.two_pass else ""
     run_dir = args.output / (f"{time.strftime('%Y%m%d_%H%M%S')}_{'pc-' + pc.name if pc else 'faithful'}"
                              f"{'' if cond == 'base' else '_' + cond}{'_fast' if args.fast else ''}"
                              f"{'_mp' + str(args.max_pixels) if args.max_pixels else ''}"
@@ -536,7 +644,7 @@ def main() -> int:
         model = PeftModel.from_pretrained(model, str(args.adapter), is_trainable=False)
         model.eval()
         print(f"[model] adapter {args.adapter}", flush=True)
-    needs_hooks = (fence and not args.fast) or (args.two_pass and args.two_pass_positions == "original")
+    needs_hooks = (fence and not args.fast) or (args.two_pass and not geometry.is_plain)
     hooks = FenceHooks(layers).install() if needs_hooks else None
     max_new = pc.max_new if pc else args.max_new_tokens
     stop_fn = _stop_newline if (pc and pc.name == "p2") else spec.stop_decoding
@@ -576,9 +684,12 @@ def main() -> int:
                 print(f"  [skip] {s.qid}: {exc}", flush=True)
                 continue
             raw, first_logits, n_tokens = r.text, r.first_logits, r.tokens_read
+            read_keep = r.keep
             if args.two_pass:                            # the scan only decided; the kept frames are read unfenced
+                if args.merge_kept_runs:
+                    read_keep = merge_kept_runs(r.keep, s.meta["times"])
                 try:
-                    raw, first_logits, n_tokens = two_pass_read(reader, kept_sample(s, r.keep), args.two_pass_positions)
+                    raw, first_logits, n_tokens = two_pass_read(reader, kept_sample(s, read_keep), geometry)
                 except ValueError as exc:                # original positions: frame blocks the index map refuses
                     n_layout_skip += 1
                     print(f"  [skip] {s.qid}: {exc}", flush=True)
@@ -593,7 +704,8 @@ def main() -> int:
                             "gold": s.answer, "raw": raw[:160].replace("\n", "\\n"), "pred": "" if pred is None else pred,
                             "correct": int(correct), "parse_ok": int(ok), "letter_margin": margin,
                             "n_evid": "" if keep is None else sum(r.keep),
-                            "kept": "" if keep is None else kept_indices(r.keep),
+                            "kept": "" if keep is None else kept_indices(read_keep),
+                            "n_read": "" if keep is None else sum(read_keep),
                             "gate_fp": "" if not (gate == "model" and s.evidence is not None) else sum(k and t not in s.evidence for t, k in enumerate(r.keep)),
                             "gate_fn": "" if not (gate == "model" and s.evidence is not None) else sum((not k) and t in s.evidence for t, k in enumerate(r.keep)),
                             "tokens": n_tokens, "tokens_per_frame": r.tokens_block,

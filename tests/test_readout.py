@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from dataclasses import replace
 from types import SimpleNamespace
 
 import torch
@@ -16,8 +17,8 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 from core.data.base import Sample  # noqa: E402
 from experiments.evaluate import (  # noqa: E402
-    OPTION_LETTERS, LetterReadout, answer_of, full_prompt_inputs, kept_indices, kept_sample, letter_readout,
-    option_letters, original_index, positions_with_tail,
+    OPTION_LETTERS, LetterReadout, ReadGeometry, answer_of, caption_blocks, full_prompt_inputs, kept_indices,
+    kept_sample, letter_readout, merge_kept_runs, option_letters, original_index, positions_with_tail, with_timestamps,
 )
 
 def _exits(fn, *args, **kwargs) -> bool:
@@ -85,9 +86,24 @@ def test_kept_sample_is_the_kept_frames_in_time_order():
     assert read.frame_paths == (Path("f1.jpg"), Path("f3.jpg"), Path("f4.jpg"))
     assert read.evidence is None and read.meta["protocol"] == "two-pass" and read.meta["kept"] == [1, 3, 4]
     assert read.meta["scan_frames"] == 5                                   # the N the gate scanned, for variant 2
+    timed = kept_sample(replace(sample, meta={**sample.meta, "times": [0.0, 1.5, 3.0, 4.5, 6.0]}), keep)
+    assert timed.meta["times_read"] == [1.5, 4.5, 6.0]                     # the kept frames' times, for the captions
     assert read.meta["k"] == 2 and read.qid == sample.qid                 # the row's identity and labels travel with it
     assert kept_indices(keep) == "1 3 4" and kept_indices([False] * 3) == ""
     assert kept_sample(sample, [False] * 5).frame_paths == ()            # an empty gate leaves a text-only read
+
+
+def test_merge_kept_runs_keeps_one_frame_per_needle_second():
+    times = [round(i * 40 / 256, 3) for i in range(256)]              # the official grid of a 40 s video, 6.4 fps
+    needle = [5.0 <= t < 6.0 for t in times]                           # a 1 s needle starting at second 5: 6-7 frames
+    merged = merge_kept_runs(needle, times)
+    assert sum(merged) == 1 and abs(times[merged.index(True)] - 5.5) <= 40 / 256 / 2
+    two = [5.0 <= t < 7.0 for t in times]                              # two needles back to back (seconds 5 and 6)
+    assert sum(merge_kept_runs(two, times)) == 2
+    assert merge_kept_runs([False] * 256, times) == [False] * 256
+    planted_times = [1.5, 3.2, 7.8, 24.5, 27.5, 30.1]                  # needle frames at t + 0.5, fillers >= 1 s away
+    planted_keep = [True, False, False, True, True, False]
+    assert merge_kept_runs(planted_keep, planted_times) == planted_keep
 
 
 def _raises(fn, *args) -> bool:
@@ -108,6 +124,23 @@ def test_original_index_maps_kept_blocks_into_the_full_prompt():
     assert _raises(original_index, [(3, 7), (8, 12)], 12, [1, 3], 5, 14)     # a gap between the blocks
     assert _raises(original_index, [(3, 7), (7, 10)], 10, [1, 3], 5, 12)     # unequal blocks
     assert _raises(original_index, blocks, 12, [1, 3], 5, 13)                # the tail does not start at the last block
+    packed = original_index(blocks, 11, [1, 3], 5, 13, frames="packed")      # blocks 0 and 1, the question after all 5
+    assert packed == [0, 1, 2] + [3, 4, 5, 6] + [7, 8, 9, 10] + [23, 24]
+    adjacent = original_index(blocks, 11, [1, 3], 4, 13)                     # n_frames = kept[-1] + 1: the question right after block 3
+    assert adjacent == [0, 1, 2] + [7, 8, 9, 10] + [15, 16, 17, 18] + [19, 20]
+
+
+def test_caption_blocks_and_timestamp_captions():
+    assert caption_blocks([(5, 9), (9, 13)], 2) == [(3, 9), (7, 13)]
+    assert _raises(caption_blocks, [(1, 5)], 2)                              # no room for a caption before block 0
+    turn = {"role": "user", "content": [{"type": "image", "image": "a"}, {"type": "image", "image": "b"}, {"type": "text", "text": "q"}]}
+    out = with_timestamps(turn, [1.5, 24.5])
+    assert [item["type"] for item in out["content"]] == ["text", "image", "text", "image", "text"]
+    assert out["content"][0]["text"] == "<0001.5 seconds>" and out["content"][2]["text"] == "<0024.5 seconds>"
+    assert len(out["content"][0]["text"]) == len(out["content"][2]["text"])  # fixed width
+    assert ReadGeometry().tag == "" and ReadGeometry().is_plain
+    assert ReadGeometry("reset", "fenced", "timestamps").tag == "_reset_fenced_ts"
+    assert ReadGeometry("packed", "fenced").tag == "_fenced" and not ReadGeometry("packed", "fenced").is_plain
 
 
 def test_full_prompt_inputs_repeats_the_first_block():
@@ -136,4 +169,6 @@ if __name__ == "__main__":
     test_original_index_maps_kept_blocks_into_the_full_prompt()
     test_full_prompt_inputs_repeats_the_first_block()
     test_positions_with_tail_continue_after_the_last_position()
+    test_merge_kept_runs_keeps_one_frame_per_needle_second()
+    test_caption_blocks_and_timestamp_captions()
     print("ALL OK")
